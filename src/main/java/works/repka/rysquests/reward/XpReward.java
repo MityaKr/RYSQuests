@@ -7,12 +7,14 @@ import java.util.Optional;
 import net.minecraft.util.ExtraCodecs;
 import works.repka.rysquests.api.RewardType;
 import works.repka.rysquests.data.RewardDef;
+import works.repka.rysquests.data.TeamMode;
 
 /** Gives experience, either in levels or in points. */
-public record XpReward(Optional<Integer> levels, Optional<Integer> points) implements RewardDef {
+public record XpReward(Optional<Integer> levels, Optional<Integer> points, TeamMode teamMode) implements RewardDef {
     public static final MapCodec<XpReward> CODEC = RecordCodecBuilder.<XpReward>mapCodec(instance -> instance.group(
             ExtraCodecs.POSITIVE_INT.optionalFieldOf("levels").forGetter(XpReward::levels),
-            ExtraCodecs.POSITIVE_INT.optionalFieldOf("points").forGetter(XpReward::points)
+            ExtraCodecs.POSITIVE_INT.optionalFieldOf("points").forGetter(XpReward::points),
+            TeamMode.FIELD.forGetter(XpReward::teamMode)
     ).apply(instance, XpReward::new)).validate(XpReward::checkAmount);
 
     private static DataResult<XpReward> checkAmount(XpReward reward) {

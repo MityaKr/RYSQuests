@@ -47,6 +47,7 @@ public final class BookScreen extends Screen {
     private static final int WINDOW_MAX_W = 1760;
     private static final int WINDOW_MAX_H = 1040;
     private static final int CARD_MIN_WINDOW = 1000;
+    private static final int[] NO_COLORS = new int[0];
     private static final int RAIL_MIN = 64;
     private static final int RAIL_MAX = 76;
     private static final int SEARCH_MIN = 150;
@@ -469,6 +470,7 @@ public final class BookScreen extends Screen {
             searchBox.setX(fieldX);
             searchBox.setY(Math.round(cy / 2f) - 5);
             searchBox.setWidth(Math.round((w - 29 - 13) / 2f));
+            searchBox.setSpans(SearchIndex.spans(searchBox.getValue()), NO_COLORS);
             searchBox.render(ui.g, ui.mouseX / 2, ui.mouseY / 2, 0);
         }
     }
@@ -604,6 +606,12 @@ public final class BookScreen extends Screen {
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
         boolean typing = searchBox != null && searchBox.isFocused();
+        if (typing && key == GLFW.GLFW_KEY_ENTER && !BookState.search.isBlank()) {
+            SearchIndex.find(BookState.search).stream().findFirst().ifPresent(BookState::select);
+            searchBox.setFocused(false);
+            setFocused(null);
+            return true;
+        }
         if (key == GLFW.GLFW_KEY_F && hasControlDown() && searchBox != null && searchBox.visible) {
             searchBox.setFocused(true);
             setFocused(searchBox);
@@ -637,6 +645,20 @@ public final class BookScreen extends Screen {
     void focusOnMap() {
         BookState.view = ViewMode.MAP;
         ((MapView) views.get(ViewMode.MAP)).focusSelected();
+    }
+
+    /** Opens the book on a quest, from a link in chat. */
+    public static void openAt(ResourceLocation id) {
+        Quest quest = book().quests().get(id);
+        if (quest != null) {
+            BookState.select(quest);
+            BookState.view = ViewMode.FLOW;
+            Minecraft.getInstance().setScreen(new BookScreen());
+        }
+    }
+
+    public static void searchForTest(String query) {
+        BookState.search = query;
     }
 
     public static void showForTest(ViewMode view) {

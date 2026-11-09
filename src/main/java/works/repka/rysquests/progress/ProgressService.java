@@ -98,7 +98,9 @@ public final class ProgressService {
         if (team.equals(player.getUUID())) {
             return teamProgress;
         }
-        return teamProgress.withClaimed(ProgressStore.get(player.server).get(player.getUUID(), quest).claimed());
+        List<Integer> own = ProgressStore.get(player.server).get(player.getUUID(), quest).claimed();
+        Quest definition = book().quests().get(quest);
+        return teamProgress.withClaimed(definition == null ? own : TeamRewards.claimedBy(definition, teamProgress.claimed(), own));
     }
 
     private static Function<ResourceLocation, QuestProgress> lookup(ServerPlayer player) {
@@ -531,7 +533,13 @@ public final class ProgressService {
             apply(player, Map.of(quest.id(), before.withClaimed(List.copyOf(claimed))));
         } else {
             store.put(player.getUUID(), Map.of(quest.id(), QuestProgress.EMPTY.withClaimed(List.copyOf(claimed))));
-            PacketDistributor.sendToPlayer(player, new ProgressPayload(false, Map.of(quest.id(), before.withClaimed(List.copyOf(claimed)))));
+            QuestProgress teamRow = store.get(team, quest.id());
+            List<Integer> shared = TeamRewards.sharedAfterClaim(quest, teamRow.claimed(), claimed);
+            if (shared.size() > teamRow.claimed().size()) {
+                apply(player, Map.of(quest.id(), teamRow.withClaimed(shared)));
+            } else {
+                PacketDistributor.sendToPlayer(player, new ProgressPayload(false, Map.of(quest.id(), before.withClaimed(List.copyOf(claimed)))));
+            }
         }
     }
 

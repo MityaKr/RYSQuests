@@ -51,7 +51,7 @@ class QuestLogicTest {
 
     @Test
     void statusFollowsProgress() {
-        Quest quest = quest(RequiresMode.ALL, List.of(new works.repka.rysquests.reward.XpReward(Optional.of(1), Optional.empty())));
+        Quest quest = quest(RequiresMode.ALL, List.of(new works.repka.rysquests.reward.XpReward(Optional.of(1), Optional.empty(), works.repka.rysquests.data.TeamMode.EACH)));
         Map<ResourceLocation, QuestProgress> map = new HashMap<>();
 
         assertEquals(QuestStatus.AVAILABLE, QuestLogic.status(quest, progress(map)));

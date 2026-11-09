@@ -12,6 +12,11 @@ public interface RewardDef {
 
     RewardType<?> type();
 
+    /** Whether every member of a team gets this reward, or only the first to claim it. */
+    default TeamMode teamMode() {
+        return TeamMode.EACH;
+    }
+
     /** Items this reward can give. */
     default List<ResourceLocation> itemIds() {
         return List.of();

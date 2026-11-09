@@ -101,7 +101,7 @@ final class ListView implements BookView {
             String title = Ui.roman(BookScreen.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
             float room = right - HEAD_GAP - x;
             ui.labelFit(title, x, cy, room, 16, Ui.DISPLAY, ui.c("text.primary"));
-            String count = Ui.counted("rysquests.plural.quest", screen.visibleQuests().size());
+            String count = Ui.counted("rysquests.plural.quest", BookState.search.isBlank() ? screen.visibleQuests().size() : SearchIndex.find(BookState.search).size());
             float titleW = ui.width(title, 16, Ui.DISPLAY);
             if (titleW + 10 + ui.width(count, 12, Ui.REGULAR) <= room) {
                 ui.label(count, x + titleW + 10, cy, 12, Ui.REGULAR, ui.c("text.muted"));
@@ -109,13 +109,12 @@ final class ListView implements BookView {
         }
     }
 
-    private boolean matches(Quest quest) {
-        return BookState.search.isBlank() || Component.translatable(quest.title()).getString().toLowerCase(Locale.ROOT).contains(BookState.search.toLowerCase(Locale.ROOT));
-    }
-
     private Map<Group, List<Quest>> groups() {
         Map<Group, List<Quest>> groups = new LinkedHashMap<>();
-        List<Quest> quests = screen.visibleQuests().stream().filter(this::matches).toList();
+        if (!BookState.search.isBlank()) {
+            return searchGroups();
+        }
+        List<Quest> quests = screen.visibleQuests();
         if (sort == Sort.STATUS) {
             add(groups, statusGroup("active"), quests, QuestStatus.COMPLETED, QuestStatus.IN_PROGRESS);
             add(groups, statusGroup("available"), quests, QuestStatus.AVAILABLE);
@@ -139,6 +138,17 @@ final class ListView implements BookView {
             if (!others.isEmpty()) {
                 groups.put(new Group(Component.translatable("rysquests.timeline.other").getString(), "text.dim", ""), others);
             }
+        }
+        return groups;
+    }
+
+    /** Results come from the whole book, a group per chapter. */
+    private static Map<Group, List<Quest>> searchGroups() {
+        Map<Group, List<Quest>> groups = new LinkedHashMap<>();
+        for (Quest quest : SearchIndex.find(BookState.search)) {
+            Chapter chapter = quest.chapter().map(id -> ClientBook.current().chapters().get(id)).orElse(null);
+            String title = chapter == null ? "" : Ui.roman(BookScreen.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
+            groups.computeIfAbsent(new Group(title, "chip.mod.fg", ""), key -> new ArrayList<>()).add(quest);
         }
         return groups;
     }

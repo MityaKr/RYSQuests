@@ -496,6 +496,6 @@ final class QuestCard {
             }
         });
         ui.button(chat, x + depsW + 8, y, chatW, 34, 9, 12, Ui.REGULAR, 14, Ui.Style.PLAIN, () -> Minecraft.getInstance().setScreen(
-                new ChatScreen(Component.translatable(quest.title()).getString())));
+                new ChatScreen("[[quest:" + quest.id() + "]]")));
     }
 }

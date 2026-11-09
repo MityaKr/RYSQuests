@@ -1,6 +1,9 @@
 package works.repka.rysquests.client;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.commands.arguments.ResourceLocationArgument;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.client.event.ClientChatReceivedEvent;
 import net.minecraft.commands.Commands;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -38,6 +41,8 @@ public final class RYSQuestsClient {
         ModNetwork.setClientDevReportHandler(ClientDev::receive);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> QuestKeys.tick());
         NeoForge.EVENT_BUS.addListener(RYSQuestsClient::onClientCommands);
+        NeoForge.EVENT_BUS.addListener((ClientChatReceivedEvent.Player event) -> QuestLinks.onChat(event));
+        NeoForge.EVENT_BUS.addListener((ClientChatReceivedEvent.System event) -> QuestLinks.onChat(event));
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> {
             ClientBook.clear();
             ClientProgress.clear();
@@ -50,10 +55,17 @@ public final class RYSQuestsClient {
 
     /** The FTB sidebar button runs this command: buttons there can only run commands or fire FTB's own events. */
     private static void onClientCommands(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(Commands.literal("rysquests_book").executes(context -> {
-            Minecraft mc = Minecraft.getInstance();
-            mc.execute(() -> mc.setScreen(new BookScreen()));
-            return 1;
-        }));
+        event.getDispatcher().register(Commands.literal("rysquests_book")
+                .executes(context -> {
+                    Minecraft mc = Minecraft.getInstance();
+                    mc.execute(() -> mc.setScreen(new BookScreen()));
+                    return 1;
+                })
+                .then(Commands.literal("open").then(Commands.argument("quest", ResourceLocationArgument.id()).executes(context -> {
+                    ResourceLocation quest = ResourceLocationArgument.getId(context, "quest");
+                    Minecraft mc = Minecraft.getInstance();
+                    mc.execute(() -> BookScreen.openAt(quest));
+                    return 1;
+                }))));
     }
 }

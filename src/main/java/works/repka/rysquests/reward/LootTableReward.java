@@ -7,13 +7,15 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.ExtraCodecs;
 import works.repka.rysquests.api.RewardType;
 import works.repka.rysquests.data.RewardDef;
+import works.repka.rysquests.data.TeamMode;
 
 /** Rolls a loot table for the player. */
-public record LootTableReward(ResourceLocation table, int rolls, boolean showChances) implements RewardDef {
+public record LootTableReward(ResourceLocation table, int rolls, boolean showChances, TeamMode teamMode) implements RewardDef {
     public static final MapCodec<LootTableReward> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
             ResourceLocation.CODEC.fieldOf("table").forGetter(LootTableReward::table),
             ExtraCodecs.POSITIVE_INT.optionalFieldOf("rolls", 1).forGetter(LootTableReward::rolls),
-            Codec.BOOL.optionalFieldOf("show_chances", false).forGetter(LootTableReward::showChances)
+            Codec.BOOL.optionalFieldOf("show_chances", false).forGetter(LootTableReward::showChances),
+            TeamMode.FIELD.forGetter(LootTableReward::teamMode)
     ).apply(instance, LootTableReward::new));
 
     @Override

@@ -6,7 +6,6 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -313,8 +312,7 @@ final class MapView implements BookView {
         if (!focusPath.isEmpty() && !focusPath.contains(quest.id())) {
             return true;
         }
-        return !BookState.search.isBlank()
-                && !Component.translatable(quest.title()).getString().toLowerCase(Locale.ROOT).contains(BookState.search.toLowerCase(Locale.ROOT));
+        return !BookState.search.isBlank() && !SearchIndex.matches(quest);
     }
 
     private void addHit(Ui ui, Quest quest, float x, float y, float w, float h, Runnable click) {

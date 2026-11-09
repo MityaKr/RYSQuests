@@ -336,6 +336,9 @@ public final class AutoTest {
         screenshot("design_map");
         step("switch to the list", () -> BookScreen.showForTest(ViewMode.LIST), 10);
         screenshot("design_list");
+        step("search the whole book", () -> BookScreen.searchForTest("глава:II мех"), 25);
+        screenshot("design_search");
+        step("clear the search", () -> BookScreen.searchForTest(""), 2);
         step("switch to what next", () -> BookScreen.showForTest(ViewMode.HOME), 25);
         screenshot("design_home");
         step("switch to the timeline", () -> BookScreen.showForTest(ViewMode.TIMELINE), 25);
@@ -354,6 +357,10 @@ public final class AutoTest {
         expect("book closed", () -> mc().screen == null);
         step("finish a quest for the card", () -> command("rysquests progress @s complete design:02/pump"), 20);
         screenshot("design_hud");
+        step("link a quest in chat", () -> command("tellraw @s \"look: [[quest:design:02/solar]]\""), 10);
+        step("open chat for the link", () -> pressKey(GLFW.GLFW_KEY_T), 10);
+        screenshot("design_chat");
+        step("close chat", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
     }
 
     /** Plays the first example quest through the real keys and the real packets. */
