@@ -1,10 +1,10 @@
 # RYSQuests
 
-Квест-мод для Minecraft 1.21.1 на NeoForge 21.1.x. Конкурент FTB Quests: книга-данные в JSON со стабильными строковыми id, миграции прогресса, импорт из FTB Quests, карта с автораскладкой, вид «Поток», HUD-стикеры, темы. Семья RYS (RYScope, RYSQuests, RYSPulse, библиотека RYScore).
+Квест-мод для Minecraft 1.21.1 на NeoForge 21.1.x. Конкурент FTB Quests: книга-данные в JSON со стабильными строковыми id, миграции прогресса, импорт из FTB Quests, карта с автораскладкой, вид «Поток», HUD-стикеры, темы. Семья RYS (RYScope, RYSQuests, RYSPulse, библиотека RYSCore).
 
 - Автор: Dumitru (MityaYS), RepkaWorks
 - modid: `rysquests`, пакет `works.repka.rysquests`
-- Библиотека UI внутри этого репозитория как пакет `works.repka.ryscore` (выделяется в отдельный мод позже)
+- Общая основа семьи: отдельный мод RYSCore (`ryscore`), вложен через jarJar
 - Лицензия: решить до публикации (рекомендация: MIT для API, LGPL или All Rights Reserved для остального)
 
 ## Эта папка
@@ -42,7 +42,6 @@ RYSQuests/
   gradle.properties    версии: minecraft, neoforge, mod_version
   gradlew, gradle/
   src/main/java/works/repka/rysquests/...
-  src/main/java/works/repka/ryscore/...
   src/main/resources/META-INF/neoforge.mods.toml
   src/main/resources/assets/rysquests/...
   src/main/resources/data/rysquests/...

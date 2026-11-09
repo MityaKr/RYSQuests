@@ -135,7 +135,12 @@ public final class BookScreen extends Screen {
     }
 
     static List<Chapter> chapters() {
-        return book().chapters().values().stream().filter(chapter -> !chapter.hidden()).toList();
+        return book().chapters().values().stream().filter(chapter -> !chapter.hidden() && chapter.isStory()).toList();
+    }
+
+    /** Whether a quest belongs to what the book shows: chapters of other sections stay out of it for now. */
+    static boolean inStory(Quest quest) {
+        return quest.chapter().map(id -> book().chapters().get(id)).map(Chapter::isStory).orElse(true);
     }
 
     /** The chapter's number in the book, which the rail and the headings show as a roman numeral. */
@@ -207,7 +212,7 @@ public final class BookScreen extends Screen {
         int count = 0;
         List<ItemStack> stacks = new ArrayList<>();
         for (Quest quest : book().quests().values()) {
-            if (BookState.status(quest) == QuestStatus.COMPLETED) {
+            if (inStory(quest) && BookState.status(quest) == QuestStatus.COMPLETED) {
                 count++;
                 if (stacks.size() < 2) {
                     stacks.addAll(QuestCard.rewardStacks(quest, 2 - stacks.size()));
@@ -257,7 +262,8 @@ public final class BookScreen extends Screen {
         int h = Math.min(WINDOW_MAX_H, Math.round(screenH * WINDOW_H));
         int x = (screenW - w) / 2;
         int y = (screenH - h) / 2;
-        if (BookState.chapter == null || !book().chapters().containsKey(BookState.chapter)) {
+        Chapter opened = BookState.chapter == null ? null : book().chapters().get(BookState.chapter);
+        if (opened == null || !opened.isStory()) {
             BookState.chapter = chapters().stream().findFirst().map(Chapter::id).orElse(null);
         }
         refreshCounts();

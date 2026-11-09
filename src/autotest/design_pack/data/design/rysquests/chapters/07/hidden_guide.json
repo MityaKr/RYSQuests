@@ -1,0 +1,14 @@
+{
+  "id": "design:07/hidden_guide",
+  "chapter": "design:07",
+  "title": "Не видно в книге",
+  "icon": "minecraft:barrier",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": []
+}

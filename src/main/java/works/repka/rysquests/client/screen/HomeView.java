@@ -57,6 +57,9 @@ final class HomeView implements BookView {
         List<Quest> claim = new ArrayList<>();
         List<News> finished = new ArrayList<>();
         for (Quest quest : ClientBook.current().quests().values()) {
+            if (!BookScreen.inStory(quest)) {
+                continue;
+            }
             QuestStatus status = BookState.status(quest);
             if (status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS) {
                 open.add(quest);

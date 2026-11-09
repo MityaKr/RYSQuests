@@ -16,7 +16,10 @@ public record Chapter(
         Optional<ViewMode> defaultView,
         List<Group> groups,
         List<ResourceLocation> requires,
-        boolean hidden) {
+        boolean hidden,
+        String section) {
+    /** The section of the book that holds the progression chapters, and the only one shown so far. */
+    public static final String STORY = "story";
 
     public record Group(String id, String title) {
         static final Codec<Group> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -34,6 +37,11 @@ public record Chapter(
             ViewMode.CODEC.optionalFieldOf("default_view").forGetter(Chapter::defaultView),
             Group.CODEC.listOf().optionalFieldOf("groups", List.of()).forGetter(Chapter::groups),
             ResourceLocation.CODEC.listOf().optionalFieldOf("requires", List.of()).forGetter(Chapter::requires),
-            Codec.BOOL.optionalFieldOf("hidden", false).forGetter(Chapter::hidden)
+            Codec.BOOL.optionalFieldOf("hidden", false).forGetter(Chapter::hidden),
+            Codec.STRING.optionalFieldOf("section", STORY).forGetter(Chapter::section)
     ).apply(instance, Chapter::new));
+
+    public boolean isStory() {
+        return STORY.equals(section);
+    }
 }

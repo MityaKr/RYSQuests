@@ -35,9 +35,12 @@
   "groups": [                          // подглавы для рамок на карте
     { "id": "basics", "title": "chapter.repys.power.basics" } ],
   "requires": ["repys:01_create"],     // главы-зависимости (все)
-  "hidden": false
+  "hidden": false,
+  "section": "story"                   // раздел книги, по умолчанию story
 }
 ```
+
+Поле `section` заложено для разделов из `09-sections.md`. Сейчас книга показывает только главы с `story`. Глава с другим значением загружается, но в книге не видна.
 
 ## Квест: `chapters/<dir>/<quest>.json`
 

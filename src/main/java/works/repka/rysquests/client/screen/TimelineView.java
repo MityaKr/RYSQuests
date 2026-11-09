@@ -162,7 +162,7 @@ final class TimelineView implements BookView {
         List<Epochs.Epoch> epochs = Epochs.list();
         String number = epochs.isEmpty() ? "" : Ui.roman(epochs.get(Epochs.currentIndex(epochs)).number());
         float numberW = ui.width(number, 12, Ui.SEMIBOLD);
-        String text = Component.translatable("rysquests.timeline.summary", epochs.size(), ClientBook.current().quests().size()).getString();
+        String text = Component.translatable("rysquests.timeline.summary", epochs.size(), epochs.stream().mapToInt(Epochs.Epoch::total).sum()).getString();
         if (ui.width(text, 12, Ui.REGULAR) + numberW + 4 > room) {
             return;
         }
