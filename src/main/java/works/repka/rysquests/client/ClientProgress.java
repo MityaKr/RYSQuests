@@ -1,14 +1,20 @@
 package works.repka.rysquests.client;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
+import works.repka.rysquests.client.hud.QuestToast;
+import works.repka.rysquests.data.Quest;
+import works.repka.rysquests.network.PinnedPayload;
 import works.repka.rysquests.network.ProgressPayload;
 import works.repka.rysquests.progress.QuestProgress;
 
 /** The client's copy of its own progress. Changed only by packets, on the main thread. */
 public final class ClientProgress {
     private static final Map<ResourceLocation, QuestProgress> QUESTS = new HashMap<>();
+    private static List<ResourceLocation> pinned = List.of();
 
     private ClientProgress() {
     }
@@ -17,14 +23,33 @@ public final class ClientProgress {
         return QUESTS.getOrDefault(quest, QuestProgress.EMPTY);
     }
 
+    public static List<ResourceLocation> pinned() {
+        return pinned;
+    }
+
     static void receive(ProgressPayload payload) {
         if (payload.full()) {
             QUESTS.clear();
+            QUESTS.putAll(payload.quests());
+            return;
         }
-        QUESTS.putAll(payload.quests());
+        payload.quests().forEach((id, progress) -> {
+            if (progress.completed() && !get(id).completed()) {
+                Quest quest = ClientBook.current().quests().get(id);
+                if (quest != null) {
+                    Minecraft.getInstance().getToasts().addToast(new QuestToast(quest));
+                }
+            }
+            QUESTS.put(id, progress);
+        });
+    }
+
+    static void receivePinned(PinnedPayload payload) {
+        pinned = payload.quests();
     }
 
     static void clear() {
         QUESTS.clear();
+        pinned = List.of();
     }
 }

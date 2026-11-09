@@ -28,6 +28,7 @@ import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.RewardDef;
 import works.repka.rysquests.data.TaskDef;
+import works.repka.rysquests.network.PinnedPayload;
 import works.repka.rysquests.network.ProgressPayload;
 import works.repka.rysquests.network.QuestActionPayload;
 import works.repka.rysquests.reward.ChoiceReward;
@@ -244,6 +245,14 @@ public final class ProgressService {
     // --- player actions ---
 
     public static void handle(ServerPlayer player, QuestActionPayload payload) {
+        if (payload.action() == QuestActionPayload.SUBMIT_ALL) {
+            List.copyOf(active(player)).stream().filter(open -> canSubmitFully(player, open)).forEach(open -> submit(player, open));
+            return;
+        }
+        if (payload.action() == QuestActionPayload.CLAIM_ALL) {
+            claimAll(player);
+            return;
+        }
         Quest quest = book().quests().get(payload.quest());
         if (quest == null) {
             return;
@@ -252,9 +261,45 @@ public final class ProgressService {
             case QuestActionPayload.SUBMIT -> submit(player, quest);
             case QuestActionPayload.CHECK -> check(player, quest, payload.value());
             case QuestActionPayload.CLAIM -> claim(player, quest, payload.choices());
+            case QuestActionPayload.PIN -> togglePin(player, quest);
             default -> {
             }
         }
+    }
+
+    /** "Ready" means every consumed item is at hand, so that a bulk hand-in never leaves a quest half paid. */
+    private static boolean canSubmitFully(ServerPlayer player, Quest quest) {
+        QuestProgress progress = ProgressStore.get(player.server).get(team(player), quest.id());
+        boolean any = false;
+        for (int i = 0; i < quest.tasks().size(); i++) {
+            if (quest.tasks().get(i) instanceof ItemTask task && task.mode() == ItemTask.Mode.CONSUME && progress.task(i) < task.count()) {
+                if (countIn(player.getInventory(), task) < task.count() - progress.task(i)) {
+                    return false;
+                }
+                any = true;
+            }
+        }
+        return any;
+    }
+
+    /** Choice rewards need a decision, so quests with one are left for the player to open. */
+    private static void claimAll(ServerPlayer player) {
+        Function<ResourceLocation, QuestProgress> progress = lookup(player);
+        book().quests().values().stream()
+                .filter(quest -> QuestLogic.status(quest, progress) == QuestStatus.COMPLETED)
+                .filter(quest -> quest.rewards().stream().noneMatch(ChoiceReward.class::isInstance))
+                .toList()
+                .forEach(quest -> claim(player, quest, List.of()));
+    }
+
+    private static void togglePin(ServerPlayer player, Quest quest) {
+        ProgressStore store = ProgressStore.get(player.server);
+        List<ResourceLocation> pinned = new ArrayList<>(store.pinned(player.getUUID()));
+        if (!pinned.remove(quest.id()) && pinned.size() < book().meta().hud().maxPinned()) {
+            pinned.add(quest.id());
+        }
+        store.setPinned(player.getUUID(), pinned);
+        PacketDistributor.sendToPlayer(player, new PinnedPayload(List.copyOf(pinned)));
     }
 
     private static boolean isOpen(ServerPlayer player, Quest quest) {
@@ -382,6 +427,7 @@ public final class ProgressService {
 
     public static void sendAll(ServerPlayer player) {
         PacketDistributor.sendToPlayer(player, new ProgressPayload(true, Map.copyOf(ProgressStore.get(player.server).team(team(player)))));
+        PacketDistributor.sendToPlayer(player, new PinnedPayload(ProgressStore.get(player.server).pinned(player.getUUID())));
     }
 
     public static void forget(ServerPlayer player) {

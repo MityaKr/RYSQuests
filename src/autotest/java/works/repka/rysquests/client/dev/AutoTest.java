@@ -243,6 +243,19 @@ public final class AutoTest {
         }, 10);
         expect("book screen open", () -> mc().screen instanceof BookScreen);
         screenshot("book_open");
+        step("unpin leftovers of earlier runs", () -> {
+            if (ClientProgress.pinned().contains(quest)) {
+                pressKey(GLFW.GLFW_KEY_P);
+            }
+        }, 10);
+        expect("quest not pinned", () -> !ClientProgress.pinned().contains(quest));
+        step("pin with its key", () -> pressKey(GLFW.GLFW_KEY_P), 10);
+        expect("quest pinned", () -> ClientProgress.pinned().contains(quest));
+        step("close the book to see the board", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+        expect("book closed for the board", () -> mc().screen == null);
+        screenshot("sticker");
+        step("reopen the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book open again", () -> mc().screen instanceof BookScreen);
         step("submit logs", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.SUBMIT, quest, 0, List.of())), 10);
         expect("quest completed", () -> ClientProgress.get(quest).completed());
         expect("logs consumed", () -> mc().player.getInventory().countItem(Items.OAK_LOG) == 0);

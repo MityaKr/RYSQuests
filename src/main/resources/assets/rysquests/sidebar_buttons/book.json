@@ -1,0 +1,10 @@
+{
+  "icon": "rysquests:textures/gui/sidebar_book.png",
+  "sort_index": 574,
+  "click": [
+    "command:/rysquests_book"
+  ],
+  "required_server_mods": [
+    "rysquests"
+  ]
+}

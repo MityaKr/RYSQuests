@@ -16,6 +16,11 @@ public record QuestActionPayload(int action, ResourceLocation quest, int value, 
     public static final int SUBMIT = 0;
     public static final int CHECK = 1;
     public static final int CLAIM = 2;
+    public static final int SUBMIT_ALL = 3;
+    public static final int CLAIM_ALL = 4;
+    public static final int PIN = 5;
+    /** Quest id for actions that apply to the whole book. */
+    public static final ResourceLocation ALL = ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "all");
 
     public static final Type<QuestActionPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "quest_action"));
 

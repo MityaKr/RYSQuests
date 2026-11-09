@@ -16,6 +16,8 @@ public final class ModNetwork {
     };
     private static Consumer<ProgressPayload> clientProgressHandler = payload -> {
     };
+    private static Consumer<PinnedPayload> clientPinnedHandler = payload -> {
+    };
 
     private ModNetwork() {
     }
@@ -28,12 +30,18 @@ public final class ModNetwork {
         clientProgressHandler = handler;
     }
 
+    public static void setClientPinnedHandler(Consumer<PinnedPayload> handler) {
+        clientPinnedHandler = handler;
+    }
+
     public static void register(RegisterPayloadHandlersEvent event) {
         event.registrar(RYSQuests.MODID).versioned(VERSION)
                 .playToClient(BookSyncPayload.TYPE, BookSyncPayload.STREAM_CODEC,
                         (payload, context) -> clientBookHandler.accept(payload, context.player().registryAccess()))
                 .playToClient(ProgressPayload.TYPE, ProgressPayload.STREAM_CODEC,
                         (payload, context) -> clientProgressHandler.accept(payload))
+                .playToClient(PinnedPayload.TYPE, PinnedPayload.STREAM_CODEC,
+                        (payload, context) -> clientPinnedHandler.accept(payload))
                 .playToServer(QuestActionPayload.TYPE, QuestActionPayload.STREAM_CODEC,
                         (payload, context) -> ProgressService.handle((ServerPlayer) context.player(), payload));
     }
