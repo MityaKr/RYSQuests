@@ -99,6 +99,7 @@
 { "type": "rysquests:item", "item": "minecraft:gold_ingot", "count": 8 }
 { "type": "rysquests:item", "item": "minecraft:diamond_sword", "components": { "minecraft:enchantments": { ... } } }
 { "type": "rysquests:choice", "of": [ {...item...}, {...item...} ] }
+{ "type": "rysquests:random", "of": [ {...item...}, {...item...} ], "weights": [3, 1] }   // weights необязательны
 { "type": "rysquests:xp", "levels": 2 }           // или "points": 100
 { "type": "rysquests:command", "command": "give @s minecraft:emerald 1", "as_server": true }
 { "type": "rysquests:loot_table", "table": "repys:quests/power_tier", "rolls": 1, "show_chances": true }
@@ -160,7 +161,7 @@ ProgressStore {
   version: int,
   applied_migrations: [string],
   teams: { <uuid>: {
-    quests: { <quest id>: { state, tasks: [{progress, done}], chosen: [int], started: long, completed: long, by: uuid? } },
+    quests: { <quest id>: { tasks: [int], completed: long, claimed: [int] } },   // состояние вычисляется из них
     pinned: [<quest id>],
     archive: { <old id>: {...} }
   } }
