@@ -25,6 +25,8 @@ public final class Ui {
     public static final Type.Weight REGULAR = Type.Weight.REGULAR;
     public static final Type.Weight MEDIUM = Type.Weight.MEDIUM;
     public static final Type.Weight SEMIBOLD = Type.Weight.SEMIBOLD;
+    /** Headings: Space Grotesk where it has the glyphs. */
+    public static final Type.Weight DISPLAY = Type.Weight.DISPLAY;
 
     private static final float PER_GUI = 2f;
     private static final float SQUARE = 0.02f;

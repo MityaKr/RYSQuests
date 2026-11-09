@@ -347,7 +347,7 @@ final class FlowView implements BookView {
         ui.cell(icon, left, top, 50, 50, 12, 30, ui.c("slot.bg"), ui.c("card.border"));
         float textX = left + 64;
         float textW = inner - 64 - 14 - 44;
-        ui.labelFit(Component.translatable(quest.title()).getString(), textX, cy - 22 + 12.5f, textW, 19, Ui.SEMIBOLD, ui.c("text.primary"));
+        ui.labelFit(Component.translatable(quest.title()).getString(), textX, cy - 22 + 12.5f, textW, 19, Ui.DISPLAY, ui.c("text.primary"));
         ui.labelFit(QuestCard.flowSummary(quest, own, status), textX, cy - 22 + 28 + 8, textW, 13, Ui.REGULAR, ui.c("text.muted"));
         QuestCard.pinButton(ui, quest, left + inner - 44, cy - 22, 44, 11);
         float cursor = top + headH + 14;

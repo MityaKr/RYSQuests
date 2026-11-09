@@ -337,7 +337,7 @@ public final class BookScreen extends Screen {
         boolean started = counts[0] > 0;
         String fg = open ? "text.primary" : started ? "text.muted" : "text.dim";
         String numeral = Ui.roman(number);
-        ui.labelCentered(ui.width(numeral, 15, Ui.SEMIBOLD) > 46 ? String.valueOf(number) : numeral, x + 25, y + 22, 15, Ui.SEMIBOLD, ui.c(fg));
+        ui.labelCentered(ui.width(numeral, 15, Ui.DISPLAY) > 46 ? String.valueOf(number) : numeral, x + 25, y + 22, 15, Ui.DISPLAY, ui.c(fg));
         float ratio = counts[1] == 0 ? 0 : (float) counts[0] / counts[1];
         ui.fill(x + 12, y + 34.5f, 26, 3, 2, ui.c("slot.bg"));
         if (ratio > 0) {
@@ -442,7 +442,7 @@ public final class BookScreen extends Screen {
 
     static void renderBrand(Ui ui, float x, float cy) {
         ui.logo(x, cy - 13, 26);
-        ui.label("RYSQuests", x + 36, cy, 16, Ui.SEMIBOLD, ui.c("text.primary"));
+        ui.label("RYSQuests", x + 36, cy, 16, Ui.DISPLAY, ui.c("text.primary"));
     }
 
     private void renderClose(Ui ui, float x, float y) {

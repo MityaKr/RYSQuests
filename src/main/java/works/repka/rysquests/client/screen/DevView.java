@@ -45,7 +45,7 @@ final class DevView implements BookView {
         float cy = y + (barH - 1) / 2f;
         BookScreen.renderBrand(ui, x + 18, cy);
         ui.hit(x + 18, cy - 13, 120, 26, () -> BookState.view = ViewMode.FLOW);
-        float chipX = x + 18 + 36 + ui.width("RYSQuests", 16, Ui.SEMIBOLD) + 10;
+        float chipX = x + 18 + 36 + ui.width("RYSQuests", 16, Ui.DISPLAY) + 10;
         float chipW = ui.pill("Dev", chipX, cy, 11, Ui.SEMIBOLD, 8, 18, 9, ui.c("chip.mod.bg"), ui.c("chip.mod.fg"));
         float cursor = chipX + chipW + 22;
         DevReports.Report report = ClientDev.report();
@@ -149,7 +149,7 @@ final class DevView implements BookView {
 
     private void renderFunnel(Ui ui, DevReports.Report report, float x, float y, float w, float h) {
         String number = Ui.roman(BookScreen.chapterNumber(BookState.chapter));
-        ui.label(Component.translatable("rysquests.dev.funnel_title", number).getString(), x, y + 10.5f, 16, Ui.SEMIBOLD, ui.c("text.primary"));
+        ui.label(Component.translatable("rysquests.dev.funnel_title", number).getString(), x, y + 10.5f, 16, Ui.DISPLAY, ui.c("text.primary"));
         ui.labelRight(Component.translatable("rysquests.dev.funnel_hint").getString(), x + w, y + 12, 11.5f, Ui.REGULAR, ui.c("text.muted"));
         List<Step> steps = steps(report);
         float boxY = y + 31;
@@ -339,7 +339,7 @@ final class DevView implements BookView {
     private void renderImportPage(Ui ui, int x, int y, int w) {
         float left = x + PAD_X;
         float top = y + PAD_Y;
-        ui.label(Component.translatable("rysquests.dev.import_title").getString(), left, top + 10.5f, 16, Ui.SEMIBOLD, ui.c("text.primary"));
+        ui.label(Component.translatable("rysquests.dev.import_title").getString(), left, top + 10.5f, 16, Ui.DISPLAY, ui.c("text.primary"));
         ui.lines(ui.wrap(Component.translatable("rysquests.dev.import_text").getString(), w - PAD_X * 2, 12, Ui.REGULAR, 3), left, top + 45, 17, 12, Ui.REGULAR, ui.c("text.muted"));
         float rowY = top + 72;
         float pen = left;

@@ -420,8 +420,8 @@ final class MapView implements BookView {
         float cy = viewY + 21.5f;
         if (chapter != null) {
             String title = Ui.roman(BookScreen.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
-            ui.label(title, left, cy, 15, Ui.SEMIBOLD, ui.c("text.primary"));
-            left += ui.width(title, 15, Ui.SEMIBOLD) + 10;
+            ui.label(title, left, cy, 15, Ui.DISPLAY, ui.c("text.primary"));
+            left += ui.width(title, 15, Ui.DISPLAY) + 10;
         }
         int[] counts = BookState.chapter == null ? new int[2] : screen.chapterCounts(BookState.chapter);
         String count = counts[0] + " / " + counts[1];

@@ -75,8 +75,8 @@ final class ListView implements BookView {
         Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
         if (chapter != null) {
             String title = Ui.roman(BookScreen.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
-            ui.label(title, x, cy, 16, Ui.SEMIBOLD, ui.c("text.primary"));
-            ui.label(Ui.counted("rysquests.plural.quest", screen.visibleQuests().size()), x + ui.width(title, 16, Ui.SEMIBOLD) + 10, cy, 12, Ui.REGULAR, ui.c("text.muted"));
+            ui.label(title, x, cy, 16, Ui.DISPLAY, ui.c("text.primary"));
+            ui.label(Ui.counted("rysquests.plural.quest", screen.visibleQuests().size()), x + ui.width(title, 16, Ui.DISPLAY) + 10, cy, 12, Ui.REGULAR, ui.c("text.muted"));
         }
         String toggle = Component.translatable(hideFinished ? "rysquests.list.show_finished" : "rysquests.list.hide_finished").getString();
         float toggleW = ui.width(toggle, 11.5f, Ui.REGULAR) + 22;

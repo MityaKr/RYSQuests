@@ -292,7 +292,7 @@ final class QuestCard {
         ItemStack icon = quest.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
         ui.cell(icon, x, cy - 23, 46, 46, 10, 28, ui.c("slot.bg"), ui.c("card.border"));
         float textX = x + 46 + 12;
-        ui.labelFit(Component.translatable(quest.title()).getString(), textX, y + 11.5f, textW, 18, Ui.SEMIBOLD, ui.c("text.primary"));
+        ui.labelFit(Component.translatable(quest.title()).getString(), textX, y + 11.5f, textW, 18, Ui.DISPLAY, ui.c("text.primary"));
         for (int i = 0; i < subLines.size(); i++) {
             ui.label(subLines.get(i), textX, y + 25 + 7 + i * 14, 11.5f, Ui.REGULAR, ui.c("text.muted"));
         }

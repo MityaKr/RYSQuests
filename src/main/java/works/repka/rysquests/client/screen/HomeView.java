@@ -139,7 +139,7 @@ final class HomeView implements BookView {
 
     private float renderLeft(Ui ui, float x, float y, float w) {
         float cy = y + 13;
-        ui.label(Component.translatable("rysquests.home.title").getString(), x, cy, 20, Ui.SEMIBOLD, ui.c("text.primary"));
+        ui.label(Component.translatable("rysquests.home.title").getString(), x, cy, 20, Ui.DISPLAY, ui.c("text.primary"));
         Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
         if (chapter != null) {
             int done = 0;
@@ -275,7 +275,7 @@ final class HomeView implements BookView {
     }
 
     private float renderRight(Ui ui, float x, float y, float w) {
-        ui.label(Component.translatable("rysquests.home.progress").getString(), x, y + 13, 20, Ui.SEMIBOLD, ui.c("text.primary"));
+        ui.label(Component.translatable("rysquests.home.progress").getString(), x, y + 13, 20, Ui.DISPLAY, ui.c("text.primary"));
         float boxY = y + 38;
         List<Chapter> chapters = BookScreen.chapters();
         int firstRow = Math.max(0, Math.min(chapters.size() - PROGRESS_ROWS, BookScreen.chapterNumber(BookState.chapter) - 3));

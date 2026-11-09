@@ -84,6 +84,7 @@ final class TextBlock {
         float cursor = x;
         float space = ui.width(" ", look.px, Ui.REGULAR);
         boolean endedWithSpace = true;
+        Runnable previousClick = null;
         for (Span span : paragraph.spans()) {
             String spoilerKey = source.hashCode() + ":" + key + ":" + span.text();
             boolean hidden = span.spoiler() && !BookState.REVEALED.contains(spoilerKey);
@@ -99,8 +100,13 @@ final class TextBlock {
                 }
                 float at = cursor == x ? x : cursor + gap;
                 if (!measure) {
+                    // The underline of a link runs on under the spaces between its words.
+                    if (word.link && !word.hidden && !word.attached && word.click != null && word.click == previousClick && at > cursor && cursor > x) {
+                        ui.rect(cursor, y + look.lineHeight / 2f + look.px * 0.5f, at - cursor, 1, ui.c("chip.mod.fg"));
+                    }
                     draw(ui, word, at, y, look);
                 }
+                previousClick = word.link && word.icon.isEmpty() ? word.click : null;
                 cursor = at + word.width;
             }
             endedWithSpace = !span.isLink() && span.text().endsWith(" ");

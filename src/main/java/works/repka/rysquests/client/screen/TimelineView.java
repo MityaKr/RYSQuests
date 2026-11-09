@@ -83,7 +83,7 @@ final class TimelineView implements BookView {
         float inner = w - 30;
         ui.clip(Math.round(left), Math.round(y), Math.round(inner), Math.round(h));
         String numeral = Ui.roman(epoch.number());
-        ui.label(numeral, left, y + 29, 22, Ui.SEMIBOLD, ui.c(now ? "accent" : done ? "state.ok" : "text.muted"));
+        ui.label(numeral, left, y + 29, 22, Ui.DISPLAY, ui.c(now ? "accent" : done ? "state.ok" : "text.muted"));
         ui.labelRight(epoch.done() + " / " + epoch.total(), left + inner, y + 33, 11, Ui.REGULAR, ui.c("text.muted"));
         ui.labelFit(epoch.title(), left, y + 61, inner, 13, Ui.SEMIBOLD, ui.c("text.primary"));
         ui.bar(left, y + 79, inner, 5, 3, epoch.ratio(), ui.c(now ? "accent" : "state.ok"));
