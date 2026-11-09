@@ -50,6 +50,7 @@ import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.screen.BookScreen;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.Quest;
+import works.repka.rysquests.data.ViewMode;
 import works.repka.rysquests.dev.DevExamplePack;
 import works.repka.rysquests.network.QuestActionPayload;
 import works.repka.rysquests.progress.ProgressService;
@@ -201,6 +202,14 @@ public final class AutoTest {
         }, 20);
         expect("book screen open", () -> mc().screen instanceof BookScreen);
         screenshot("repys_book");
+        step("switch to the map", () -> BookScreen.showForTest(ViewMode.MAP), 40);
+        screenshot("repys_map");
+        step("back to the flow", () -> BookScreen.showForTest(ViewMode.FLOW), 5);
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
+        expect("book closed", () -> mc().screen == null);
+        step("open the inventory for the FTB panel", () -> pressKey(GLFW.GLFW_KEY_E), 30);
+        screenshot("repys_ftb_panel");
+        step("close the inventory", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
     }
 
     private static Quest completedQuest() {

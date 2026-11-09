@@ -56,6 +56,7 @@ public final class BookScreen extends Screen {
     public BookScreen() {
         super(Component.translatable("rysquests.book.title"));
         views.put(ViewMode.FLOW, new FlowView(this));
+        views.put(ViewMode.MAP, new MapView(this));
     }
 
     @Override
@@ -259,6 +260,9 @@ public final class BookScreen extends Screen {
         int left = x + PAD;
         ui.clip(x, y + 1, w, h - 2);
         int cursor = y + PAD - readingScroll;
+        if (BookState.currentView() != ViewMode.FLOW) {
+            cursor += QuestCard.render(ui, quest, x, cursor - PAD, w) - PAD + 2;
+        }
         if (quest.text().isPresent()) {
             ui.small(Component.translatable("rysquests.reading.how").getString(), left, cursor, "text.dim");
             cursor += Ui.LINE;
@@ -342,6 +346,9 @@ public final class BookScreen extends Screen {
             return true;
         }
         if (!typing) {
+            if (activeView().key(key)) {
+                return true;
+            }
             if (QuestKeys.OPEN_BOOK.matches(key, scan)) {
                 Minecraft.getInstance().setScreen(null);
                 return true;
@@ -356,6 +363,10 @@ public final class BookScreen extends Screen {
             }
         }
         return super.keyPressed(key, scan, modifiers);
+    }
+
+    public static void showForTest(ViewMode view) {
+        BookState.view = view;
     }
 
     public static void selectForTest(ResourceLocation chapter, ResourceLocation quest) {

@@ -9,4 +9,8 @@ interface BookView {
     default boolean drag(double deltaX, double deltaY) {
         return false;
     }
+
+    default boolean key(int key) {
+        return false;
+    }
 }
