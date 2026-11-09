@@ -30,13 +30,13 @@
 ## M1 · Модель данных и загрузчик (2 сессии)
 
 - Записи `BookMeta`, `Chapter`, `Quest`, `TaskDef`/`RewardDef` базовые, `Layout`; кодеки.
-- Реестры `TaskType`, `RewardType`; типы `item`, `checkbox`, `advancement` (задачи), `item`, `xp`, `command` (награды). Остальные типы в M5.
+- Реестры `TaskType`, `RewardType`; типы `item`, `checkbox`, `advancement` (задачи), `item`, `xp`, `command`, `choice` (награды, для `choice` пока только кодек, он есть в примере). Остальные типы в M5.
 - `BookLoader` на `AddReloadListenerEvent`: parse → link → validate → `QuestBook` с индексами и хэшем.
 - `BookValidator`: отсутствующие зависимости, циклы, дубли id, неизвестные предметы, lang без перевода (клиентская часть позже).
 - Команды `/rysquests reload` (вызывает штатный reload), `/rysquests validate` (печатает отчёт в чат и в `logs/rysquests-validate.txt`).
-- `BookSyncPayload` сжатый, разбиение на части; клиентский `ClientBook`.
+- `BookSyncPayload` сжатый (большие пакеты режет транспорт NeoForge, ADR-22); клиентский `ClientBook`.
 - В примере заменить несуществующий `#c:plates/copper` на `#c:ingots/copper`.
-- Определить слияние нескольких `book.json` из разных namespace, записать в `02-data-format.md`.
+- Правило для нескольких `book.json` (ADR-21), запись в `02-data-format.md`.
 
 Тесты: кодеки туда-обратно на `examples/`; валидатор ловит цикл и битую ссылку; хэш стабилен при перестановке полей.
 

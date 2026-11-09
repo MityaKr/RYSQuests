@@ -121,7 +121,7 @@ ProgressStore (SavedData) ──► ProgressDiffPayload ──► ClientProgress
 
 | Payload | Направление | Когда |
 |---|---|---|
-| `BookSyncPayload` | S→C | вход игрока, `/reload`; книга целиком, сжата (GZIP поверх NBT или кастомный компактный формат), разбита на части при > 1 МБ |
+| `BookSyncPayload` | S→C | вход игрока, `/reload`; книга целиком, GZIP поверх NBT; большие пакеты режет транспорт NeoForge (ADR-22) |
 | `ProgressSnapshotPayload` | S→C | вход игрока: весь прогресс его команды |
 | `ProgressDiffPayload` | S→C | при любом изменении: список изменённых `QuestProgress` |
 | `SubmitTaskPayload` | C→S | «Сдать» задачу или «Сдать всё готовое» |

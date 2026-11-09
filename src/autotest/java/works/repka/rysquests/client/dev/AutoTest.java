@@ -34,6 +34,8 @@ import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import works.repka.rysquests.RYSQuests;
+import works.repka.rysquests.client.ClientBook;
+import works.repka.rysquests.dev.DevExamplePack;
 
 /**
  * Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
@@ -48,6 +50,7 @@ public final class AutoTest {
     private static final int TOTAL_TICK_LIMIT = 20 * 300;
     private static final int STEP_TICK_LIMIT = 20 * 120;
     private static final long STARTED_AT = System.currentTimeMillis();
+    private static final int EXAMPLE_QUESTS = 6;
 
     private record Step(String name, BooleanSupplier ready, Runnable action, int waitAfter) {}
 
@@ -59,6 +62,7 @@ public final class AutoTest {
     private static int total;
     private static int stuck;
     private static boolean finished;
+    private static String bookHash = "";
 
     public AutoTest() {
         scenario = System.getProperty(SCENARIO_PROPERTY);
@@ -68,6 +72,8 @@ public final class AutoTest {
         LOGGER.info("[autotest] scenario: {}", scenario);
         if ("datapack".equals(scenario)) {
             buildDatapackScenario();
+        } else if ("validate".equals(scenario)) {
+            buildValidateScenario();
         } else {
             // Reported from the first tick: the client cannot be stopped yet during mod construction.
             step("check scenario name", () -> fail("unknown scenario " + scenario), 0);
@@ -91,6 +97,57 @@ public final class AutoTest {
         expect("pause menu open", () -> mc().screen instanceof PauseScreen);
         step("click back to game", AutoTest::clickBackToGame, 5);
         expect("pause menu closed by mouse", () -> mc().screen == null);
+    }
+
+    /** The clean example must report no errors; turning the broken book on must report its three errors. */
+    private static void buildValidateScenario() {
+        String enable = "datapack enable \"" + DevExamplePack.BROKEN_PACK_ID + "\"";
+        String disable = "datapack disable \"" + DevExamplePack.BROKEN_PACK_ID + "\"";
+        openWorld();
+        step("make sure the broken pack is off", () -> command(disable), 60);
+        expect("example book reached the client", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
+
+        step("validate the clean book", () -> {
+            CHAT.clear();
+            command("rysquests validate");
+        }, 10);
+        expect("report file says 0 errors", () -> reportStartsWith("errors: 0,"));
+        screenshot("validate_clean");
+
+        step("enable the broken pack", () -> {
+            bookHash = ClientBook.current().hash();
+            command(enable);
+        }, 20);
+        expect("client got the reloaded book", () -> !ClientBook.current().hash().equals(bookHash));
+        step("validate the broken book", () -> {
+            CHAT.clear();
+            command("rysquests validate");
+        }, 10);
+        expect("report file says 3 errors", () -> reportStartsWith("errors: 3,"));
+        expect("cycle in chat", () -> chatHas("example_broken:x/a"));
+        expect("missing dependency in chat", () -> chatHas("example_broken:x/d"));
+        expect("unknown item in chat", () -> chatHas("notamod:does_not_exist"));
+        expect("valid quests still loaded", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
+        screenshot("validate_broken");
+
+        step("turn the broken pack off", () -> {
+            bookHash = ClientBook.current().hash();
+            command(disable);
+        }, 20);
+        expect("client went back to the clean book", () -> !ClientBook.current().hash().equals(bookHash));
+    }
+
+    private static boolean chatHas(String text) {
+        return CHAT.stream().anyMatch(line -> line.contains(text));
+    }
+
+    private static boolean reportStartsWith(String prefix) {
+        Path report = mc().gameDirectory.toPath().resolve("logs").resolve("rysquests-validate.txt");
+        try {
+            return writtenThisRun(report) && Files.readString(report).startsWith(prefix);
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     // --- steps ---

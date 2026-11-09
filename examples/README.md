@@ -19,6 +19,7 @@ examples/
     assets/example/lang/en_us.json
     assets/example/lang/ru_ru.json
   broken/                      намеренно сломанная книга для теста валидатора
+    pack.mcmeta
     data/example_broken/rysquests/chapters/x/_chapter.json
     data/example_broken/rysquests/chapters/x/a.json   (зависит от b)
     data/example_broken/rysquests/chapters/x/b.json   (зависит от a: цикл)

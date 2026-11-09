@@ -47,6 +47,7 @@ neoForge {
             client()
             gameDirectory = project.file('run')
             systemProperty 'rysquests.dev.examplePack', project.file('examples/example_pack').absolutePath
+            systemProperty 'rysquests.dev.brokenPack', project.file('examples/broken').absolutePath
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
             programArguments.addAll '--width', '1280', '--height', '720'
         }

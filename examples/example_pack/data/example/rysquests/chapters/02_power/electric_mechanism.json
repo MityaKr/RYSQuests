@@ -8,7 +8,7 @@
   "requires": ["example:power/wires", "example:power/dynamo"],
   "requires_mode": "all",
   "tasks": [
-    { "type": "rysquests:item", "item": "#c:plates/copper", "count": 16, "mode": "consume" },
+    { "type": "rysquests:item", "item": "#c:ingots/copper", "count": 16, "mode": "consume" },
     { "type": "rysquests:advancement", "advancement": "minecraft:story/mine_stone" },
     { "type": "rysquests:item", "item": "minecraft:redstone_block", "count": 3, "mode": "observe" }
   ],

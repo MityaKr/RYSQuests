@@ -1,0 +1,18 @@
+{
+  "rysquests.validate.summary": "Validation: %s errors, %s warnings",
+  "rysquests.validate.more": "...and %s more, see logs/%s",
+  "rysquests.validate.issue.parse_error": "Could not read %s: %s",
+  "rysquests.validate.issue.duplicate_quest": "Duplicate quest id %s",
+  "rysquests.validate.issue.duplicate_chapter": "Duplicate chapter id %s",
+  "rysquests.validate.issue.unknown_chapter": "Quest %s: unknown chapter %s",
+  "rysquests.validate.issue.missing_dependency": "Quest %s: missing dependency %s",
+  "rysquests.validate.issue.dependency_cycle": "Dependency cycle at %s: %s",
+  "rysquests.validate.issue.broken_dependency": "Quest %s left out because %s is broken",
+  "rysquests.validate.issue.unknown_item": "Quest %s: unknown item %s",
+  "rysquests.validate.issue.empty_reward": "Quest %s: a reward can give nothing",
+  "rysquests.validate.issue.unknown_group": "Quest %s: unknown group %s",
+  "rysquests.validate.issue.unknown_chapter_dependency": "Chapter %s: unknown required chapter %s",
+  "rysquests.validate.issue.unknown_chapter_order": "chapter_order names unknown chapter %s",
+  "rysquests.validate.issue.multiple_books": "Several book.json files: using %s, ignoring %s",
+  "rysquests.validate.issue.empty_tag": "Quest %s: tag %s is empty"
+}

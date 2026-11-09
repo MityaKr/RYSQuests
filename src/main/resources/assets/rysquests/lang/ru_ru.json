@@ -1,0 +1,18 @@
+{
+  "rysquests.validate.summary": "Проверка: ошибок %s, предупреждений %s",
+  "rysquests.validate.more": "...и ещё %s, см. logs/%s",
+  "rysquests.validate.issue.parse_error": "Не удалось прочитать %s: %s",
+  "rysquests.validate.issue.duplicate_quest": "Повтор id квеста %s",
+  "rysquests.validate.issue.duplicate_chapter": "Повтор id главы %s",
+  "rysquests.validate.issue.unknown_chapter": "Квест %s: неизвестная глава %s",
+  "rysquests.validate.issue.missing_dependency": "Квест %s: нет зависимости %s",
+  "rysquests.validate.issue.dependency_cycle": "Цикл зависимостей у %s: %s",
+  "rysquests.validate.issue.broken_dependency": "Квест %s исключён: сломан %s",
+  "rysquests.validate.issue.unknown_item": "Квест %s: неизвестный предмет %s",
+  "rysquests.validate.issue.empty_reward": "Квест %s: награда ничего не даёт",
+  "rysquests.validate.issue.unknown_group": "Квест %s: неизвестная группа %s",
+  "rysquests.validate.issue.unknown_chapter_dependency": "Глава %s: неизвестная требуемая глава %s",
+  "rysquests.validate.issue.unknown_chapter_order": "В chapter_order неизвестная глава %s",
+  "rysquests.validate.issue.multiple_books": "Несколько book.json: используется %s, пропущены %s",
+  "rysquests.validate.issue.empty_tag": "Квест %s: тег %s пуст"
+}
