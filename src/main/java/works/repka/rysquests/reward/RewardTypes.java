@@ -25,6 +25,8 @@ public final class RewardTypes {
     public static final DeferredHolder<RewardType<?>, RewardType<StageReward>> STAGE = register("stage", StageReward.CODEC);
     public static final DeferredHolder<RewardType<?>, RewardType<LootTableReward>> LOOT_TABLE = register("loot_table", LootTableReward.CODEC);
 
+    public static final DeferredHolder<RewardType<?>, RewardType<ScriptReward>> SCRIPT = register("script", ScriptReward.CODEC);
+
     private RewardTypes() {
     }
 

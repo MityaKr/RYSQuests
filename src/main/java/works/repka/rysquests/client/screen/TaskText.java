@@ -51,6 +51,7 @@ public final class TaskText {
                     .or(() -> visit.dimension().map(ResourceLocation::toString))
                     .orElseGet(() -> visit.pos().map(Object::toString).orElse("")));
             case FluidTask fluid -> Component.translatable("rysquests.task.fluid", BuiltInRegistries.FLUID.get(fluid.fluid()).getFluidType().getDescription());
+            case works.repka.rysquests.task.ScriptTask script -> Component.literal(script.script().toString());
             case AdvancementTask advancement -> Component.translatable("rysquests.task.advancement", advancement.advancement().toString());
             default -> Component.translatable("rysquests.task.checkbox");
         };

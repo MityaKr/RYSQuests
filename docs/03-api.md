@@ -111,20 +111,25 @@ public interface RecipeViewerBridge {
 
 Клиентский интерфейс. Реализация для JEI подключается, если JEI загружен; иначе `NoopBridge` и кнопки «Рецепт» не показываются.
 
-## KubeJS (этап M7+, через отдельный плагин KubeJS)
+## KubeJS
+
+Плагин грузится, только если KubeJS установлен. События в серверных скриптах:
 
 ```js
-RYSQuestsEvents.task('mypack:looked_at_boiler', e => {
-  e.title('Посмотреть на бойлер');
-  e.poll(player => player.rayTraceBlock(8).block.id == 'create:fluid_tank' ? 1 : 0);
-});
-RYSQuestsEvents.completed(e => {
-  if (e.quest == 'repys:power/electric_mechanism') e.server.runCommandSilent('...');
-});
-RYSQuestsEvents.reward('mypack:unlock', e => { e.grant((player, def) => { ... }); });
+RYSQuestsEvents.completed(e => { console.info(e.quest + ' ' + e.player.username); });
+RYSQuestsEvents.completed('repys:power/electric_mechanism', e => { e.server.runCommandSilent('...'); });
+RYSQuestsEvents.task('mypack:looked_at_boiler', e => { if (/* условие */ true) e.setProgress(1); });
+RYSQuestsEvents.reward('mypack:unlock', e => { e.player.give('minecraft:diamond'); });
 ```
 
-Регистрируется как `KubeJSPlugin`, биндинги только когда KubeJS загружен (`ModList`).
+Скриптовая задача и награда в книге:
+
+```json
+{ "type": "rysquests:script", "script": "mypack:looked_at_boiler", "count": 1, "title": "Посмотреть на бойлер" }
+{ "type": "rysquests:script", "script": "mypack:unlock" }
+```
+
+`task` вызывается примерно раз в секунду, пока квест открыт: держите обработчик дешёвым.
 
 ## Совместимость и стабильность
 

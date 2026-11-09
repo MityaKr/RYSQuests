@@ -47,6 +47,7 @@ import works.repka.rysquests.data.TaskDef;
 import works.repka.rysquests.dev.DevReports;
 import works.repka.rysquests.network.DevReportPayload;
 import works.repka.rysquests.network.PinnedPayload;
+import works.repka.rysquests.api.ScriptHooks;
 import works.repka.rysquests.network.TeamInfoPayload;
 import works.repka.rysquests.network.ProgressPayload;
 import works.repka.rysquests.network.QuestActionPayload;
@@ -187,6 +188,7 @@ public final class ProgressService {
             case StatTask stat -> Math.max(current, readStat(player, stat));
             case AdvancementTask advancement -> isEarned(player, advancement) ? 1 : current;
             case VisitTask visit -> isVisiting(player, visit) ? 1 : current;
+            case works.repka.rysquests.task.ScriptTask script -> ScriptHooks.get().taskProgress(player, script.script(), current);
             default -> current;
         };
     }
@@ -554,6 +556,7 @@ public final class ProgressService {
             case CommandReward command -> runCommand(player, command);
             case StageReward stage -> Stages.grant(player, stage.stage());
             case LootTableReward loot -> rollLoot(player, loot);
+            case works.repka.rysquests.reward.ScriptReward script -> ScriptHooks.get().reward(player, script.script());
             case ChoiceReward options -> {
                 if (choice < 0 || choice >= options.of().size()) {
                     return false;

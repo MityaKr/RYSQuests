@@ -78,6 +78,7 @@ public final class AutoTest {
     private static final long STARTED_AT = System.currentTimeMillis();
     private static final int EXAMPLE_QUESTS = 6;
     private static final int SWITCHED_CHAPTERS = 4;
+    private static final ResourceLocation SCRIPT_QUEST = ResourceLocation.parse("repys:autotest/script");
 
     private record Step(String name, BooleanSupplier ready, Runnable action, int waitAfter) {}
 
@@ -205,6 +206,12 @@ public final class AutoTest {
             ProgressService.sendAll(player);
         }, 20);
         expect("client shows completed quests", () -> completedQuest() != null);
+        step("add a quest driven by a script", AutoTest::writeScriptQuest, 5);
+        step("reload the book and scripts", () -> command("reload"), 60);
+        expect("script quest reached the client", () -> ClientBook.current().quests().containsKey(SCRIPT_QUEST));
+        expect("script completed the task", () -> ClientProgress.get(SCRIPT_QUEST).completed());
+        step("claim the script reward", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, SCRIPT_QUEST, 0, List.of())), 20);
+        expect("script received every event", () -> scriptLogHas("rysquests-kjs completed") && scriptLogHas("rysquests-kjs task") && scriptLogHas("rysquests-kjs reward"));
         step("report", () -> {
             long done = ClientBook.current().quests().values().stream().filter(quest -> ClientProgress.get(quest.id()).completed()).count();
             LOGGER.info("[autotest] book {} chapters, {} quests, completed {}, report: {}", ClientBook.current().chapters().size(),
@@ -267,6 +274,33 @@ public final class AutoTest {
         step("open the inventory for the FTB panel", () -> pressKey(GLFW.GLFW_KEY_E), 30);
         screenshot("repys_ftb_panel");
         step("close the inventory", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
+    }
+
+    /** Only ever writes into the copy of the pack: this scenario does not run anywhere else. */
+    private static void writeScriptQuest() {
+        Path game = mc().gameDirectory.toPath();
+        try {
+            Files.writeString(game.resolve("kubejs/server_scripts/rysquests_autotest.js"), """
+                    RYSQuestsEvents.completed('repys:autotest/script', e => console.info('rysquests-kjs completed ' + e.quest));
+                    RYSQuestsEvents.task('repys:autotest_task', e => { e.setProgress(1); console.info('rysquests-kjs task'); });
+                    RYSQuestsEvents.reward('repys:autotest_reward', e => console.info('rysquests-kjs reward'));
+                    """);
+            Files.writeString(game.resolve("config/rysquests/import/data/repys/rysquests/chapters/a01_map/autotest_script.json"), """
+                    { "id": "repys:autotest/script", "chapter": "repys:a01_map", "title": "Script test", "icon": "minecraft:paper",
+                      "tasks": [ { "type": "rysquests:script", "script": "repys:autotest_task", "title": "Script" } ],
+                      "rewards": [ { "type": "rysquests:script", "script": "repys:autotest_reward" } ] }
+                    """);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static boolean scriptLogHas(String text) {
+        try {
+            return Files.readString(mc().gameDirectory.toPath().resolve("logs/kubejs/server.log")).contains(text);
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     private static void showChapter(int number) {

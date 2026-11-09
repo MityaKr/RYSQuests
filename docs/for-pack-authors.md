@@ -126,7 +126,7 @@ python tools/rysquests_check.py <корень пака> --registry logs/rysquest
 - `works.repka.rysquests.api.QuestsApi`: книга, отметка квеста, регистрация стадий.
 - `QuestCompletedEvent` на игровой шине NeoForge.
 - Свои типы задач и наград: реестры `rysquests:task_type` и `rysquests:reward_type`.
-- Из KubeJS: `NativeEvents.onEvent('works.repka.rysquests.api.QuestCompletedEvent', event => { ... })`. Отдельного плагина KubeJS с регистрацией задач пока нет.
+- Из KubeJS: `RYSQuestsEvents.completed`, `task` и `reward` в серверных скриптах, задача и награда `rysquests:script`, примеры в `03-api.md`.
 - Команда как награда: `{ "type": "rysquests:command", "command": "ryscope stage grant @s config:iron_age", "as_server": true }`.
 
 Рецепт для ссылки в тексте: `[[item:minecraft:stone]]`, `[[quest:repys:a/b|подпись]]`, полный синтаксис в `02-data-format.md`.

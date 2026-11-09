@@ -27,6 +27,11 @@ repositories {
         url = 'https://maven.blamejared.com'
         content { includeGroup 'mezz.jei' }
     }
+    maven {
+        name = 'Latvian (KubeJS)'
+        url = 'https://maven.latvian.dev/releases'
+        content { includeGroup 'dev.latvian.mods' }
+    }
 }
 
 // In-game autotest: part of the mod only in dev runs, never packaged into the jar.
@@ -85,6 +90,8 @@ neoForge.addModdingDependenciesTo(sourceSets.autotest)
 dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+    compileOnly("dev.latvian.mods:kubejs-neoforge:${kubejs_version}") { transitive = false }
+    compileOnly("dev.latvian.mods:rhino:${rhino_version}") { transitive = false }
     implementation "works.repka.ryscore:ryscore-neoforge:${ryscore_version}"
     jarJar("works.repka.ryscore:ryscore-neoforge:[${ryscore_version},2.0.0)") {
         version { prefer ryscore_version }

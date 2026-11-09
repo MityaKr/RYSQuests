@@ -24,6 +24,7 @@ public final class TaskTypes {
     public static final DeferredHolder<TaskType<?>, TaskType<VisitTask>> VISIT = register("visit", VisitTask.CODEC);
 
     public static final DeferredHolder<TaskType<?>, TaskType<FluidTask>> FLUID = register("fluid", FluidTask.CODEC);
+    public static final DeferredHolder<TaskType<?>, TaskType<ScriptTask>> SCRIPT = register("script", ScriptTask.CODEC);
 
     private TaskTypes() {
     }
