@@ -18,6 +18,8 @@
 
 Если `book.json` отсутствует, значения по умолчанию: `solo`, `flow`, `ryscore:slate`.
 
+`default_theme` действует, пока игрок не выбрал свою тему и RYScope не установлен. С RYScope книга следует его текущей теме (ADR-17).
+
 ## Глава: `chapters/<dir>/_chapter.json`
 
 ```json
@@ -96,12 +98,14 @@
 { "type": "rysquests:item", "item": "minecraft:diamond_sword", "components": { "minecraft:enchantments": { ... } } }
 { "type": "rysquests:choice", "of": [ {...item...}, {...item...} ] }
 { "type": "rysquests:xp", "levels": 2 }           // или "points": 100
-{ "type": "rysquests:command", "command": "give @p minecraft:emerald 1", "as_server": true }
+{ "type": "rysquests:command", "command": "give @s minecraft:emerald 1", "as_server": true }
 { "type": "rysquests:loot_table", "table": "repys:quests/power_tier", "rolls": 1, "show_chances": true }
 { "type": "rysquests:stage", "stage": "2" }
 ```
 
 Правила выдачи: награды выдаются по действию «Забрать» (не автоматически), в инвентарь; если места нет, остаются «к получению». `choice` требует выбора клиентом. Для `team` режима на награде есть `team_mode`: `each` (каждому игроку) | `once` (один раз на команду, забирает первый).
+
+Награда `command` выполняется от игрока, который её забирает, в его позиции: `@s` и `@p` указывают на него. `as_server: true` повышает только права команды, источник остаётся тем же. Пример стадии RYScope: `ryscope stage grant @s config:iron_age`.
 
 ## Миграции: `migrations.json`
 

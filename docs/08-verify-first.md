@@ -8,7 +8,7 @@
 - `AddReloadListenerEvent` и `SimplePreparableReloadListener` для серверных датапаков; как получить `RegistryAccess` для кодеков с реестрами.
 - `SavedData` и `SavedData.Factory` в 1.21; `DimensionDataStorage.computeIfAbsent`.
 - События: `PlayerTickEvent.Post`, `AdvancementEvent.AdvancementEarnEvent`, `LivingDeathEvent`, `PlayerEvent.PlayerLoggedInEvent`, `OnDatapackSyncEvent` (отправка книги при входе и reload).
-- Клиент: `RegisterKeyMappingsEvent`, `RegisterGuiLayersEvent` для HUD, `GuiGraphics.blitSprite` и nine-slice через `gui/sprites` mcmeta, `Screen` жизненный цикл, `ScrollWidget`.
+- Клиент: `RegisterKeyMappingsEvent`, `RegisterGuiLayersEvent` для HUD, `Screen` жизненный цикл, `ScrollWidget`. Рисование не исследуем заново: контракты `Draw` и `Theme` берём из RYScope (ADR-14, ADR-15).
 - Конфиг: `ModConfigSpec`, регистрация через `ModContainer.registerConfig`.
 - `DeferredRegister.create(ResourceKey<Registry<T>>, modid)` для собственных реестров и `NewRegistryEvent`.
 - Кодеки: `Codec.dispatch` по `type`, `ResourceLocation.CODEC`, `ItemStack.CODEC` и `DataComponentPatch` для компонентов в наградах, `TagKey` для `#tags`.
@@ -29,6 +29,8 @@
 ## JEI 1.21.1
 
 - API для открытия рецептов и использований из своего экрана (`IJeiRuntime`, `IRecipesGui.show`), регистрация плагина, maven-координаты для `compileOnly`.
+- Как сообщить JEI о предмете под курсором на нашем экране: через этот путь RYScope определяет предмет на чужих экранах (`Overlay.foreignStack`), и в книге заработают его клавиши и Линза. Перехват `A` и `G` в этом случае учесть.
+- С RYScope JEI стартует в потоке `RYScope-JEI`: сверить с `runtime/JeiAsync.java`, что можно делать в `onRuntimeAvailable`.
 
 ## Производительность
 
