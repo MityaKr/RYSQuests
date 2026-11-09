@@ -19,12 +19,21 @@ repositories {
     mavenCentral()
 }
 
+// In-game autotest: part of the mod only in dev runs, never packaged into the jar.
+sourceSets {
+    autotest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
 neoForge {
     version = neo_version
 
     mods {
         "${mod_id}" {
             sourceSet sourceSets.main
+            sourceSet sourceSets.autotest
         }
     }
 
@@ -34,6 +43,13 @@ neoForge {
             gameDirectory = project.file('run')
             systemProperty 'rysquests.dev.examplePack', project.file('examples/example_pack').absolutePath
         }
+        autotest {
+            client()
+            gameDirectory = project.file('run')
+            systemProperty 'rysquests.dev.examplePack', project.file('examples/example_pack').absolutePath
+            systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
+            programArguments.addAll '--width', '1280', '--height', '720'
+        }
     }
 
     unitTest {
@@ -41,6 +57,8 @@ neoForge {
         testedMod = mods."${mod_id}"
     }
 }
+
+neoForge.addModdingDependenciesTo(sourceSets.autotest)
 
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
@@ -55,6 +73,25 @@ tasks.withType(JavaCompile).configureEach {
 test {
     useJUnitPlatform()
     systemProperty 'rysquests.examplesDir', project.file('examples').absolutePath
+}
+
+tasks.named('check') {
+    dependsOn 'autotestClasses'
+}
+
+// The game exits normally even when a scenario fails, so the verdict is read from its log.
+def autotestLog = file('run/logs/latest.log')
+tasks.matching { it.name == 'runAutotest' }.configureEach {
+    doLast {
+        def lines = autotestLog.readLines('UTF-8')
+        def errors = lines.findAll { it =~ /\/(ERROR|FATAL)\]/ }
+        if (!errors.isEmpty()) {
+            throw new GradleException("Autotest log has ${errors.size()} error line(s), first: ${errors[0]}")
+        }
+        if (!lines.any { it.contains('[autotest] PASS') }) {
+            throw new GradleException('Autotest finished without a PASS line, see run/logs/latest.log')
+        }
+    }
 }
 
 processResources {
