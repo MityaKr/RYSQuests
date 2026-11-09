@@ -63,7 +63,7 @@
   "hidden": false,                     // не отправлять клиенту, пока зависимости не выполнены
   "repeatable": null,                  // null или {"cooldown_minutes": 60}
   "page": false,                       // true: страница без задач, засчитывается прочтением
-  "tags": ["milestone"]
+  "tags": ["milestone"]                // milestone: веха в Ленте, key_item: ключевой предмет эпохи
 }
 ```
 

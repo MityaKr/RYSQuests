@@ -8,7 +8,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.resources.language.I18n;
@@ -78,6 +77,7 @@ public final class AutoTest {
     private static final UUID REPYS_PLAYER = UUID.fromString("216ea99a-d6eb-45be-8a5b-3da7852588a5");
     private static final long STARTED_AT = System.currentTimeMillis();
     private static final int EXAMPLE_QUESTS = 6;
+    private static final int SWITCHED_CHAPTERS = 4;
 
     private record Step(String name, BooleanSupplier ready, Runnable action, int waitAfter) {}
 
@@ -112,6 +112,8 @@ public final class AutoTest {
             buildBookScenario();
         } else if ("repys".equals(scenario)) {
             buildRepysScenario();
+        } else if ("design".equals(scenario)) {
+            buildDesignScenario();
         } else {
             // Reported from the first tick: the client cannot be stopped yet during mod construction.
             step("check scenario name", () -> fail("unknown scenario " + scenario), 0);
@@ -237,10 +239,18 @@ public final class AutoTest {
             LOGGER.info("[autotest] opening the book took {} ms", (System.nanoTime() - start) / 1_000_000);
             worstFrame = 0;
         }, 30);
-        step("switch through chapters", AutoTest::nextChapter, 5);
-        step("switch through chapters", AutoTest::nextChapter, 5);
-        step("switch through chapters", AutoTest::nextChapter, 5);
-        step("report frame time", () -> LOGGER.info("[autotest] worst frame while switching chapters: {} ms", worstFrame / 1_000_000), 2);
+        // The same chapters twice: the second pass shows the cost of drawing them without first-time work.
+        for (int pass = 1; pass <= 2; pass++) {
+            for (int chapter = 0; chapter < SWITCHED_CHAPTERS; chapter++) {
+                int number = chapter;
+                step("switch through chapters", () -> showChapter(number), 5);
+            }
+            int finishedPass = pass;
+            step("report frame time", () -> {
+                LOGGER.info("[autotest] worst frame while switching chapters, pass {}: {} ms", finishedPass, worstFrame / 1_000_000);
+                worstFrame = 0;
+            }, 2);
+        }
 
         expect("recipe viewer connected", Recipes::available);
         step("open a recipe from the book", () -> Recipes.showRecipes(new ItemStack(Items.IRON_INGOT)), 20);
@@ -257,9 +267,9 @@ public final class AutoTest {
         step("close the inventory", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
     }
 
-    private static void nextChapter() {
-        List<Quest> quests = List.copyOf(ClientBook.current().quests().values());
-        Quest quest = quests.get(ThreadLocalRandom.current().nextInt(quests.size()));
+    private static void showChapter(int number) {
+        List<Quest> quests = ClientBook.current().quests().values().stream().sorted(java.util.Comparator.comparing(quest -> quest.id().toString())).toList();
+        Quest quest = quests.get(number * quests.size() / SWITCHED_CHAPTERS);
         BookScreen.selectForTest(quest.chapter().orElseThrow(), quest.id());
     }
 
@@ -278,6 +288,70 @@ public final class AutoTest {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /** Puts the book into the state of the mockups and photographs every screen, for comparing with them pixel by pixel. */
+    private static void buildDesignScenario() {
+        String mechanism = "design:02/mechanism";
+        ResourceLocation chapter = ResourceLocation.parse("design:02");
+        ResourceLocation quest = ResourceLocation.parse(mechanism);
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("reset the world", () -> {
+            command("gamerule sendCommandFeedback false");
+            command("clear @s");
+            ClientBook.current().quests().keySet().forEach(id -> command("rysquests progress @s reset " + id));
+        }, 20);
+        step("finish the earlier quests", () -> {
+            for (String id : List.of("design:02/brass", "design:02/gears", "design:02/wires", "design:02/dynamo", "design:01/gift_a", "design:01/gift_b")) {
+                command("rysquests progress @s complete " + id);
+            }
+        }, 20);
+        step("give what the current quest takes", () -> {
+            command("give @s minecraft:copper_ingot 16");
+            command("give @s minecraft:comparator 1");
+            command("give @s minecraft:redstone_torch 3");
+        }, 40);
+        step("hand it in", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.SUBMIT, quest, 0, List.of())), 10);
+        step("confirm the second task", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CHECK, quest, 1, List.of())), 10);
+        step("give one more", () -> command("give @s minecraft:comparator 1"), 30);
+        expect("quest is two thirds done", () -> ClientProgress.get(quest).task(0) == 16 && ClientProgress.get(quest).task(2) == 1);
+        step("open the book", () -> {
+            BookScreen.selectForTest(chapter, quest);
+            BookScreen.showForTest(ViewMode.FLOW);
+            pressKey(GLFW.GLFW_KEY_K);
+        }, 30);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        screenshot("design_flow");
+        step("switch to the map", () -> BookScreen.showForTest(ViewMode.MAP), 40);
+        screenshot("design_map");
+        step("switch to the list", () -> BookScreen.showForTest(ViewMode.LIST), 10);
+        screenshot("design_list");
+        step("switch to what next", () -> BookScreen.showForTest(ViewMode.HOME), 25);
+        screenshot("design_home");
+        step("switch to the timeline", () -> BookScreen.showForTest(ViewMode.TIMELINE), 25);
+        screenshot("design_timeline");
+        step("switch to dev", () -> BookScreen.showForTest(ViewMode.DEV), 20);
+        expect("dev report arrived", () -> ClientDev.report() != null);
+        step("wait for the report on screen", () -> {}, 10);
+        screenshot("design_dev");
+        step("back to the flow", () -> BookScreen.showForTest(ViewMode.FLOW), 5);
+        step("pin the quest", () -> {
+            if (!ClientProgress.pinned().contains(quest)) {
+                pressKey(GLFW.GLFW_KEY_P);
+            }
+        }, 10);
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+        expect("book closed", () -> mc().screen == null);
+        step("finish a quest for the card", () -> command("rysquests progress @s complete design:02/pump"), 20);
+        screenshot("design_hud");
     }
 
     /** Plays the first example quest through the real keys and the real packets. */

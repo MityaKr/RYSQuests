@@ -1,0 +1,20 @@
+{
+  "id": "design:01/gift_a",
+  "chapter": "design:01",
+  "title": "Первое вращение",
+  "icon": "minecraft:gold_ingot",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:gold_ingot",
+      "count": 8
+    }
+  ]
+}

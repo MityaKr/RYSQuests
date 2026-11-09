@@ -1,0 +1,7 @@
+{
+  "id": "design:01",
+  "title": "Create",
+  "icon": "minecraft:iron_ingot",
+  "default_view": "flow",
+  "epoch": 1
+}

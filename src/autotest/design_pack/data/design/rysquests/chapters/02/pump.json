@@ -1,0 +1,18 @@
+{
+  "id": "design:02/pump",
+  "chapter": "design:02",
+  "title": "Насос и трубы",
+  "icon": "minecraft:water_bucket",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Первая"
+    },
+    {
+      "type": "rysquests:checkbox",
+      "title": "Вторая"
+    }
+  ],
+  "rewards": []
+}

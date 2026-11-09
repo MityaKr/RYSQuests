@@ -4,12 +4,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
-import works.repka.rysquests.client.hud.QuestToast;
+import works.repka.rysquests.client.hud.StickerBoard;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.network.PinnedPayload;
 import works.repka.rysquests.network.ProgressPayload;
+import works.repka.rysquests.network.TeamInfoPayload;
 import works.repka.rysquests.network.StageLocksPayload;
 import works.repka.rysquests.progress.QuestProgress;
 
@@ -18,6 +18,7 @@ public final class ClientProgress {
     private static final Map<ResourceLocation, QuestProgress> QUESTS = new HashMap<>();
     private static List<ResourceLocation> pinned = List.of();
     private static Set<ResourceLocation> stageLocked = Set.of();
+    private static int teamSize = 1;
 
     private ClientProgress() {
     }
@@ -40,11 +41,20 @@ public final class ClientProgress {
             if (progress.completed() && !get(id).completed()) {
                 Quest quest = ClientBook.current().quests().get(id);
                 if (quest != null) {
-                    Minecraft.getInstance().getToasts().addToast(new QuestToast(quest));
+                    StickerBoard.celebrate(quest);
                 }
             }
             QUESTS.put(id, progress);
         });
+    }
+
+    /** How many players share this player's progress. */
+    public static int teamSize() {
+        return teamSize;
+    }
+
+    static void receiveTeamInfo(TeamInfoPayload payload) {
+        teamSize = payload.members();
     }
 
     static void receivePinned(PinnedPayload payload) {

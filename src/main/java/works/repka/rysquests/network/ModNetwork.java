@@ -18,6 +18,8 @@ public final class ModNetwork {
     };
     private static Consumer<PinnedPayload> clientPinnedHandler = payload -> {
     };
+    private static Consumer<TeamInfoPayload> clientTeamInfoHandler = payload -> {
+    };
     private static Consumer<StageLocksPayload> clientStageLocksHandler = payload -> {
     };
     private static Consumer<DevReportPayload> clientDevReportHandler = payload -> {
@@ -42,6 +44,10 @@ public final class ModNetwork {
         clientStageLocksHandler = handler;
     }
 
+    public static void setClientTeamInfoHandler(Consumer<TeamInfoPayload> handler) {
+        clientTeamInfoHandler = handler;
+    }
+
     public static void setClientPinnedHandler(Consumer<PinnedPayload> handler) {
         clientPinnedHandler = handler;
     }
@@ -54,6 +60,8 @@ public final class ModNetwork {
                         (payload, context) -> clientProgressHandler.accept(payload))
                 .playToClient(PinnedPayload.TYPE, PinnedPayload.STREAM_CODEC,
                         (payload, context) -> clientPinnedHandler.accept(payload))
+                .playToClient(TeamInfoPayload.TYPE, TeamInfoPayload.STREAM_CODEC,
+                        (payload, context) -> clientTeamInfoHandler.accept(payload))
                 .playToClient(StageLocksPayload.TYPE, StageLocksPayload.STREAM_CODEC,
                         (payload, context) -> clientStageLocksHandler.accept(payload))
                 .playToClient(DevReportPayload.TYPE, DevReportPayload.STREAM_CODEC,

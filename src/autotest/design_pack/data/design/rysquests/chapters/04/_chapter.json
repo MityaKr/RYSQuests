@@ -1,0 +1,7 @@
+{
+  "id": "design:04",
+  "title": "Энергия",
+  "icon": "minecraft:daylight_detector",
+  "default_view": "flow",
+  "epoch": 4
+}

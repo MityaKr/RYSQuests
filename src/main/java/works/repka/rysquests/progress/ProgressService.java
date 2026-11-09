@@ -47,6 +47,7 @@ import works.repka.rysquests.data.TaskDef;
 import works.repka.rysquests.dev.DevReports;
 import works.repka.rysquests.network.DevReportPayload;
 import works.repka.rysquests.network.PinnedPayload;
+import works.repka.rysquests.network.TeamInfoPayload;
 import works.repka.rysquests.network.ProgressPayload;
 import works.repka.rysquests.network.QuestActionPayload;
 import works.repka.rysquests.network.StageLocksPayload;
@@ -383,8 +384,9 @@ public final class ProgressService {
         }
         if (payload.action() == QuestActionPayload.DEV_REPORT) {
             if (player.hasPermissions(2)) {
+                DevReports.Standing standing = DevReports.standing(player.server);
                 Util.backgroundExecutor().execute(() -> {
-                    DevReports.Report report = DevReports.build(player.server);
+                    DevReports.Report report = DevReports.build(player.server, standing);
                     DevReports.write(player.server, report);
                     player.server.execute(() -> PacketDistributor.sendToPlayer(player, new DevReportPayload(report)));
                 });
@@ -607,6 +609,8 @@ public final class ProgressService {
         store.team(team(player)).forEach((id, progress) -> view.put(id, viewFor(player, id, progress)));
         PacketDistributor.sendToPlayer(player, new ProgressPayload(true, view));
         PacketDistributor.sendToPlayer(player, new PinnedPayload(store.pinned(player.getUUID())));
+        TeamsApi teams = TeamsApi.get();
+        PacketDistributor.sendToPlayer(player, new TeamInfoPayload(teams.members(teams.teamOf(player.getUUID())).size()));
         STAGE_LOCKS.remove(player.getUUID());
         refreshStageLocks(player);
     }

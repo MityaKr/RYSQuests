@@ -1,0 +1,17 @@
+{
+  "id": "design:06/g1",
+  "chapter": "design:06",
+  "title": "Гайд",
+  "icon": "minecraft:book",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": [],
+  "tags": [
+    "milestone"
+  ]
+}

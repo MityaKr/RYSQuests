@@ -1,0 +1,17 @@
+{
+  "id": "design:03/m1",
+  "chapter": "design:03",
+  "title": "Первая машина мира",
+  "icon": "minecraft:piston",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": [],
+  "tags": [
+    "milestone"
+  ]
+}

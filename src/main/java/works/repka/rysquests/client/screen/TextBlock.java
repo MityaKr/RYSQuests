@@ -2,9 +2,9 @@ package works.repka.rysquests.client.screen;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import works.repka.rysquests.client.ClientBook;
@@ -12,107 +12,174 @@ import works.repka.rysquests.client.markup.Markup;
 import works.repka.rysquests.client.markup.Markup.Paragraph;
 import works.repka.rysquests.client.markup.Markup.Span;
 import works.repka.rysquests.data.Quest;
-import works.repka.ryscore.ui.Draw;
+import works.repka.ryscore.ui.Type;
 
 /** Lays out parsed quest text with word wrap, inline item icons, clickable links and spoilers. */
 final class TextBlock {
-    private static final int ICON = 9;
+    private static final float ICON_GAP = 4f;
+    private static final char FORMAT = '§';
+
+    /** The look of the text: its size, line height and color. */
+    record Look(float px, float lineHeight, int color) {
+        float iconSize() {
+            return Math.round(px * 0.97f);
+        }
+    }
 
     private TextBlock() {
     }
 
     /** @return the y below the text */
-    static int render(Ui ui, String text, int x, int y, int width, java.util.function.Consumer<ItemStack> onItem) {
+    static float render(Ui ui, String text, float x, float y, float width, Look look, Consumer<ItemStack> onItem) {
         int paragraphIndex = 0;
+        Format format = new Format();
         for (Paragraph paragraph : Markup.parse(text)) {
             int key = paragraphIndex++;
             if (paragraph.spans().isEmpty()) {
-                y += Ui.LINE / 2;
+                y += look.lineHeight / 2;
             } else if (paragraph.warning()) {
-                int bottom = flow(ui, paragraph, x + 6, y + 3, width - 8, "state.warn", text, key, onItem, true);
-                Draw.round(ui.g, x, y, width, bottom - y + 3, 3f, Draw.alpha(ui.color("state.warn"), 0.12f));
-                Draw.rect(ui.g, x, y, 2, bottom - y + 3, ui.color("state.warn"));
-                flow(ui, paragraph, x + 6, y + 3, width - 8, "state.warn", text, key, onItem, false);
-                y = bottom + 6;
+                Look warning = new Look(look.px, look.lineHeight, ui.c("state.warn"));
+                float bottom = flow(ui, paragraph, x + 12, y + 6, width - 16, warning, text, key, onItem, new Format(), true);
+                ui.fill(x, y, width, bottom - y + 6, 6, works.repka.ryscore.ui.Draw.alpha(ui.c("state.warn"), 0.12f));
+                ui.rect(x, y, 3, bottom - y + 6, ui.c("state.warn"));
+                flow(ui, paragraph, x + 12, y + 6, width - 16, warning, text, key, onItem, new Format(), false);
+                y = bottom + 12;
             } else {
-                y = flow(ui, paragraph, x, y, width, "text.body", text, key, onItem, false);
+                y = flow(ui, paragraph, x, y, width, look, text, key, onItem, format, false);
             }
         }
         return y;
     }
 
-    private record Word(MutableComponent text, int width, Runnable click, ItemStack icon, boolean link, boolean hidden) {
+    /** The formatting codes of FTB texts stay active across words and lines of a paragraph. */
+    private static final class Format {
+        int color;
+        boolean bold;
+
+        void apply(char code) {
+            ChatFormatting formatting = ChatFormatting.getByCode(code);
+            if (formatting == null) {
+                return;
+            }
+            if (formatting == ChatFormatting.RESET) {
+                color = 0;
+                bold = false;
+            } else if (formatting == ChatFormatting.BOLD) {
+                bold = true;
+            } else if (formatting.isColor() && formatting.getColor() != null) {
+                color = 0xFF000000 | formatting.getColor();
+            }
+        }
     }
 
-    private static int flow(Ui ui, Paragraph paragraph, int x, int y, int width, String token, String source, int key,
-            java.util.function.Consumer<ItemStack> onItem, boolean measure) {
-        int cursor = x;
-        int spaceWidth = ui.font.width(" ");
-        String carry = "";
+    private record Piece(String text, int color, Type.Weight weight) {
+    }
+
+    /** @param attached sits right after the icon before it, instead of a word space away */
+    private record Word(List<Piece> pieces, float width, Runnable click, ItemStack icon, boolean link, boolean hidden, boolean attached) {
+    }
+
+    private static float flow(Ui ui, Paragraph paragraph, float x, float y, float width, Look look, String source, int key,
+            Consumer<ItemStack> onItem, Format format, boolean measure) {
+        float cursor = x;
+        float space = ui.width(" ", look.px, Ui.REGULAR);
+        boolean endedWithSpace = true;
         for (Span span : paragraph.spans()) {
             String spoilerKey = source.hashCode() + ":" + key + ":" + span.text();
             boolean hidden = span.spoiler() && !BookState.REVEALED.contains(spoilerKey);
             Runnable reveal = hidden ? () -> BookState.REVEALED.add(spoilerKey) : null;
-            for (Word word : words(ui, span, reveal, hidden, onItem, carry)) {
-                carry = formatting(word.text.getString(), carry);
-                if (word.width == 0) {
-                    continue;
-                }
-                if (cursor > x && cursor + word.width > x + width) {
+            boolean glued = !endedWithSpace && !span.text().startsWith(" ");
+            for (Word word : words(ui, span, reveal, hidden, onItem, look, format)) {
+                float gap = word.attached ? ICON_GAP : glued ? 0 : space;
+                glued = false;
+                if (cursor > x && cursor + gap + word.width > x + width) {
                     cursor = x;
-                    y += Ui.LINE;
+                    gap = 0;
+                    y += look.lineHeight;
                 }
+                float at = cursor == x ? x : cursor + gap;
                 if (!measure) {
-                    draw(ui, word, cursor, y, token);
+                    draw(ui, word, at, y, look);
                 }
-                cursor += word.width + spaceWidth;
+                cursor = at + word.width;
             }
+            endedWithSpace = !span.isLink() && span.text().endsWith(" ");
         }
-        return y + Ui.LINE;
+        return y + look.lineHeight;
     }
 
-    private static void draw(Ui ui, Word word, int x, int y, String token) {
-        int textX = x;
+    private static void draw(Ui ui, Word word, float x, float y, Look look) {
+        float cy = y + look.lineHeight / 2f;
+        float pen = x;
         if (!word.icon.isEmpty()) {
-            ui.g.pose().pushPose();
-            ui.g.pose().translate(x, y - 1, 0);
-            ui.g.pose().scale(0.5f, 0.5f, 1f);
-            ui.g.renderItem(word.icon, 0, 0);
-            ui.g.pose().popPose();
-            textX += ICON;
-            if (ui.over(x, y, word.width, Ui.LINE)) {
+            float icon = look.iconSize();
+            ui.item(word.icon, x, cy - icon / 2f, icon);
+            if (ui.over(x, y, word.width, look.lineHeight)) {
                 ui.hoveredStack = word.icon;
             }
         }
         if (word.hidden) {
-            Draw.rect(ui.g, x, y - 1, word.width, Ui.LINE - 1, ui.color("text.dim"));
+            ui.fill(x, cy - look.px * 0.6f, word.width, look.px * 1.2f, 3, ui.c("text.dim"));
         } else {
-            ui.text(word.text, textX, y, word.link ? "chip.mod.fg" : token);
+            for (Piece piece : word.pieces) {
+                int color = word.link ? ui.c("chip.mod.fg") : piece.color != 0 ? piece.color : look.color;
+                ui.label(piece.text, pen, cy, look.px, piece.weight, color);
+                float w = ui.width(piece.text, look.px, piece.weight);
+                if (word.link) {
+                    ui.rect(pen, cy + look.px * 0.5f, w, 1, color);
+                }
+                pen += w;
+            }
         }
         if (word.click != null) {
-            ui.hit(x, y - 1, word.width, Ui.LINE, word.click);
+            ui.hit(x, y, word.width, look.lineHeight, word.click);
         }
     }
 
-    private static List<Word> words(Ui ui, Span span, Runnable reveal, boolean hidden, java.util.function.Consumer<ItemStack> onItem, String carry) {
+    private static List<Word> words(Ui ui, Span span, Runnable reveal, boolean hidden, Consumer<ItemStack> onItem, Look look, Format format) {
         List<Word> out = new ArrayList<>();
         if (span.isLink()) {
-            out.add(link(ui, span, reveal, hidden, onItem));
+            link(ui, span, reveal, hidden, onItem, look, out);
             return out;
         }
-        String active = carry;
         for (String piece : span.text().split(" ")) {
-            if (piece.isEmpty()) {
-                continue;
+            List<Piece> pieces = pieces(piece, span, format);
+            float width = 0;
+            for (Piece part : pieces) {
+                width += ui.width(part.text, look.px, part.weight);
             }
-            MutableComponent text = styled(active + piece, span);
-            active = formatting(piece, active);
-            out.add(new Word(text, ui.font.width(text), reveal, ItemStack.EMPTY, false, hidden));
+            if (width > 0) {
+                out.add(new Word(pieces, width, reveal, ItemStack.EMPTY, false, hidden, false));
+            }
         }
         return out;
     }
 
-    private static Word link(Ui ui, Span span, Runnable reveal, boolean hidden, java.util.function.Consumer<ItemStack> onItem) {
+    private static List<Piece> pieces(String word, Span span, Format format) {
+        List<Piece> pieces = new ArrayList<>();
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < word.length(); i++) {
+            char c = word.charAt(i);
+            if (c == FORMAT && i + 1 < word.length()) {
+                flush(pieces, text, span, format);
+                format.apply(word.charAt(++i));
+            } else {
+                text.append(c);
+            }
+        }
+        flush(pieces, text, span, format);
+        return pieces;
+    }
+
+    private static void flush(List<Piece> pieces, StringBuilder text, Span span, Format format) {
+        if (text.length() > 0) {
+            pieces.add(new Piece(text.toString(), format.color, span.bold() || format.bold ? Ui.SEMIBOLD : Ui.REGULAR));
+            text.setLength(0);
+        }
+    }
+
+    /** An icon and the words of the label: each can start a new line, as inline content in the mockups does. */
+    private static void link(Ui ui, Span span, Runnable reveal, boolean hidden, Consumer<ItemStack> onItem, Look look, List<Word> out) {
         ItemStack icon = ItemStack.EMPTY;
         String label = span.text();
         Runnable click = reveal;
@@ -135,30 +202,15 @@ final class TextBlock {
         if (label.isEmpty()) {
             label = span.target();
         }
-        MutableComponent text = styled(label, span);
-        return new Word(text, ui.font.width(text) + (icon.isEmpty() ? 0 : ICON), click, icon, true, hidden);
-    }
-
-    private static MutableComponent styled(String text, Span span) {
-        MutableComponent component = Component.literal(text);
-        if (span.bold()) {
-            component.withStyle(ChatFormatting.BOLD);
+        boolean attached = !icon.isEmpty();
+        if (attached) {
+            out.add(new Word(List.of(), look.iconSize(), click, icon, true, hidden, false));
         }
-        if (span.italic()) {
-            component.withStyle(ChatFormatting.ITALIC);
-        }
-        return component;
-    }
-
-    /** Colors in FTB texts apply across words, while each word is drawn on its own. */
-    private static String formatting(String text, String current) {
-        String active = current;
-        for (int i = 0; i + 1 < text.length(); i++) {
-            if (text.charAt(i) == '§') {
-                String code = text.substring(i, i + 2);
-                active = code.equals("§r") ? "" : Character.isLetter(code.charAt(1)) && code.charAt(1) > 'f' ? active + code : code;
+        for (String word : ChatFormatting.stripFormatting(label).split(" ")) {
+            if (!word.isEmpty()) {
+                out.add(new Word(List.of(new Piece(word, 0, Ui.REGULAR)), ui.width(word, look.px, Ui.REGULAR), click, ItemStack.EMPTY, true, hidden, attached));
+                attached = false;
             }
         }
-        return active;
     }
 }

@@ -92,8 +92,9 @@ public final class QuestCommands {
     private static int devReport(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         MinecraftServer server = source.getServer();
+        DevReports.Standing standing = DevReports.standing(server);
         Util.backgroundExecutor().execute(() -> {
-            DevReports.Report report = DevReports.build(server);
+            DevReports.Report report = DevReports.build(server, standing);
             DevReports.write(server, report);
             server.execute(() -> source.sendSuccess(() -> Component.translatable("rysquests.dev.report_done", DevReports.REPORT_JSON), false));
         });

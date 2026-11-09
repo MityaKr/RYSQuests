@@ -1,0 +1,17 @@
+{
+  "id": "design:05/r1",
+  "chapter": "design:05",
+  "title": "Первый ритуал",
+  "icon": "minecraft:amethyst_shard",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": [],
+  "tags": [
+    "milestone"
+  ]
+}

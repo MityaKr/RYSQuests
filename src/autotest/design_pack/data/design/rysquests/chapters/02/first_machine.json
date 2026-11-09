@@ -1,0 +1,19 @@
+{
+  "id": "design:02/first_machine",
+  "chapter": "design:02",
+  "title": "Первая машина",
+  "icon": "minecraft:emerald",
+  "requires": [
+    "design:02/mechanism"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": [],
+  "tags": [
+    "milestone"
+  ]
+}

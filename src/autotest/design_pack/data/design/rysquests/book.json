@@ -1,0 +1,18 @@
+{
+  "progress_mode": "solo",
+  "default_view": "flow",
+  "default_theme": "ryscore:slate",
+  "title": "Книга",
+  "icon": "minecraft:writable_book",
+  "chapter_order": [
+    "design:01",
+    "design:02",
+    "design:03",
+    "design:04",
+    "design:05",
+    "design:06"
+  ],
+  "hud": {
+    "max_pinned": 3
+  }
+}

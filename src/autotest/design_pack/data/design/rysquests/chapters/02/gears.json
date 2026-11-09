@@ -1,0 +1,15 @@
+{
+  "id": "design:02/gears",
+  "chapter": "design:02",
+  "title": "Шестерни",
+  "icon": "minecraft:clock",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": [],
+  "group": "basics"
+}

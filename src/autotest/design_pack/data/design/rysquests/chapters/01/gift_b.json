@@ -1,0 +1,20 @@
+{
+  "id": "design:01/gift_b",
+  "chapter": "design:01",
+  "title": "Латунный механизм",
+  "icon": "minecraft:oak_log",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:oak_log",
+      "count": 1
+    }
+  ]
+}

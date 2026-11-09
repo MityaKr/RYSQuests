@@ -1,0 +1,17 @@
+{
+  "id": "design:02/solar",
+  "chapter": "design:02",
+  "title": "Солнечные панели",
+  "icon": "minecraft:gold_block",
+  "requires": [
+    "design:02/mechanism"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": [],
+  "stage_required": "design:stage2"
+}

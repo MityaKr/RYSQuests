@@ -1,0 +1,13 @@
+{
+  "id": "design:02",
+  "title": "Индустрия и ток",
+  "icon": "minecraft:redstone",
+  "default_view": "flow",
+  "epoch": 2,
+  "groups": [
+    {
+      "id": "basics",
+      "title": "Основы Create"
+    }
+  ]
+}

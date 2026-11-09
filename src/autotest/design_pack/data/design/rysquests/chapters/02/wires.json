@@ -1,0 +1,16 @@
+{
+  "id": "design:02/wires",
+  "chapter": "design:02",
+  "title": "Провода",
+  "icon": "minecraft:copper_ingot",
+  "requires": [
+    "design:02/brass"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": []
+}

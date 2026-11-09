@@ -1,0 +1,15 @@
+{
+  "id": "design:02/brass",
+  "chapter": "design:02",
+  "title": "Латунь",
+  "icon": "minecraft:gold_ingot",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": [],
+  "group": "basics"
+}

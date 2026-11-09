@@ -56,10 +56,11 @@ neoForge {
         autotest {
             client()
             gameDirectory = project.file('run')
-            systemProperty 'rysquests.dev.examplePack', project.file('examples/example_pack').absolutePath
+            systemProperty 'rysquests.dev.examplePack', project.file(project.findProperty('autotest') == 'design' ? 'src/autotest/design_pack' : 'examples/example_pack').absolutePath
             systemProperty 'rysquests.dev.brokenPack', project.file('examples/broken').absolutePath
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
-            programArguments.addAll '--width', '1280', '--height', '720'
+            // The size of the mockups in design/, so that screenshots can be laid over them.
+            programArguments.addAll '--width', '1280', '--height', '800'
         }
         // Full path on a copy of the real pack: its mods load from run-repys/mods, the instance itself stays untouched.
         repysAutotest {
@@ -69,7 +70,7 @@ neoForge {
             systemProperty 'rysquests.autotest', 'repys'
             systemProperty 'rysquests.autotest.asPlayer', 'true'
             systemProperty 'rysquests.autotest.ftbqSaves', project.findProperty('ftbqSaves') ?: ''
-            programArguments.addAll '--width', '1280', '--height', '720'
+            programArguments.addAll '--width', '1280', '--height', '800'
         }
     }
 

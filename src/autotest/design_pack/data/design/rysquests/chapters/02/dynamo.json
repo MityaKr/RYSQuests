@@ -1,0 +1,16 @@
+{
+  "id": "design:02/dynamo",
+  "chapter": "design:02",
+  "title": "Динамо",
+  "icon": "minecraft:iron_block",
+  "requires": [
+    "design:02/gears"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": []
+}

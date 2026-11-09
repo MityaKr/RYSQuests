@@ -1,0 +1,7 @@
+{
+  "id": "design:03",
+  "title": "Машины",
+  "icon": "minecraft:piston",
+  "default_view": "flow",
+  "epoch": 3
+}

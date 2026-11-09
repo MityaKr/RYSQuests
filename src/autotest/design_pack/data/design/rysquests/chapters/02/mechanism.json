@@ -1,0 +1,51 @@
+{
+  "id": "design:02/mechanism",
+  "chapter": "design:02",
+  "title": "Электрический механизм",
+  "icon": "minecraft:comparator",
+  "requires": [
+    "design:02/wires",
+    "design:02/dynamo"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:copper_ingot",
+      "count": 16,
+      "mode": "consume",
+      "title": "Медный лист"
+    },
+    {
+      "type": "rysquests:checkbox",
+      "title": "Продвижение «Электрик»"
+    },
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:comparator",
+      "count": 3,
+      "mode": "consume",
+      "title": "Электрический механизм"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:choice",
+      "of": [
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:gold_ingot",
+          "count": 8
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:emerald",
+          "count": 2
+        }
+      ]
+    }
+  ],
+  "text": "Электрический механизм собирается на [[quest:design:02/first_machine|Механическом сборщике]] из [[item:minecraft:comparator|латунного механизма]], четырёх [[item:minecraft:copper_ingot|медных листов]] и двух редстоуна. Сборщику нужна скорость от 64 об/мин, иначе он просто не запустится.",
+  "tags": [
+    "milestone"
+  ]
+}

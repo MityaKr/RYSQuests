@@ -11,8 +11,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import net.minecraft.core.Registry;
@@ -31,6 +33,8 @@ import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.RequiresMode;
 import works.repka.rysquests.data.RewardDef;
 import works.repka.rysquests.data.TaskDef;
+import works.repka.rysquests.migrate.Migration;
+import works.repka.rysquests.progress.ProgressStore;
 import works.repka.rysquests.reward.ChoiceReward;
 import works.repka.rysquests.reward.RandomReward;
 import works.repka.rysquests.reward.StageReward;
@@ -42,6 +46,9 @@ public final class DevReports {
     public static final String REPORT_JSON = "rysquests-report.json";
     public static final String REPORT_CSV = "rysquests-report.csv";
     public static final String REGISTRY_JSON = "rysquests-registry.json";
+    public static final String FUNNEL_PREFIX = "funnel:";
+    public static final String MIGRATIONS = "migrations";
+    private static final int MAX_DEPTH = 256;
 
     public record Entry(String subject, String detail) {
         static final Codec<Entry> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -68,7 +75,26 @@ public final class DevReports {
     private DevReports() {
     }
 
-    public static Report build(MinecraftServer server) {
+    /** What the report needs from the world's progress, copied on the server thread. */
+    public record Standing(List<Set<ResourceLocation>> teams, Set<String> appliedMigrations) {
+    }
+
+    public static Standing standing(MinecraftServer server) {
+        ProgressStore.MigrationSnapshot snapshot = ProgressStore.get(server).snapshot();
+        List<Set<ResourceLocation>> teams = new ArrayList<>();
+        snapshot.teams().values().forEach(quests -> {
+            Set<ResourceLocation> finished = new HashSet<>();
+            quests.forEach((id, progress) -> {
+                if (progress.completed()) {
+                    finished.add(id);
+                }
+            });
+            teams.add(finished);
+        });
+        return new Standing(teams, new HashSet<>(snapshot.applied()));
+    }
+
+    public static Report build(MinecraftServer server, Standing standing) {
         BookHolder.Loaded loaded = BookHolder.current();
         QuestBook book = loaded.book();
         List<Section> sections = new ArrayList<>();
@@ -76,7 +102,72 @@ public final class DevReports {
         sections.add(new Section("warnings", issues(loaded.report(), BookReport.Severity.WARNING)));
         sections.add(new Section("unreachable", unreachable(server, book)));
         sections.add(new Section("no_recipe", withoutRecipe(server, book)));
+        sections.add(new Section(MIGRATIONS, pendingMigrations(loaded.migrations(), standing)));
+        sections.addAll(funnels(book, standing));
         return new Report(book.chapters().size(), book.quests().size(), sections);
+    }
+
+    private static List<Entry> pendingMigrations(List<Migration> migrations, Standing standing) {
+        List<Entry> entries = new ArrayList<>();
+        for (Migration migration : migrations) {
+            if (!standing.appliedMigrations().contains(migration.id())) {
+                entries.add(new Entry(migration.op(), describe(migration)));
+            }
+        }
+        return entries;
+    }
+
+    private static String describe(Migration migration) {
+        return switch (migration) {
+            case Migration.Rename rename -> rename.from() + " \u2192 " + rename.to();
+            case Migration.Merge merge -> merge.from().stream().map(ResourceLocation::toString).collect(java.util.stream.Collectors.joining(" + ")) + " \u2192 " + merge.to();
+            case Migration.Remove remove -> remove.from().toString();
+            case Migration.FtbqMap map -> map.fromFtbq().size() + " FTB ids";
+            default -> migration.id();
+        };
+    }
+
+    /** For each chapter, the share of teams that finished each quest, in dependency order. */
+    private static List<Section> funnels(QuestBook book, Standing standing) {
+        List<Section> sections = new ArrayList<>();
+        int teams = standing.teams().size();
+        if (teams == 0) {
+            return sections;
+        }
+        Map<ResourceLocation, Integer> finished = new HashMap<>();
+        standing.teams().forEach(team -> team.forEach(id -> finished.merge(id, 1, Integer::sum)));
+        Map<ResourceLocation, List<Quest>> byChapter = new HashMap<>();
+        for (Quest quest : book.quests().values()) {
+            quest.chapter().ifPresent(chapter -> byChapter.computeIfAbsent(chapter, key -> new ArrayList<>()).add(quest));
+        }
+        byChapter.forEach((chapter, quests) -> {
+            Map<ResourceLocation, Integer> depths = new HashMap<>();
+            quests.sort(java.util.Comparator.comparingInt(quest -> depth(quest, book, depths, 0)));
+            List<Entry> entries = new ArrayList<>();
+            for (Quest quest : quests) {
+                entries.add(new Entry(quest.id().toString(), String.valueOf(finished.getOrDefault(quest.id(), 0) * 100 / teams)));
+            }
+            sections.add(new Section(FUNNEL_PREFIX + chapter, entries));
+        });
+        return sections;
+    }
+
+    private static int depth(Quest quest, QuestBook book, Map<ResourceLocation, Integer> depths, int guard) {
+        Integer known = depths.get(quest.id());
+        if (known != null) {
+            return known;
+        }
+        int depth = 0;
+        if (guard < MAX_DEPTH) {
+            for (ResourceLocation id : quest.requires()) {
+                Quest required = book.quests().get(id);
+                if (required != null) {
+                    depth = Math.max(depth, depth(required, book, depths, guard + 1) + 1);
+                }
+            }
+        }
+        depths.put(quest.id(), depth);
+        return depth;
     }
 
     private static List<Entry> issues(BookReport report, BookReport.Severity severity) {

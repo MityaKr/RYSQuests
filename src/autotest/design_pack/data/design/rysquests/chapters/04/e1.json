@@ -1,0 +1,17 @@
+{
+  "id": "design:04/e1",
+  "chapter": "design:04",
+  "title": "Сеть энергии",
+  "icon": "minecraft:redstone_block",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Готово"
+    }
+  ],
+  "rewards": [],
+  "tags": [
+    "milestone"
+  ]
+}

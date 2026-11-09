@@ -1,6 +1,6 @@
 package works.repka.rysquests.client.screen;
 
-/** A way of showing the open chapter, in the area between the chapter list and the reading column. */
+/** A way of showing the open chapter. All coordinates are in mockup pixels, see {@link Ui}. */
 interface BookView {
     void render(Ui ui, int x, int y, int w, int h);
 
