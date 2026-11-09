@@ -71,6 +71,8 @@
   "rysquests.team.no_invite": "You have no invitation.",
   "rysquests.team.joined": "You joined the team.",
   "rysquests.team.left": "You left the team.",
+  "rysquests.team.merge_preview": "Quest progress joins, the best of both: %s quests",
+  "rysquests.team.feed_completed": "%s completed the quest %s",
   "rysquests.migrate.none": "No new migrations.",
   "rysquests.migrate.line": "%s",
   "rysquests.migrate.dry_run": "Dry run, nothing was changed. Report: logs/rysquests-migrate.txt",

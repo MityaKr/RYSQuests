@@ -99,12 +99,12 @@ final class HomeView implements BookView {
             ui.theme.card(ui.g, x, cursor, w, 22);
             ui.text(Component.translatable("rysquests.home.rewards", claimable), x + 6, cursor + 7, "text.body");
             Component label = Component.translatable("rysquests.home.claim_all");
-            ui.button(label, x + w - ui.font.width(label) - 18, cursor + 3, 16, true, () -> QuestKeys.sendAll(QuestActionPayload.CLAIM_ALL));
+            ui.button(label, x + w - ui.font.width(label) - 18, cursor + 3, 16, ui.accentOnce(), () -> QuestKeys.sendAll(QuestActionPayload.CLAIM_ALL));
             cursor += 22 + GAP;
         }
         ui.text(Component.translatable("rysquests.home.progress"), x, cursor + 3, "text.primary");
         cursor += Ui.LINE + 6;
-        ui.bar(x, cursor, w, 5, total == 0 ? 0 : (float) done / total, "accent");
+        ui.bar(x, cursor, w, 5, total == 0 ? 0 : (float) done / total, "state.ok");
         ui.small(done + " / " + total, x, cursor + 8, "text.muted");
         cursor += 20;
         ui.unclip();

@@ -277,7 +277,7 @@ final class MapView implements BookView {
         if (dependencyDone && targetDone) {
             return "state.ok";
         }
-        return dependencyDone ? "accent" : "panel.border";
+        return dependencyDone ? "text.muted" : "panel.border";
     }
 
     private void renderEdge(Ui ui, Placed from, Placed to, String token) {
@@ -303,9 +303,9 @@ final class MapView implements BookView {
         int y = placed.y();
         ui.theme.card(ui.g, x, y, NODE_W, NODE_H);
         if (selected || status != QuestStatus.LOCKED && !dimmed) {
-            Draw.roundBorder(ui.g, x, y, NODE_W, NODE_H, 5f, ui.color(selected ? "accent" : borderToken(status)), selected ? 1f : 0.5f);
+            Draw.roundBorder(ui.g, x, y, NODE_W, NODE_H, 5f, ui.color(selected ? "text.primary" : borderToken(status)), selected ? 1f : 0.5f);
         }
-        quest.icon().map(TaskText::stackOf).ifPresent(stack -> ui.item(stack, x + 3, y + 4));
+        quest.icon().map(TaskText::stackOf).ifPresent(stack -> ui.plated(stack, x + 3, y + 4));
         boolean locked = status == QuestStatus.LOCKED || dimmed;
         ui.text(Draw.ellipsize(Component.translatable(quest.title()).getString(), NODE_W - 24), x + 21, y + 4, locked ? "text.dim" : "text.primary");
         ui.small(subline(quest, status, current), x + 21, y + 14, subToken(status));
@@ -320,14 +320,14 @@ final class MapView implements BookView {
     }
 
     private static String borderToken(QuestStatus status) {
-        return status == QuestStatus.CLAIMED ? "state.ok" : "accent";
+        return status == QuestStatus.CLAIMED ? "state.ok" : "text.muted";
     }
 
     private static String subToken(QuestStatus status) {
         return switch (status) {
             case CLAIMED -> "state.ok";
             case LOCKED -> "text.dim";
-            default -> "accent";
+            default -> "text.muted";
         };
     }
 
@@ -360,7 +360,7 @@ final class MapView implements BookView {
         }
         Component focus = Component.translatable(focusPath.isEmpty() ? "rysquests.map.focus" : "rysquests.map.unfocus");
         int focusW = ui.font.width(focus) + 14;
-        ui.button(focus, viewX + viewW - focusW - 4, viewY + 4, 14, !focusPath.isEmpty(), this::toggleFocus);
+        ui.button(focus, viewX + viewW - focusW - 4, viewY + 4, 14, false, this::toggleFocus);
         renderMinimap(ui, current, quests);
     }
 
@@ -378,7 +378,7 @@ final class MapView implements BookView {
                 String token = switch (BookState.status(quest)) {
                     case CLAIMED -> "state.ok";
                     case LOCKED -> "text.dim";
-                    default -> "accent";
+                    default -> "text.primary";
                 };
                 Draw.rect(ui.g, x + 3 + Math.round(placed.x() * scale), y + 3 + Math.round(placed.y() * scale), 2, 1, ui.color(token));
             }

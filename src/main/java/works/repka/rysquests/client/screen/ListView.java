@@ -29,7 +29,7 @@ final class ListView implements BookView {
     @Override
     public void render(Ui ui, int x, int y, int w, int h) {
         Component toggle = Component.translatable(hideFinished ? "rysquests.list.show_finished" : "rysquests.list.hide_finished");
-        ui.button(toggle, x, y, 16, hideFinished, () -> hideFinished = !hideFinished);
+        ui.button(toggle, x, y, 16, false, () -> hideFinished = !hideFinished);
         Map<QuestStatus, List<Quest>> groups = new EnumMap<>(QuestStatus.class);
         for (Quest quest : screen.visibleQuests()) {
             groups.computeIfAbsent(BookState.status(quest), key -> new ArrayList<>()).add(quest);
@@ -63,11 +63,10 @@ final class ListView implements BookView {
         if (ui.over(x, y, w, rowH) || quest.id().equals(BookState.quest)) {
             ui.theme.card(ui.g, x, y, w, rowH);
         }
-        quest.icon().map(TaskText::stackOf).ifPresent(stack -> ui.item(stack, x + 2, y + 1));
+        quest.icon().map(TaskText::stackOf).ifPresent(stack -> ui.plated(stack, x + 2, y + 1));
         String token = switch (status) {
             case LOCKED -> "text.dim";
             case CLAIMED -> "state.ok";
-            case COMPLETED, IN_PROGRESS -> "accent";
             default -> "text.primary";
         };
         ui.text(Draw.ellipsize(Component.translatable(quest.title()).getString(), w - 26), x + 21, y + 5, token);

@@ -17,6 +17,7 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 import works.repka.rysquests.client.ClientBook;
+import works.repka.rysquests.client.ClientDev;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.input.QuestKeys;
 import works.repka.rysquests.client.integration.Recipes;
@@ -51,6 +52,9 @@ public final class BookScreen extends Screen {
     private QuestBook cachedFor;
     @Nullable
     private EditBox searchBox;
+    private static final long COUNT_REFRESH_MS = 500;
+    private long countsAt;
+    private int claimCount;
     private int chapterScroll;
     private int readingScroll;
     private int chaptersRight;
@@ -136,6 +140,22 @@ public final class BookScreen extends Screen {
         }).count();
     }
 
+    /** Whether the player holds what is still missing for a task: the slot frame shows it. */
+    static boolean hasEnough(works.repka.rysquests.data.TaskDef task, int value) {
+        if (!(task instanceof ItemTask item)) {
+            return false;
+        }
+        var inventory = Minecraft.getInstance().player.getInventory();
+        int have = 0;
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (!stack.isEmpty() && matches(item, stack)) {
+                have += stack.getCount();
+            }
+        }
+        return have >= item.count() - value;
+    }
+
     private static boolean matches(ItemTask task, ItemStack stack) {
         return task.itemRefs().stream().anyMatch(ref -> ref.tag()
                 ? stack.is(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM, ref.id()))
@@ -197,6 +217,9 @@ public final class BookScreen extends Screen {
         chaptersRight = viewX;
         int viewW = readingLeft - PAD - viewX;
 
+        int sidebarX = theme.flushSidebar ? panelX : chaptersX;
+        int sidebarBottom = theme.flushSidebar ? panelY + panelH : bottom;
+        theme.sidebar(g, sidebarX, top, chaptersX + chaptersW - sidebarX, sidebarBottom - top);
         renderChapters(ui, chaptersX, top, chaptersW, bottom - top);
         activeView().render(ui, viewX, top, viewW, bottom - top);
         if (readingW > 0) {
@@ -221,10 +244,10 @@ public final class BookScreen extends Screen {
             int rowY = y + i * ROW - chapterScroll;
             boolean open = chapter.id().equals(BookState.chapter);
             ui.theme.tab(ui.g, x, rowY, w, ROW - 2, open, ui.over(x, rowY, w, ROW - 2));
-            chapter.icon().map(TaskText::stackOf).ifPresent(stack -> ui.item(stack, x + 1, rowY + 1));
+            chapter.icon().map(TaskText::stackOf).ifPresent(stack -> ui.plated(stack, x + 1, rowY + 1));
             ui.text(Draw.ellipsize(Component.translatable(chapter.title()).getString(), w - 23), x + 20, rowY + 3, open ? "tab.active.fg" : "tab.inactive.fg");
             int[] counts = chapterCounts(chapter.id());
-            ui.bar(x + 20, rowY + 13, w - 26, 2, counts[1] == 0 ? 0 : (float) counts[0] / counts[1], open ? "accent.text" : "state.ok");
+            ui.bar(x + 20, rowY + 13, w - 26, 2, counts[1] == 0 ? 0 : (float) counts[0] / counts[1], "state.ok");
             ui.hit(x, rowY, w, ROW - 2, () -> BookState.openChapter(chapter.id()));
         }
         ui.unclip();
@@ -250,9 +273,18 @@ public final class BookScreen extends Screen {
         }
         for (ViewMode mode : tabs) {
             Component label = Component.translatable("rysquests.view." + mode.getSerializedName());
-            int tabW = font.width(label) + 12;
-            ui.theme.tab(ui.g, cursor, y, tabW, HEADER - 2, current == mode, ui.over(cursor, y, tabW, HEADER - 2));
-            ui.text(label, cursor + 6, y + 4, current == mode ? "tab.active.fg" : "tab.inactive.fg");
+            int count = tabCount(mode);
+            String badge = count > 0 ? String.valueOf(count) : "";
+            int badgeW = badge.isEmpty() ? 0 : font.width(badge) + 9;
+            int tabW = font.width(label) + 12 + badgeW;
+            boolean over = ui.over(cursor, y, tabW, HEADER - 2);
+            ui.theme.tabLine(ui.g, cursor, y, tabW, HEADER - 2, current == mode, over);
+            Draw.text(ui.g, label, cursor + 6, y + 4, ui.theme.tabLineFg(current == mode, over));
+            if (!badge.isEmpty()) {
+                int badgeX = cursor + 6 + font.width(label) + 4;
+                ui.theme.chip(ui.g, badgeX, y + 3, badgeW - 4 + 2, 10, "mod");
+                ui.text(badge, badgeX + 3, y + 4, "chip.mod.fg");
+            }
             ui.hit(cursor, y, tabW, HEADER - 2, () -> BookState.view = mode);
             cursor += tabW + 3;
         }
@@ -265,9 +297,26 @@ public final class BookScreen extends Screen {
             searchBox.setWidth(boxW - 8);
             searchBox.render(ui.g, ui.mouseX, ui.mouseY, 0);
             if (BookState.search.isEmpty() && !searchBox.isFocused()) {
-                ui.small(Component.translatable("rysquests.book.search").getString(), boxX + 4, y + 5, "text.dim");
+                Draw.magnifier(ui.g, boxX + 4, y + 4, ui.color("text.dim"));
+                ui.small(Component.translatable("rysquests.book.search").getString(), boxX + 16, y + 5, "text.dim");
             }
         }
+    }
+
+    /** Counters beside section names: rewards waiting, and problems in the book for operators. */
+    private int tabCount(ViewMode mode) {
+        long now = System.currentTimeMillis();
+        if (now - countsAt > COUNT_REFRESH_MS) {
+            countsAt = now;
+            claimCount = readyToClaim();
+        }
+        if (mode == ViewMode.HOME) {
+            return claimCount;
+        }
+        if (mode == ViewMode.DEV && ClientDev.report() != null) {
+            return ClientDev.report().sections().getFirst().entries().size();
+        }
+        return 0;
     }
 
     private void renderReading(Ui ui, int x, int y, int w, int h) {

@@ -24,6 +24,7 @@ import works.repka.rysquests.integration.ftbq.ImportedPack;
 import works.repka.rysquests.migrate.MigrationRunner;
 import works.repka.rysquests.network.ModNetwork;
 import works.repka.rysquests.progress.ProgressService;
+import works.repka.rysquests.progress.TeamBridge;
 import works.repka.rysquests.reward.RewardTypes;
 import works.repka.rysquests.task.TaskTypes;
 
@@ -40,6 +41,7 @@ public final class RYSQuests {
         modBus.addListener(ModNetwork::register);
         DevExamplePack.register(modBus);
         ImportedPack.register(modBus);
+        TeamBridge.register();
 
         NeoForge.EVENT_BUS.addListener((AddReloadListenerEvent event) -> event.addListener(new BookLoader(event.getRegistryAccess())));
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> QuestCommands.register(event.getDispatcher()));

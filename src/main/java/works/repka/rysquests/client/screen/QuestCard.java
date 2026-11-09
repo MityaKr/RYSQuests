@@ -62,7 +62,7 @@ final class QuestCard {
         }
         if (status == QuestStatus.COMPLETED) {
             y += 2;
-            ui.button(Component.translatable("rysquests.book.claim"), left, y, BUTTON + 2, true, () -> claim(quest));
+            ui.button(Component.translatable("rysquests.book.claim"), left, y, BUTTON + 2, ui.accentOnce(), () -> claim(quest));
             y += BUTTON + 4;
         }
         return y + PAD - top;
@@ -81,8 +81,8 @@ final class QuestCard {
 
     private static void pinButton(Ui ui, Quest quest, int x, int y) {
         boolean pinned = ClientProgress.pinned().contains(quest.id());
-        ui.theme.button(ui.g, x, y, BUTTON, BUTTON, ui.over(x, y, BUTTON, BUTTON), pinned);
-        Draw.round(ui.g, x + 4, y + 4, 6, 6, 1f, ui.color(pinned ? "accent.text" : "text.muted"));
+        ui.theme.button(ui.g, x, y, BUTTON, BUTTON, ui.over(x, y, BUTTON, BUTTON), false);
+        Draw.star(ui.g, x + 3, y + 3, pinned, ui.color(pinned ? "text.primary" : "text.muted"));
         ui.hit(x, y, BUTTON, BUTTON, () -> send(QuestActionPayload.PIN, quest, 0, List.of()));
         ui.tooltipIfOver(x, y, BUTTON, BUTTON, Component.translatable(pinned ? "rysquests.book.unpin" : "rysquests.book.pin"));
     }
@@ -97,7 +97,10 @@ final class QuestCard {
         int boxY = y + (rowH - 10) / 2;
         Draw.roundBox(ui.g, x + 3, boxY, 10, 10, 2f, ui.color(done ? "state.ok" : "slot.bg"), ui.color("card.border"));
         ItemStack icon = TaskText.icon(task);
-        ui.item(icon, x + 15, y + 1);
+        if (!icon.isEmpty()) {
+            boolean have = done || BookScreen.hasEnough(task, value);
+            ui.plated(icon, x + 15, y + 1, ui.color(have ? "slot.have.border" : "slot.miss.border"));
+        }
         if (!icon.isEmpty() && ui.over(x + 15, y + 1, 16, 16)) {
             ui.hoveredStack = icon;
         }
@@ -112,9 +115,9 @@ final class QuestCard {
         int submitW = submit ? ui.font.width(submitLabel) + 14 : 0;
         int nameW = w - (nameX - x) - countW - submitW - 8;
         ui.text(Draw.ellipsize(TaskText.describe(task).getString(), nameW), nameX, y + 5, done ? "text.muted" : "text.primary");
-        ui.text(count, x + w - countW - submitW - 4, y + 5, done ? "state.ok" : "accent");
+        ui.text(count, x + w - countW - submitW - 4, y + 5, done ? "state.ok" : "text.muted");
         if (submit) {
-            ui.button(submitLabel, x + w - submitW - 2, y + 2, BUTTON, true, () -> send(QuestActionPayload.SUBMIT, quest, 0, List.of()));
+            ui.button(submitLabel, x + w - submitW - 2, y + 2, BUTTON, false, () -> send(QuestActionPayload.SUBMIT, quest, 0, List.of()));
         }
         if (task instanceof CheckboxTask && open && !done) {
             ui.hit(x, y, w, rowH, () -> send(QuestActionPayload.CHECK, quest, index, List.of()));

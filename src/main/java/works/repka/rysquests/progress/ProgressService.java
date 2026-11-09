@@ -16,6 +16,7 @@ import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -36,6 +37,7 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
+import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.api.QuestCompletedEvent;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.Quest;
@@ -70,6 +72,7 @@ public final class ProgressService {
     private static final int POLL_INTERVAL = 20;
     private static final int STAGE_INTERVAL = 100;
     private static final long MINUTE_MS = 60_000;
+    private static final ResourceLocation FEED_SOURCE = ResourceLocation.fromNamespaceAndPath("rysquests", "quests");
 
     /** Open, unlocked quests per team, so that polling does not walk the whole book. */
     private static final Map<UUID, List<Quest>> ACTIVE = new HashMap<>();
@@ -206,13 +209,25 @@ public final class ProgressService {
                 .toList();
         store.put(team, changes);
         ACTIVE.remove(team);
-        newlyCompleted.forEach(id -> NeoForge.EVENT_BUS.post(new QuestCompletedEvent(team, id, player)));
+        newlyCompleted.forEach(id -> {
+            NeoForge.EVENT_BUS.post(new QuestCompletedEvent(team, id, player));
+            postToTeam(team, id, player);
+        });
         for (ServerPlayer member : player.server.getPlayerList().getPlayers()) {
             if (team(member).equals(team)) {
                 Map<ResourceLocation, QuestProgress> view = new HashMap<>();
                 changes.forEach((id, progress) -> view.put(id, viewFor(member, id, progress)));
                 PacketDistributor.sendToPlayer(member, new ProgressPayload(false, view));
             }
+        }
+    }
+
+    private static void postToTeam(UUID team, ResourceLocation id, ServerPlayer player) {
+        Quest quest = book().quests().get(id);
+        if (quest != null && !TeamsApi.get().isSolo(team)) {
+            TeamsApi.get().post(team, new TeamsApi.Post(FEED_SOURCE,
+                    Component.translatable("rysquests.team.feed_completed", player.getDisplayName(), Component.translatable(quest.title())),
+                    quest.icon().orElse(null), false));
         }
     }
 
@@ -440,7 +455,7 @@ public final class ProgressService {
     }
 
     private static void submit(ServerPlayer player, Quest quest) {
-        if (!isOpen(player, quest)) {
+        if (!isOpen(player, quest) || !TeamsApi.get().can(player.getUUID(), "submit_tasks")) {
             return;
         }
         QuestProgress before = ProgressStore.get(player.server).get(team(player), quest.id());
@@ -494,7 +509,7 @@ public final class ProgressService {
         UUID team = team(player);
         ProgressStore store = ProgressStore.get(player.server);
         QuestProgress before = viewFor(player, quest.id(), store.get(team, quest.id()));
-        if (!before.completed()) {
+        if (!before.completed() || !TeamsApi.get().can(player.getUUID(), "claim_rewards")) {
             return;
         }
         List<Integer> claimed = new ArrayList<>(before.claimed());

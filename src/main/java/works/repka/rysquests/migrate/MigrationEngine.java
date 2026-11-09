@@ -81,7 +81,7 @@ public final class MigrationEngine {
     }
 
     /** The better of two records: highest value per task, latest completion, and every claimed reward. */
-    static QuestProgress best(QuestProgress a, QuestProgress b) {
+    public static QuestProgress best(QuestProgress a, QuestProgress b) {
         List<Integer> tasks = new ArrayList<>();
         for (int i = 0; i < Math.max(a.tasks().size(), b.tasks().size()); i++) {
             tasks.add(Math.max(a.task(i), b.task(i)));

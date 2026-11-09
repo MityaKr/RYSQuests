@@ -72,7 +72,7 @@ final class TimelineView implements BookView {
 
     private void renderCard(Ui ui, Chapter chapter, int x, int y) {
         ui.theme.card(ui.g, x, y, CARD_W, CARD_H);
-        chapter.icon().map(TaskText::stackOf).ifPresent(stack -> ui.item(stack, x + 4, y + 8));
+        chapter.icon().map(TaskText::stackOf).ifPresent(stack -> ui.plated(stack, x + 4, y + 8));
         ui.text(Draw.ellipsize(Component.translatable(chapter.title()).getString(), CARD_W - 26), x + 23, y + 6, "text.primary");
         int[] count = counts.getOrDefault(chapter.id(), new int[2]);
         ui.bar(x + 23, y + 18, CARD_W - 28, 3, count[1] == 0 ? 0 : (float) count[0] / count[1], "state.ok");

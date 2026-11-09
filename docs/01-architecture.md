@@ -151,6 +151,7 @@ HUD: стикеры закреплённых квестов регистриру
 
 - `RecipeViewerBridge`: `showRecipes(ItemStack)`, `showUsages(ItemStack)`, `renderRecipePreview(...)`; реализации `JeiBridge` (за `ModList.get().isLoaded("jei")`), `NoopBridge`. EMI позже. Отдельный мост к RYScope не нужен (ADR-20).
 - `StageProvider`: `boolean has(ServerPlayer, String stage)`, `grant(...)`. Встроенный: продвижения (`stage` = id продвижения). KubeJS/Game Stages через API.
+- Команды: режим `team` спрашивает `TeamsApi` из RYSCore (ADR-26).
 - RYScope: зависимости от него нет, общая тема приходит через RYSCore (ADR-23). Стадия RYScope как награда сначала выдаётся командой `/ryscope stage grant @s <id>`, id файла из папки сборки это `config:<имя>`. Перед своим миксином сверяться с `ryscope.mixins.json`: там уже есть вмешательства в `GuiGraphics`, `Slot`, `CraftingMenu` и другие классы.
 - Импорт FTB Quests: читает SNBT из `config/ftbquests/quests/**` (формат 1.21: `chapters/*.snbt`, `reward_tables`, `chapter_groups`, `data.snbt`) и прогресс из `world/data/ftbquests/`. Соответствие числовых id → строковые ключи по названиям с дедупликацией; сохраняется как первая миграция и как `import-report.md`. Точный формат проверить по коду FTB Quests (см. `08-verify-first.md`).
 

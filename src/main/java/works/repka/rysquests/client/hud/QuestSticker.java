@@ -66,7 +66,7 @@ final class QuestSticker implements Sticker {
         int barY = y + h - 4;
         Draw.rect(g, barX, barY, barW, 2, theme.c("slot.bg"));
         if (total > 0) {
-            Draw.rect(g, barX, barY, barW * done / total, 2, theme.c("accent"));
+            Draw.rect(g, barX, barY, barW * done / total, 2, theme.c("state.ok"));
         }
     }
 }

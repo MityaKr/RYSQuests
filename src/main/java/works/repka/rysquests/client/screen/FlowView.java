@@ -108,7 +108,7 @@ final class FlowView implements BookView {
         if (quest.id().equals(BookState.quest)) {
             int height = ui.measure(() -> QuestCard.render(ui, quest, 0, MEASURE_Y, w));
             ui.theme.card(ui.g, x, y, w, height);
-            Draw.roundBorder(ui.g, x, y, w, height, 6f, ui.color("accent"));
+            Draw.roundBorder(ui.g, x, y, w, height, 6f, ui.color("text.dim"));
             QuestCard.render(ui, quest, x, y, w);
             return y + height + GAP;
         }
@@ -122,18 +122,17 @@ final class FlowView implements BookView {
             ui.theme.card(ui.g, x, y, w, rowH);
         }
         QuestStatus status = BookState.status(quest);
-        quest.icon().map(TaskText::stackOf).ifPresent(stack -> ui.item(stack, x + 2, y + 1));
+        quest.icon().map(TaskText::stackOf).ifPresent(stack -> ui.plated(stack, x + 2, y + 1));
         String token = switch (status) {
             case LOCKED -> "text.dim";
             case CLAIMED -> "state.ok";
-            case COMPLETED -> "accent";
             default -> dim ? "text.muted" : "text.primary";
         };
         ui.text(Draw.ellipsize(Component.translatable(quest.title()).getString(), w - 36), x + 21, y + 5, token);
         if (status == QuestStatus.LOCKED) {
             Draw.lock(ui.g, x + w - 11, y + 5, ui.color("text.dim"));
         } else if (status == QuestStatus.COMPLETED) {
-            Draw.round(ui.g, x + w - 11, y + 5, 7, 7, 3.5f, ui.color("accent"));
+            Draw.dot(ui.g, x + w - 10, y + 6, 6, ui.color("state.ok"));
         }
         int rowY = y;
         ui.hit(x, y, w, rowH, () -> {
@@ -199,7 +198,7 @@ final class FlowView implements BookView {
 
     private void renderNextCard(Ui ui, Quest quest, int x, int y, int w) {
         ui.theme.card(ui.g, x, y, w, NEXT_H);
-        quest.icon().map(TaskText::stackOf).ifPresent(stack -> ui.item(stack, x + 4, y + 7));
+        quest.icon().map(TaskText::stackOf).ifPresent(stack -> ui.plated(stack, x + 4, y + 7));
         ui.text(Draw.ellipsize(Component.translatable(quest.title()).getString(), w - 26), x + 23, y + 6, "text.body");
         ui.small(Draw.ellipsize(BookScreen.waitingFor(quest).getString(), (int) ((w - 26) / 0.75f)), x + 23, y + 17, "text.muted");
         ui.hit(x, y, w, NEXT_H, () -> BookState.select(quest));
@@ -210,11 +209,11 @@ final class FlowView implements BookView {
         int claim = screen.readyToClaim();
         int cursor = x;
         if (submit > 0) {
-            cursor += ui.button(Component.translatable("rysquests.flow.submit_all", submit), cursor, y, 16, true,
+            cursor += ui.button(Component.translatable("rysquests.flow.submit_all", submit), cursor, y, 16, ui.accentOnce(),
                     () -> QuestKeys.sendAll(QuestActionPayload.SUBMIT_ALL)) + GAP;
         }
         if (claim > 0) {
-            ui.button(Component.translatable("rysquests.flow.claim_all", claim), cursor, y, 16, submit == 0,
+            ui.button(Component.translatable("rysquests.flow.claim_all", claim), cursor, y, 16, ui.accentOnce(),
                     () -> QuestKeys.sendAll(QuestActionPayload.CLAIM_ALL));
         }
     }

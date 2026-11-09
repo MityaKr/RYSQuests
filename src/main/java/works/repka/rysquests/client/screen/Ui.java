@@ -33,6 +33,7 @@ final class Ui {
     @Nullable
     Component hoveredText;
     private final java.util.ArrayDeque<int[]> clipStack = new java.util.ArrayDeque<>();
+    private boolean accentUsed;
     private int clipTop = Integer.MIN_VALUE;
     private int clipBottom = Integer.MAX_VALUE;
 
@@ -59,10 +60,30 @@ final class Ui {
 
     /** Runs drawing code only to learn its result: nothing shows and nothing becomes clickable. */
     int measure(java.util.function.IntSupplier layout) {
+        boolean accentBefore = accentUsed;
         clip(0, 0, 0, 0);
         int result = layout.getAsInt();
         unclip();
+        accentUsed = accentBefore;
         return result;
+    }
+
+    /** The accent color belongs to one action per window: the first to ask for it in a frame gets it. */
+    boolean accentOnce() {
+        boolean free = !accentUsed;
+        accentUsed = true;
+        return free;
+    }
+
+    /** An item on its slot plate, without the slot's click behaviour. */
+    void plated(ItemStack stack, int x, int y) {
+        theme.slot(g, x - 1, y - 1, SLOT, false);
+        item(stack, x, y);
+    }
+
+    void plated(ItemStack stack, int x, int y, int border) {
+        theme.slot(g, x - 1, y - 1, SLOT, false, border);
+        item(stack, x, y);
     }
 
     boolean over(int x, int y, int w, int h) {

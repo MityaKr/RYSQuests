@@ -20,6 +20,12 @@ final class DevView implements BookView {
     private static final int LINE = 12;
     private static final int WHEEL = 24;
     private static final int BUTTON = 16;
+    private static final String[][] ACTIONS = {
+        {"rysquests.dev.dry_run", "rysquests migrate --dry-run"},
+        {"rysquests.dev.migrate", "rysquests migrate --apply"},
+        {"rysquests.dev.import", "rysquests import ftbq"},
+        {"rysquests.dev.registry", "rysquests dev registry"}
+    };
 
     private int scroll;
     private boolean requested;
@@ -31,15 +37,19 @@ final class DevView implements BookView {
             requested = true;
             QuestKeys.sendAll(QuestActionPayload.DEV_REPORT);
         }
-        int cursor = x;
-        cursor += ui.button(Component.translatable("rysquests.dev.recheck"), cursor, y, BUTTON, true, () -> QuestKeys.sendAll(QuestActionPayload.DEV_REPORT)) + 3;
-        cursor += command(ui, "rysquests.dev.dry_run", "rysquests migrate --dry-run", cursor, y) + 3;
-        cursor += command(ui, "rysquests.dev.migrate", "rysquests migrate --apply", cursor, y) + 3;
-        cursor += command(ui, "rysquests.dev.import", "rysquests import ftbq", cursor, y) + 3;
-        command(ui, "rysquests.dev.registry", "rysquests dev registry", cursor, y);
+        int cursor = x + ui.button(Component.translatable("rysquests.dev.recheck"), x, y, BUTTON, ui.accentOnce(), () -> QuestKeys.sendAll(QuestActionPayload.DEV_REPORT)) + 3;
+        int rowY = y;
+        for (String[] action : ACTIONS) {
+            int width = ui.font.width(Component.translatable(action[0])) + 14;
+            if (cursor + width > x + w) {
+                cursor = x;
+                rowY += BUTTON + 3;
+            }
+            cursor += command(ui, action[0], action[1], cursor, rowY) + 3;
+        }
 
-        int listY = y + BUTTON + 4;
-        int listH = h - BUTTON - 4;
+        int listY = rowY + BUTTON + 4;
+        int listH = y + h - listY;
         ui.clip(x, listY, w, listH);
         int line = listY - scroll;
         DevReports.Report report = ClientDev.report();

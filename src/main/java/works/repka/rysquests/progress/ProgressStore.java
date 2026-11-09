@@ -13,7 +13,9 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
+import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.data.ProgressMode;
+import works.repka.rysquests.migrate.MigrationEngine;
 
 /** Quest progress of all teams, saved with the world. */
 public final class ProgressStore extends SavedData {
@@ -104,8 +106,24 @@ public final class ProgressStore extends SavedData {
         return switch (mode) {
             case SOLO -> player;
             case SERVER -> SERVER_TEAM;
-            case TEAM -> members.getOrDefault(player, player);
+            case TEAM -> {
+                // A team mod, when installed, decides. Our own commands only apply without one.
+                UUID shared = TeamsApi.get().teamOf(player);
+                yield shared.equals(player) ? members.getOrDefault(player, player) : shared;
+            }
         };
+    }
+
+    /** Folds one set of progress into another, keeping the better record of each quest. */
+    public void mergeInto(UUID from, UUID into) {
+        Map<ResourceLocation, QuestProgress> target = team(into);
+        team(from).forEach((quest, progress) -> target.merge(quest, progress, MigrationEngine::best));
+        setDirty();
+    }
+
+    public void copyTeam(UUID from, UUID to) {
+        teams.put(to, new HashMap<>(team(from)));
+        setDirty();
     }
 
     public void setTeam(UUID player, UUID team) {

@@ -71,6 +71,8 @@
   "rysquests.team.no_invite": "У вас нет приглашения.",
   "rysquests.team.joined": "Вы вступили в команду.",
   "rysquests.team.left": "Вы вышли из команды.",
+  "rysquests.team.merge_preview": "Прогресс квестов объединится, лучшее из двух: квестов %s",
+  "rysquests.team.feed_completed": "%s выполняет квест %s",
   "rysquests.migrate.none": "Новых миграций нет.",
   "rysquests.migrate.line": "%s",
   "rysquests.migrate.dry_run": "Пробный запуск, ничего не изменено. Отчёт: logs/rysquests-migrate.txt",
