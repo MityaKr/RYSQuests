@@ -37,7 +37,7 @@ final class DevView implements BookView {
     private Tab tab = Tab.FUNNEL;
     private boolean requested;
     private String openSection = "";
-    private int scroll;
+    private final Scroll scroll = new Scroll();
 
     void renderBar(Ui ui, int x, int y, int w, int barH) {
         ui.fillCorners(x, y, w, barH, 13, ui.c("sidebar.bg"), true, true, false, false);
@@ -65,7 +65,7 @@ final class DevView implements BookView {
             }
             ui.hit(cursor, cy - 13.5f, tabW, 27, () -> {
                 tab = option;
-                scroll = 0;
+                scroll.reset();
             });
             cursor += tabW + 4;
         }
@@ -311,7 +311,8 @@ final class DevView implements BookView {
     private void renderReportsPage(Ui ui, DevReports.Report report, int x, int y, int w, int h) {
         float left = x + PAD_X;
         float inner = w - PAD_X * 2;
-        float cursor = y + PAD_Y - scroll;
+        int offset = scroll.offset();
+        float cursor = y + PAD_Y - offset;
         for (DevReports.Section section : sections(report)) {
             boolean open = section.id().equals(openSection);
             float cy = cursor + 16;
@@ -329,7 +330,7 @@ final class DevView implements BookView {
                 cursor += 8;
             }
         }
-        scroll = BookScreen.clampScroll(scroll, Math.round(cursor + scroll - y + PAD_Y), h - 12);
+        scroll.content(cursor + offset - y + PAD_Y, h - 12);
     }
 
     private void renderMigrationsPage(Ui ui, DevReports.Report report, int x, int y, int w, int h) {
@@ -382,6 +383,6 @@ final class DevView implements BookView {
 
     @Override
     public void scroll(double mouseX, double mouseY, double amount) {
-        scroll -= (int) (amount * WHEEL);
+        scroll.wheel(amount, WHEEL);
     }
 }

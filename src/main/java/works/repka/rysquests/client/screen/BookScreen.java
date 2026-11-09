@@ -75,9 +75,9 @@ public final class BookScreen extends Screen {
     private long countsAt;
     private int claimCount;
     private List<ItemStack> claimStacks = List.of();
-    private int chapterScroll;
-    private int railScroll;
-    private int cardScroll;
+    private final Scroll chapterScroll = new Scroll();
+    private final Scroll railScroll = new Scroll();
+    private final Scroll cardScroll = new Scroll();
     private int chaptersLeft;
     private int chaptersRight;
     private int cardLeft;
@@ -311,10 +311,11 @@ public final class BookScreen extends Screen {
         int gearY = y + h - 14 - 50;
         int listH = gearY - 10 - listTop;
         List<Chapter> chapters = chapters();
-        railScroll = clampScroll(railScroll, chapters.size() * RAIL_STEP, listH);
+        railScroll.content(chapters.size() * RAIL_STEP, listH);
+        int railOffset = railScroll.offset();
         ui.clip(x, listTop, w, listH);
         for (int i = 0; i < chapters.size(); i++) {
-            int rowY = listTop + i * RAIL_STEP - railScroll;
+            int rowY = listTop + i * RAIL_STEP - railOffset;
             if (rowY + 50 > listTop && rowY < listTop + listH) {
                 renderRailItem(ui, chapters.get(i), i + 1, center - 25, rowY);
             }
@@ -476,12 +477,13 @@ public final class BookScreen extends Screen {
         int blockH = claim > 0 ? 72 : 0;
         int listH = y + h - 14 - blockH - (claim > 0 ? 8 : 0) - listTop;
         List<Chapter> chapters = chapters();
-        chapterScroll = clampScroll(chapterScroll, chapters.size() * CHAPTER_STEP, listH);
+        chapterScroll.content(chapters.size() * CHAPTER_STEP, listH);
+        int chapterOffset = chapterScroll.offset();
         ui.clip(x, listTop, w, listH);
-        int first = Math.max(0, chapterScroll / CHAPTER_STEP);
+        int first = Math.max(0, chapterOffset / CHAPTER_STEP);
         int last = Math.min(chapters.size(), first + listH / CHAPTER_STEP + 2);
         for (int i = first; i < last; i++) {
-            renderChapterRow(ui, chapters.get(i), i + 1, x + 12, listTop + i * CHAPTER_STEP - chapterScroll, 207);
+            renderChapterRow(ui, chapters.get(i), i + 1, x + 12, listTop + i * CHAPTER_STEP - chapterOffset, 207);
         }
         ui.unclip();
         if (claim > 0) {
@@ -526,9 +528,9 @@ public final class BookScreen extends Screen {
             return;
         }
         ui.clip(x, y, w, h);
-        int content = QuestCard.render(ui, quest, x + 1, y - cardScroll, w - 1);
+        int content = QuestCard.render(ui, quest, x + 1, y - cardScroll.offset(), w - 1);
         ui.unclip();
-        cardScroll = clampScroll(cardScroll, content, h);
+        cardScroll.content(content, h);
     }
 
     int[] chapterCounts(ResourceLocation chapter) {
@@ -540,10 +542,6 @@ public final class BookScreen extends Screen {
             }
         }
         return counts;
-    }
-
-    static int clampScroll(int scroll, int content, int view) {
-        return Mth.clamp(scroll, 0, Math.max(0, content - view));
     }
 
     // --- input ---
@@ -581,15 +579,15 @@ public final class BookScreen extends Screen {
         double x = mouseX * 2;
         if (x >= chaptersLeft && x < chaptersRight) {
             if (BookState.currentView() == ViewMode.FLOW) {
-                railScroll -= (int) (scrollY * RAIL_STEP);
+                railScroll.wheel(scrollY, RAIL_STEP);
             } else {
-                chapterScroll -= (int) (scrollY * CHAPTER_STEP);
+                chapterScroll.wheel(scrollY, CHAPTER_STEP);
             }
         } else if (x >= cardLeft) {
             if (BookState.currentView() == ViewMode.FLOW) {
-                reading.scroll(scrollY * WHEEL);
+                reading.scroll(scrollY, WHEEL);
             } else {
-                cardScroll -= (int) (scrollY * WHEEL);
+                cardScroll.wheel(scrollY, WHEEL);
             }
         } else {
             activeView().scroll(x, mouseY * 2, scrollY);

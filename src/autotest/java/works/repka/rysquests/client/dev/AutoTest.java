@@ -224,6 +224,8 @@ public final class AutoTest {
         screenshot("repys_home");
         step("switch to the list", () -> BookScreen.showForTest(ViewMode.LIST), 10);
         screenshot("repys_list");
+        step("scroll the list", () -> mc().screen.mouseScrolled(mc().getWindow().getGuiScaledWidth() * 0.6, mc().getWindow().getGuiScaledHeight() * 0.5, 0, -3), 15);
+        screenshot("repys_list_scrolled");
         step("switch to the timeline", () -> BookScreen.showForTest(ViewMode.TIMELINE), 25);
         screenshot("repys_timeline");
         step("switch to dev", () -> BookScreen.showForTest(ViewMode.DEV), 10);

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>RYSQuests · раздел «Достижения»</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#e6e8ee}
+a{color:#8fb4ff}a:hover{color:#b9d0ff}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; position: relative; overflow: hidden; background: linear-gradient(180deg, #5d7fa8 0%, #3d5a7c 32%, #4d6b3f 60%, #2f3f2a 100%); font-family: Inter, system-ui, sans-serif; color: #e6e8ee">
+  <div style="position: absolute; inset: 0; background: rgba(14, 16, 22, 0.64)"></div>
+  <div style="position: absolute; left: 40px; top: 36px; width: 1200px; height: 728px; box-sizing: border-box; background: #1c1f27; border: 1px solid #2c313d; border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.5); display: flex; overflow: hidden">
+
+    <div style="width: 84px; box-sizing: border-box; padding: 14px 0; border-right: 1px solid #2c313d; background: #16181f; display: flex; flex-direction: column; align-items: center; gap: 6px">
+      <svg width="30" height="30" viewBox="0 0 56 56" aria-hidden="true" style="margin-bottom: 8px"><rect x="6" y="6" width="44" height="44" rx="8" fill="#12141a" stroke="#343a48" stroke-width="2"/><path d="M14 30 L24 20 L34 30 L24 40 Z" fill="#5b6273"/><circle cx="36" cy="34" r="10" fill="rgba(228,178,60,0.18)" stroke="#e4b23c" stroke-width="3"/><line x1="43" y1="41" x2="50" y2="48" stroke="#e4b23c" stroke-width="4" stroke-linecap="round"/></svg>
+      <sc-for list="{{rail}}" as="r" hint-placeholder-count="6">
+        <div style="width: 68px; height: 58px; border-radius: 10px; background: {{r.bg}}; border: 1px solid {{r.border}}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px">
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.d}}" fill="none" stroke="{{r.fg}}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+          <span style="font-size: 10.5px; color: {{r.fg}}">{{r.name}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 20px">
+      <div style="display: flex; align-items: center; gap: 16px">
+        <div style="display: flex; flex-direction: column"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 19px; color: #f7f8fb">Достижения</span><span style="font-size: 11.5px; color: #8b93a5">не блокируют прогресс · дают монеты и титулы</span></div>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 14px; padding: 8px 14px; border-radius: 10px; background: #20242e; border: 1px solid #2c313d">
+          <div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 12px; color: #c9cfdd"><b style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 16px; color: #f7f8fb">47</b> из 180</span><div style="width: 160px; height: 5px; border-radius: 3px; background: #12141a; overflow: hidden"><div style="width: 26%; height: 100%; background: {{accent}}"></div></div></div>
+          <span style="width: 1px; height: 28px; background: #2c313d"></span>
+          <div style="display: flex; gap: 10px; font-size: 12px; color: #c9cfdd; font-variant-numeric: tabular-nums"><span><span style="color: #f0c53d">●</span> 6</span><span><span style="color: #c9c9cf">●</span> 14</span><span><span style="color: #b87333">●</span> 27</span></div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap">
+        <sc-for list="{{cats}}" as="c" hint-placeholder-count="7"><div style="padding: 5px 11px; border-radius: 999px; background: {{c.bg}}; border: 1px solid {{c.border}}; color: {{c.fg}}; font-size: 12px">{{c.name}} <span style="opacity: 0.6">{{c.n}}</span></div></sc-for>
+        <div style="margin-left: auto; padding: 5px 11px; border-radius: 999px; color: #8b93a5; font-size: 12px; border: 1px solid #2c313d">ближе к получению ▾</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+        <sc-for list="{{items}}" as="x" hint-placeholder-count="9">
+          <div style="display: flex; gap: 12px; padding: 12px; border-radius: 12px; background: #20242e; border: 1px solid {{x.border}}; min-width: 0; opacity: {{x.op}}">
+            <div style="width: 44px; height: 44px; border-radius: 50%; background: #12141a; border: 3px solid {{x.medal}}; display: flex; align-items: center; justify-content: center; flex: none"><div style="width: 20px; height: 20px; border-radius: 4px; background: {{x.icon}}"></div></div>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 auto">
+              <div style="display: flex; align-items: center; gap: 6px"><span style="font-size: 13px; font-weight: 600; color: #f7f8fb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{x.name}}</span><span style="font-size: 10.5px; color: {{x.medal}}; flex: none">{{x.tier}}</span></div>
+              <span style="font-size: 11.5px; color: #c9cfdd; line-height: 1.35">{{x.desc}}</span>
+              <div style="display: flex; align-items: center; gap: 8px"><div style="flex: 1 1 auto; height: 4px; border-radius: 2px; background: #12141a; overflow: hidden"><div style="width: {{x.pct}}; height: 100%; background: {{x.bar}}"></div></div><span style="font-size: 11px; color: #8b93a5; font-variant-numeric: tabular-nums; flex: none">{{x.prog}}</span></div>
+              <span style="font-size: 10.5px; color: #5f6678">{{x.rare}}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="margin-top: auto; font-size: 11px; color: #5f6678">Достижение это запись с section: achievements: те же типы задач, что у квестов, плюс уровни (бронза, серебро, золото) с порогами. Скрытые показывают название только после получения. Редкость считается по этому серверу.</div>
+    </div>
+
+    <!-- выбранное достижение -->
+    <div style="width: 320px; box-sizing: border-box; border-left: 1px solid #2c313d; background: #20242e; display: flex; flex-direction: column; gap: 12px; padding: 16px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <div style="width: 56px; height: 56px; border-radius: 50%; background: #12141a; border: 4px solid #c9c9cf; display: flex; align-items: center; justify-content: center"><div style="width: 26px; height: 26px; border-radius: 5px; background: #c9a24a"></div></div>
+        <div style="display: flex; flex-direction: column"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 17px; color: #f7f8fb">Заводчанин</span><span style="font-size: 11.5px; color: #8b93a5">Техника · серебро получено</span></div>
+      </div>
+      <div style="font-size: 13px; line-height: 1.5; color: #d7dbe6">Скрафти предметы на механическом сборщике Create.</div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Уровни</span>
+        <sc-for list="{{tiers}}" as="t" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 9px; background: #1a1d25; border: 1px solid {{t.border}}">
+            <span style="width: 16px; height: 16px; border-radius: 50%; border: 3px solid {{t.medal}}; display: inline-block; flex: none"></span>
+            <div style="display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto"><span style="font-size: 12.5px; color: #f2f3f7">{{t.name}} · {{t.need}}</span><span style="font-size: 11px; color: #8b93a5">{{t.reward}}</span></div>
+            <span style="font-size: 11px; color: {{t.stColor}}; flex: none">{{t.st}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 5px; padding: 12px; border-radius: 10px; background: #1a1d25">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #c9cfdd"><span>До золота</span><span style="font-variant-numeric: tabular-nums; color: #f7f8fb">312 / 1 000</span></div>
+        <div style="height: 6px; border-radius: 3px; background: #12141a; overflow: hidden"><div style="width: 31%; height: 100%; background: #f0c53d"></div></div>
+        <span style="font-size: 11px; color: #8b93a5">золото есть у 4 % игроков сервера</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">В команде</span>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #c9cfdd"><span style="width: 16px; height: 16px; border-radius: 4px; background: #7a4fd1; display: inline-block"></span><span>Lena</span><span style="margin-left: auto; color: #f0c53d">золото</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #c9cfdd"><span style="width: 16px; height: 16px; border-radius: 4px; background: #2e8b57; display: inline-block"></span><span>Vasya</span><span style="margin-left: auto; color: #b87333">бронза</span></div>
+      </div>
+      <div style="display: flex; gap: 6px; margin-top: auto">
+        <button style="flex: 1 1 0; height: 34px; border-radius: 9px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 12px; cursor: pointer">Закрепить на HUD</button>
+        <button style="flex: 1 1 0; height: 34px; border-radius: 9px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 12px; cursor: pointer">Титул «Заводчанин»</button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#e4b23c","options":["#e4b23c","#5fc9a6","#8fb4ff","#f08a5d"]},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const a = this.props.accent ?? '#e4b23c';
+    const R = (name, d, on) => ({name, d, bg: on ? '#272c38' : 'transparent', border: on ? '#3a4050' : 'transparent', fg: on ? '#f7f8fb' : '#8b93a5'});
+    const rail = [
+      R('Сюжет', 'M12 3l9 9-9 9-9-9z'), R('Гайды', 'M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3zM5 17a3 3 0 013-3h11'),
+      R('Атлас', 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z'), R('Добыча', 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17l9 5 9-5'),
+      R('Магазин', 'M6 8h12l1 12H5zM9 8V6a3 3 0 016 0v2'), R('Ачивки', 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z', true)
+    ];
+    const C = (name, n, on) => ({name, n, bg: on ? '#272c38' : 'transparent', border: on ? '#3a4050' : '#2c313d', fg: on ? '#f7f8fb' : '#c9cfdd'});
+    const cats = [C('Все', 180, true), C('Техника', 46), C('Магия', 31), C('Исследование', 28), C('Бой', 24), C('Команда', 12), C('Скрытые', 39)];
+    const G = '#f0c53d', S = '#c9c9cf', B = '#b87333', N = '#343a48';
+    const X = (name, tier, medal, icon, desc, pct, prog, rare, sel, dim) => ({name, tier, medal, icon, desc, pct, prog, rare, bar: medal === N ? '#8b93a5' : medal, border: sel ? a : '#2c313d', op: dim ? '0.55' : '1'});
+    const items = [
+      X('Заводчанин', 'серебро', S, '#c9a24a', 'Скрафти предметы на механическом сборщике', '31%', '312 / 1 000', 'серебро у 22 % сервера', true),
+      X('Шахтёр', 'бронза', B, '#c9c9cf', 'Добудь блоки руды', '88%', '440 / 500', 'до серебра 60 блоков'),
+      X('Первая кровь Незера', 'золото', G, '#c0392b', 'Убей иссушителя', '100%', 'получено', 'есть у 9 % сервера'),
+      X('Коллекционер духов', '', N, '#c58bff', 'Собери все виды духов Malum', '25%', '2 / 8', 'есть у 3 % сервера'),
+      X('Путешественник', 'бронза', B, '#2e8b57', 'Посети разные биомы', '60%', '18 / 30', 'до серебра 12 биомов'),
+      X('Командная работа', 'серебро', S, '#8fb4ff', 'Заверши главы вместе с командой', '50%', '1 / 2', 'серебро у 14 % сервера'),
+      X('Энергетик', '', N, '#e36b6b', 'Накопи энергию в одной сети', '4%', '0,4 / 10 MFE', 'откроется в эпохе IV', false, true),
+      X('???', 'скрытое', N, '#343a48', 'Подсказка: не всё золото блестит', '0%', '', 'есть у 1 % сервера', false, true),
+      X('???', 'скрытое', N, '#343a48', 'Подсказка: спроси у пчёл', '0%', '', 'пока ни у кого', false, true)
+    ];
+    const tiers = [
+      {name: 'Бронза', need: '10 предметов', reward: '+10 монет', medal: B, st: '✓ получено', stColor: '#6fcf8f', border: '#2c313d'},
+      {name: 'Серебро', need: '100 предметов', reward: '+40 монет · титул «Заводчанин»', medal: S, st: '✓ получено', stColor: '#6fcf8f', border: '#2c313d'},
+      {name: 'Золото', need: '1 000 предметов', reward: '+150 монет · рамка профиля', medal: G, st: '31 %', stColor: a, border: '#5a4420'}
+    ];
+    return { accent: a, rail, cats, items, tiers };
+  }
+}
+</script>
+</body>
+</html>

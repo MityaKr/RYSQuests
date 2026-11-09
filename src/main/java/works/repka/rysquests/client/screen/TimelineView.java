@@ -19,8 +19,11 @@ final class TimelineView implements BookView {
     private static final int COLUMNS = 5;
     private static final int RAIL_DOTS = 6;
     private static final int GAP = 14;
+    private static final int NUDGE = 48;
 
+    private final Scroll nudge = new Scroll();
     private int offset;
+    private int lastOffset;
     private boolean positioned;
 
     @Override
@@ -31,7 +34,9 @@ final class TimelineView implements BookView {
             offset = Math.max(0, current - 1);
             positioned = true;
         }
-        offset = Mth.clamp(offset, 0, Math.max(0, epochs.size() - COLUMNS));
+        lastOffset = Math.max(0, epochs.size() - COLUMNS);
+        offset = Mth.clamp(offset, 0, lastOffset);
+        int push = nudge.offset();
         float left = x + PAD_X;
         float inner = w - PAD_X * 2;
         float columnW = (inner - GAP * (COLUMNS - 1f)) / COLUMNS;
@@ -41,7 +46,7 @@ final class TimelineView implements BookView {
         float cardY = y + PAD_Y + 34;
         float cardH = h - PAD_Y * 2 - 34 - 16 - 14;
         for (int i = 0; i < visible; i++) {
-            renderColumn(ui, epochs.get(offset + i), offset + i, current, left + i * (columnW + GAP), cardY, columnW, cardH);
+            renderColumn(ui, epochs.get(offset + i), offset + i, current, left + i * (columnW + GAP) - push, cardY, columnW, cardH);
         }
         float hintCy = y + h - PAD_Y - 7;
         ui.label(Component.translatable("rysquests.timeline.hint_left").getString(), left, hintCy, 11, Ui.REGULAR, ui.c("text.dim"));
@@ -167,6 +172,11 @@ final class TimelineView implements BookView {
 
     @Override
     public void scroll(double mouseX, double mouseY, double amount) {
-        offset -= (int) Math.signum(amount);
+        // The wheel never wraps around: at either end the columns only give a small push.
+        int next = Mth.clamp(offset - (int) Math.signum(amount), 0, lastOffset);
+        if (next == offset) {
+            nudge.wheel(amount, NUDGE);
+        }
+        offset = next;
     }
 }

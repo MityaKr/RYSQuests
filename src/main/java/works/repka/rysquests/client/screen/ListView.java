@@ -27,6 +27,7 @@ final class ListView implements BookView {
     private static final int GROUP_GAP = 10;
     private static final int GROUP_HEADER = 22;
     private static final int WHEEL = 48;
+    private static final int HEAD_GAP = 12;
 
     private enum Sort {
         STATUS, ORDER, GROUP
@@ -40,7 +41,7 @@ final class ListView implements BookView {
     private Sort sort = Sort.STATUS;
     private boolean hideFinished;
     private boolean expandFinished;
-    private int scroll;
+    private final Scroll scroll = new Scroll();
 
     ListView(BookScreen screen) {
         this.screen = screen;
@@ -54,7 +55,8 @@ final class ListView implements BookView {
         int listY = y + 16 + 26 + 10;
         int footer = y + h - 36;
         ui.clip(x, listY, w, footer - listY);
-        int cursor = listY - scroll;
+        int offset = scroll.offset();
+        int cursor = listY - offset;
         shown.clear();
         Map<Group, List<Quest>> groups = groups();
         boolean first = true;
@@ -66,18 +68,12 @@ final class ListView implements BookView {
             cursor = renderGroup(ui, entry.getKey(), entry.getValue(), left, cursor, inner, listY, footer);
         }
         ui.unclip();
-        scroll = BookScreen.clampScroll(scroll, cursor + scroll - listY, footer - listY);
+        scroll.content(cursor + offset - listY, footer - listY);
         ui.label(Component.translatable("rysquests.list.hint").getString(), left, y + h - 23, 11, Ui.REGULAR, ui.c("text.dim"));
     }
 
     private void renderHead(Ui ui, float x, float y, float w) {
         float cy = y + 13;
-        Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
-        if (chapter != null) {
-            String title = Ui.roman(BookScreen.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
-            ui.label(title, x, cy, 16, Ui.DISPLAY, ui.c("text.primary"));
-            ui.label(Ui.counted("rysquests.plural.quest", screen.visibleQuests().size()), x + ui.width(title, 16, Ui.DISPLAY) + 10, cy, 12, Ui.REGULAR, ui.c("text.muted"));
-        }
         String toggle = Component.translatable(hideFinished ? "rysquests.list.show_finished" : "rysquests.list.hide_finished").getString();
         float toggleW = ui.width(toggle, 11.5f, Ui.REGULAR) + 22;
         float right = x + w;
@@ -98,6 +94,18 @@ final class ListView implements BookView {
             ui.label(label, right - tabW + 10, cy, 11.5f, weight, ui.c(active ? "text.primary" : "tab.inactive.fg"));
             ui.hit(right - tabW, y, tabW, 26, () -> sort = option);
             right -= tabW + 4;
+        }
+        Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
+        if (chapter != null) {
+            // The buttons keep their place in a narrow window: the heading gives way to them.
+            String title = Ui.roman(BookScreen.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
+            float room = right - HEAD_GAP - x;
+            ui.labelFit(title, x, cy, room, 16, Ui.DISPLAY, ui.c("text.primary"));
+            String count = Ui.counted("rysquests.plural.quest", screen.visibleQuests().size());
+            float titleW = ui.width(title, 16, Ui.DISPLAY);
+            if (titleW + 10 + ui.width(count, 12, Ui.REGULAR) <= room) {
+                ui.label(count, x + titleW + 10, cy, 12, Ui.REGULAR, ui.c("text.muted"));
+            }
         }
     }
 
@@ -298,7 +306,7 @@ final class ListView implements BookView {
 
     @Override
     public void scroll(double mouseX, double mouseY, double amount) {
-        scroll -= (int) (amount * WHEEL);
+        scroll.wheel(amount, WHEEL);
     }
 
     @Override

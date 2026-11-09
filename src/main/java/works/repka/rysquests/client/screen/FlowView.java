@@ -34,7 +34,7 @@ final class FlowView implements BookView {
     private static final int MAX_LINES = 4;
 
     private final BookScreen screen;
-    private int scroll;
+    private final Scroll scroll = new Scroll();
 
     FlowView(BookScreen screen) {
         this.screen = screen;
@@ -51,10 +51,11 @@ final class FlowView implements BookView {
         List<Quest> quests = screen.visibleQuests();
         Quest current = current(quests);
         ui.clip(x, bodyTop, w - 1, barY - bodyTop);
-        float cursor = bodyTop + 6 - scroll;
+        int offset = scroll.offset();
+        float cursor = bodyTop + 6 - offset;
         cursor = renderRibbon(ui, quests, current, left, cursor, inner);
         ui.unclip();
-        scroll = BookScreen.clampScroll(scroll, Math.round(cursor + scroll - bodyTop + 16), barY - bodyTop);
+        scroll.content(cursor + offset - bodyTop + 16, barY - bodyTop);
         renderBar(ui, x, barY, w - 1);
     }
 
@@ -448,6 +449,6 @@ final class FlowView implements BookView {
 
     @Override
     public void scroll(double mouseX, double mouseY, double amount) {
-        scroll -= (int) (amount * WHEEL);
+        scroll.wheel(amount, WHEEL);
     }
 }

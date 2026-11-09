@@ -44,7 +44,7 @@ final class HomeView implements BookView {
     private List<News> news = List.of();
     private List<Quest> claimable = List.of();
     private long refreshedAt;
-    private int scroll;
+    private final Scroll scroll = new Scroll();
 
     /** Walks the whole book, so it runs twice a second rather than every frame. */
     private void refresh() {
@@ -130,11 +130,12 @@ final class HomeView implements BookView {
         float leftW = column * 2 + GAP;
         float rightX = left + leftW + GAP;
         ui.clip(x, y, w, h);
-        float top = y + PAD_Y - scroll;
+        int offset = scroll.offset();
+        float top = y + PAD_Y - offset;
         float leftBottom = renderLeft(ui, left, top, leftW);
         float rightBottom = renderRight(ui, rightX, top, column);
         ui.unclip();
-        scroll = BookScreen.clampScroll(scroll, Math.round(Math.max(leftBottom, rightBottom) + scroll - y + PAD_Y), h);
+        scroll.content(Math.max(leftBottom, rightBottom) + offset - y + PAD_Y, h);
     }
 
     private float renderLeft(Ui ui, float x, float y, float w) {
@@ -349,6 +350,6 @@ final class HomeView implements BookView {
 
     @Override
     public void scroll(double mouseX, double mouseY, double amount) {
-        scroll -= (int) (amount * WHEEL);
+        scroll.wheel(amount, WHEEL);
     }
 }

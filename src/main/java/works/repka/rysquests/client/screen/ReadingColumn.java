@@ -20,14 +20,14 @@ final class ReadingColumn {
     private static final float BLOCKED_LINE = 20.9f;
 
     private final BookScreen screen;
-    private int scroll;
+    private final Scroll scroll = new Scroll();
 
     ReadingColumn(BookScreen screen) {
         this.screen = screen;
     }
 
-    void scroll(double amount) {
-        scroll -= (int) amount;
+    void scroll(double notches, float step) {
+        scroll.wheel(notches, step);
     }
 
     void render(Ui ui, int x, int y, int w, int h) {
@@ -38,7 +38,8 @@ final class ReadingColumn {
         float left = x + PAD_X;
         float inner = w - PAD_X * 2;
         ui.clip(x, y, w - 1, h);
-        float top = y + PAD_Y - scroll;
+        int offset = scroll.offset();
+        float top = y + PAD_Y - offset;
         float cursor = top;
         if (quest.text().isPresent()) {
             ui.caps(Component.translatable("rysquests.reading.how").getString(), left, cursor + 7, ui.c("text.dim"));
@@ -49,7 +50,7 @@ final class ReadingColumn {
         cursor = renderRecipe(ui, quest, left, cursor, inner);
         cursor = renderBlocked(ui, quest, left, cursor, inner);
         ui.unclip();
-        scroll = BookScreen.clampScroll(scroll, Math.round(cursor + scroll - y + PAD_Y), h);
+        scroll.content(cursor + offset - y + PAD_Y, h);
     }
 
     private float renderRecipe(Ui ui, Quest quest, float x, float y, float w) {

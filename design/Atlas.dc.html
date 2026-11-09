@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>RYSQuests · раздел «Атлас сборки»</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#e6e8ee}
+a{color:#8fb4ff}a:hover{color:#b9d0ff}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; position: relative; overflow: hidden; background: linear-gradient(180deg, #5d7fa8 0%, #3d5a7c 32%, #4d6b3f 60%, #2f3f2a 100%); font-family: Inter, system-ui, sans-serif; color: #e6e8ee">
+  <div style="position: absolute; inset: 0; background: rgba(14, 16, 22, 0.64)"></div>
+  <div style="position: absolute; left: 40px; top: 36px; width: 1200px; height: 728px; box-sizing: border-box; background: #1c1f27; border: 1px solid #2c313d; border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.5); display: flex; overflow: hidden">
+
+    <div style="width: 84px; box-sizing: border-box; padding: 14px 0; border-right: 1px solid #2c313d; background: #16181f; display: flex; flex-direction: column; align-items: center; gap: 6px">
+      <svg width="30" height="30" viewBox="0 0 56 56" aria-hidden="true" style="margin-bottom: 8px"><rect x="6" y="6" width="44" height="44" rx="8" fill="#12141a" stroke="#343a48" stroke-width="2"/><path d="M14 30 L24 20 L34 30 L24 40 Z" fill="#5b6273"/><circle cx="36" cy="34" r="10" fill="rgba(228,178,60,0.18)" stroke="#e4b23c" stroke-width="3"/><line x1="43" y1="41" x2="50" y2="48" stroke="#e4b23c" stroke-width="4" stroke-linecap="round"/></svg>
+      <sc-for list="{{rail}}" as="r" hint-placeholder-count="6">
+        <div style="width: 68px; height: 58px; border-radius: 10px; background: {{r.bg}}; border: 1px solid {{r.border}}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px">
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.d}}" fill="none" stroke="{{r.fg}}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+          <span style="font-size: 10.5px; color: {{r.fg}}">{{r.name}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 20px">
+      <div style="display: flex; align-items: center; gap: 16px">
+        <div style="display: flex; flex-direction: column"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 19px; color: #f7f8fb">Атлас сборки</span><span style="font-size: 11.5px; color: #8b93a5">9 эпох · 6 направлений · 42 ключевых мода · ты в эпохе II</span></div>
+        <div style="margin-left: auto; display: flex; gap: 14px; font-size: 11.5px; color: #c9cfdd">
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; border: 2px solid #6fcf8f; display: inline-block"></span>освоен</span>
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; border: 2px solid {{accent}}; display: inline-block"></span>в процессе</span>
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; border: 2px solid #343a48; display: inline-block; opacity: 0.6"></span>впереди</span>
+        </div>
+      </div>
+
+      <!-- сетка эпохи × направления -->
+      <div style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-height: 0">
+        <div style="display: grid; grid-template-columns: 92px repeat(9, minmax(0, 1fr)); gap: 4px">
+          <span></span>
+          <sc-for list="{{epochs}}" as="e" hint-placeholder-count="9">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 8px; background: {{e.bg}}; border: 1px solid {{e.border}}"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 15px; color: {{e.fg}}">{{e.num}}</span><span style="font-size: 9.5px; color: #8b93a5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%">{{e.name}}</span></div>
+          </sc-for>
+        </div>
+        <sc-for list="{{rows}}" as="row" hint-placeholder-count="6">
+          <div style="display: grid; grid-template-columns: 92px repeat(9, minmax(0, 1fr)); gap: 4px; flex: 1 1 0; min-height: 0">
+            <div style="display: flex; flex-direction: column; justify-content: center; padding: 0 6px"><span style="font-size: 12px; font-weight: 600; color: #f7f8fb">{{row.name}}</span><span style="font-size: 10px; color: #8b93a5">{{row.sub}}</span></div>
+            <sc-for list="{{row.cells}}" as="cell" hint-placeholder-count="9">
+              <div style="display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 4px; padding: 4px; border-radius: 8px; background: {{cell.bg}}; border: 1px solid #22262f">
+                <sc-for list="{{cell.mods}}" as="m" hint-placeholder-count="2">
+                  <div style="width: 26px; height: 26px; border-radius: 7px; background: #12141a; border: 2px solid {{m.ring}}; display: flex; align-items: center; justify-content: center; opacity: {{m.op}}; box-shadow: {{m.glow}}"><div style="width: 14px; height: 14px; border-radius: 3px; background: {{m.icon}}"></div></div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: #20242e; border: 1px solid #2c313d; font-size: 12px; color: #c9cfdd">
+        <span style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Ключевые предметы</span>
+        <sc-for list="{{keys}}" as="k" hint-placeholder-count="5"><div style="display: flex; align-items: center; gap: 6px; opacity: {{k.op}}"><div style="width: 22px; height: 22px; border-radius: 6px; background: #12141a; border: 1px solid #343a48; display: flex; align-items: center; justify-content: center"><div style="width: 12px; height: 12px; border-radius: 2px; background: {{k.icon}}"></div></div><span style="font-size: 11.5px">{{k.name}}</span><span style="color: #5f6678">→</span></div></sc-for>
+        <span style="color: #8b93a5">Ядро Генезиса</span>
+      </div>
+    </div>
+
+    <!-- выбранный мод -->
+    <div style="width: 300px; box-sizing: border-box; border-left: 1px solid #2c313d; background: #20242e; display: flex; flex-direction: column; gap: 12px; padding: 16px">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="width: 44px; height: 44px; border-radius: 11px; background: #12141a; border: 2px solid #343a48; display: flex; align-items: center; justify-content: center"><div style="width: 26px; height: 26px; border-radius: 5px; background: #2e8b57"></div></div>
+        <div style="display: flex; flex-direction: column"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 17px; color: #f7f8fb">Mekanism</span><span style="font-size: 11.5px; color: #8b93a5">Техника · эпоха III · впереди</span></div>
+      </div>
+      <div style="font-size: 13px; line-height: 1.55; color: #d7dbe6">Обогащение руды до ×5, газы, цифровой майнер, реакторы. Основа эпохи «Машины» и поставщик элитных схем для всего, что дальше.</div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 9px; background: #1a1d25"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 17px; color: #f7f8fb">74</span><span style="font-size: 10.5px; color: #8b93a5">квеста</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 9px; background: #1a1d25"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 17px; color: #f7f8fb">14</span><span style="font-size: 10.5px; color: #8b93a5">стр. гайда</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 9px; background: #1a1d25"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 17px; color: #f7f8fb">312</span><span style="font-size: 10.5px; color: #8b93a5">рецептов</span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Что нужно, чтобы начать</span>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; background: #1a1d25; border: 1px solid #3a3320; font-size: 12.5px; color: #e6e8ee"><div style="width: 18px; height: 18px; border-radius: 4px; background: #c9a24a"></div><span>Электрический механизм</span><span style="margin-left: auto; color: {{accent}}; font-size: 11.5px">1 / 3</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; background: #1a1d25; border: 1px solid #2c313d; font-size: 12.5px; color: #e6e8ee"><div style="width: 18px; height: 18px; border-radius: 4px; background: #4f5760"></div><span>Сталь ×32</span><span style="margin-left: auto; color: #8b93a5; font-size: 11.5px">0 / 32</span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Что открывает</span>
+        <span style="font-size: 12.5px; color: #c9cfdd; line-height: 1.5">AE2 (хранение), Powah (энергия), элитная схема для эпох IV–VI</span>
+      </div>
+      <div style="display: flex; gap: 6px; margin-top: auto; flex-wrap: wrap">
+        <button style="height: 34px; padding: 0 12px; border-radius: 9px; border: none; background: {{accent}}; color: #15181f; font-size: 12px; font-weight: 600; cursor: pointer">Путь до него</button>
+        <button style="height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 12px; cursor: pointer">Гайд</button>
+        <button style="height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 12px; cursor: pointer">Глава</button>
+        <button style="height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 12px; cursor: pointer">Рецепты</button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#e4b23c","options":["#e4b23c","#5fc9a6","#8fb4ff","#f08a5d"]},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const a = this.props.accent ?? '#e4b23c';
+    const R = (name, d, on) => ({name, d, bg: on ? '#272c38' : 'transparent', border: on ? '#3a4050' : 'transparent', fg: on ? '#f7f8fb' : '#8b93a5'});
+    const rail = [
+      R('Сюжет', 'M12 3l9 9-9 9-9-9z'), R('Гайды', 'M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3zM5 17a3 3 0 013-3h11'),
+      R('Атлас', 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', true), R('Добыча', 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17l9 5 9-5'),
+      R('Магазин', 'M6 8h12l1 12H5zM9 8V6a3 3 0 016 0v2'), R('Ачивки', 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z')
+    ];
+    const names = ['Create','Индустрия','Машины','Энергия','Магия','Oritech','Плазма','Звёзды','Творение'];
+    const nums = ['I','II','III','IV','V','VI','VII','VIII','IX'];
+    const epochs = nums.map((num, i) => ({num, name: names[i], bg: i === 1 ? '#2a2218' : 'transparent', border: i === 1 ? '#5a4420' : 'transparent', fg: i === 0 ? '#6fcf8f' : i === 1 ? a : '#8b93a5'}));
+    // layout[row][epoch] = list of icon colors
+    const L = [
+      ['Техника', 'машины и линии', [['#c9a24a','#8a6b3a'],['#4f5760','#d47c3e'],['#2e8b57'],[],[],['#8fb4ff'],['#7a4fd1'],[],[]]],
+      ['Энергия', 'генерация и сети', [['#8b5a2b'],['#f0c53d'],[],['#e36b6b','#ff3b3b','#f0c53d'],[],[],['#f08a5d'],['#fff5c0'],[]]],
+      ['Хранение', 'склад и логистика', [['#8b5a2b'],[],['#5be3e0'],['#5be3e0','#2f5fd1'],[],[],[],[],[]]],
+      ['Магия', 'мана, духи, ритуалы', [[],[],[],[],['#6fcf6f','#7a4fd1','#c58bff','#c0392b'],['#3a7bd5'],[],[],[]]],
+      ['Природа', 'пчёлы, фермы, деревья', [['#2e8b57'],['#f0c53d'],[],[],['#f0c53d','#6fcf6f'],[],[],[],[]]],
+      ['Финал', 'нейтроний и творение', [[],[],[],[],[],[],['#7a4fd1'],['#1b1230','#fff5c0'],['#f7f8fb']]]
+    ];
+    const rows = L.map(([name, sub, cols], ri) => ({name, sub, cells: cols.map((mods, ci) => ({bg: ci === 1 ? '#1f1c17' : '#181a21', mods: mods.map((icon, mi) => {
+      const sel = ri === 0 && ci === 2;
+      const ring = ci === 0 ? '#6fcf8f' : ci === 1 ? a : '#343a48';
+      return {icon, ring: sel ? '#f7f8fb' : ring, op: ci > 1 && !sel ? '0.55' : '1', glow: sel ? '0 0 0 3px rgba(247,248,251,0.18)' : 'none'};
+    })}))}));
+    const keys = [
+      {name: 'Латунный механизм', icon: '#c9a24a', op: '1'}, {name: 'Электрический', icon: '#c9a24a', op: '1'}, {name: 'Элитная схема', icon: '#2e8b57', op: '0.6'}, {name: 'Плазменная ячейка', icon: '#7a4fd1', op: '0.6'}, {name: 'Звёздный сплав', icon: '#fff5c0', op: '0.6'}
+    ];
+    return { accent: a, rail, epochs, rows, keys };
+  }
+}
+</script>
+</body>
+</html>
