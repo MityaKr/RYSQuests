@@ -19,6 +19,10 @@ public final class TaskTypes {
     public static final DeferredHolder<TaskType<?>, TaskType<CheckboxTask>> CHECKBOX = register("checkbox", CheckboxTask.CODEC);
     public static final DeferredHolder<TaskType<?>, TaskType<AdvancementTask>> ADVANCEMENT = register("advancement", AdvancementTask.CODEC);
 
+    public static final DeferredHolder<TaskType<?>, TaskType<StatTask>> STAT = register("stat", StatTask.CODEC);
+    public static final DeferredHolder<TaskType<?>, TaskType<KillTask>> KILL = register("kill", KillTask.CODEC);
+    public static final DeferredHolder<TaskType<?>, TaskType<VisitTask>> VISIT = register("visit", VisitTask.CODEC);
+
     private TaskTypes() {
     }
 

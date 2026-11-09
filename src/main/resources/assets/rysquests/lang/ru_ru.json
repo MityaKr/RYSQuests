@@ -1,4 +1,6 @@
 {
+  "rysquests.import.done": "Импорт из FTB Quests: глав %s, квестов %s, заметок %s в config/rysquests/import/import-report.md. Перезагружаю.",
+  "rysquests.import.failed": "Импорт из FTB Quests не удался: %s",
   "rysquests.validate.summary": "Проверка: ошибок %s, предупреждений %s",
   "rysquests.validate.more": "...и ещё %s, см. logs/%s",
   "rysquests.validate.issue.parse_error": "Не удалось прочитать %s: %s",

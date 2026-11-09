@@ -1,6 +1,7 @@
 package works.repka.rysquests.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -17,6 +18,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tags.TagKey;
+import net.neoforged.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import works.repka.rysquests.data.BookHolder;
@@ -25,6 +27,9 @@ import works.repka.rysquests.data.BookReport.Issue;
 import works.repka.rysquests.data.BookReport.Severity;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.TaskDef;
+import works.repka.rysquests.integration.ftbq.FtbqFiles;
+import works.repka.rysquests.integration.ftbq.FtbqImporter;
+import works.repka.rysquests.integration.ftbq.ImportedPack;
 import works.repka.rysquests.task.ItemRef;
 
 /** The {@code /rysquests} command tree. */
@@ -32,6 +37,7 @@ public final class QuestCommands {
     private static final Logger LOGGER = LoggerFactory.getLogger(QuestCommands.class);
     private static final String REPORT_FILE = "rysquests-validate.txt";
     private static final int ISSUES_IN_CHAT = 10;
+    private static final String DEFAULT_IMPORT_NAMESPACE = "ftbq";
 
     private QuestCommands() {
     }
@@ -40,7 +46,33 @@ public final class QuestCommands {
         dispatcher.register(Commands.literal("rysquests")
                 .requires(source -> source.hasPermission(Commands.LEVEL_GAMEMASTERS))
                 .then(Commands.literal("reload").executes(QuestCommands::reload))
-                .then(Commands.literal("validate").executes(QuestCommands::validate)));
+                .then(Commands.literal("validate").executes(QuestCommands::validate))
+                .then(Commands.literal("import").then(Commands.literal("ftbq")
+                        .executes(context -> importFtbq(context, DEFAULT_IMPORT_NAMESPACE))
+                        .then(Commands.argument("namespace", StringArgumentType.word())
+                                .executes(context -> importFtbq(context, StringArgumentType.getString(context, "namespace")))))));
+    }
+
+    /** Converts in the background, then reloads so that the new pack is picked up. */
+    private static int importFtbq(CommandContext<CommandSourceStack> context, String namespace) {
+        CommandSourceStack source = context.getSource();
+        MinecraftServer server = source.getServer();
+        Path quests = FMLPaths.CONFIGDIR.get().resolve("ftbquests").resolve("quests");
+        Path root = ImportedPack.root();
+        Util.backgroundExecutor().execute(() -> {
+            try {
+                FtbqImporter.Result result = FtbqImporter.convert(FtbqFiles.read(quests), namespace, FtbqFiles.readIds(root));
+                FtbqFiles.write(root, result);
+                server.execute(() -> {
+                    source.sendSuccess(() -> Component.translatable("rysquests.import.done", result.chapters(), result.quests(), result.notes().size()), false);
+                    server.getCommands().performPrefixedCommand(source, "reload");
+                });
+            } catch (IOException | RuntimeException e) {
+                LOGGER.warn("FTB Quests import failed", e);
+                server.execute(() -> source.sendFailure(Component.translatable("rysquests.import.failed", String.valueOf(e.getMessage()))));
+            }
+        });
+        return 1;
     }
 
     private static int reload(CommandContext<CommandSourceStack> context) {

@@ -20,6 +20,8 @@ public final class RewardTypes {
     public static final DeferredHolder<RewardType<?>, RewardType<CommandReward>> COMMAND = register("command", CommandReward.CODEC);
     public static final DeferredHolder<RewardType<?>, RewardType<ChoiceReward>> CHOICE = register("choice", ChoiceReward.CODEC);
 
+    public static final DeferredHolder<RewardType<?>, RewardType<RandomReward>> RANDOM = register("random", RandomReward.CODEC);
+
     private RewardTypes() {
     }
 

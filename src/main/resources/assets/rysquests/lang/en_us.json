@@ -1,4 +1,6 @@
 {
+  "rysquests.import.done": "Imported from FTB Quests: %s chapters, %s quests, %s notes in config/rysquests/import/import-report.md. Reloading.",
+  "rysquests.import.failed": "FTB Quests import failed: %s",
   "rysquests.validate.summary": "Validation: %s errors, %s warnings",
   "rysquests.validate.more": "...and %s more, see logs/%s",
   "rysquests.validate.issue.parse_error": "Could not read %s: %s",

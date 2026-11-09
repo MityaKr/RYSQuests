@@ -14,6 +14,7 @@ import works.repka.rysquests.command.QuestCommands;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.BookLoader;
 import works.repka.rysquests.dev.DevExamplePack;
+import works.repka.rysquests.integration.ftbq.ImportedPack;
 import works.repka.rysquests.network.ModNetwork;
 import works.repka.rysquests.reward.RewardTypes;
 import works.repka.rysquests.task.TaskTypes;
@@ -30,6 +31,7 @@ public final class RYSQuests {
         RewardTypes.REGISTER.register(modBus);
         modBus.addListener(ModNetwork::register);
         DevExamplePack.register(modBus);
+        ImportedPack.register(modBus);
 
         NeoForge.EVENT_BUS.addListener((AddReloadListenerEvent event) -> event.addListener(new BookLoader(event.getRegistryAccess())));
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> QuestCommands.register(event.getDispatcher()));
