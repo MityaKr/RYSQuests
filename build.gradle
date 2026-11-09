@@ -56,6 +56,16 @@ neoForge {
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
             programArguments.addAll '--width', '1280', '--height', '720'
         }
+        // Full path on a copy of the real pack: its mods load from run-repys/mods, the instance itself stays untouched.
+        repysAutotest {
+            client()
+            gameDirectory = project.file('run-repys')
+            jvmArgument '-Xmx8G'
+            systemProperty 'rysquests.autotest', 'repys'
+            systemProperty 'rysquests.autotest.asPlayer', 'true'
+            systemProperty 'rysquests.autotest.ftbqSaves', project.findProperty('ftbqSaves') ?: ''
+            programArguments.addAll '--width', '1280', '--height', '720'
+        }
     }
 
     unitTest {
@@ -107,6 +117,16 @@ tasks.matching { it.name == 'runAutotest' }.configureEach {
         }
         if (!lines.any { it.contains('[autotest] PASS') }) {
             throw new GradleException('Autotest finished without a PASS line, see run/logs/latest.log')
+        }
+    }
+}
+
+// A large pack always logs errors from other mods, so only the scenario's verdict counts here.
+def repysLog = file('run-repys/logs/latest.log')
+tasks.matching { it.name == 'runRepysAutotest' }.configureEach {
+    doLast {
+        if (!repysLog.readLines('UTF-8').any { it.contains('[autotest] PASS') }) {
+            throw new GradleException('Autotest finished without a PASS line, see run-repys/logs/latest.log')
         }
     }
 }

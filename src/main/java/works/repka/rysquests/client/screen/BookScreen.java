@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -54,6 +56,7 @@ public final class BookScreen extends Screen {
     private static final int SLOT = 18;
     private static final int BUTTON_H = 16;
     private static final int LINE = 10;
+    private static final Pattern MARKUP = Pattern.compile("\\[\\[([a-z_]+):([^\\]|]+)(?:\\|([^\\]]+))?]]");
 
     /** Remembered across openings, and when coming back from another screen. */
     @Nullable
@@ -223,7 +226,7 @@ public final class BookScreen extends Screen {
         }
         y += 3;
         if (quest.text().isPresent()) {
-            for (FormattedCharSequence line : font.split(Component.translatable(quest.text().get()), inner)) {
+            for (FormattedCharSequence line : font.split(Component.literal(plainMarkup(Component.translatable(quest.text().get()).getString())), inner)) {
                 g.drawString(font, line, x, y, theme.c("text.body"), false);
                 y += LINE;
             }
@@ -387,6 +390,20 @@ public final class BookScreen extends Screen {
             case AdvancementTask advancement -> Component.translatable("rysquests.task.advancement", advancement.advancement().toString());
             default -> Component.translatable("rysquests.task.checkbox");
         };
+    }
+
+    /** Shows links as plain text until the rich markup exists: the label, or the item's name. */
+    private static String plainMarkup(String text) {
+        return MARKUP.matcher(text).replaceAll(match -> {
+            String label = match.group(3);
+            if (label != null) {
+                return Matcher.quoteReplacement(label);
+            }
+            String target = match.group(2);
+            return Matcher.quoteReplacement("item".equals(match.group(1))
+                    ? stackOf(ResourceLocation.parse(target)).getHoverName().getString()
+                    : target);
+        });
     }
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {

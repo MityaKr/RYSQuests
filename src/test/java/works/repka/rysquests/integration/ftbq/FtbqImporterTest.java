@@ -117,6 +117,15 @@ class FtbqImporterTest {
     }
 
     @Test
+    void snbtBytesZeroAndOneAreBooleans() {
+        JsonObject parsed = parse("{ off: 0b on: 1b other: 5b }");
+
+        assertTrue(parsed.get("off").getAsJsonPrimitive().isBoolean());
+        assertTrue(parsed.get("on").getAsBoolean());
+        assertEquals(5, parsed.get("other").getAsInt());
+    }
+
+    @Test
     void generatedBookLoadsCleanly() {
         Result result = FtbqImporter.convert(fixture(), "pack", Ids.empty());
 

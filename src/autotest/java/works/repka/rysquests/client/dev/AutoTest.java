@@ -1,11 +1,19 @@
 package works.repka.rysquests.client.dev;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.BooleanSupplier;
+import net.minecraft.SharedConstants;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
 import net.minecraft.client.Screenshot;
@@ -40,8 +48,12 @@ import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.screen.BookScreen;
+import works.repka.rysquests.data.BookHolder;
+import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.dev.DevExamplePack;
 import works.repka.rysquests.network.QuestActionPayload;
+import works.repka.rysquests.progress.ProgressService;
+import works.repka.rysquests.progress.ProgressStore;
 
 /**
  * Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
@@ -53,8 +65,11 @@ import works.repka.rysquests.network.QuestActionPayload;
 public final class AutoTest {
     private static final String SCENARIO_PROPERTY = "rysquests.autotest";
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoTest.class);
-    private static final int TOTAL_TICK_LIMIT = 20 * 300;
-    private static final int STEP_TICK_LIMIT = 20 * 120;
+    private static final boolean AS_PLAYER = Boolean.getBoolean("rysquests.autotest.asPlayer");
+    private static final int TOTAL_TICK_LIMIT = 20 * (AS_PLAYER ? 1200 : 300);
+    private static final int STEP_TICK_LIMIT = 20 * (AS_PLAYER ? 600 : 120);
+    private static final int REPYS_MIN_QUESTS = 2000;
+    private static final UUID REPYS_PLAYER = UUID.fromString("216ea99a-d6eb-45be-8a5b-3da7852588a5");
     private static final long STARTED_AT = System.currentTimeMillis();
     private static final int EXAMPLE_QUESTS = 6;
 
@@ -76,12 +91,19 @@ public final class AutoTest {
             return;
         }
         LOGGER.info("[autotest] scenario: {}", scenario);
+        if (AS_PLAYER) {
+            // Dev runs enable NeoForge game tests, and some mods of large packs crash on them.
+            SharedConstants.IS_RUNNING_IN_IDE = false;
+            System.setProperty("neoforge.enableGameTest", "false");
+        }
         if ("datapack".equals(scenario)) {
             buildDatapackScenario();
         } else if ("validate".equals(scenario)) {
             buildValidateScenario();
         } else if ("book".equals(scenario)) {
             buildBookScenario();
+        } else if ("repys".equals(scenario)) {
+            buildRepysScenario();
         } else {
             // Reported from the first tick: the client cannot be stopped yet during mod construction.
             step("check scenario name", () -> fail("unknown scenario " + scenario), 0);
@@ -143,6 +165,59 @@ public final class AutoTest {
             command(disable);
         }, 20);
         expect("client went back to the clean book", () -> !ClientBook.current().hash().equals(bookHash));
+    }
+
+    /** The whole migration on a copy of the real pack: import the book, import the owner's progress, open the book. */
+    private static void buildRepysScenario() {
+        openWorld();
+        step("import the FTB book", () -> command("rysquests import ftbq repys"), 40);
+        expect("imported book reached the client", () -> ClientBook.current().chapters().size() > 1);
+        step("write the full validation report", () -> command("rysquests validate"), 40);
+        expect("no quest was left out", () -> ClientBook.current().quests().size() > REPYS_MIN_QUESTS);
+        expect("translations reloaded", () -> mc().getOverlay() == null
+                && I18n.exists(ClientBook.current().chapters().values().iterator().next().title()));
+        step("copy FTB progress into the world", AutoTest::copyFtbqProgress, 5);
+        step("import FTB progress", () -> command("rysquests import ftbq progress"), 20);
+        expect("progress of the real player imported", () -> !ProgressStore.get(mc().getSingleplayerServer()).team(REPYS_PLAYER).isEmpty());
+        step("adopt that progress for the test player", () -> {
+            MinecraftServer server = mc().getSingleplayerServer();
+            ServerPlayer player = server.getPlayerList().getPlayer(mc().player.getUUID());
+            ProgressStore store = ProgressStore.get(server);
+            store.replaceTeam(player.getUUID(), store.team(REPYS_PLAYER));
+            ProgressService.invalidateAll();
+            ProgressService.sendAll(player);
+        }, 20);
+        expect("client shows completed quests", () -> completedQuest() != null);
+        step("report", () -> {
+            long done = ClientBook.current().quests().values().stream().filter(quest -> ClientProgress.get(quest.id()).completed()).count();
+            LOGGER.info("[autotest] book {} chapters, {} quests, completed {}, report: {}", ClientBook.current().chapters().size(),
+                    ClientBook.current().quests().size(), done, BookHolder.current().report().errors() + " errors " + BookHolder.current().report().warnings() + " warnings");
+            BookHolder.current().report().issues().stream().limit(30).forEach(issue -> LOGGER.info("[autotest] issue {}", issue));
+        }, 2);
+        step("open the book on a finished quest", () -> {
+            Quest quest = completedQuest();
+            BookScreen.selectForTest(quest.chapter().orElseThrow(), quest.id());
+            pressKey(GLFW.GLFW_KEY_K);
+        }, 20);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        screenshot("repys_book");
+    }
+
+    private static Quest completedQuest() {
+        return ClientBook.current().quests().values().stream().filter(quest -> ClientProgress.get(quest.id()).completed()).findFirst().orElse(null);
+    }
+
+    private static void copyFtbqProgress() {
+        Path source = Path.of(System.getProperty("rysquests.autotest.ftbqSaves"));
+        Path target = mc().getSingleplayerServer().getWorldPath(LevelResource.ROOT).resolve("ftbquests");
+        try (var files = Files.list(source)) {
+            Files.createDirectories(target);
+            for (Path file : files.toList()) {
+                Files.copy(file, target.resolve(file.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     /** Plays the first example quest through the real keys and the real packets. */

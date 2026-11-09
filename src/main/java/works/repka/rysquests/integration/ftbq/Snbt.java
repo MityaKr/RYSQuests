@@ -128,6 +128,10 @@ final class Snbt {
         if (token.equals("true") || token.equals("false")) {
             return new JsonPrimitive(Boolean.parseBoolean(token));
         }
+        // NBT has no boolean type, 0b and 1b are how booleans are written, and JSON codecs reject numbers for them.
+        if (token.equals("0b") || token.equals("1b")) {
+            return new JsonPrimitive(token.equals("1b"));
+        }
         if (INTEGER.matcher(token).matches()) {
             return new JsonPrimitive(Long.parseLong(stripSuffix(token)));
         }
