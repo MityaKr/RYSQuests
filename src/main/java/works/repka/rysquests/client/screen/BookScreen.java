@@ -142,6 +142,9 @@ public final class BookScreen extends Screen {
                 .filter(java.util.Objects::nonNull)
                 .toList();
         if (missing.isEmpty()) {
+            if (ClientProgress.isStageLocked(quest.id()) && quest.stageRequired().isPresent()) {
+                return Component.translatable("rysquests.flow.needs_stage", quest.stageRequired().get());
+            }
             return Component.translatable("rysquests.flow.opens_after");
         }
         return Component.translatable("rysquests.flow.waiting", Component.translatable(missing.getFirst().title()));

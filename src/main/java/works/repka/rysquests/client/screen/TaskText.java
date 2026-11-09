@@ -8,6 +8,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
 import works.repka.rysquests.data.TaskDef;
 import works.repka.rysquests.task.AdvancementTask;
+import works.repka.rysquests.task.FluidTask;
 import works.repka.rysquests.task.ItemRef;
 import works.repka.rysquests.task.ItemTask;
 import works.repka.rysquests.task.KillTask;
@@ -45,8 +46,11 @@ public final class TaskText {
             case ItemTask item -> icon(item).isEmpty() ? Component.literal(item.itemRefs().getFirst().toString()) : icon(item).getHoverName();
             case KillTask kill -> Component.translatable("rysquests.task.kill", BuiltInRegistries.ENTITY_TYPE.get(kill.entity()).getDescription());
             case StatTask stat -> Component.translatable("rysquests.task.stat", statName(stat));
-            case VisitTask visit -> Component.translatable("rysquests.task.visit",
-                    visit.structure().map(ItemRef::toString).or(() -> visit.dimension().map(ResourceLocation::toString)).orElse(""));
+            case VisitTask visit -> Component.translatable("rysquests.task.visit", visit.structure().map(ItemRef::toString)
+                    .or(() -> visit.biome().map(ItemRef::toString))
+                    .or(() -> visit.dimension().map(ResourceLocation::toString))
+                    .orElseGet(() -> visit.pos().map(Object::toString).orElse("")));
+            case FluidTask fluid -> Component.translatable("rysquests.task.fluid", BuiltInRegistries.FLUID.get(fluid.fluid()).getFluidType().getDescription());
             case AdvancementTask advancement -> Component.translatable("rysquests.task.advancement", advancement.advancement().toString());
             default -> Component.translatable("rysquests.task.checkbox");
         };

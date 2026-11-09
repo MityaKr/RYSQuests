@@ -11,6 +11,7 @@ import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.slf4j.Logger;
@@ -20,6 +21,7 @@ import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.BookLoader;
 import works.repka.rysquests.dev.DevExamplePack;
 import works.repka.rysquests.integration.ftbq.ImportedPack;
+import works.repka.rysquests.migrate.MigrationRunner;
 import works.repka.rysquests.network.ModNetwork;
 import works.repka.rysquests.progress.ProgressService;
 import works.repka.rysquests.reward.RewardTypes;
@@ -42,6 +44,7 @@ public final class RYSQuests {
         NeoForge.EVENT_BUS.addListener((AddReloadListenerEvent event) -> event.addListener(new BookLoader(event.getRegistryAccess())));
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> QuestCommands.register(event.getDispatcher()));
         NeoForge.EVENT_BUS.addListener(RYSQuests::onDatapackSync);
+        NeoForge.EVENT_BUS.addListener((ServerStartedEvent event) -> MigrationRunner.applyNew(event.getServer()));
         NeoForge.EVENT_BUS.addListener(RYSQuests::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(RYSQuests::onLivingDeath);
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
@@ -53,6 +56,9 @@ public final class RYSQuests {
     }
 
     private static void onDatapackSync(OnDatapackSyncEvent event) {
+        if (event.getPlayer() == null) {
+            MigrationRunner.applyNew(event.getPlayerList().getServer());
+        }
         event.getRelevantPlayers().forEach(player -> {
             PacketDistributor.sendToPlayer(player, BookHolder.current().payload());
             ProgressService.sendAll(player);

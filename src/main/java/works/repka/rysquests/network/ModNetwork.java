@@ -18,6 +18,8 @@ public final class ModNetwork {
     };
     private static Consumer<PinnedPayload> clientPinnedHandler = payload -> {
     };
+    private static Consumer<StageLocksPayload> clientStageLocksHandler = payload -> {
+    };
 
     private ModNetwork() {
     }
@@ -28,6 +30,10 @@ public final class ModNetwork {
 
     public static void setClientProgressHandler(Consumer<ProgressPayload> handler) {
         clientProgressHandler = handler;
+    }
+
+    public static void setClientStageLocksHandler(Consumer<StageLocksPayload> handler) {
+        clientStageLocksHandler = handler;
     }
 
     public static void setClientPinnedHandler(Consumer<PinnedPayload> handler) {
@@ -42,6 +48,8 @@ public final class ModNetwork {
                         (payload, context) -> clientProgressHandler.accept(payload))
                 .playToClient(PinnedPayload.TYPE, PinnedPayload.STREAM_CODEC,
                         (payload, context) -> clientPinnedHandler.accept(payload))
+                .playToClient(StageLocksPayload.TYPE, StageLocksPayload.STREAM_CODEC,
+                        (payload, context) -> clientStageLocksHandler.accept(payload))
                 .playToServer(QuestActionPayload.TYPE, QuestActionPayload.STREAM_CODEC,
                         (payload, context) -> ProgressService.handle((ServerPlayer) context.player(), payload));
     }

@@ -2,10 +2,12 @@ package works.repka.rysquests.progress;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import net.minecraft.commands.CommandSourceStack;
@@ -13,6 +15,7 @@ import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -21,6 +24,14 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
 import works.repka.rysquests.data.BookHolder;
@@ -31,12 +42,18 @@ import works.repka.rysquests.data.TaskDef;
 import works.repka.rysquests.network.PinnedPayload;
 import works.repka.rysquests.network.ProgressPayload;
 import works.repka.rysquests.network.QuestActionPayload;
+import works.repka.rysquests.network.StageLocksPayload;
 import works.repka.rysquests.reward.ChoiceReward;
 import works.repka.rysquests.reward.CommandReward;
 import works.repka.rysquests.reward.ItemReward;
+import works.repka.rysquests.reward.LootTableReward;
 import works.repka.rysquests.reward.RandomReward;
+import works.repka.rysquests.reward.StageReward;
 import works.repka.rysquests.reward.XpReward;
+import works.repka.rysquests.stage.Stages;
 import works.repka.rysquests.task.AdvancementTask;
+import works.repka.rysquests.task.CheckboxTask;
+import works.repka.rysquests.task.FluidTask;
 import works.repka.rysquests.task.ItemRef;
 import works.repka.rysquests.task.ItemTask;
 import works.repka.rysquests.task.KillTask;
@@ -46,40 +63,58 @@ import works.repka.rysquests.task.VisitTask;
 /** Server-side quest rules. Runs on the main thread only. */
 public final class ProgressService {
     private static final int POLL_INTERVAL = 20;
+    private static final int STAGE_INTERVAL = 100;
+    private static final long MINUTE_MS = 60_000;
 
     /** Open, unlocked quests per team, so that polling does not walk the whole book. */
     private static final Map<UUID, List<Quest>> ACTIVE = new HashMap<>();
     private static final Map<UUID, Integer> INVENTORY_HASH = new HashMap<>();
+    private static final Map<UUID, Set<ResourceLocation>> STAGE_LOCKS = new HashMap<>();
     private static QuestBook activeBook;
 
     private ProgressService() {
     }
 
-    /** In solo mode a team is the player. */
     private static UUID team(ServerPlayer player) {
-        return player.getUUID();
+        return ProgressStore.get(player.server).teamOf(player.getUUID(), book().meta().progressMode());
     }
 
     private static QuestBook book() {
         return BookHolder.current().book();
     }
 
+    /** A team shares task progress, while each member claims rewards for themselves. */
+    private static QuestProgress viewFor(ServerPlayer player, ResourceLocation quest, QuestProgress teamProgress) {
+        UUID team = team(player);
+        if (team.equals(player.getUUID())) {
+            return teamProgress;
+        }
+        return teamProgress.withClaimed(ProgressStore.get(player.server).get(player.getUUID(), quest).claimed());
+    }
+
     private static Function<ResourceLocation, QuestProgress> lookup(ServerPlayer player) {
         ProgressStore store = ProgressStore.get(player.server);
         UUID team = team(player);
-        return id -> store.get(team, id);
+        return id -> viewFor(player, id, store.get(team, id));
+    }
+
+    private static boolean stageAllows(ServerPlayer player, Quest quest) {
+        return quest.stageRequired().map(stage -> Stages.has(player, stage)).orElse(true);
     }
 
     // --- polling ---
 
     public static void tick(ServerPlayer player) {
-        if ((player.getId() + player.server.getTickCount()) % POLL_INTERVAL != 0) {
+        int phase = player.getId() + player.server.getTickCount();
+        if (phase % STAGE_INTERVAL == 0) {
+            refreshStageLocks(player);
+        }
+        if (phase % POLL_INTERVAL != 0) {
             return;
         }
-        UUID team = team(player);
         List<Quest> active = active(player);
         int hash = inventoryHash(player.getInventory());
-        boolean inventoryChanged = !Objects.equals(INVENTORY_HASH.put(team, hash), hash);
+        boolean inventoryChanged = !Objects.equals(INVENTORY_HASH.put(player.getUUID(), hash), hash);
         Map<ResourceLocation, QuestProgress> changes = new HashMap<>();
         for (Quest quest : active) {
             poll(player, quest, inventoryChanged).ifPresent(updated -> changes.put(quest.id(), updated));
@@ -87,16 +122,31 @@ public final class ProgressService {
         apply(player, changes);
     }
 
+    private static void refreshStageLocks(ServerPlayer player) {
+        Set<ResourceLocation> locks = new HashSet<>();
+        for (Quest quest : book().quests().values()) {
+            if (!stageAllows(player, quest)) {
+                locks.add(quest.id());
+            }
+        }
+        if (!locks.equals(STAGE_LOCKS.put(player.getUUID(), locks))) {
+            ACTIVE.remove(team(player));
+            PacketDistributor.sendToPlayer(player, new StageLocksPayload(List.copyOf(locks)));
+        }
+    }
+
     private static List<Quest> active(ServerPlayer player) {
         if (activeBook != book()) {
             activeBook = book();
-            ACTIVE.clear();
-            INVENTORY_HASH.clear();
+            invalidateAll();
         }
         return ACTIVE.computeIfAbsent(team(player), key -> {
             Function<ResourceLocation, QuestProgress> progress = lookup(player);
             return activeBook.quests().values().stream()
-                    .filter(quest -> !progress.apply(quest.id()).completed() && QuestLogic.isUnlocked(quest, progress))
+                    .filter(quest -> {
+                        QuestProgress own = progress.apply(quest.id());
+                        return !own.completed() && !own.coolingDown() && QuestLogic.isUnlocked(quest, progress) && stageAllows(player, quest);
+                    })
                     .toList();
         });
     }
@@ -122,6 +172,7 @@ public final class ProgressService {
     private static int pollTask(ServerPlayer player, TaskDef task, int current, boolean inventoryChanged) {
         return switch (task) {
             case ItemTask item when item.mode() != ItemTask.Mode.CONSUME && inventoryChanged -> Math.max(current, countIn(player.getInventory(), item));
+            case FluidTask fluid when fluid.mode() != ItemTask.Mode.CONSUME && inventoryChanged -> Math.max(current, fluidIn(player.getInventory(), fluid));
             case StatTask stat -> Math.max(current, readStat(player, stat));
             case AdvancementTask advancement -> isEarned(player, advancement) ? 1 : current;
             case VisitTask visit -> isVisiting(player, visit) ? 1 : current;
@@ -135,16 +186,23 @@ public final class ProgressService {
             done &= values.get(i) >= quest.tasks().get(i).target();
         }
         long completedAt = done ? System.currentTimeMillis() : before.completedAt();
-        return new QuestProgress(List.copyOf(values), completedAt, before.claimed());
+        return new QuestProgress(List.copyOf(values), completedAt, before.claimed(), before.nextAt());
     }
 
     private static void apply(ServerPlayer player, Map<ResourceLocation, QuestProgress> changes) {
         if (changes.isEmpty()) {
             return;
         }
-        ProgressStore.get(player.server).put(team(player), changes);
-        ACTIVE.remove(team(player));
-        PacketDistributor.sendToPlayer(player, new ProgressPayload(false, Map.copyOf(changes)));
+        UUID team = team(player);
+        ProgressStore.get(player.server).put(team, changes);
+        ACTIVE.remove(team);
+        for (ServerPlayer member : player.server.getPlayerList().getPlayers()) {
+            if (team(member).equals(team)) {
+                Map<ResourceLocation, QuestProgress> view = new HashMap<>();
+                changes.forEach((id, progress) -> view.put(id, viewFor(member, id, progress)));
+                PacketDistributor.sendToPlayer(member, new ProgressPayload(false, view));
+            }
+        }
     }
 
     // --- task checks ---
@@ -191,6 +249,33 @@ public final class ProgressService {
         return count;
     }
 
+    private static int fluidIn(Inventory inventory, FluidTask task) {
+        Fluid fluid = BuiltInRegistries.FLUID.get(task.fluid());
+        int total = 0;
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            IFluidHandlerItem handler = inventory.getItem(i).getCapability(Capabilities.FluidHandler.ITEM);
+            if (handler != null) {
+                FluidStack contained = handler.drain(new FluidStack(fluid, Integer.MAX_VALUE), IFluidHandler.FluidAction.SIMULATE);
+                total += contained.getAmount();
+            }
+        }
+        return total;
+    }
+
+    private static int takeFluid(Inventory inventory, FluidTask task, int wanted) {
+        Fluid fluid = BuiltInRegistries.FLUID.get(task.fluid());
+        int taken = 0;
+        for (int i = 0; i < inventory.getContainerSize() && taken < wanted; i++) {
+            ItemStack stack = inventory.getItem(i);
+            IFluidHandlerItem handler = stack.getCapability(Capabilities.FluidHandler.ITEM);
+            if (handler != null) {
+                taken += handler.drain(new FluidStack(fluid, wanted - taken), IFluidHandler.FluidAction.EXECUTE).getAmount();
+                inventory.setItem(i, handler.getContainer());
+            }
+        }
+        return taken;
+    }
+
     private static int readStat(ServerPlayer player, StatTask task) {
         StatType<?> type = BuiltInRegistries.STAT_TYPE.get(task.stat());
         return type == null ? 0 : readStat(player, type, task.entry());
@@ -210,7 +295,24 @@ public final class ProgressService {
         if (task.dimension().isPresent() && !task.dimension().get().equals(player.level().dimension().location())) {
             return false;
         }
-        return task.structure().map(structure -> isInside(player, structure)).orElse(true);
+        if (task.pos().isPresent()) {
+            List<Integer> pos = task.pos().get();
+            double dx = player.getX() - pos.get(0);
+            double dy = player.getY() - pos.get(1);
+            double dz = player.getZ() - pos.get(2);
+            if (dx * dx + dy * dy + dz * dz > (double) task.radius() * task.radius()) {
+                return false;
+            }
+        }
+        return task.biome().map(biome -> isInBiome(player, biome)).orElse(true)
+                && task.structure().map(structure -> isInside(player, structure)).orElse(true);
+    }
+
+    private static boolean isInBiome(ServerPlayer player, ItemRef biome) {
+        var holder = player.level().getBiome(player.blockPosition());
+        return biome.tag()
+                ? holder.is(TagKey.create(Registries.BIOME, biome.id()))
+                : holder.is(ResourceKey.create(Registries.BIOME, biome.id()));
     }
 
     private static boolean isInside(ServerPlayer player, ItemRef structure) {
@@ -272,8 +374,17 @@ public final class ProgressService {
         QuestProgress progress = ProgressStore.get(player.server).get(team(player), quest.id());
         boolean any = false;
         for (int i = 0; i < quest.tasks().size(); i++) {
-            if (quest.tasks().get(i) instanceof ItemTask task && task.mode() == ItemTask.Mode.CONSUME && progress.task(i) < task.count()) {
-                if (countIn(player.getInventory(), task) < task.count() - progress.task(i)) {
+            int missing = quest.tasks().get(i).target() - progress.task(i);
+            if (missing <= 0) {
+                continue;
+            }
+            if (quest.tasks().get(i) instanceof ItemTask task && task.mode() == ItemTask.Mode.CONSUME) {
+                if (countIn(player.getInventory(), task) < missing) {
+                    return false;
+                }
+                any = true;
+            } else if (quest.tasks().get(i) instanceof FluidTask task && task.mode() == ItemTask.Mode.CONSUME) {
+                if (fluidIn(player.getInventory(), task) < missing) {
                     return false;
                 }
                 any = true;
@@ -304,7 +415,7 @@ public final class ProgressService {
 
     private static boolean isOpen(ServerPlayer player, Quest quest) {
         QuestStatus status = QuestLogic.status(quest, lookup(player));
-        return status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS;
+        return (status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS) && stageAllows(player, quest);
     }
 
     private static void submit(ServerPlayer player, Quest quest) {
@@ -315,12 +426,16 @@ public final class ProgressService {
         List<Integer> values = before.taskValues(quest.tasks().size());
         boolean changed = false;
         for (int i = 0; i < quest.tasks().size(); i++) {
-            if (quest.tasks().get(i) instanceof ItemTask task && task.mode() == ItemTask.Mode.CONSUME && values.get(i) < task.count()) {
-                int taken = take(player.getInventory(), task, task.count() - values.get(i));
-                if (taken > 0) {
-                    values.set(i, values.get(i) + taken);
-                    changed = true;
-                }
+            int missing = quest.tasks().get(i).target() - values.get(i);
+            int taken = 0;
+            if (missing > 0 && quest.tasks().get(i) instanceof ItemTask task && task.mode() == ItemTask.Mode.CONSUME) {
+                taken = take(player.getInventory(), task, missing);
+            } else if (missing > 0 && quest.tasks().get(i) instanceof FluidTask task && task.mode() == ItemTask.Mode.CONSUME) {
+                taken = takeFluid(player.getInventory(), task, missing);
+            }
+            if (taken > 0) {
+                values.set(i, values.get(i) + taken);
+                changed = true;
             }
         }
         if (changed) {
@@ -345,8 +460,7 @@ public final class ProgressService {
     }
 
     private static void check(ServerPlayer player, Quest quest, int index) {
-        if (!isOpen(player, quest) || index < 0 || index >= quest.tasks().size()
-                || !(quest.tasks().get(index) instanceof works.repka.rysquests.task.CheckboxTask)) {
+        if (!isOpen(player, quest) || index < 0 || index >= quest.tasks().size() || !(quest.tasks().get(index) instanceof CheckboxTask)) {
             return;
         }
         QuestProgress before = ProgressStore.get(player.server).get(team(player), quest.id());
@@ -356,7 +470,9 @@ public final class ProgressService {
     }
 
     private static void claim(ServerPlayer player, Quest quest, List<Integer> choices) {
-        QuestProgress before = ProgressStore.get(player.server).get(team(player), quest.id());
+        UUID team = team(player);
+        ProgressStore store = ProgressStore.get(player.server);
+        QuestProgress before = viewFor(player, quest.id(), store.get(team, quest.id()));
         if (!before.completed()) {
             return;
         }
@@ -366,8 +482,19 @@ public final class ProgressService {
                 claimed.add(i);
             }
         }
-        boolean repeat = quest.options().repeatable().isPresent() && claimed.size() >= quest.rewards().size();
-        apply(player, Map.of(quest.id(), repeat ? QuestProgress.EMPTY : new QuestProgress(before.tasks(), before.completedAt(), List.copyOf(claimed))));
+        boolean allClaimed = claimed.size() >= quest.rewards().size();
+        if (allClaimed && quest.options().repeatable().isPresent()) {
+            long cooldown = quest.options().repeatable().get().cooldownMinutes() * MINUTE_MS;
+            store.put(player.getUUID(), team.equals(player.getUUID()) ? Map.of() : Map.of(quest.id(), QuestProgress.EMPTY));
+            apply(player, Map.of(quest.id(), new QuestProgress(List.of(), 0, List.of(), cooldown > 0 ? System.currentTimeMillis() + cooldown : 0)));
+            return;
+        }
+        if (team.equals(player.getUUID())) {
+            apply(player, Map.of(quest.id(), before.withClaimed(List.copyOf(claimed))));
+        } else {
+            store.put(player.getUUID(), Map.of(quest.id(), QuestProgress.EMPTY.withClaimed(List.copyOf(claimed))));
+            PacketDistributor.sendToPlayer(player, new ProgressPayload(false, Map.of(quest.id(), before.withClaimed(List.copyOf(claimed)))));
+        }
     }
 
     /** @return false when the reward stays unclaimed, which only happens to a choice with no valid pick */
@@ -379,6 +506,8 @@ public final class ProgressService {
                 xp.points().ifPresent(player::giveExperiencePoints);
             }
             case CommandReward command -> runCommand(player, command);
+            case StageReward stage -> Stages.grant(player, stage.stage());
+            case LootTableReward loot -> rollLoot(player, loot);
             case ChoiceReward options -> {
                 if (choice < 0 || choice >= options.of().size()) {
                     return false;
@@ -390,6 +519,17 @@ public final class ProgressService {
             }
         }
         return true;
+    }
+
+    private static void rollLoot(ServerPlayer player, LootTableReward reward) {
+        var table = player.server.reloadableRegistries().getLootTable(ResourceKey.create(Registries.LOOT_TABLE, reward.table()));
+        LootParams params = new LootParams.Builder(player.serverLevel())
+                .withParameter(LootContextParams.ORIGIN, player.position())
+                .withParameter(LootContextParams.THIS_ENTITY, player)
+                .create(LootContextParamSets.GIFT);
+        for (int i = 0; i < reward.rolls(); i++) {
+            table.getRandomItems(params).forEach(stack -> ItemHandlerHelper.giveItemToPlayer(player, stack));
+        }
     }
 
     private static RewardDef pick(ServerPlayer player, RandomReward random) {
@@ -426,13 +566,19 @@ public final class ProgressService {
     // --- sync and admin ---
 
     public static void sendAll(ServerPlayer player) {
-        PacketDistributor.sendToPlayer(player, new ProgressPayload(true, Map.copyOf(ProgressStore.get(player.server).team(team(player)))));
-        PacketDistributor.sendToPlayer(player, new PinnedPayload(ProgressStore.get(player.server).pinned(player.getUUID())));
+        ProgressStore store = ProgressStore.get(player.server);
+        Map<ResourceLocation, QuestProgress> view = new HashMap<>();
+        store.team(team(player)).forEach((id, progress) -> view.put(id, viewFor(player, id, progress)));
+        PacketDistributor.sendToPlayer(player, new ProgressPayload(true, view));
+        PacketDistributor.sendToPlayer(player, new PinnedPayload(store.pinned(player.getUUID())));
+        STAGE_LOCKS.remove(player.getUUID());
+        refreshStageLocks(player);
     }
 
     public static void forget(ServerPlayer player) {
         ACTIVE.remove(team(player));
-        INVENTORY_HASH.remove(team(player));
+        INVENTORY_HASH.remove(player.getUUID());
+        STAGE_LOCKS.remove(player.getUUID());
     }
 
     public static void setCompleted(ServerPlayer player, Quest quest, boolean completed) {
@@ -444,7 +590,7 @@ public final class ProgressService {
         apply(player, Map.of(quest.id(), progress));
     }
 
-    /** Replaces a team's progress, for imports. Online members are resynced by the caller. */
+    /** Forgets caches after progress was replaced from outside, such as an import or a migration. */
     public static void invalidateAll() {
         ACTIVE.clear();
         INVENTORY_HASH.clear();

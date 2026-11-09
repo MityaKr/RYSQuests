@@ -43,10 +43,10 @@ public final class BookLoader extends SimplePreparableReloadListener<BookHolder.
         RawBook parsed = BookParser.parse(files, ops);
         List<Issue> issues = new ArrayList<>(readErrors);
         issues.addAll(parsed.issues());
-        RawBook raw = new RawBook(parsed.meta(), parsed.chapters(), parsed.quests(), issues);
+        RawBook raw = new RawBook(parsed.meta(), parsed.chapters(), parsed.quests(), issues, parsed.migrations());
         BookValidator.Result result = BookValidator.validate(raw, BuiltInRegistries.ITEM::containsKey, ops);
         byte[] data = BookSerializer.encode(result.book(), registries);
-        return new BookHolder.Loaded(result.book(), result.report(), new BookSyncPayload(result.book().hash(), data));
+        return new BookHolder.Loaded(result.book(), result.report(), new BookSyncPayload(result.book().hash(), data), raw.migrations());
     }
 
     private static Map<ResourceLocation, JsonElement> read(ResourceManager manager, List<Issue> errors) {

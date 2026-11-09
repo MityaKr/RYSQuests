@@ -30,7 +30,7 @@ public final class QuestLogic {
         if (own.completed()) {
             return allClaimed(quest, own) ? QuestStatus.CLAIMED : QuestStatus.COMPLETED;
         }
-        if (!isUnlocked(quest, progress)) {
+        if (own.coolingDown() || !isUnlocked(quest, progress)) {
             return QuestStatus.LOCKED;
         }
         return own.tasks().stream().anyMatch(value -> value > 0) ? QuestStatus.IN_PROGRESS : QuestStatus.AVAILABLE;

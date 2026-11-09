@@ -2,6 +2,7 @@ package works.repka.rysquests.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import java.io.IOException;
@@ -9,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,6 +42,8 @@ import works.repka.rysquests.integration.ftbq.FtbqFiles;
 import works.repka.rysquests.integration.ftbq.FtbqImporter;
 import works.repka.rysquests.integration.ftbq.FtbqProgress;
 import works.repka.rysquests.integration.ftbq.ImportedPack;
+import works.repka.rysquests.migrate.MigrationEngine;
+import works.repka.rysquests.migrate.MigrationRunner;
 import works.repka.rysquests.progress.ProgressService;
 import works.repka.rysquests.progress.ProgressStore;
 import works.repka.rysquests.progress.QuestProgress;
@@ -51,25 +55,104 @@ public final class QuestCommands {
     private static final String REPORT_FILE = "rysquests-validate.txt";
     private static final int ISSUES_IN_CHAT = 10;
     private static final String DEFAULT_IMPORT_NAMESPACE = "ftbq";
+    private static final Map<UUID, UUID> INVITES = new HashMap<>();
 
     private QuestCommands() {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("rysquests")
-                .requires(source -> source.hasPermission(Commands.LEVEL_GAMEMASTERS))
-                .then(Commands.literal("reload").executes(QuestCommands::reload))
-                .then(Commands.literal("validate").executes(QuestCommands::validate))
-                .then(Commands.literal("import").then(Commands.literal("ftbq")
+                .then(Commands.literal("team")
+                        .then(Commands.literal("create").executes(QuestCommands::teamCreate))
+                        .then(Commands.literal("invite").then(Commands.argument("player", EntityArgument.player()).executes(QuestCommands::teamInvite)))
+                        .then(Commands.literal("join").executes(QuestCommands::teamJoin))
+                        .then(Commands.literal("leave").executes(QuestCommands::teamLeave)))
+                .then(admin("migrate")
+                        .then(Commands.literal("--dry-run").executes(context -> migrate(context, false)))
+                        .then(Commands.literal("--apply").executes(context -> migrate(context, true))))
+                .then(admin("reload").executes(QuestCommands::reload))
+                .then(admin("validate").executes(QuestCommands::validate))
+                .then(admin("import").then(Commands.literal("ftbq")
                         .executes(context -> importFtbq(context, DEFAULT_IMPORT_NAMESPACE))
                         .then(Commands.literal("progress").executes(QuestCommands::importFtbqProgress))
                         .then(Commands.argument("namespace", StringArgumentType.word())
                                 .executes(context -> importFtbq(context, StringArgumentType.getString(context, "namespace"))))))
-                .then(Commands.literal("progress").then(Commands.argument("player", EntityArgument.player())
+                .then(admin("progress").then(Commands.argument("player", EntityArgument.player())
                         .then(Commands.literal("reset").then(Commands.argument("quest", ResourceLocationArgument.id())
                                 .executes(context -> setProgress(context, false))))
                         .then(Commands.literal("complete").then(Commands.argument("quest", ResourceLocationArgument.id())
                                 .executes(context -> setProgress(context, true)))))));
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> admin(String name) {
+        return Commands.literal(name).requires(source -> source.hasPermission(Commands.LEVEL_GAMEMASTERS));
+    }
+
+    private static int teamCreate(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ProgressStore.get(player.server).setTeam(player.getUUID(), player.getUUID());
+        refreshTeam(player);
+        context.getSource().sendSuccess(() -> Component.translatable("rysquests.team.created"), false);
+        return 1;
+    }
+
+    private static int teamInvite(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ServerPlayer target = EntityArgument.getPlayer(context, "player");
+        INVITES.put(target.getUUID(), player.getUUID());
+        target.sendSystemMessage(Component.translatable("rysquests.team.invite_received", player.getDisplayName()));
+        context.getSource().sendSuccess(() -> Component.translatable("rysquests.team.invited", target.getDisplayName()), false);
+        return 1;
+    }
+
+    private static int teamJoin(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        UUID team = INVITES.remove(player.getUUID());
+        if (team == null) {
+            context.getSource().sendFailure(Component.translatable("rysquests.team.no_invite"));
+            return 0;
+        }
+        ProgressStore.get(player.server).setTeam(player.getUUID(), team);
+        refreshTeam(player);
+        context.getSource().sendSuccess(() -> Component.translatable("rysquests.team.joined"), false);
+        return 1;
+    }
+
+    private static int teamLeave(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ProgressStore.get(player.server).leaveTeam(player.getUUID());
+        refreshTeam(player);
+        context.getSource().sendSuccess(() -> Component.translatable("rysquests.team.left"), false);
+        return 1;
+    }
+
+    private static void refreshTeam(ServerPlayer player) {
+        ProgressService.invalidateAll();
+        ProgressService.sendAll(player);
+    }
+
+    private static int migrate(CommandContext<CommandSourceStack> context, boolean apply) {
+        CommandSourceStack source = context.getSource();
+        MinecraftServer server = source.getServer();
+        MigrationEngine.State snapshot = MigrationRunner.snapshot(server);
+        Util.backgroundExecutor().execute(() -> {
+            MigrationEngine.Result result = MigrationRunner.run(snapshot);
+            server.execute(() -> {
+                if (!result.changed()) {
+                    source.sendSuccess(() -> Component.translatable("rysquests.migrate.none"), false);
+                    return;
+                }
+                result.report().forEach(line -> source.sendSuccess(() -> Component.translatable("rysquests.migrate.line", line), false));
+                if (apply) {
+                    MigrationRunner.commit(server, result);
+                    server.getPlayerList().getPlayers().forEach(ProgressService::sendAll);
+                } else {
+                    MigrationRunner.writeReport(server, result, "dry run");
+                }
+                source.sendSuccess(() -> Component.translatable(apply ? "rysquests.migrate.applied" : "rysquests.migrate.dry_run"), false);
+            });
+        });
+        return 1;
     }
 
     private static int setProgress(CommandContext<CommandSourceStack> context, boolean completed) throws CommandSyntaxException {

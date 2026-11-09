@@ -54,6 +54,8 @@ final class BookState {
     }
 
     static QuestStatus status(Quest target) {
-        return QuestLogic.status(target, ClientProgress::get);
+        QuestStatus status = QuestLogic.status(target, ClientProgress::get);
+        boolean open = status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS;
+        return open && ClientProgress.isStageLocked(target.id()) ? QuestStatus.LOCKED : status;
     }
 }
