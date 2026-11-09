@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>RYSQuests · dev-режим: воронка, отчёты, миграции</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#e6e8ee}
+a{color:#8fb4ff}a:hover{color:#b9d0ff}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; position: relative; overflow: hidden; background: linear-gradient(180deg, #5d7fa8 0%, #3d5a7c 32%, #4d6b3f 60%, #2f3f2a 100%); font-family: Inter, system-ui, sans-serif; color: #e6e8ee">
+  <div style="position: absolute; inset: 0; background: rgba(14, 16, 22, 0.6)"></div>
+  <div style="position: absolute; left: 40px; top: 36px; width: 1200px; height: 728px; box-sizing: border-box; background: #1c1f27; border: 1px solid #2c313d; border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden">
+
+    <div style="display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-bottom: 1px solid #2c313d; background: #16181f">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <svg width="26" height="26" viewBox="0 0 56 56" aria-hidden="true"><rect x="6" y="6" width="44" height="44" rx="8" fill="#12141a" stroke="#343a48" stroke-width="2"/><path d="M14 30 L24 20 L34 30 L24 40 Z" fill="#5b6273"/><circle cx="36" cy="34" r="10" fill="rgba(228,178,60,0.18)" stroke="#e4b23c" stroke-width="3"/><line x1="43" y1="41" x2="50" y2="48" stroke="#e4b23c" stroke-width="4" stroke-linecap="round"/></svg>
+        <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 16px; color: #f7f8fb">RYSQuests</div>
+        <span style="padding: 2px 8px; border-radius: 999px; background: #1f2a44; color: #8fb4ff; font-size: 11px; font-weight: 600">Dev</span>
+      </div>
+      <div style="display: flex; gap: 4px; margin-left: 10px">
+        <div style="padding: 6px 12px; border-radius: 8px; background: #272c38; color: #f7f8fb; font-size: 12.5px; font-weight: 500">Воронка</div>
+        <div style="padding: 6px 12px; border-radius: 8px; color: #8b93a5; font-size: 12.5px">Отчёты <span style="padding: 0 6px; border-radius: 999px; background: #3a1f24; color: #e36b6b; font-size: 10.5px; font-weight: 600">17</span></div>
+        <div style="padding: 6px 12px; border-radius: 8px; color: #8b93a5; font-size: 12.5px">Миграции</div>
+        <div style="padding: 6px 12px; border-radius: 8px; color: #8b93a5; font-size: 12.5px">Импорт</div>
+      </div>
+      <div style="margin-left: auto; font-size: 11.5px; color: #8b93a5">глава II · 212 игроков · 30 дней · данные только на этом сервере</div>
+      <button style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 11.5px; cursor: pointer">Экспорт CSV</button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; padding: 18px 20px; flex: 1 1 auto; min-height: 0">
+
+      <!-- воронка -->
+      <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+        <div style="display: flex; align-items: baseline; justify-content: space-between"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 16px; color: #f7f8fb">Воронка главы II</span><span style="font-size: 11.5px; color: #8b93a5">доля игроков, дошедших до квеста · медиана времени</span></div>
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 12px; background: #20242e; border: 1px solid #2c313d">
+          <sc-for list="{{funnel}}" as="f" hint-placeholder-count="7">
+            <div style="display: grid; grid-template-columns: 170px minmax(0, 1fr) 52px 90px; gap: 10px; align-items: center">
+              <span style="font-size: 12px; color: {{f.nameColor}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.name}}</span>
+              <div style="height: 16px; border-radius: 4px; background: #12141a; overflow: hidden"><div style="width: {{f.pct}}; height: 100%; background: {{f.color}}"></div></div>
+              <span style="font-size: 12px; color: {{f.nameColor}}; font-variant-numeric: tabular-nums; text-align: right">{{f.pct}}</span>
+              <span style="font-size: 11px; color: {{f.timeColor}}; font-variant-numeric: tabular-nums; text-align: right">{{f.time}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #2a2218; border: 1px solid #5a4420">
+          <div style="width: 8px; border-radius: 4px; background: {{accent}}; flex: none"></div>
+          <div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #e6e8ee; line-height: 1.5">
+            <span style="font-weight: 600; color: #f7f8fb">Узкое место: «Электрический механизм»</span>
+            <span>Падение с 86 % до 31 % и медиана 4 ч 12 мин против 40 мин по главе. 61 % застрявших не открывали рецепт предмета ни разу. Вероятно, рецепт не находится или задача слишком дорогая.</span>
+            <div style="display: flex; gap: 6px; margin-top: 4px"><button style="height: 26px; padding: 0 10px; border-radius: 7px; border: none; background: {{accent}}; color: #15181f; font-size: 11px; font-weight: 600; cursor: pointer">Открыть квест</button><button style="height: 26px; padding: 0 10px; border-radius: 7px; border: 1px solid #5a4420; background: transparent; color: #e6e8ee; font-size: 11px; cursor: pointer">Кто застрял · 73</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- отчёты + миграции -->
+      <div style="display: flex; flex-direction: column; gap: 12px; min-width: 0">
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 12px; background: #20242e; border: 1px solid #2c313d">
+          <div style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Отчёты по книге</span><button style="height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 11px; cursor: pointer">Перепроверить</button></div>
+          <sc-for list="{{reports}}" as="r" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: 8px; background: #1a1d25; border: 1px solid #2c313d">
+              <span style="min-width: 26px; text-align: center; padding: 1px 6px; border-radius: 999px; background: {{r.bg}}; color: {{r.fg}}; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums">{{r.n}}</span>
+              <span style="font-size: 12px; color: #e6e8ee; flex: 1 1 auto; min-width: 0">{{r.text}}</span>
+              <span style="font-size: 11px; color: #8fb4ff">›</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 12px; background: #20242e; border: 1px solid #2c313d; flex: 1 1 auto; min-height: 0">
+          <div style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Миграции · dry-run</span><span style="font-size: 11px; color: #8b93a5">migrations.json · 3 записи</span></div>
+          <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 8px; background: #12141a; border: 1px solid #262a35; font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.6; color: #c9cfdd">
+            <div><span style="color: #8fb4ff">rename</span> power/el_mech → power/electric_mechanism <span style="color: #8b93a5">· 184 игрока</span></div>
+            <div><span style="color: #c7a6ff">merge </span> power/wires_a + wires_b → power/wires <span style="color: #8b93a5">· 91 · прогресс = max</span></div>
+            <div><span style="color: #e36b6b">remove</span> power/old_test <span style="color: #8b93a5">· 3 игрока → архив, не теряется</span></div>
+            <div style="color: #6fcf8f">ok     2 297 квестов без изменений</div>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: auto"><button style="height: 32px; padding: 0 12px; border-radius: 8px; border: none; background: {{accent}}; color: #15181f; font-size: 12px; font-weight: 600; cursor: pointer">Применить на сервере</button><button style="height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 12px; cursor: pointer">Открыть файл</button><span style="margin-left: auto; font-size: 11px; color: #8b93a5; align-self: center">бэкап прогресса делается автоматически</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#e4b23c","options":["#e4b23c","#5fc9a6","#8fb4ff","#f08a5d"]},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const a = this.props.accent ?? '#e4b23c';
+    const ok = '#6fcf8f', warn = a, bad = '#e36b6b', dim = '#8b93a5';
+    const funnel = [
+      {name: 'Латунь (вход в главу)', pct: '98%', color: ok, nameColor: '#e6e8ee', time: '12 мин', timeColor: dim},
+      {name: 'Провода', pct: '91%', color: ok, nameColor: '#e6e8ee', time: '25 мин', timeColor: dim},
+      {name: 'Динамо', pct: '86%', color: ok, nameColor: '#e6e8ee', time: '38 мин', timeColor: dim},
+      {name: 'Электрический механизм', pct: '31%', color: bad, nameColor: bad, time: '4 ч 12 мин', timeColor: bad},
+      {name: 'Первая машина', pct: '28%', color: warn, nameColor: '#e6e8ee', time: '55 мин', timeColor: dim},
+      {name: 'Солнечные панели', pct: '19%', color: warn, nameColor: '#e6e8ee', time: '1 ч 10 мин', timeColor: dim},
+      {name: 'Выход в главу III', pct: '17%', color: '#8fb4ff', nameColor: '#e6e8ee', time: '7 ч 30 мин', timeColor: dim}
+    ];
+    const reports = [
+      {n: '3', bg: '#3a1f24', fg: bad, text: 'квеста недостижимы: цикл зависимостей в главе V'},
+      {n: '12', bg: '#3a1f24', fg: bad, text: 'задач ссылаются на предметы без рецепта и источника'},
+      {n: '41', bg: '#3a2a1c', fg: warn, text: 'строки без перевода ru_ru'},
+      {n: '2', bg: '#3a2a1c', fg: warn, text: 'награды с несуществующим предметом'},
+      {n: '0', bg: '#1f3a2a', fg: ok, text: 'дублей id, битых ссылок [[quest:]]'}
+    ];
+    return { accent: a, funnel, reports };
+  }
+}
+</script>
+</body>
+</html>

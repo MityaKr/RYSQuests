@@ -1,0 +1,23 @@
+{
+  "book.example.title": "Пример книги",
+  "chapter.example.start.title": "I · Начало",
+  "chapter.example.start.subtitle": "Инструменты, огонь, первые шаги",
+  "chapter.example.start.basics": "Основы",
+  "chapter.example.power.title": "II · Энергия",
+  "chapter.example.power.basics": "Основы",
+  "quest.example.start.first_tools.title": "Первые инструменты",
+  "quest.example.start.first_tools.subtitle": "Дерево это всё",
+  "quest.example.start.first_tools.text": "Добудь [[item:minecraft:oak_log]] и скрафти [[item:minecraft:wooden_pickaxe]]. Сдай 8 брёвен, кирку оставь себе.",
+  "quest.example.start.read_guide.title": "Прочитай гайд",
+  "quest.example.start.read_guide.text": "У этой страницы нет задач. **Прочитай** и отметь. !!Страницы считаются квестами в прогрессе главы.!!",
+  "quest.example.start.first_furnace.title": "Первая печь",
+  "quest.example.start.first_furnace.text": "Поставь [[item:minecraft:furnace]] и переплавь первое железо. Выбери награду: уголь или железо.",
+  "quest.example.power.wires.title": "Провода",
+  "quest.example.power.wires.text": "Собери 16 [[item:minecraft:redstone]].",
+  "quest.example.power.dynamo.title": "Динамо",
+  "quest.example.power.dynamo.text": "Имей в инвентаре 2 поршня.",
+  "quest.example.power.electric_mechanism.title": "Электрический механизм",
+  "quest.example.power.electric_mechanism.subtitle": "Ключевой предмет эпохи II",
+  "quest.example.power.electric_mechanism.text": "Требует [[quest:example:power/wires]] и [[quest:example:power/dynamo]]. Сдай медные листы, оставь 3 [[item:minecraft:redstone_block]].",
+  "task.example.read_and_confirm": "Прочитать и отметить"
+}

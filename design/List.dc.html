@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>RYSQuests · вид «Список»</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#e6e8ee}
+a{color:#8fb4ff}a:hover{color:#b9d0ff}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; position: relative; overflow: hidden; background: linear-gradient(180deg, #5d7fa8 0%, #3d5a7c 32%, #4d6b3f 60%, #2f3f2a 100%); font-family: Inter, system-ui, sans-serif; color: #e6e8ee">
+  <div style="position: absolute; inset: 0; background: rgba(14, 16, 22, 0.6)"></div>
+  <div style="position: absolute; left: 40px; top: 36px; width: 1200px; height: 728px; box-sizing: border-box; background: #1c1f27; border: 1px solid #2c313d; border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden">
+
+    <div style="display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-bottom: 1px solid #2c313d; background: #16181f">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <svg width="26" height="26" viewBox="0 0 56 56" aria-hidden="true"><rect x="6" y="6" width="44" height="44" rx="8" fill="#12141a" stroke="#343a48" stroke-width="2"/><path d="M14 30 L24 20 L34 30 L24 40 Z" fill="#5b6273"/><circle cx="36" cy="34" r="10" fill="rgba(228,178,60,0.18)" stroke="#e4b23c" stroke-width="3"/><line x1="43" y1="41" x2="50" y2="48" stroke="#e4b23c" stroke-width="4" stroke-linecap="round"/></svg>
+        <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 16px; color: #f7f8fb">RYSQuests</div>
+      </div>
+      <div style="display: flex; gap: 4px; margin-left: 10px">
+        <div style="padding: 6px 12px; border-radius: 8px; color: #8b93a5; font-size: 12.5px">Карта</div>
+        <div style="padding: 6px 12px; border-radius: 8px; background: #272c38; color: #f7f8fb; font-size: 12.5px; font-weight: 500">Список</div>
+        <div style="padding: 6px 12px; border-radius: 8px; color: #8b93a5; font-size: 12.5px">Лента</div>
+        <div style="padding: 6px 12px; border-radius: 8px; color: #8b93a5; font-size: 12.5px">Что дальше</div>
+      </div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 9px; background: #0f1116; border: 1px solid #2c313d; width: 260px">
+        <span style="color: #8b93a5; font-size: 13px">⌕</span><span style="padding: 1px 7px; border-radius: 6px; background: #1f2a44; color: #8fb4ff; font-size: 11.5px">глава:II</span><span style="font-size: 12.5px; color: #e6e8ee">мех</span><span style="width: 1px; height: 14px; background: #e6e8ee; display: inline-block"></span>
+      </div>
+      <button aria-label="Закрыть" style="width: 34px; height: 34px; border-radius: 9px; border: 1px solid #343a48; background: #272c38; color: #c9cfdd; font-size: 14px; cursor: pointer">✕</button>
+    </div>
+
+    <div style="display: flex; flex: 1 1 auto; min-height: 0">
+      <div style="width: 232px; box-sizing: border-box; padding: 14px 12px; border-right: 1px solid #2c313d; background: #191c24; display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678; padding: 0 6px 6px 6px">Главы</div>
+        <sc-for list="{{chapters}}" as="ch" hint-placeholder-count="6">
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; border-radius: 9px; background: {{ch.bg}}; border: 1px solid {{ch.border}}">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12.5px"><span style="color: #f2f3f7; font-weight: 500">{{ch.name}}</span><span style="color: #8b93a5; font-size: 11.5px">{{ch.count}}</span></div>
+            <div style="height: 4px; border-radius: 2px; background: #12141a; overflow: hidden"><div style="width: {{ch.pct}}; height: 100%; background: {{ch.barColor}}"></div></div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; overflow: hidden">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 16px; color: #f7f8fb">II · Индустрия и ток</div>
+          <span style="font-size: 12px; color: #8b93a5">68 квестов</span>
+          <div style="margin-left: auto; display: flex; gap: 4px">
+            <div style="padding: 5px 10px; border-radius: 7px; background: #272c38; color: #f7f8fb; font-size: 11.5px; font-weight: 500">По статусу</div>
+            <div style="padding: 5px 10px; border-radius: 7px; color: #8b93a5; font-size: 11.5px">По порядку</div>
+            <div style="padding: 5px 10px; border-radius: 7px; color: #8b93a5; font-size: 11.5px">По подглавам</div>
+            <div style="padding: 5px 10px; border-radius: 7px; color: #8b93a5; font-size: 11.5px; border: 1px solid #2c313d">Скрыть завершённые</div>
+          </div>
+        </div>
+
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 4px 2px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: {{g.color}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: {{g.color}}; display: inline-block"></span>{{g.name}}<span style="color: #5f6678; letter-spacing: 0">{{g.count}}</span><span style="margin-left: auto; color: #5f6678; letter-spacing: 0; text-transform: none; font-weight: 400">{{g.hint}}</span></div>
+            <sc-for list="{{g.rows}}" as="q" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #20242e; border: 1px solid {{q.border}}; opacity: {{q.op}}">
+                <div style="width: 36px; height: 36px; border-radius: 8px; background: #12141a; border: 1px solid #343a48; display: flex; align-items: center; justify-content: center; flex: none"><div style="width: 22px; height: 22px; border-radius: 4px; background: {{q.icon}}"></div></div>
+                <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto">
+                  <div style="display: flex; align-items: center; gap: 8px"><span style="font-size: 13px; font-weight: 600; color: #f7f8fb">{{q.name}}</span><span style="font-size: 11px; color: #8b93a5">{{q.sub}}</span></div>
+                  <div style="display: flex; align-items: center; gap: 8px"><div style="height: 4px; border-radius: 2px; background: #12141a; overflow: hidden; width: 180px"><div style="width: {{q.pct}}; height: 100%; background: {{q.barColor}}"></div></div><span style="font-size: 11px; color: {{q.barColor}}; font-variant-numeric: tabular-nums">{{q.prog}}</span></div>
+                </div>
+                <div style="display: flex; gap: 4px; flex: none"><div style="width: 26px; height: 26px; border-radius: 6px; background: #12141a; border: 1px solid #262a35; display: flex; align-items: center; justify-content: center"><div style="width: 15px; height: 15px; border-radius: 3px; background: {{q.reward}}"></div></div></div>
+                <div style="width: 84px; display: flex; justify-content: flex-end; flex: none"><sc-if value="{{q.action}}" hint-placeholder-val="{{true}}"><button style="height: 30px; padding: 0 12px; border-radius: 8px; border: none; background: {{q.btnBg}}; color: {{q.btnFg}}; font-size: 11.5px; font-weight: 600; cursor: pointer">{{q.btn}}</button></sc-if></div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+        <div style="margin-top: auto; font-size: 11px; color: #5f6678; display: flex; gap: 14px"><span>↑↓ выбор · Enter открыть · Space закрепить</span><span>Геймпад: стик, A, Y</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#e4b23c","options":["#e4b23c","#5fc9a6","#8fb4ff","#f08a5d"]},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const a = this.props.accent ?? '#e4b23c';
+    const chapters = [
+      {name: 'I · Create', count: '52 / 52', pct: '100%', barColor: '#6fcf8f', bg: 'transparent', border: 'transparent'},
+      {name: 'II · Индустрия и ток', count: '41 / 68', pct: '60%', barColor: a, bg: '#272c38', border: '#343a48'},
+      {name: 'III · Машины', count: '5 / 74', pct: '7%', barColor: '#6fcf8f', bg: 'transparent', border: 'transparent'},
+      {name: 'IV · Энергия', count: '0 / 61', pct: '0%', barColor: '#6fcf8f', bg: 'transparent', border: 'transparent'},
+      {name: 'V · Магия и био', count: '0 / 88', pct: '0%', barColor: '#6fcf8f', bg: 'transparent', border: 'transparent'},
+      {name: 'Гайды по модам', count: '7 / 23', pct: '30%', barColor: '#8fb4ff', bg: 'transparent', border: 'transparent'}
+    ];
+    const groups = [
+      {name: 'Активные', count: '2', color: a, hint: 'есть прогресс', rows: [
+        {name: 'Электрический механизм', sub: 'требует Провода, Динамо', pct: '66%', prog: '2 / 3', barColor: a, icon: '#c9a24a', reward: '#f0c53d', border: '#3a3320', op: '1', action: true, btn: 'Сдать', btnBg: a, btnFg: '#15181f'},
+        {name: 'Насос и трубы', sub: 'всё есть в инвентаре', pct: '0%', prog: '0 / 2', barColor: '#8fe0a8', icon: '#3a7bd5', reward: '#5b3a1a', border: '#2c313d', op: '1', action: true, btn: 'Сдать всё', btnBg: '#272c38', btnFg: '#f7f8fb'}
+      ]},
+      {name: 'Доступные', count: '4', color: '#8fb4ff', hint: 'можно начать', rows: [
+        {name: 'Гайд: Immersive Engineering', sub: 'страница · 2 минуты', pct: '0%', prog: '', barColor: '#8b93a5', icon: '#5b3a1a', reward: '#5b3a1a', border: '#2c313d', op: '1', action: true, btn: 'Открыть', btnBg: '#272c38', btnFg: '#f7f8fb'},
+        {name: 'Коксовая печь', sub: 'требует Гайд: IE', pct: '0%', prog: '0 / 1', barColor: '#8b93a5', icon: '#4f5760', reward: '#f0c53d', border: '#2c313d', op: '1', action: true, btn: 'Открыть', btnBg: '#272c38', btnFg: '#f7f8fb'}
+      ]},
+      {name: 'Завершённые', count: '41', color: '#6fcf8f', hint: 'свёрнуто · показать', rows: [
+        {name: 'Динамо', sub: 'выполнено вчера · Vasya', pct: '100%', prog: '✓', barColor: '#6fcf8f', icon: '#4f5760', reward: '#f0c53d', border: '#2c313d', op: '0.6', action: false, btn: '', btnBg: '', btnFg: ''}
+      ]}
+    ];
+    return { accent: a, chapters, groups };
+  }
+}
+</script>
+</body>
+</html>

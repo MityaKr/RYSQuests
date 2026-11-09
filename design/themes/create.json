@@ -1,0 +1,34 @@
+{
+  "id": "ryscore:create",
+  "name": "Create",
+  "font": "minecraft:default",
+  "colors": {
+    "overlay": "#14100a", "overlay.alpha": 0.6,
+    "panel.bg": "#35373c", "panel.border": "#c9a24a", "panel.border.inner": "#6e5219",
+    "panel.rivet": "#e7c66b",
+    "sidebar.bg": "#2b2d31",
+    "header.bg.top": "#d8b25a", "header.bg.bottom": "#a97f2a", "header.fg": "#2a2014", "header.muted": "#4a3a1a",
+    "slot.bg": "#1f2024", "slot.bevel.dark": "#14151a", "slot.bevel.light": "#5a4418",
+    "button.bg": "#c9a24a", "button.fg": "#2a2014", "button.bevel.light": "#f0d68a", "button.bevel.dark": "#6e5219",
+    "accent": "#c4713a", "accent.fg": "#fff5e6", "accent.bevel.light": "#e8a06a", "accent.bevel.dark": "#7a3f14",
+    "text.primary": "#f1e8d4", "text.body": "#e4d8bf", "text.muted": "#a79a82", "text.dim": "#7a6f5c", "text.title": "#e7c66b",
+    "state.ok": "#9fd98a", "state.ok.border": "#6f9a4a", "state.warn": "#c9a24a", "state.bad": "#e36b6b", "state.info": "#bfd0ee",
+    "map.bg": "#23262b", "map.grid": "#c9a24a", "map.grid.alpha": 0.12,
+    "edge.done": "#7a9a5a", "edge.active": "#c9a24a", "edge.locked": "#4a4d55",
+    "tab.inactive.bg": "#3f4147", "tab.inactive.fg": "#c9bba0",
+    "link": "#e0a86a"
+  },
+  "metrics": {
+    "panel.radius": 0, "card.radius": 0, "slot.radius": 0, "button.radius": 0,
+    "panel.border": 3, "bevel": 2, "slot.size": 18, "slot.gap": 2, "rivet": 6,
+    "edge.width": 4, "missing.alpha": 0.5
+  },
+  "textures": {
+    "panel": "ryscore:textures/gui/create/panel.png",
+    "header": "ryscore:textures/gui/create/header.png",
+    "slot": "ryscore:textures/gui/create/slot.png",
+    "button": "ryscore:textures/gui/create/button.png",
+    "stripes": "ryscore:textures/gui/create/stripes.png"
+  },
+  "effects": { "blur": 0, "shadow": true, "animations": "normal", "background.stripes": true }
+}

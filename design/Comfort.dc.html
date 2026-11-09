@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>RYSQuests · вариация «Поток», комфорт</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#e6e8ee}
+a{color:#8fb4ff}a:hover{color:#b9d0ff}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; position: relative; overflow: hidden; background: linear-gradient(180deg, #5d7fa8 0%, #3d5a7c 32%, #4d6b3f 60%, #2f3f2a 100%); font-family: Inter, system-ui, sans-serif; color: #e6e8ee">
+  <div style="position: absolute; inset: 0; background: rgba(14, 16, 22, 0.66)"></div>
+  <div style="position: absolute; left: 40px; top: 36px; width: 1200px; height: 728px; box-sizing: border-box; background: #1e2029; border: 1px solid #2e3340; border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,0.5); display: flex; overflow: hidden">
+
+    <!-- Рейка глав -->
+    <div style="width: 76px; box-sizing: border-box; padding: 14px 0; border-right: 1px solid #2e3340; background: #181a21; display: flex; flex-direction: column; align-items: center; gap: 10px">
+      <svg width="30" height="30" viewBox="0 0 56 56" aria-hidden="true" style="margin-bottom: 6px"><rect x="6" y="6" width="44" height="44" rx="8" fill="#12141a" stroke="#343a48" stroke-width="2"/><path d="M14 30 L24 20 L34 30 L24 40 Z" fill="#5b6273"/><circle cx="36" cy="34" r="10" fill="rgba(228,178,60,0.18)" stroke="#e4b23c" stroke-width="3"/><line x1="43" y1="41" x2="50" y2="48" stroke="#e4b23c" stroke-width="4" stroke-linecap="round"/></svg>
+      <sc-for list="{{rail}}" as="r" hint-placeholder-count="6">
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: {{r.bg}}; border: 1px solid {{r.border}}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px">
+          <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 15px; color: {{r.fg}}">{{r.num}}</span>
+          <div style="width: 26px; height: 3px; border-radius: 2px; background: #12141a; overflow: hidden"><div style="width: {{r.pct}}; height: 100%; background: {{r.bar}}"></div></div>
+        </div>
+      </sc-for>
+      <div style="margin-top: auto; width: 48px; height: 48px; border-radius: 12px; border: 1px solid #2e3340; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #8b93a5">⚙</div>
+    </div>
+
+    <!-- Поток -->
+    <div style="width: 600px; box-sizing: border-box; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid #2e3340">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 18px 24px 10px 24px">
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #8b93a5"><span>Глава II</span><span>›</span><span>Электричество</span><span>›</span><span style="color: #f7f8fb; font-weight: 500">Электрический механизм</span></div>
+        <div style="margin-left: auto; display: flex; gap: 4px">
+          <div style="padding: 7px 12px; border-radius: 9px; background: #2a2f3b; color: #f7f8fb; font-size: 13px; font-weight: 500">Поток</div>
+          <div style="padding: 7px 12px; border-radius: 9px; color: #8b93a5; font-size: 13px">Карта</div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0; padding: 6px 24px 16px 24px; flex: 1 1 auto; min-height: 0; overflow: hidden">
+        <!-- свёрнутое выполненное -->
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; background: #1a1c24; border: 1px solid #2e3340; min-height: 44px; box-sizing: border-box">
+          <div style="width: 22px; height: 22px; border-radius: 50%; background: #6fcf8f; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #15181f; font-weight: 700">✓</div>
+          <span style="font-size: 14px; color: #c9cfdd">Выполнено 41 из 68 · Латунь, Шестерни, Провода, Динамо…</span>
+          <a href="#all" style="margin-left: auto; font-size: 13px">развернуть</a>
+        </div>
+        <div style="width: 2px; height: 18px; background: #3d7a4d; margin-left: 26px"></div>
+
+        <!-- текущий, раскрыт на месте -->
+        <div style="display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; border-radius: 14px; background: #262a35; border: 1px solid {{accent}}; box-shadow: 0 10px 30px rgba(0,0,0,0.35)">
+          <div style="display: flex; align-items: center; gap: 14px">
+            <div style="width: 48px; height: 48px; border-radius: 12px; background: #12141a; border: 1px solid #343a48; display: flex; align-items: center; justify-content: center; flex: none"><div style="width: 30px; height: 30px; border-radius: 6px; background: #c9a24a; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.35), inset 0 3px 0 rgba(255,255,255,0.2)"></div></div>
+            <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto">
+              <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 19px; color: #f7f8fb">Электрический механизм</span>
+              <span style="font-size: 13px; color: #8b93a5">Сейчас · 2 из 3 задач · откроет 2 квеста</span>
+            </div>
+            <button aria-label="Закрепить на HUD" style="width: 44px; height: 44px; border-radius: 11px; border: 1px solid #343a48; background: #2a2f3b; color: #c9cfdd; font-size: 15px; cursor: pointer">▣</button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <sc-for list="{{tasks}}" as="t" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #1e2029; border: 1px solid {{t.border}}; min-height: 44px; box-sizing: border-box">
+                <div style="width: 22px; height: 22px; border-radius: 6px; background: {{t.cbBg}}; border: 1px solid #343a48; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #15181f; font-weight: 700; flex: none">{{t.mark}}</div>
+                <div style="width: 22px; height: 22px; border-radius: 5px; background: {{t.icon}}; flex: none"></div>
+                <span style="font-size: 14px; color: {{t.color}}; flex: 1 1 auto; min-width: 0">{{t.name}}</span>
+                <span style="font-size: 13px; color: {{t.subColor}}; font-variant-numeric: tabular-nums">{{t.sub}}</span>
+                <sc-if value="{{t.submit}}" hint-placeholder-val="{{false}}"><button style="height: 34px; padding: 0 14px; border-radius: 9px; border: none; background: {{accent}}; color: #15181f; font-size: 13px; font-weight: 600; cursor: pointer">Сдать 1</button></sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #8b93a5"><span>Награда:</span><div style="width: 30px; height: 30px; border-radius: 7px; background: #12141a; border: 1px solid #343a48; display: flex; align-items: center; justify-content: center"><div style="width: 18px; height: 18px; border-radius: 3px; background: #f0c53d"></div></div><span>8 золота</span><span style="color: #5f6678">или</span><div style="width: 30px; height: 30px; border-radius: 7px; background: #12141a; border: 1px solid #343a48; display: flex; align-items: center; justify-content: center"><div style="width: 18px; height: 18px; border-radius: 3px; background: #2e8b57"></div></div><span>2 схемы</span><span style="color: #5f6678">· выбор при получении</span></div>
+        </div>
+
+        <div style="width: 2px; height: 18px; background: #3a3f4d; margin-left: 26px"></div>
+        <div style="font-size: 12px; color: #8b93a5; margin: 0 0 8px 2px">Дальше, на выбор:</div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #1a1c24; border: 1px solid #2e3340; min-height: 56px; box-sizing: border-box">
+            <div style="width: 36px; height: 36px; border-radius: 9px; background: #12141a; display: flex; align-items: center; justify-content: center; opacity: 0.7"><div style="width: 22px; height: 22px; border-radius: 5px; background: #2e8b57"></div></div>
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 14px; color: #e6e8ee">Первая машина</span><span style="font-size: 12px; color: #8b93a5">откроется после этого квеста</span></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #1a1c24; border: 1px solid #2e3340; min-height: 56px; box-sizing: border-box">
+            <div style="width: 36px; height: 36px; border-radius: 9px; background: #12141a; display: flex; align-items: center; justify-content: center; opacity: 0.7"><div style="width: 22px; height: 22px; border-radius: 5px; background: #f0c53d"></div></div>
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 14px; color: #e6e8ee">Солнечные панели</span><span style="font-size: 12px; color: #8b93a5">ещё нужна стадия 2</span></div>
+          </div>
+        </div>
+        <div style="width: 2px; height: 14px; background: #3a3f4d; margin-left: 26px"></div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 12px; border: 1px dashed #2e3340; font-size: 13px; color: #8b93a5"><span>ещё 23 квеста впереди</span><a href="#rest" style="margin-left: auto">показать</a></div>
+      </div>
+
+      <!-- быстрые действия -->
+      <div style="display: flex; align-items: center; gap: 8px; padding: 12px 24px; border-top: 1px solid #2e3340; background: #181a21">
+        <button style="height: 40px; padding: 0 16px; border-radius: 10px; border: none; background: {{accent}}; color: #15181f; font-size: 13px; font-weight: 600; cursor: pointer">Сдать всё готовое · 2</button>
+        <button style="height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #343a48; background: #2a2f3b; color: #f7f8fb; font-size: 13px; cursor: pointer">Забрать награды · 2</button>
+        <span style="margin-left: auto; font-size: 12px; color: #5f6678">K открывает книгу на текущем · Esc закрыть</span>
+      </div>
+    </div>
+
+    <!-- Чтение -->
+    <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 18px; padding: 22px 26px; overflow: hidden">
+      <div style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Как сделать</div>
+      <div style="font-size: 14.5px; line-height: 1.65; color: #d7dbe6; max-width: 60ch">
+        Электрический механизм собирается на <a href="#crafter">Механическом сборщике</a> из <span style="display: inline-block; width: 14px; height: 14px; border-radius: 3px; background: #c9a24a; vertical-align: -2px"></span> <a href="#brass">латунного механизма</a>, четырёх <span style="display: inline-block; width: 14px; height: 14px; border-radius: 3px; background: #d47c3e; vertical-align: -2px"></span> <a href="#copper">медных листов</a> и двух редстоуна. Сборщику нужна скорость от 64 об/мин, иначе он просто не запустится.
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 12px; background: #1a1c24; border: 1px solid #2e3340">
+        <div style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 12px; color: #8b93a5">Рецепт · RYScope</span><span style="font-size: 12px; color: #8b93a5">не хватает: <span style="color: #f7f8fb">медь ×4</span></span></div>
+        <div style="display: flex; align-items: center; gap: 8px">
+          <div style="width: 40px; height: 40px; border-radius: 9px; background: #12141a; border: 1px solid #262a35; display: flex; align-items: center; justify-content: center"><div style="width: 24px; height: 24px; border-radius: 4px; background: #c9a24a"></div></div>
+          <div style="width: 40px; height: 40px; border-radius: 9px; background: #12141a; border: 1px solid #3a3320; display: flex; align-items: center; justify-content: center; opacity: 0.5"><div style="width: 24px; height: 24px; border-radius: 4px; background: #d47c3e"></div></div>
+          <div style="width: 40px; height: 40px; border-radius: 9px; background: #12141a; border: 1px solid #262a35; display: flex; align-items: center; justify-content: center"><div style="width: 24px; height: 24px; border-radius: 4px; background: #c0392b"></div></div>
+          <span style="color: #5f6678; font-size: 18px; padding: 0 4px">→</span>
+          <div style="width: 48px; height: 48px; border-radius: 11px; background: #12141a; border: 1px solid #343a48; display: flex; align-items: center; justify-content: center"><div style="width: 28px; height: 28px; border-radius: 5px; background: #c9a24a"></div></div>
+          <button style="margin-left: auto; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #343a48; background: #2a2f3b; color: #f7f8fb; font-size: 13px; cursor: pointer">Где взять медь</button>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Почему дальше закрыто</div>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; line-height: 1.55; color: #c9cfdd">
+          <div style="display: flex; gap: 10px"><span style="color: #8b93a5">Первая машина</span><span>ждёт только этот квест</span></div>
+          <div style="display: flex; gap: 10px"><span style="color: #8b93a5">Солнечные панели</span><span>ждёт стадию 2, её даёт награда этого квеста</span></div>
+        </div>
+      </div>
+      <div style="margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; background: #1a1c24; border: 1px solid #2e3340; font-size: 12.5px; color: #8b93a5; line-height: 1.5">
+        <span style="color: #c9cfdd; font-weight: 500">Команда</span>
+        <span>Vasya выполнил «Динамо» 5 минут назад. У Lena уже есть 3 электрических механизма, можно попросить.</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#e4b23c","options":["#e4b23c","#5fc9a6","#8fb4ff","#f08a5d"]},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const a = this.props.accent ?? '#e4b23c';
+    const rail = [
+      {num: 'I', pct: '100%', bar: '#6fcf8f', bg: 'transparent', border: 'transparent', fg: '#8b93a5'},
+      {num: 'II', pct: '60%', bar: a, bg: '#2a2f3b', border: '#3a4050', fg: '#f7f8fb'},
+      {num: 'III', pct: '7%', bar: '#6fcf8f', bg: 'transparent', border: 'transparent', fg: '#8b93a5'},
+      {num: 'IV', pct: '0%', bar: '#6fcf8f', bg: 'transparent', border: 'transparent', fg: '#5f6678'},
+      {num: 'V', pct: '0%', bar: '#6fcf8f', bg: 'transparent', border: 'transparent', fg: '#5f6678'},
+      {num: '…', pct: '0%', bar: '#6fcf8f', bg: 'transparent', border: 'transparent', fg: '#5f6678'}
+    ];
+    const tasks = [
+      {name: 'Медный лист ×16', sub: 'сдано', subColor: '#6fcf8f', color: '#8b93a5', icon: '#d47c3e', mark: '✓', cbBg: '#6fcf8f', border: '#2e3340', submit: false},
+      {name: 'Продвижение «Электрик»', sub: 'получено', subColor: '#6fcf8f', color: '#8b93a5', icon: '#c0392b', mark: '✓', cbBg: '#6fcf8f', border: '#2e3340', submit: false},
+      {name: 'Электрический механизм ×3', sub: '1 / 3', subColor: a, color: '#f7f8fb', icon: '#c9a24a', mark: '', cbBg: '#12141a', border: '#4a3f20', submit: true}
+    ];
+    return { accent: a, rail, tasks };
+  }
+}
+</script>
+</body>
+</html>

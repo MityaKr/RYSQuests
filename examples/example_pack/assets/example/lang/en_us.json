@@ -1,0 +1,23 @@
+{
+  "book.example.title": "Example Book",
+  "chapter.example.start.title": "I · Getting Started",
+  "chapter.example.start.subtitle": "Tools, fire, first steps",
+  "chapter.example.start.basics": "Basics",
+  "chapter.example.power.title": "II · Power",
+  "chapter.example.power.basics": "Basics",
+  "quest.example.start.first_tools.title": "First Tools",
+  "quest.example.start.first_tools.subtitle": "Wood is everything",
+  "quest.example.start.first_tools.text": "Punch some [[item:minecraft:oak_log]] and craft a [[item:minecraft:wooden_pickaxe]]. Hand in 8 logs, keep the pickaxe.",
+  "quest.example.start.read_guide.title": "Read the Guide",
+  "quest.example.start.read_guide.text": "This page has no tasks. **Read it** and tick the box. !!Pages count as quests for chapter progress.!!",
+  "quest.example.start.first_furnace.title": "First Furnace",
+  "quest.example.start.first_furnace.text": "Build a [[item:minecraft:furnace]] and smelt your first iron. Choose coal or iron as a reward.",
+  "quest.example.power.wires.title": "Wires",
+  "quest.example.power.wires.text": "Collect 16 [[item:minecraft:redstone]].",
+  "quest.example.power.dynamo.title": "Dynamo",
+  "quest.example.power.dynamo.text": "Have 2 pistons in your inventory.",
+  "quest.example.power.electric_mechanism.title": "Electric Mechanism",
+  "quest.example.power.electric_mechanism.subtitle": "Key item of epoch II",
+  "quest.example.power.electric_mechanism.text": "Requires [[quest:example:power/wires]] and [[quest:example:power/dynamo]]. Hand in copper plates, keep 3 [[item:minecraft:redstone_block]].",
+  "task.example.read_and_confirm": "Read and confirm"
+}

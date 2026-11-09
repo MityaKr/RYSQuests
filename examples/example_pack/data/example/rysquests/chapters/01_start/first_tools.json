@@ -1,0 +1,22 @@
+{
+  "id": "example:start/first_tools",
+  "chapter": "example:01_start",
+  "group": "basics",
+  "title": "quest.example.start.first_tools.title",
+  "subtitle": "quest.example.start.first_tools.subtitle",
+  "text": "quest.example.start.first_tools.text",
+  "icon": "minecraft:wooden_pickaxe",
+  "requires": [],
+  "requires_mode": "all",
+  "tasks": [
+    { "type": "rysquests:item", "item": "#minecraft:logs", "count": 8, "mode": "consume" },
+    { "type": "rysquests:item", "item": "minecraft:wooden_pickaxe", "count": 1, "mode": "observe" }
+  ],
+  "rewards": [
+    { "type": "rysquests:item", "item": "minecraft:bread", "count": 4 },
+    { "type": "rysquests:xp", "levels": 1 }
+  ],
+  "layout": { "pin": false },
+  "size": 2,
+  "tags": ["milestone"]
+}

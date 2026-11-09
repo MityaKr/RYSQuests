@@ -1,0 +1,17 @@
+{
+  "id": "example:start/first_furnace",
+  "chapter": "example:01_start",
+  "title": "quest.example.start.first_furnace.title",
+  "text": "quest.example.start.first_furnace.text",
+  "icon": "minecraft:furnace",
+  "requires": ["example:start/first_tools"],
+  "tasks": [
+    { "type": "rysquests:item", "item": "minecraft:furnace", "count": 1, "mode": "observe" },
+    { "type": "rysquests:advancement", "advancement": "minecraft:story/smelt_iron" }
+  ],
+  "rewards": [
+    { "type": "rysquests:choice", "of": [
+      { "type": "rysquests:item", "item": "minecraft:coal", "count": 16 },
+      { "type": "rysquests:item", "item": "minecraft:iron_ingot", "count": 4 } ] }
+  ]
+}

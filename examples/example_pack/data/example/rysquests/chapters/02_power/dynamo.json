@@ -1,0 +1,11 @@
+{
+  "id": "example:power/dynamo",
+  "chapter": "example:02_power",
+  "group": "basics",
+  "title": "quest.example.power.dynamo.title",
+  "text": "quest.example.power.dynamo.text",
+  "icon": "minecraft:piston",
+  "requires": [],
+  "tasks": [ { "type": "rysquests:item", "item": "minecraft:piston", "count": 2, "mode": "observe" } ],
+  "rewards": [ { "type": "rysquests:xp", "points": 50 } ]
+}

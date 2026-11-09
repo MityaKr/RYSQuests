@@ -1,0 +1,9 @@
+{
+  "id": "example:02_power",
+  "title": "chapter.example.power.title",
+  "icon": "minecraft:redstone",
+  "epoch": 2,
+  "default_view": "map",
+  "groups": [ { "id": "basics", "title": "chapter.example.power.basics" } ],
+  "requires": ["example:01_start"]
+}

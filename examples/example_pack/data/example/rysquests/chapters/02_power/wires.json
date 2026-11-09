@@ -1,0 +1,11 @@
+{
+  "id": "example:power/wires",
+  "chapter": "example:02_power",
+  "group": "basics",
+  "title": "quest.example.power.wires.title",
+  "text": "quest.example.power.wires.text",
+  "icon": "minecraft:redstone",
+  "requires": [],
+  "tasks": [ { "type": "rysquests:item", "item": "minecraft:redstone", "count": 16, "mode": "consume" } ],
+  "rewards": [ { "type": "rysquests:item", "item": "minecraft:copper_ingot", "count": 8 } ]
+}

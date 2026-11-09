@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>RYSQuests · редактор в игре</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#e6e8ee}
+a{color:#8fb4ff}a:hover{color:#b9d0ff}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; position: relative; overflow: hidden; background: linear-gradient(180deg, #5d7fa8 0%, #3d5a7c 32%, #4d6b3f 60%, #2f3f2a 100%); font-family: Inter, system-ui, sans-serif; color: #e6e8ee">
+  <div style="position: absolute; inset: 0; background: rgba(14, 16, 22, 0.6)"></div>
+  <div style="position: absolute; left: 40px; top: 36px; width: 1200px; height: 728px; box-sizing: border-box; background: #1c1f27; border: 1px solid #2c313d; border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden">
+
+    <!-- шапка -->
+    <div style="display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-bottom: 1px solid #2c313d; background: #16181f">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <svg width="26" height="26" viewBox="0 0 56 56" aria-hidden="true"><rect x="6" y="6" width="44" height="44" rx="8" fill="#12141a" stroke="#343a48" stroke-width="2"/><path d="M14 30 L24 20 L34 30 L24 40 Z" fill="#5b6273"/><circle cx="36" cy="34" r="10" fill="rgba(228,178,60,0.18)" stroke="#e4b23c" stroke-width="3"/><line x1="43" y1="41" x2="50" y2="48" stroke="#e4b23c" stroke-width="4" stroke-linecap="round"/></svg>
+        <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 16px; color: #f7f8fb">RYSQuests</div>
+        <span style="padding: 2px 8px; border-radius: 999px; background: #3a2a1c; color: {{accent}}; font-size: 11px; font-weight: 600">Редактор</span>
+      </div>
+      <div style="display: flex; gap: 6px; margin-left: 12px">
+        <button style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 11.5px; cursor: pointer">+ Квест</button>
+        <button style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 11.5px; cursor: pointer">+ Страница</button>
+        <button style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 11.5px; cursor: pointer">Группа</button>
+        <button style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid {{accent}}; background: #3a2a1c; color: {{accent}}; font-size: 11.5px; font-weight: 500; cursor: pointer">Зависимость</button>
+        <button style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 11.5px; cursor: pointer">Авто-раскладка</button>
+      </div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 6px">
+        <button aria-label="Отменить" style="width: 30px; height: 30px; border-radius: 8px; border: 1px solid #343a48; background: #272c38; color: #c9cfdd; font-size: 13px; cursor: pointer">↶</button>
+        <button aria-label="Повторить" style="width: 30px; height: 30px; border-radius: 8px; border: 1px solid #343a48; background: #272c38; color: #5f6678; font-size: 13px; cursor: pointer">↷</button>
+        <span style="font-size: 11.5px; color: #8b93a5; margin: 0 6px">3 файла изменены</span>
+        <button style="height: 30px; padding: 0 12px; border-radius: 8px; border: none; background: {{accent}}; color: #15181f; font-size: 11.5px; font-weight: 600; cursor: pointer">Сохранить в датапак</button>
+        <button style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 11.5px; cursor: pointer">Выйти</button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex: 1 1 auto; min-height: 0">
+      <!-- дерево файлов -->
+      <div style="width: 232px; box-sizing: border-box; padding: 12px 10px; border-right: 1px solid #2c313d; background: #191c24; display: flex; flex-direction: column; gap: 2px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px">
+        <div style="font-family: Inter, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678; padding: 0 6px 8px 6px">data/mypack/questscope</div>
+        <div style="padding: 4px 8px; color: #8b93a5">▸ chapters/01_create/</div>
+        <div style="padding: 4px 8px; color: #e6e8ee">▾ chapters/02_power/</div>
+        <div style="padding: 3px 8px 3px 22px; color: #8b93a5">_chapter.json</div>
+        <div style="padding: 3px 8px 3px 22px; color: #8b93a5">wires.json</div>
+        <div style="padding: 3px 8px 3px 22px; color: #8b93a5">dynamo.json</div>
+        <div style="padding: 3px 8px 3px 22px; border-radius: 6px; background: #272c38; color: #f7f8fb; display: flex; justify-content: space-between"><span>electric_mechanism.json</span><span style="color: {{accent}}">●</span></div>
+        <div style="padding: 3px 8px 3px 22px; color: #8b93a5; display: flex; justify-content: space-between"><span>first_machine.json</span><span style="color: {{accent}}">●</span></div>
+        <div style="padding: 3px 8px 3px 22px; color: #8b93a5; display: flex; justify-content: space-between"><span>solar.json</span><span style="color: {{accent}}">●</span></div>
+        <div style="padding: 3px 8px 3px 22px; color: #8b93a5">pump_pipes.json</div>
+        <div style="padding: 4px 8px; color: #8b93a5">▸ chapters/03_machines/</div>
+        <div style="padding: 4px 8px; color: #8b93a5">▸ guides/</div>
+        <div style="padding: 4px 8px; color: #8b93a5">migrations.json</div>
+        <div style="margin-top: auto; padding: 10px; border-radius: 8px; background: #12141a; border: 1px solid #262a35; font-family: Inter, sans-serif; font-size: 11px; color: #8b93a5; line-height: 1.45">Горячая перезагрузка включена: правки в файлах снаружи появляются на карте с подсветкой.</div>
+      </div>
+
+      <!-- карта в режиме редактора -->
+      <div style="flex: 1 1 auto; min-width: 0; position: relative; background-color: #15171e; background-image: linear-gradient(#1f232c 1px, transparent 1px), linear-gradient(90deg, #1f232c 1px, transparent 1px); background-size: 24px 24px">
+        <div style="position: absolute; left: 16px; top: 12px; font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 15px; color: #f7f8fb">II · Индустрия и ток <span style="font-family: Inter, sans-serif; font-weight: 400; font-size: 12px; color: #8b93a5">· сетка 24 · привязка вкл</span></div>
+
+        <div style="position: absolute; left: 174px; top: 103px; width: 48px; height: 2px; background: #3d7a4d"></div>
+        <div style="position: absolute; left: 174px; top: 188px; width: 48px; height: 2px; background: #3d7a4d"></div>
+        <div style="position: absolute; left: 354px; top: 103px; width: 30px; height: 2px; background: #3a3f4d"></div>
+        <div style="position: absolute; left: 384px; top: 103px; width: 2px; height: 86px; background: #3a3f4d"></div>
+        <div style="position: absolute; left: 354px; top: 188px; width: 30px; height: 2px; background: #3a3f4d"></div>
+        <div style="position: absolute; left: 384px; top: 147px; width: 32px; height: 2px; background: #3a3f4d"></div>
+        <!-- тянущаяся зависимость -->
+        <div style="position: absolute; left: 616px; top: 147px; width: 60px; height: 0; border-top: 2px dashed {{accent}}"></div>
+        <div style="position: absolute; left: 676px; top: 110px; width: 0; height: 37px; border-left: 2px dashed {{accent}}"></div>
+        <div style="position: absolute; left: 676px; top: 110px; width: 30px; height: 0; border-top: 2px dashed {{accent}}"></div>
+        <div style="position: absolute; left: 700px; top: 104px; width: 12px; height: 12px; border-radius: 50%; background: {{accent}}; box-shadow: 0 0 0 4px rgba(228,178,60,0.25)"></div>
+
+        <div style="position: absolute; left: 36px; top: 84px; width: 128px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; background: #1c1f27; border: 1px solid #2f6b3f"><div style="width: 22px; height: 22px; border-radius: 5px; background: #c9a24a; flex: none"></div><span style="font-size: 12px; color: #f2f3f7">Латунь</span></div>
+        <div style="position: absolute; left: 36px; top: 169px; width: 128px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; background: #1c1f27; border: 1px solid #2f6b3f"><div style="width: 22px; height: 22px; border-radius: 5px; background: #8a6b3a; flex: none"></div><span style="font-size: 12px; color: #f2f3f7">Шестерни</span></div>
+        <div style="position: absolute; left: 222px; top: 84px; width: 132px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; background: #1c1f27; border: 1px solid #2c313d"><div style="width: 22px; height: 22px; border-radius: 5px; background: #d47c3e; flex: none"></div><span style="font-size: 12px; color: #f2f3f7">Провода</span></div>
+        <div style="position: absolute; left: 222px; top: 169px; width: 132px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; background: #1c1f27; border: 1px solid #2c313d"><div style="width: 22px; height: 22px; border-radius: 5px; background: #4f5760; flex: none"></div><span style="font-size: 12px; color: #f2f3f7">Динамо</span></div>
+
+        <!-- выделенный узел с ручками -->
+        <div style="position: absolute; left: 416px; top: 124px; width: 200px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #20242e; border: 2px solid {{accent}}; box-shadow: 0 10px 30px rgba(0,0,0,0.4)"><div style="width: 28px; height: 28px; border-radius: 6px; background: #c9a24a; flex: none"></div><div style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 12.5px; font-weight: 600; color: #f7f8fb">Электрический механизм</span><span style="font-size: 10.5px; color: #8b93a5">3 задачи · 3 награды</span></div></div>
+        <div style="position: absolute; left: 411px; top: 119px; width: 8px; height: 8px; background: #f7f8fb; border: 1px solid #15181f"></div>
+        <div style="position: absolute; left: 611px; top: 119px; width: 8px; height: 8px; background: #f7f8fb; border: 1px solid #15181f"></div>
+        <div style="position: absolute; left: 411px; top: 169px; width: 8px; height: 8px; background: #f7f8fb; border: 1px solid #15181f"></div>
+        <div style="position: absolute; left: 611px; top: 169px; width: 8px; height: 8px; background: #f7f8fb; border: 1px solid #15181f"></div>
+
+        <div style="position: absolute; left: 716px; top: 86px; width: 150px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; background: #1c1f27; border: 1px dashed {{accent}}"><div style="width: 22px; height: 22px; border-radius: 5px; background: #2e8b57; flex: none"></div><span style="font-size: 12px; color: #f2f3f7">Первая машина</span></div>
+        <div style="position: absolute; left: 716px; top: 166px; width: 150px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; background: #1c1f27; border: 1px solid #2c313d; opacity: 0.8"><div style="width: 22px; height: 22px; border-radius: 5px; background: #f0c53d; flex: none"></div><span style="font-size: 12px; color: #f2f3f7">Солнечные панели</span></div>
+
+        <!-- подсветка внешнего изменения -->
+        <div style="position: absolute; left: 36px; top: 290px; width: 150px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; background: #1c1f27; border: 1px solid #8fb4ff; box-shadow: 0 0 0 3px rgba(143,180,255,0.18)"><div style="width: 22px; height: 22px; border-radius: 5px; background: #3a7bd5; flex: none"></div><div style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 12px; color: #f2f3f7">Насос и трубы</span><span style="font-size: 10px; color: #8fb4ff">изменён снаружи · 12 с</span></div></div>
+
+        <div style="position: absolute; left: 16px; bottom: 12px; font-size: 11px; color: #5f6678">Перетащи точку на узел, чтобы добавить зависимость · Esc отмена · Ctrl+D дублировать · Shift+клик мультивыбор</div>
+      </div>
+
+      <!-- свойства -->
+      <div style="width: 360px; box-sizing: border-box; border-left: 1px solid #2c313d; background: #20242e; display: flex; flex-direction: column; min-height: 0">
+        <div style="display: flex; gap: 2px; padding: 10px 14px 0 14px; border-bottom: 1px solid #2c313d">
+          <div style="padding: 7px 10px; font-size: 12px; font-weight: 500; color: #f7f8fb; border-bottom: 2px solid {{accent}}">Свойства</div>
+          <div style="padding: 7px 10px; font-size: 12px; color: #8b93a5">Текст</div>
+          <div style="padding: 7px 10px; font-size: 12px; color: #8b93a5">JSON</div>
+          <div style="margin-left: auto; padding: 7px 0; font-size: 11px; color: {{accent}}">● не сохранено</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 14px; overflow: hidden">
+          <div style="display: flex; flex-direction: column; gap: 4px"><label for="qid" style="font-size: 11px; color: #8b93a5">id (строковый, стабильный)</label><input id="qid" value="mypack:power/electric_mechanism" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #343a48; background: #12141a; color: #f7f8fb; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px"></div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <div style="display: flex; flex-direction: column; gap: 4px"><label for="qtitle" style="font-size: 11px; color: #8b93a5">Название (lang)</label><input id="qtitle" value="Электрический механизм" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #343a48; background: #12141a; color: #f7f8fb; font-size: 12px"></div>
+            <div style="display: flex; flex-direction: column; gap: 4px"><label for="qicon" style="font-size: 11px; color: #8b93a5">Иконка</label><div style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid #343a48; background: #12141a"><div style="width: 18px; height: 18px; border-radius: 4px; background: #c9a24a"></div><input id="qicon" value="kubejs:electric_mechanism" style="flex: 1 1 auto; min-width: 0; border: none; background: transparent; color: #c9cfdd; font-family: 'IBM Plex Mono', monospace; font-size: 11px"></div></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Задачи · 3</span><button style="height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 11px; cursor: pointer">+ задача</button></div>
+            <sc-for list="{{tasks}}" as="t" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px; background: #1a1d25; border: 1px solid #2c313d"><span style="color: #5f6678; font-size: 12px">⋮⋮</span><span style="padding: 1px 6px; border-radius: 5px; background: #1f2a44; color: #8fb4ff; font-size: 10.5px; font-family: 'IBM Plex Mono', monospace">{{t.type}}</span><span style="font-size: 12px; color: #f2f3f7; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto">{{t.name}}</span><span style="font-size: 10.5px; color: #8b93a5">{{t.mode}}</span></div>
+            </sc-for>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Награды · 3</span><button style="height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 11px; cursor: pointer">+ награда</button></div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px; background: #1a1d25; border: 1px solid #2c313d"><span style="padding: 1px 6px; border-radius: 5px; background: #2a1f44; color: #c7a6ff; font-size: 10.5px; font-family: 'IBM Plex Mono', monospace">choice</span><span style="font-size: 12px; color: #f2f3f7">8 золота или 2 схемы</span></div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px; background: #1a1d25; border: 1px solid #2c313d"><span style="padding: 1px 6px; border-radius: 5px; background: #2a1f44; color: #c7a6ff; font-size: 10.5px; font-family: 'IBM Plex Mono', monospace">xp</span><span style="font-size: 12px; color: #f2f3f7">2 уровня</span><span style="padding: 1px 6px; border-radius: 5px; background: #2a1f44; color: #c7a6ff; font-size: 10.5px; font-family: 'IBM Plex Mono', monospace; margin-left: 6px">stage</span><span style="font-size: 12px; color: #f2f3f7">2</span></div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 11px; color: #8b93a5">Зависимости</span><div style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #343a48; background: #12141a; display: flex; align-items: center; font-size: 12px; color: #c9cfdd">Провода, Динамо · все</div></div>
+            <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 11px; color: #8b93a5">Раскладка</span><div style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #343a48; background: #12141a; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #c9cfdd"><span>авто</span><span style="width: 28px; height: 16px; border-radius: 8px; background: #343a48; position: relative; display: inline-block"><span style="position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: #8b93a5"></span></span></div></div>
+          </div>
+          <div style="padding: 10px; border-radius: 8px; background: #12141a; border: 1px solid #262a35; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8b93a5; line-height: 1.5">chapters/02_power/electric_mechanism.json<br><span style="color: #5f6678">lang/ru_ru.json · lang/en_us.json</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#e4b23c","options":["#e4b23c","#5fc9a6","#8fb4ff","#f08a5d"]},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#e4b23c', tasks: [
+      {type: 'item', name: '#c:plates/copper ×16', mode: 'сдать'},
+      {type: 'advancement', name: 'mypack:electrician', mode: ''},
+      {type: 'item', name: 'kubejs:electric_mechanism ×3', mode: 'наблюдать'}
+    ]};
+  }
+}
+</script>
+</body>
+</html>

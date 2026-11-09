@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RYSQuests</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=VT323&display=swap">
+<style>
+/* Макет: концепт-документ мода с «встроенными экранами». Экраны — тёмные панели в духе GUI Minecraft, текст — светлая/тёмная тема. */
+:root{
+  --bg:#f3f1ec; --fg:#1d1c1a; --muted:#6a665c; --line:#d9d4c8; --card:#faf9f6;
+  --accent:#2e8b57; --accent-soft:#dcefe3;
+  --mc-bg:#2b2b31; --mc-panel:#3b3b44; --mc-slot:#1c1c21; --mc-text:#ececf1; --mc-dim:#9c9cab; --mc-gold:#f0c53d; --mc-green:#6fcf6f; --mc-red:#e36b6b; --mc-blue:#6fa7ff; --mc-purple:#c58bff;
+  --font-body:"IBM Plex Sans",system-ui,sans-serif; --font-mono:"IBM Plex Mono",ui-monospace,monospace; --font-mc:"VT323","IBM Plex Mono",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#17171a;--fg:#ebe8e1;--muted:#9a968c;--line:#2e2e34;--card:#1f1f24;--accent:#6fcf8f;--accent-soft:#1c2f24;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17171a;--fg:#ebe8e1;--muted:#9a968c;--line:#2e2e34;--card:#1f1f24;--accent:#6fcf8f;--accent-soft:#1c2f24;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);line-height:1.55;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:clamp(28px,4vw,42px);line-height:1.1;margin:0 0 8px;text-wrap:balance;font-weight:600}
+h2{font-size:22px;margin:56px 0 6px;text-wrap:balance;font-weight:600}
+h3{font-size:16px;margin:22px 0 6px;font-weight:600}
+p{max-width:70ch;margin:8px 0}
+.lead{color:var(--muted);font-size:17px;max-width:72ch}
+.eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-top:48px}
+.eyebrow+h2{margin-top:4px}
+.part{margin-top:72px;padding-top:16px;border-top:2px solid var(--fg)}
+.part .eyebrow{margin-top:0}
+.toc{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin:20px 0 0;padding:0;list-style:none}
+.toc li a{display:block;padding:9px 12px;border:1px solid var(--line);background:var(--card);color:var(--fg);text-decoration:none;font-size:14px}
+.toc li a:hover{border-color:var(--accent)}
+.toc .n{font-family:var(--font-mono);color:var(--accent);margin-right:8px}
+.why{border-left:3px solid var(--accent);padding:4px 14px;margin:14px 0;background:var(--accent-soft);max-width:70ch}
+.why b{font-weight:600}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--card);border:1px solid var(--line);padding:0 4px}
+pre{font-family:var(--font-mono);font-size:13px;background:var(--card);border:1px solid var(--line);padding:12px;overflow-x:auto;max-width:100%;line-height:1.45}
+table.cmp{border-collapse:collapse;width:100%;font-size:14px;margin:12px 0}
+table.cmp th,table.cmp td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+table.cmp th{font-weight:600;font-size:13px;color:var(--muted)}
+.tbl{overflow-x:auto;max-width:100%}
+.ok{color:#2e8b4a}.no{color:#b23b3b}.half{color:#b8651a}
+.cap{font-size:13px;color:var(--muted);margin:6px 0 0;max-width:70ch}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:14px 0}
+.card{border:1px solid var(--line);background:var(--card);padding:12px 14px}
+.card h4{margin:0 0 4px;font-size:15px;font-weight:600}
+.card p{font-size:14px;margin:0;max-width:none}
+
+/* ===== Экраны мода ===== */
+.mock{background:var(--mc-bg);color:var(--mc-text);font-family:var(--font-mc);font-size:19px;line-height:1.15;border:3px solid #15151a;box-shadow:inset 0 0 0 2px #4a4a55;padding:12px;margin:16px 0;overflow-x:auto;max-width:100%}
+.mock *{box-sizing:border-box}
+.mock .bar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;border-bottom:2px solid #4a4a55;padding-bottom:8px;margin-bottom:10px}
+.mock .title{color:var(--mc-gold)}
+.mock .dim{color:var(--mc-dim)}
+.mock .g{color:var(--mc-green)}.mock .r{color:var(--mc-red)}.mock .b{color:var(--mc-blue)}.mock .pu{color:var(--mc-purple)}.mock .y{color:var(--mc-gold)}
+.panel{background:var(--mc-panel);border:2px solid #15151a;box-shadow:inset 2px 2px 0 #55555f,inset -2px -2px 0 #26262c;padding:8px;min-width:0}
+.cols{display:grid;gap:10px}
+.cols.c2{grid-template-columns:1fr 1fr}.cols.c3{grid-template-columns:1fr 1fr 1fr}
+.cols.side{grid-template-columns:1fr 230px}
+@media (max-width:640px){.cols.c2,.cols.c3,.cols.side{grid-template-columns:1fr}}
+.input{background:#111115;border:2px solid #000;box-shadow:inset 2px 2px 0 #050507;padding:4px 8px;color:var(--mc-text);display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-width:0}
+.input .cur{display:inline-block;width:9px;height:18px;background:var(--mc-text);vertical-align:-3px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.input .cur{animation:none}}
+.chip{display:inline-block;padding:0 6px;border:2px solid #000;font-size:17px;line-height:1.3;background:#2a2a33}
+.chip.mod{color:var(--mc-blue);border-color:#2b4a7a}.chip.tag{color:var(--mc-green);border-color:#2f6b2f}.chip.ep{color:var(--mc-gold);border-color:#7a6220}.chip.fn{color:var(--mc-purple);border-color:#5b3a7a}
+.btn{display:inline-block;background:#6d6d78;border:2px solid #000;box-shadow:inset 2px 2px 0 #9a9aa8,inset -2px -2px 0 #3f3f49;padding:2px 10px;color:#fff;font-size:17px}
+.btn.on{background:#3d6a3d;box-shadow:inset 2px 2px 0 #6fa76f,inset -2px -2px 0 #244024}
+.btn.sm{padding:0 6px;font-size:15px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
+.tab{padding:2px 10px;border:2px solid #000;border-bottom:none;background:#2a2a33;color:var(--mc-dim)}
+.tab.on{background:var(--mc-panel);color:var(--mc-text)}
+.slot{width:40px;height:40px;background:var(--mc-slot);border:2px solid #000;box-shadow:inset 2px 2px 0 #0b0b0e,inset -2px -2px 0 #3a3a44;display:grid;place-items:center;position:relative;flex:none}
+.slot.lg{width:52px;height:52px}
+.slot .cnt{position:absolute;right:2px;bottom:0;font-size:15px;color:#fff;text-shadow:1px 1px #000}
+.slot .ch{position:absolute;left:2px;top:0;font-size:13px;color:var(--mc-gold);text-shadow:1px 1px #000}
+.slot.lock::after{content:"🔒";position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.55);font-size:16px}
+.slot.ghost .it{opacity:.4}
+.slot.hi{outline:2px solid var(--mc-green)}
+.it{width:26px;height:26px;border:2px solid rgba(0,0,0,.6);box-shadow:inset 2px 2px 0 rgba(255,255,255,.25),inset -2px -2px 0 rgba(0,0,0,.35)}
+.slot.lg .it{width:34px;height:34px}
+.it.iron{background:#c9c9cf}.it.gold{background:#f0c53d}.it.red{background:#c0392b}.it.wood{background:#8b5a2b}.it.stone{background:#8a8a88}.it.cobble{background:#6d6d6b}.it.copper{background:#d47c3e}.it.steel{background:#4f5760}.it.diamond{background:#5be3e0}.it.obs{background:#1b1230}.it.lapis{background:#2f5fd1}.it.dust{background:#d7d7d7;clip-path:polygon(20% 80%,50% 30%,80% 80%)}.it.fluid{background:linear-gradient(#3a7bd5,#1b3f7a)}.it.lava{background:linear-gradient(#ff9a3a,#b83a0a)}.it.gas{background:linear-gradient(#b1f0b1,#4aa84a)}.it.energy{background:#ff3b3b}.it.egg{background:#8fbf8f;border-radius:40%}.it.book{background:#5b3a1a}.it.sand{background:#e0d2a0}.it.piston{background:#9a7a4a}.it.glass{background:rgba(180,220,255,.35)}.it.brass{background:#c9a24a}.it.gear{background:#8a6b3a;border-radius:50%}.it.circ{background:#2e8b57}.it.ender{background:#0f6b5a;border-radius:50%}.it.string{background:#eee}.it.bone{background:#e9e4c8}
+.srow{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.arrow{color:var(--mc-dim);font-size:26px;padding:0 6px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:17px}
+.kv .k{color:var(--mc-dim)}
+.bar2{height:10px;background:#111;border:2px solid #000;position:relative;overflow:hidden}
+.bar2 i{position:absolute;inset:0;background:var(--mc-green)}
+.bar2.r i{background:var(--mc-red)}.bar2.y i{background:var(--mc-gold)}
+.tree{list-style:none;margin:0;padding:0}
+.tree li{margin:2px 0;padding-left:16px;border-left:2px solid #4a4a55;position:relative}
+.tree li::before{content:"";position:absolute;left:0;top:14px;width:12px;border-top:2px solid #4a4a55}
+.tree>li{border-left:none;padding-left:0}.tree>li::before{display:none}
+.node{display:inline-flex;gap:8px;align-items:center;padding:2px 6px;background:var(--mc-panel);border:2px solid #15151a;flex-wrap:wrap}
+.node .it{width:20px;height:20px}
+.node.best{outline:2px solid var(--mc-green)}
+.tog{color:var(--mc-dim);width:16px;display:inline-block}
+.note{font-size:16px;color:var(--mc-dim)}
+.hud{background:rgba(0,0,0,.55);border:2px solid #000;padding:6px 8px;display:inline-block;min-width:220px}
+.hud .row{display:flex;justify-content:space-between;gap:10px}
+.pin{background:#2a2a33;border:2px solid #000;padding:6px;display:inline-grid;gap:4px;min-width:150px}
+.mdl{display:flex;flex-direction:column;gap:6px}
+.mdl .line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lnk{color:var(--mc-blue);text-decoration:underline}
+.ii{display:inline-block;width:18px;height:18px;vertical-align:-3px}
+.diag{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;align-items:stretch}
+.box{border:2px solid #15151a;background:var(--mc-panel);padding:6px 8px;font-size:17px}
+.box .h{color:var(--mc-gold)}
+.thr{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.thr span{border:2px solid #000;padding:0 6px;background:#2a2a33;font-size:15px}
+.thr .main{border-color:#7a2a2a;color:var(--mc-red)}.thr .bg{border-color:#2f6b2f;color:var(--mc-green)}
+/* темы */
+.themes{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.th{border:2px solid #000;padding:8px;font-size:17px}
+.th .ttl{margin-bottom:6px}
+.th .s{display:inline-grid;place-items:center;width:34px;height:34px;margin:2px}
+.th.vanilla{background:#c6c6c6;color:#3f3f3f}.th.vanilla .s{background:#8b8b8b;box-shadow:inset 2px 2px 0 #373737,inset -2px -2px 0 #fff}
+.th.flat{background:#1e1f26;color:#e8e8ef}.th.flat .s{background:#2b2d38;border-radius:6px;border:1px solid #3c3f4f}
+.th.glass{background:linear-gradient(135deg,#2b3a55,#4a2b55);color:#fff}.th.glass .s{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);border-radius:4px;backdrop-filter:blur(3px)}
+.th.paper{background:#efe6cf;color:#3b2f1e}.th.paper .s{background:#fff8e6;border:2px solid #8b6b3a}
+/* раскладки */
+.lay{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.lay .scr{height:90px;border:2px solid #000;background:#1a1a20;position:relative;font-size:14px;color:var(--mc-dim)}
+.lay .scr i{position:absolute;background:#3b3b44;border:1px solid #55555f}
+.lay .scr .inv{left:30%;top:25%;width:40%;height:50%;background:#55555f}
+.footer{margin-top:56px;color:var(--muted);font-size:14px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+<style>
+.qn{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:var(--mc-panel);border:2px solid #15151a;font-size:17px;position:relative}
+.qn .ic{width:22px;height:22px;border:2px solid rgba(0,0,0,.6)}
+.qn.done{border-color:#2f6b2f;color:var(--mc-green)}
+.qn.act{outline:2px solid var(--mc-gold)}
+.qn.lock{opacity:.5}
+.qmap{position:relative;height:230px;background:repeating-linear-gradient(0deg,transparent 0 23px,#34343c 23px 24px),repeating-linear-gradient(90deg,transparent 0 23px,#34343c 23px 24px);border:2px solid #15151a}
+.qmap .qn{position:absolute}
+.qmap svg{position:absolute;inset:0;width:100%;height:100%}
+.task{display:flex;align-items:center;gap:8px;padding:4px 6px;border:2px solid #15151a;background:#2a2a33}
+.task .cb{width:16px;height:16px;border:2px solid #000;background:#111;display:inline-grid;place-items:center;font-size:13px;color:var(--mc-green)}
+.task.done .cb{background:#244024}
+.funnel{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;font-size:16px}
+.funnel .bar2{height:14px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow" style="margin-top:0">Концепт отдельного мода · Minecraft 1.21.x · семья RYScope</p>
+<h1>RYSQuests: квесты, которые удобно и писать, и проходить</h1>
+<p class="lead">Самостоятельный мод-конкурент FTB Quests, Heracles и Better Questing. Та же философия, что у RYScope: ноль фризов, всё данными, одна визуальная семья и общие темы, инструменты для автора сборки на равных с игроком. Ставится в любую сборку, импортирует книгу из FTB Quests вместе с прогрессом игроков.</p>
+
+<ul class="toc">
+<li><a href="#pain"><span class="n">A</span>Боли FTB Quests</a></li>
+<li><a href="#princ"><span class="n">B</span>Принципы</a></li>
+<li><a href="#look"><span class="n">C</span>Внешний вид и виды книги</a></li>
+<li><a href="#f1"><span class="n">01</span>Карта главы с автораскладкой</a></li>
+<li><a href="#f2"><span class="n">02</span>Экран «Что дальше»</a></li>
+<li><a href="#f3"><span class="n">03</span>Карточка квеста</a></li>
+<li><a href="#f4"><span class="n">04</span>HUD-трекер (общий с RYScope)</a></li>
+<li><a href="#f5"><span class="n">05</span>Умные задачи</a></li>
+<li><a href="#f6"><span class="n">06</span>Награды</a></li>
+<li><a href="#f7"><span class="n">07</span>Редактор и файловый формат</a></li>
+<li><a href="#f8"><span class="n">08</span>Стабильные id и миграции</a></li>
+<li><a href="#f9"><span class="n">09</span>Команды и режимы прогресса</a></li>
+<li><a href="#f10"><span class="n">10</span>Аналитика и отчёты для автора</a></li>
+<li><a href="#f11"><span class="n">11</span>Текст, локализация, ссылки</a></li>
+<li><a href="#f12"><span class="n">12</span>Импорт из FTB Quests</a></li>
+<li><a href="#arch"><span class="n">D</span>Архитектура и скорость</a></li>
+<li><a href="#api"><span class="n">E</span>API</a></li>
+<li><a href="#cmp"><span class="n">F</span>Сравнение</a></li>
+<li><a href="#road"><span class="n">G</span>Дорожная карта</a></li>
+</ul>
+
+<!-- A -->
+<div class="part" id="pain">
+<p class="eyebrow">A · Откуда идея</p>
+<h2>Что раздражает в FTB Quests при 2000+ квестах</h2>
+<div class="grid3">
+<div class="card"><h4>Редактор только в игре</h4><p>Каждый квест руками: клик, окно, поля. Для больших книг авторы пишут генераторы, а SNBT-формат с числовыми id не для этого создавался.</p></div>
+<div class="card"><h4>Паутина зависимостей</h4><p>Линии между квестами накладываются друг на друга, раскладка ручная, при добавлении квеста сдвигать приходится всё.</p></div>
+<div class="card"><h4>Тормоза на больших главах</h4><p>Открытие книги и переключение глав подвисают: рендер всех квестов разом, синхронизация прогресса целиком.</p></div>
+<div class="card"><h4>Хрупкий прогресс</h4><p>Переименовал или пересоздал квест, id поменялся, у игроков прогресс пропал. Файл соответствия id приходится беречь как зеницу ока.</p></div>
+<div class="card"><h4>Квест и рецепт живут отдельно</h4><p>Чтобы понять, как сделать предмет из задачи, игрок закрывает книгу и идёт в JEI. Назад возвращается по памяти.</p></div>
+<div class="card"><h4>Автор слепой</h4><p>Нет данных, где игроки застревают, какие квесты никто не делает, сколько времени занимает глава. Узнаёшь из Discord.</p></div>
+</div>
+</div>
+
+<!-- B -->
+<div class="part" id="princ">
+<p class="eyebrow">B · Принципы</p>
+<h2>Те же пять правил, что у RYScope, плюс одно</h2>
+<div class="grid3">
+<div class="card"><h4>Данные сначала</h4><p>Книга это JSON-файлы с человекочитаемыми ключами в датапаке. Редактор в игре пишет те же файлы. Git, генераторы, ревью диффов работают из коробки.</p></div>
+<div class="card"><h4>Стабильные id</h4><p>Квест идентифицируется строковым ключом, который задаёт автор. Переименование идёт через файл миграций, прогресс игроков не теряется никогда.</p></div>
+<div class="card"><h4>Ноль фризов</h4><p>Карта главы рендерится виртуально, прогресс синхронизируется диффами, раскладка кэшируется. Книга из 5000 квестов открывается так же быстро, как из 50.</p></div>
+<div class="card"><h4>Одна семья с RYScope</h4><p>Общие темы, токены, виджеты и HUD-стикеры. Рецепт в квесте показывается прямо в карточке, квест в RYScope показывается на замке рецепта. Каждый мод работает и без другого.</p></div>
+<div class="card"><h4>Автор на равных с игроком</h4><p>Dev-режим, отчёты, аналитика, горячая перезагрузка. Книга собирается и проверяется как код.</p></div>
+<div class="card"><h4>Совместимость входа</h4><p>Импорт из FTB Quests вместе с прогрессом игроков. Без этого ни одна живая сборка не перейдёт.</p></div>
+</div>
+</div>
+
+<!-- C -->
+<div class="part" id="look">
+<p class="eyebrow">C · Внешний вид</p>
+<h2>Темы те же, видов книги четыре</h2>
+<p>Темы Slate, Vanilla Refined, Glass и Paper общие с RYScope: один формат JSON + текстуры, одна настройка переключает оба мода. Книга показывается четырьмя видами, игрок выбирает любой, автор задаёт вид по умолчанию для главы.</p>
+<div class="mock">
+<div class="bar"><span class="title">Виды книги</span><span class="dim">переключение табами или клавишей</span></div>
+<div class="cols c2">
+<div class="panel"><div class="y">Карта</div><div class="note">Граф квестов с автораскладкой слева направо. Для глав с ветвлением.</div></div>
+<div class="panel"><div class="y">Список</div><div class="note">Плоский список с группировкой по статусу: активные, доступные, завершённые. Для линейных глав и для геймпада.</div></div>
+<div class="panel"><div class="y">Лента</div><div class="note">Главы как эпохи на горизонтальной шкале, внутри вехи. Показывает, где игрок в прогрессии сборки целиком.</div></div>
+<div class="panel"><div class="y">Что дальше</div><div class="note">Домашний экран: три рекомендуемых квеста, прогресс глав, последние награды. Открывается по умолчанию.</div></div>
+</div>
+</div>
+</div>
+
+<!-- 01 -->
+<p class="eyebrow" id="f1">Фича 01</p>
+<h2>Карта главы с автораскладкой</h2>
+<p>Раскладка считается автоматически (слоёный граф слева направо, как в Factorio-калькуляторах), автор может зафиксировать отдельные узлы руками. Завершённые ветки сворачиваются в один узел, линии зависимостей ведут только к видимым узлам, подсветка пути от выбранного квеста к корню. Квесты группируются в рамки «подглав» с заголовком.</p>
+
+<div class="mock">
+<div class="bar"><span class="title">Глава II · Индустрия и ток</span><span><span class="btn sm on">Карта</span> <span class="btn sm">Список</span> <span class="btn sm">Лента</span> <span class="dim">· 41 / 68</span></span></div>
+<div class="qmap">
+<svg aria-hidden="true"><line x1="110" y1="40" x2="190" y2="40" stroke="#6fcf6f" stroke-width="2"/><line x1="110" y1="40" x2="190" y2="120" stroke="#6fcf6f" stroke-width="2"/><line x1="290" y1="40" x2="370" y2="80" stroke="#f0c53d" stroke-width="2"/><line x1="290" y1="120" x2="370" y2="80" stroke="#f0c53d" stroke-width="2"/><line x1="480" y1="80" x2="560" y2="60" stroke="#55555f" stroke-width="2" stroke-dasharray="4 4"/><line x1="480" y1="80" x2="560" y2="140" stroke="#55555f" stroke-width="2" stroke-dasharray="4 4"/></svg>
+<span class="qn done" style="left:12px;top:24px"><span class="ic" style="background:#c9a24a"></span>Латунь ✓ <span class="dim">(свёрнуто 9)</span></span>
+<span class="qn done" style="left:190px;top:24px"><span class="ic" style="background:#d47c3e"></span>Провода ✓</span>
+<span class="qn done" style="left:190px;top:104px"><span class="ic" style="background:#4f5760"></span>Динамо ✓</span>
+<span class="qn act" style="left:370px;top:64px"><span class="ic" style="background:#c9a24a"></span>Электрический механизм <span class="y">2/3</span></span>
+<span class="qn lock" style="left:560px;top:44px"><span class="ic" style="background:#2e8b57"></span>Первая машина</span>
+<span class="qn lock" style="left:560px;top:124px"><span class="ic" style="background:#f0c53d"></span>Солнечные панели</span>
+<span class="note" style="position:absolute;right:8px;bottom:6px">Shift+колесо: масштаб · ПКМ: закрепить · F: фокус на пути</span>
+</div>
+<div class="note" style="margin-top:8px">Автор: <span class="btn sm">Авто-раскладка</span> <span class="btn sm">Закрепить узел</span> <span class="btn sm">Группа</span> <span class="dim">· раскладка кэшируется, пересчёт только при изменении графа</span></div>
+</div>
+
+<!-- 02 -->
+<p class="eyebrow" id="f2">Фича 02</p>
+<h2>Экран «Что дальше»</h2>
+<p>Книга открывается не на карте, а на домашнем экране: три рекомендованных квеста (доступны, ближе всего к завершению, ведут к следующей главе), прогресс глав полосками, непринятые награды, последние события команды. Один клик до дела, не нужно искать, где остановился.</p>
+
+<div class="mock">
+<div class="bar"><span class="title">Что дальше</span><span class="dim">вы: глава II · 41 / 68 · команда «Repka»</span></div>
+<div class="cols side">
+<div class="panel">
+<div class="y">Рекомендуем</div>
+<div class="mdl" style="margin-top:6px">
+<div class="task"><span class="cb">▸</span><span class="it brass ii"></span>Электрический механизм <span class="dim">2 / 3 задач · не хватает 4 меди</span><span class="btn sm" style="margin-left:auto">Открыть</span></div>
+<div class="task"><span class="cb">▸</span><span class="it fluid ii"></span>Насос и трубы <span class="dim">0 / 2 · всё есть в инвентаре</span><span class="btn sm" style="margin-left:auto">Открыть</span></div>
+<div class="task"><span class="cb">▸</span><span class="it book ii"></span>Гайд: Immersive Engineering <span class="dim">прочитать</span><span class="btn sm" style="margin-left:auto">Открыть</span></div>
+</div>
+<div class="y" style="margin-top:12px">Награды к получению <span class="r">2</span></div>
+<div class="srow" style="margin-top:4px"><div class="slot"><span class="it gold"></span><span class="cnt">8</span></div><div class="slot"><span class="it book"></span></div><span class="btn sm">Забрать всё</span></div>
+</div>
+<div class="panel">
+<div class="y">Главы</div>
+<div class="kv" style="margin-top:6px">
+<span class="k">I Create</span><span><div class="bar2"><i style="width:100%"></i></div></span>
+<span class="k">II Ток</span><span><div class="bar2 y"><i style="width:60%"></i></div></span>
+<span class="k">III Машины</span><span><div class="bar2"><i style="width:8%"></i></div></span>
+<span class="k">IV Энергия</span><span><div class="bar2"><i style="width:0"></i></div></span>
+</div>
+<div class="note" style="margin-top:8px">Команда: Vasya выполнил «Динамо» 5 мин назад</div>
+</div>
+</div>
+</div>
+
+<!-- 03 -->
+<p class="eyebrow" id="f3">Фича 03</p>
+<h2>Карточка квеста</h2>
+<p>Задачи с живым прогрессом и кнопкой «сдать», текст-гайд с иконками и ссылками, рецепт нужного предмета прямо в карточке (через API RYScope, при его отсутствии через JEI или EMI), награды с выбором. Из карточки можно закрепить квест на HUD, открыть зависимости, скопировать ссылку для чата.</p>
+
+<div class="mock">
+<div class="bar"><span class="title">Электрический механизм</span><span class="dim">глава II · требует: Провода, Динамо · открывает: 2 квеста</span></div>
+<div class="cols c2">
+<div class="panel mdl">
+<div class="y">Задачи 2 / 3</div>
+<div class="task done"><span class="cb">✓</span><span class="it copper ii"></span>Медный лист ×16 <span class="dim">16 / 16</span></div>
+<div class="task done"><span class="cb">✓</span><span class="it red ii"></span>Продвижение «Электрик»</div>
+<div class="task"><span class="cb"></span><span class="it brass ii"></span>Электрический механизм ×3 <span class="y">1 / 3</span><span class="btn sm" style="margin-left:auto">Сдать</span></div>
+<div class="note">Предметы считаются из инвентаря автоматически, «Сдать» забирает их. Режим «наблюдение» засчитывает без изъятия.</div>
+<div class="y" style="margin-top:6px">Награды · выберите 1 из 2</div>
+<div class="srow"><div class="slot hi"><span class="it gold"></span><span class="cnt">8</span></div><div class="slot"><span class="it circ"></span><span class="cnt">2</span></div><span class="dim">+ 50 опыта · + стадия <span class="chip ep">2</span></span></div>
+</div>
+<div class="panel mdl">
+<div class="y">Описание</div>
+<div class="line">Электрический механизм собирается на <span class="lnk">Механическом сборщике</span> из <span class="it brass ii"></span> <span class="lnk">латунного механизма</span>, <span class="it copper ii"></span> <span class="lnk">меди</span> и <span class="it red ii"></span> редстоуна.</div>
+<div style="border:2px solid #15151a;background:#2a2a33;padding:6px"><div class="dim" style="margin-bottom:4px">Рецепт · RYScope</div><div class="srow"><div class="slot"><span class="it brass"></span></div><div class="slot"><span class="it copper"></span><span class="cnt">4</span></div><div class="slot"><span class="it red"></span><span class="cnt">2</span></div><span class="arrow">→</span><div class="slot"><span class="it brass"></span></div><span class="btn sm">Граф</span></div></div>
+<div class="srow"><span class="btn sm">Закрепить на HUD</span><span class="btn sm">Зависимости</span><span class="btn sm">Ссылка в чат</span></div>
+</div>
+</div>
+</div>
+
+<!-- 04 -->
+<p class="eyebrow" id="f4">Фича 04</p>
+<h2>HUD-трекер, общий с RYScope</h2>
+<p>Закреплённый квест это стикер поверх мира с задачами и прогрессом, обновляется в реальном времени. Стикеры квестов и стикеры рецептов RYScope живут на одной доске: закрепил квест, рядом сам появляется рецепт недостающего предмета. При выполнении задачи стикер коротко подсвечивается, при завершении квеста исчезает с уведомлением о награде.</p>
+
+<div class="mock">
+<div class="srow" style="align-items:flex-start;gap:12px">
+<div class="pin"><div class="y">▣ Электрический механизм</div><div class="task done" style="padding:2px 4px"><span class="cb">✓</span>Медный лист 16/16</div><div class="task" style="padding:2px 4px"><span class="cb"></span>Эл. механизм <span class="y">1/3</span></div><div class="bar2 y"><i style="width:66%"></i></div></div>
+<div class="pin"><div class="y">⚙ Эл. механизм ×2 <span class="dim">(RYScope)</span></div><div class="srow"><div class="slot"><span class="it brass"></span><span class="cnt">2</span></div><div class="slot"><span class="it copper"></span><span class="cnt">8</span></div><div class="slot"><span class="it red"></span><span class="cnt">4</span></div></div><div class="dim" style="font-size:15px">не хватает: медь ×4</div></div>
+<div class="hud" style="min-width:180px"><div class="row"><span class="g">✓ Квест выполнен</span></div><div>Насос и трубы</div><div class="dim">награда ждёт в книге · [K]</div></div>
+</div>
+<div class="note" style="margin-top:8px">Доска перетаскивается, прячется в бою (опция), на геймпаде листается стиком.</div>
+</div>
+
+<!-- 05 -->
+<p class="eyebrow" id="f5">Фича 05</p>
+<h2>Умные задачи</h2>
+<p>Типы задач описываются декларативно, новые добавляются через API или KubeJS. У каждой задачи режим проверки: сдать (предметы изымаются), наблюдать (просто иметь), накопить (счётчик за всё время).</p>
+<div class="mock">
+<div class="cols c3">
+<div class="box"><div class="h">Предмет</div>по id, тегу или предикату NBT/компонентов; «любой из»; количество</div>
+<div class="box"><div class="h">Продвижение / статистика</div>любое продвижение; статистика (пройдено блоков, убито мобов, добыто X)</div>
+<div class="box"><div class="h">Мир</div>посетить измерение, биом, структуру; увидеть блок (наведение); координаты</div>
+<div class="box"><div class="h">Жидкость / энергия</div>в инвентаре или в блоке перед игроком; через capability</div>
+<div class="box"><div class="h">Рецепт выполнен</div>скрафтил на верстаке или машине N раз (событие из RYScope или своё)</div>
+<div class="box"><div class="h">Стадия / команда</div>получена стадия; команда из N игроков; чекбокс «я прочитал»</div>
+<div class="box"><div class="h">Кастомная</div>KubeJS: <code>QuestEvents.check('my_task', e => ...)</code>; Java API</div>
+<div class="box"><div class="h">Составная</div>любые 2 из 4; по очереди; с таймером</div>
+<div class="box"><div class="h">Скрытая</div>появляется только после условия, для секретов</div>
+</div>
+</div>
+
+<!-- 06 -->
+<p class="eyebrow" id="f6">Фича 06</p>
+<h2>Награды</h2>
+<p>Предмет (с компонентами), выбор одного из N, лут-таблица с показом шансов, команда, опыт, стадия, разблокировка рецептов в RYScope, «посылка» которая доставляется в сундук дома если инвентарь полный, и отложенная награда, которую игрок забирает в книге когда удобно. Автор видит в dev-режиме суммарную ценность наград главы, чтобы ловить перекосы.</p>
+<div class="mock">
+<div class="panel"><div class="srow"><div class="slot"><span class="it gold"></span><span class="cnt">8</span><span class="ch">выбор</span></div><div class="slot"><span class="it circ"></span><span class="cnt">2</span><span class="ch">выбор</span></div><div class="slot"><span class="it book"></span><span class="ch">лут</span></div><div class="slot"><span class="it egg"></span><span class="ch">12%</span></div><span class="dim">+ 50 опыта · + стадия 2 · + рецепты Mekanism в RYScope · <span class="lnk">лут-таблица: 6 вариантов</span></span></div></div>
+</div>
+
+<!-- 07 -->
+<p class="eyebrow" id="f7">Фича 07</p>
+<h2>Редактор и файловый формат</h2>
+<p>Редактор в игре: перетаскивание, мультивыделение, копирование квестов и целых подглав, зависимости тянутся мышью, правка текста с предпросмотром. Но он только пишет файлы: один JSON на квест (или на подглаву), человекочитаемые ключи, порядок полей стабилен, никаких числовых id. Это значит: git показывает осмысленные диффы, генератор на Python пишет те же файлы, горячая перезагрузка подхватывает изменения и подсвечивает на карте, что изменилось.</p>
+<pre>// data/mypack/rysquests/chapters/02_power/electric_mechanism.json
+{ "id": "mypack:power/electric_mechanism",
+  "title": "quest.mypack.power.electric_mechanism.title",     // lang-ключ, можно и literal
+  "icon": "kubejs:electric_mechanism",
+  "requires": ["mypack:power/wires", "mypack:power/dynamo"],
+  "requires_mode": "all",
+  "tasks": [
+    { "type": "item", "item": "#c:plates/copper", "count": 16, "mode": "consume" },
+    { "type": "advancement", "id": "mypack:electrician" },
+    { "type": "item", "item": "kubejs:electric_mechanism", "count": 3, "mode": "observe" } ],
+  "rewards": [
+    { "type": "choice", "of": [ {"type":"item","item":"minecraft:gold_ingot","count":8},
+                                {"type":"item","item":"mekanism:basic_control_circuit","count":2} ] },
+    { "type": "xp", "levels": 2 },
+    { "type": "stage", "stage": "2" } ],
+  "layout": { "pin": false },        // авто-раскладка; {"x":12,"y":4} фиксирует
+  "text": "quest.mypack.power.electric_mechanism.text" }</pre>
+<p class="cap">Один файл на квест удобен для генераторов и git. Для маленьких книг разрешён и один файл на главу: формат тот же, просто массив.</p>
+
+<!-- 08 -->
+<p class="eyebrow" id="f8">Фича 08</p>
+<h2>Стабильные id и миграции</h2>
+<p>Прогресс игрока хранится по строковому id квеста. Переименование делается записью в <code>migrations.json</code>, удаление квеста не трогает чужие записи. Перед релизом команда <code>/rysquests migrate --dry-run</code> показывает, что произойдёт с прогрессом: сколько записей переедет, сколько останется без квеста (и будет сохранено как «архив», не потеряно). Сервер применяет миграции при загрузке один раз и логирует.</p>
+<div class="mock"><div class="panel" style="font-family:var(--font-mono);font-size:13px;line-height:1.5;white-space:pre;overflow-x:auto">$ /rysquests migrate --dry-run
+  rename  mypack:power/el_mech   → mypack:power/electric_mechanism   (184 игрока)
+  merge   mypack:power/wires_a + wires_b → mypack:power/wires        (91 игрок, прогресс = max)
+  remove  mypack:power/old_test                                      (3 игрока → архив)
+  ok      2297 квестов без изменений
+Применить: /rysquests migrate --apply</div></div>
+
+<!-- 09 -->
+<p class="eyebrow" id="f9">Фича 09</p>
+<h2>Команды и режимы прогресса</h2>
+<p>Три режима на уровне книги с переопределением на главе или квесте: индивидуальный, командный (общий прогресс и общие награды или награда каждому), серверный (один прогресс на весь мир, для кооп-серверов). Команды без отдельного мода: создание, приглашение, передача лидера, гость (видит прогресс, не влияет). Прогресс синхронизируется диффами, уведомления о действиях команды в «Что дальше».</p>
+
+<!-- 10 -->
+<p class="eyebrow" id="f10">Фича 10</p>
+<h2>Аналитика и отчёты для автора</h2>
+<p>Сервер (или одиночный мир) ведёт локальную статистику: когда квест открыт, когда выполнен, сколько игроков дошло. Автор смотрит воронку по главе прямо в dev-режиме книги и видит, где застревают. Ничего не отправляется наружу; экспорт в CSV по команде. Плюс статические отчёты по книге, как у RYScope.</p>
+<div class="mock">
+<div class="bar"><span class="title">Dev · Воронка главы II</span><span class="dim">68 квестов · 212 игроков за 30 дней</span></div>
+<div class="cols c2">
+<div class="panel"><div class="funnel">
+<span>Латунь</span><div class="bar2"><i style="width:98%"></i></div><span>98 %</span>
+<span>Провода</span><div class="bar2"><i style="width:91%"></i></div><span>91 %</span>
+<span>Динамо</span><div class="bar2"><i style="width:86%"></i></div><span>86 %</span>
+<span class="r">Эл. механизм</span><div class="bar2 r"><i style="width:31%"></i></div><span class="r">31 %</span>
+<span>Первая машина</span><div class="bar2"><i style="width:28%"></i></div><span>28 %</span>
+</div><div class="note" style="margin-top:6px">Медиана времени на «Эл. механизм»: <span class="r">4 ч 12 мин</span> (глава: 40 мин). Вероятно, задача слишком дорогая или рецепт не найден.</div></div>
+<div class="panel"><div class="y">Отчёты по книге</div><div class="kv" style="margin-top:4px">
+<span class="k r">3</span><span>квеста недостижимы (цикл зависимостей)</span>
+<span class="k r">12</span><span>задач ссылаются на предметы без рецепта и источника</span>
+<span class="k y">41</span><span>строка без перевода ru</span>
+<span class="k y">2</span><span>награды с несуществующим предметом</span>
+<span class="k g">0</span><span>дублей id</span>
+</div><div class="srow" style="margin-top:6px"><span class="btn sm">Экспорт CSV</span><span class="btn sm">Перепроверить</span></div></div>
+</div>
+</div>
+
+<!-- 11 -->
+<p class="eyebrow" id="f11">Фича 11</p>
+<h2>Текст, локализация, ссылки</h2>
+<p>Все строки через lang-ключи с первого дня, редактор в игре пишет в lang-файл текущего языка. Разметка текста общая с RYScope: <code>[[item:…]]</code> с иконкой и подсказкой, <code>[[quest:…]]</code> открывает квест, <code>[[recipe:…]]</code> разворачивает рецепт, <code>[[guide:…]]</code> и <code>[[ponder:…]]</code> ведут в GuideME, Patchouli, Ponder. Картинки из ресурспака, предупреждения, спойлеры. Для гайд-квестов есть тип «страница»: только текст, без задач, засчитывается прочтением.</p>
+
+<!-- 12 -->
+<p class="eyebrow" id="f12">Фича 12</p>
+<h2>Импорт из FTB Quests</h2>
+<p>Команда импорта читает <code>config/ftbquests</code> (SNBT): главы, квесты, задачи, награды, раскладку, зависимости, тексты, и пишет JSON RYSQuests с ключами из названий. Прогресс игроков из <code>world/data/ftbquests</code> переносится по сгенерированной таблице соответствия, которая сохраняется как первая миграция. Отчёт импорта перечисляет всё, что не удалось перенести один в один (экзотические типы задач, кастомные награды) и предлагает ближайший аналог.</p>
+
+<!-- D -->
+<div class="part" id="arch">
+<p class="eyebrow">D · Архитектура</p>
+<h2>Почему быстрее</h2>
+<div class="mock">
+<div class="diag">
+<div class="box"><div class="h">1. Книга как неизменяемый граф</div>Загружается из датапака, индексируется по id, зависимостям и предметам задач. Пересборка по событию.</div>
+<div class="box"><div class="h">2. Раскладка в фоне и в кэше</div>Слоёный алгоритм считается в фоне, результат хранится на диске по хэшу главы.</div>
+<div class="box"><div class="h">3. Виртуальный рендер карты</div>Рисуются только узлы и линии в видимой области; завершённые ветки свёрнуты.</div>
+<div class="box"><div class="h">4. Прогресс диффами</div>Сервер шлёт только изменившиеся записи; при входе снимок сжат. Проверка задач по событиям, не по тикам.</div>
+<div class="box"><div class="h">5. Компактное хранение</div>Прогресс в бинарном формате с индексом по игроку и квесту; архив удалённых отдельно.</div>
+<div class="box"><div class="h">6. Общее ядро с RYScope</div>Темы, виджеты, стикеры, разметка текста в библиотеке <code>RYScore</code>; оба мода работают независимо.</div>
+</div>
+<div class="thr"><span class="main">главный поток: рендер, ввод</span><span class="bg">фон: раскладка, индекс, отчёты</span><span class="bg">сервер: события задач, диффы, миграции</span></div>
+</div>
+</div>
+
+<!-- E -->
+<div class="part" id="api">
+<p class="eyebrow">E · API</p>
+<h2>Декларативно по умолчанию, Java и KubeJS для остального</h2>
+<pre>// KubeJS
+RYSQuestsEvents.task('mypack:looked_at_boiler', e => {
+  e.title('Посмотреть на бойлер');
+  e.check(player => player.rayTraceBlock(8).block.id == 'create:fluid_tank');
+});
+RYSQuestsEvents.completed(e => {            // реакция на выполнение
+  if (e.quest == 'mypack:power/electric_mechanism') e.server.runCommand('...');
+});</pre>
+<pre>// Java
+@RYSQuestsPlugin
+public final class MyPlugin implements RYSQuestsPluginEntry {
+  public void register(RYSQuestsRegistry r) {
+    r.taskType("mymod:energy_stored", EnergyStoredTask.CODEC);
+    r.rewardType("mymod:unlock_recipe", UnlockRecipeReward.CODEC);
+    r.progressProvider(new MyStageBridge());        // стадии, Game Stages и т.п.
+    r.recipeViewer(new RyscopeBridge());            // или JEI/EMI
+  }
+}</pre>
+</div>
+
+<!-- F -->
+<div class="part" id="cmp">
+<p class="eyebrow">F · Сравнение</p>
+<h2>Что уже есть у других</h2>
+<p>Где не смотрел код, стоит «проверить». До старта декомпилировать FTB Quests и Heracles.</p>
+<div class="tbl"><table class="cmp">
+<tr><th>Возможность</th><th>FTB Quests</th><th>Heracles</th><th>Better Questing</th><th>RYSQuests</th></tr>
+<tr><td>Файловый формат для git и генераторов</td><td class="half">SNBT, числовые id</td><td class="half">JSON, проверить id</td><td class="no">один большой файл</td><td class="ok">JSON, строковые id, файл на квест</td></tr>
+<tr><td>Автораскладка карты</td><td class="no">ручная</td><td class="no">ручная</td><td class="no">ручная</td><td class="ok">авто + фиксация</td></tr>
+<tr><td>Миграции id без потери прогресса</td><td class="no">нет</td><td class="no">проверить</td><td class="no">нет</td><td class="ok">migrations.json + dry-run</td></tr>
+<tr><td>Домашний экран «Что дальше»</td><td class="no">нет</td><td class="no">нет</td><td class="no">нет</td><td class="ok">да</td></tr>
+<tr><td>Рецепт внутри карточки квеста</td><td class="no">нет</td><td class="no">нет</td><td class="no">нет</td><td class="ok">через RYScope / JEI / EMI</td></tr>
+<tr><td>HUD-трекер</td><td class="half">список закреплённых</td><td class="half">проверить</td><td class="no">нет</td><td class="ok">общая доска с RYScope</td></tr>
+<tr><td>Аналитика воронки</td><td class="no">нет</td><td class="no">нет</td><td class="no">нет</td><td class="ok">локально, dev-режим</td></tr>
+<tr><td>Отчёты: циклы, битые предметы, переводы</td><td class="no">нет</td><td class="no">нет</td><td class="no">нет</td><td class="ok">да</td></tr>
+<tr><td>Команды</td><td class="ok">FTB Teams</td><td class="half">проверить</td><td class="ok">партии</td><td class="ok">встроено, 3 режима</td></tr>
+<tr><td>Темы</td><td class="no">нет</td><td class="no">нет</td><td class="half">темы</td><td class="ok">общие с RYScope</td></tr>
+<tr><td>Импорт из FTB Quests с прогрессом</td><td>—</td><td class="no">проверить</td><td class="no">нет</td><td class="ok">да</td></tr>
+<tr><td>Виртуальный рендер и диффы прогресса</td><td class="no">проверить</td><td class="no">проверить</td><td class="no">нет</td><td class="ok">да</td></tr>
+</table></div>
+</div>
+
+<!-- G -->
+<div class="part" id="road">
+<p class="eyebrow">G · Дорожная карта</p>
+<h2>Порядок, при котором каждая стадия полезна сама по себе</h2>
+<div class="grid3">
+<div class="card"><h4>0. Общая библиотека RYScore</h4><p>Темы, виджеты, стикеры, разметка текста. Выделяется из RYScope, чтобы оба мода делили код. Тот же блокер со сборкой: maven NeoForge.</p></div>
+<div class="card"><h4>1. Ядро книги (MVP)</h4><p>Формат JSON, загрузка из датапака, задачи предмет/продвижение/чекбокс, награды предмет/команда, карта с автораскладкой, список, прогресс с диффами, темы Slate и Vanilla. Импорт из FTB Quests. Цель: заменить FTB Quests в сборке без потерь.</p></div>
+<div class="card"><h4>2. Удобство игрока</h4><p>«Что дальше», карточка с рецептом, HUD-трекер, лента, остальные типы задач и наград, команды.</p></div>
+<div class="card"><h4>3. Для автора</h4><p>Редактор в игре, миграции с dry-run, отчёты, аналитика воронки, горячая перезагрузка с подсветкой.</p></div>
+<div class="card"><h4>4. Расширение</h4><p>KubeJS-события, составные и скрытые задачи, геймпад, Fabric-порт.</p></div>
+<div class="card"><h4>Что проверить до старта</h4><p>Декомпилировать FTB Quests (формат прогресса, FTB Teams) и Heracles (формат JSON, раскладка). День с CFR сэкономит недели.</p></div>
+</div>
+</div>
+
+<div class="footer">Макеты условные: цвета предметов и цифры подобраны для наглядности. Названия модов настоящие, их API нужно проверять по коду до реализации.</div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>RYSQuests · HUD-трекер поверх мира</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#e6e8ee}
+a{color:#8fb4ff}a:hover{color:#b9d0ff}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; position: relative; overflow: hidden; background: linear-gradient(180deg, #86b4f0 0%, #6a9ad8 38%, #6f9d4a 56%, #4a6e33 100%); font-family: Inter, system-ui, sans-serif; color: #e6e8ee">
+  <!-- условный мир -->
+  <div style="position: absolute; left: 0; right: 0; top: 440px; height: 360px; background: linear-gradient(180deg, #5f8a3c, #3f5e2a)"></div>
+  <div style="position: absolute; left: 560px; top: 330px; width: 160px; height: 130px; background: #8a8a88; box-shadow: inset -20px 0 0 #6d6d6b, inset 0 -16px 0 #6d6d6b"></div>
+  <div style="position: absolute; left: 600px; top: 290px; width: 80px; height: 40px; background: #4f5760; box-shadow: inset -12px 0 0 #3a3f48"></div>
+  <div style="position: absolute; left: 300px; top: 380px; width: 90px; height: 80px; background: #8b5a2b; box-shadow: inset -14px 0 0 #6b4520"></div>
+  <div style="position: absolute; left: 250px; top: 300px; width: 190px; height: 90px; background: #3f7a2c; border-radius: 10px 10px 4px 4px"></div>
+  <!-- прицел -->
+  <div style="position: absolute; left: 634px; top: 394px; width: 12px; height: 2px; background: rgba(255,255,255,0.85)"></div>
+  <div style="position: absolute; left: 639px; top: 389px; width: 2px; height: 12px; background: rgba(255,255,255,0.85)"></div>
+  <!-- хотбар -->
+  <div style="position: absolute; left: 458px; bottom: 16px; display: flex; gap: 2px; padding: 3px; background: rgba(0,0,0,0.45); border-radius: 6px">
+    <sc-for list="{{hot}}" as="c" hint-placeholder-count="9"><div style="width: 38px; height: 38px; border-radius: 4px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center"><div style="width: 22px; height: 22px; border-radius: 3px; background: {{c.bg}}; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.35), inset 0 2px 0 rgba(255,255,255,0.2)"></div></div></sc-for>
+  </div>
+  <div style="position: absolute; left: 458px; bottom: 62px; display: flex; gap: 2px"><sc-for list="{{hearts}}" as="h" hint-placeholder-count="10"><div style="width: 14px; height: 14px; background: #d33; border-radius: 3px 3px 7px 7px"></div></sc-for></div>
+
+  <!-- Доска стикеров (RYSQuests + RYScope) -->
+  <div style="position: absolute; right: 20px; top: 20px; width: 300px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 4px; font-size: 11px; color: rgba(255,255,255,0.85); text-shadow: 0 1px 2px rgba(0,0,0,0.6)"><span>Доска · 3</span><span>K книга · B свернуть</span></div>
+
+    <!-- квест -->
+    <div style="box-sizing: border-box; padding: 12px 14px; border-radius: 12px; background: rgba(28,31,39,0.92); border: 1px solid #343a48; border-left: 3px solid {{accent}}; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3)">
+      <div style="display: flex; align-items: center; gap: 8px"><div style="width: 22px; height: 22px; border-radius: 5px; background: #c9a24a; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.35)"></div><span style="font-size: 13px; font-weight: 600; color: #f7f8fb">Электрический механизм</span><span style="margin-left: auto; font-size: 11px; color: #8b93a5">2 / 3</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #8b93a5"><span style="width: 14px; height: 14px; border-radius: 4px; background: #6fcf8f; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; color: #15181f; font-weight: 700">✓</span><span style="text-decoration: none">Медный лист 16 / 16</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #8b93a5"><span style="width: 14px; height: 14px; border-radius: 4px; background: #6fcf8f; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; color: #15181f; font-weight: 700">✓</span><span>Продвижение «Электрик»</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #f2f3f7"><span style="width: 14px; height: 14px; border-radius: 4px; background: #12141a; border: 1px solid #343a48; display: inline-block"></span><span>Электрический механизм</span><span style="margin-left: auto; color: {{accent}}; font-weight: 600">1 / 3</span></div>
+      </div>
+      <div style="height: 4px; border-radius: 2px; background: #12141a; overflow: hidden"><div style="width: 66%; height: 100%; background: {{accent}}"></div></div>
+    </div>
+
+    <!-- рецепт RYScope, появился сам -->
+    <div style="box-sizing: border-box; padding: 12px 14px; border-radius: 12px; background: rgba(28,31,39,0.92); border: 1px solid #343a48; display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; align-items: center; gap: 8px"><span style="font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: #1f2a44; color: #8fb4ff; font-weight: 500">RYScope</span><span style="font-size: 12.5px; font-weight: 600; color: #f7f8fb">Электрический механизм ×2</span><span style="margin-left: auto; font-size: 11px; color: #8b93a5">для квеста</span></div>
+      <div style="display: flex; align-items: center; gap: 6px">
+        <div style="width: 30px; height: 30px; border-radius: 6px; background: #12141a; display: flex; align-items: center; justify-content: center; position: relative"><div style="width: 18px; height: 18px; border-radius: 3px; background: #c9a24a"></div><span style="position: absolute; right: 2px; bottom: 0; font-size: 9.5px; color: #fff">2</span></div>
+        <div style="width: 30px; height: 30px; border-radius: 6px; background: #12141a; display: flex; align-items: center; justify-content: center; position: relative; opacity: 0.45"><div style="width: 18px; height: 18px; border-radius: 3px; background: #d47c3e"></div><span style="position: absolute; right: 2px; bottom: 0; font-size: 9.5px; color: #fff">8</span></div>
+        <div style="width: 30px; height: 30px; border-radius: 6px; background: #12141a; display: flex; align-items: center; justify-content: center; position: relative"><div style="width: 18px; height: 18px; border-radius: 3px; background: #c0392b"></div><span style="position: absolute; right: 2px; bottom: 0; font-size: 9.5px; color: #fff">4</span></div>
+        <span style="color: #5f6678; font-size: 14px">→</span>
+        <div style="width: 32px; height: 32px; border-radius: 7px; background: #12141a; border: 1px solid #343a48; display: flex; align-items: center; justify-content: center"><div style="width: 20px; height: 20px; border-radius: 4px; background: #c9a24a"></div></div>
+      </div>
+      <div style="font-size: 11.5px; color: #8b93a5">Не хватает: <span style="color: #f2f3f7">медь ×4</span> · <a href="#src">есть в сундуке в 6 блоках</a></div>
+    </div>
+
+    <!-- завершение -->
+    <div style="box-sizing: border-box; padding: 10px 14px; border-radius: 12px; background: rgba(28,31,39,0.92); border: 1px solid #2f6b3f; display: flex; align-items: center; gap: 10px">
+      <div style="width: 26px; height: 26px; border-radius: 50%; background: #6fcf8f; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #15181f; font-weight: 700">✓</div>
+      <div style="display: flex; flex-direction: column"><span style="font-size: 12.5px; font-weight: 600; color: #f7f8fb">Квест выполнен · Насос и трубы</span><span style="font-size: 11px; color: #8b93a5">награда ждёт в книге · K</span></div>
+    </div>
+  </div>
+
+  <!-- Линза на блок (RYScope) -->
+  <div style="position: absolute; left: 560px; top: 212px; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: rgba(22,24,31,0.92); border: 1px solid #343a48; box-shadow: 0 10px 30px rgba(0,0,0,0.3)">
+    <div style="width: 10px; height: 10px; border-radius: 50%; background: {{accent}}"></div>
+    <div style="display: flex; flex-direction: column; gap: 1px">
+      <div style="font-size: 12.5px; font-weight: 600; color: #f7f8fb">Механический сборщик <span style="font-weight: 400; color: #8b93a5">· Create</span></div>
+      <div style="font-size: 11.5px; color: #8b93a5">нужен для квеста <span style="color: {{accent}}">«Электрический механизм»</span> · 14 рецептов · ≥ 64 об/мин</div>
+      <div style="font-size: 10.5px; color: #5f6678; margin-top: 2px">[R] рецепты · [Q] открыть квест · [G] граф</div>
+    </div>
+  </div>
+
+  <!-- подпись -->
+  <div style="position: absolute; left: 20px; top: 20px; display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-radius: 10px; background: rgba(22,24,31,0.75); border: 1px solid #343a48; font-size: 11.5px; color: #c9cfdd; max-width: 300px">
+    <span style="font-weight: 600; color: #f7f8fb">Одна доска для двух модов</span>
+    <span style="color: #8b93a5">Квест закреплён в RYSQuests, стикер рецепта добавил RYScope сам, по недостающему предмету задачи. Линза знает, что блок нужен для квеста.</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#e4b23c","options":["#e4b23c","#5fc9a6","#8fb4ff","#f08a5d"]},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const P = ['#c9c9cf','#8b5a2b','#6d6d6b','#c0392b','#f0c53d','#5be3e0','#2f5fd1','#d47c3e','#8a8a88'];
+    return { accent: this.props.accent ?? '#e4b23c', hot: P.map((bg) => ({bg})), hearts: Array.from({length: 10}, () => ({})) };
+  }
+}
+</script>
+</body>
+</html>

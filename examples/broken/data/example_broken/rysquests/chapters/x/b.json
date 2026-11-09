@@ -1,0 +1,2 @@
+{ "id": "example_broken:x/b", "title": "B", "icon": "minecraft:stone", "requires": ["example_broken:x/a"],
+  "tasks": [ { "type": "rysquests:checkbox" } ], "rewards": [] }

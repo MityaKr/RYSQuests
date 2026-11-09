@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>RYSQuests · экран «Что дальше»</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#e6e8ee}
+a{color:#8fb4ff}a:hover{color:#b9d0ff}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; position: relative; overflow: hidden; background: linear-gradient(180deg, #5d7fa8 0%, #3d5a7c 32%, #4d6b3f 60%, #2f3f2a 100%); font-family: Inter, system-ui, sans-serif; color: #e6e8ee">
+  <div style="position: absolute; inset: 0; background: rgba(14, 16, 22, 0.6)"></div>
+
+  <div style="position: absolute; left: 40px; top: 36px; width: 1200px; height: 728px; box-sizing: border-box; background: #1c1f27; border: 1px solid #2c313d; border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden">
+
+    <div style="display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-bottom: 1px solid #2c313d; background: #16181f">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <svg width="26" height="26" viewBox="0 0 56 56" aria-hidden="true"><rect x="6" y="6" width="44" height="44" rx="8" fill="#12141a" stroke="#343a48" stroke-width="2"/><path d="M14 30 L24 20 L34 30 L24 40 Z" fill="#5b6273"/><circle cx="36" cy="34" r="10" fill="rgba(228,178,60,0.18)" stroke="#e4b23c" stroke-width="3"/><line x1="43" y1="41" x2="50" y2="48" stroke="#e4b23c" stroke-width="4" stroke-linecap="round"/></svg>
+        <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 16px; color: #f7f8fb">RYSQuests</div>
+      </div>
+      <div style="display: flex; gap: 4px; margin-left: 10px">
+        <div style="padding: 6px 12px; border-radius: 8px; color: #8b93a5; font-size: 12.5px">Карта</div>
+        <div style="padding: 6px 12px; border-radius: 8px; color: #8b93a5; font-size: 12.5px">Список</div>
+        <div style="padding: 6px 12px; border-radius: 8px; color: #8b93a5; font-size: 12.5px">Лента</div>
+        <div style="padding: 6px 12px; border-radius: 8px; background: #272c38; color: #f7f8fb; font-size: 12.5px; font-weight: 500">Что дальше</div>
+      </div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 9px; background: #272c38; border: 1px solid #343a48; font-size: 12px; color: #c9cfdd"><span style="width: 8px; height: 8px; border-radius: 50%; background: #6fcf8f; display: inline-block"></span>Команда Repka · 3</div>
+      <button aria-label="Закрыть" style="width: 34px; height: 34px; border-radius: 9px; border: 1px solid #343a48; background: #272c38; color: #c9cfdd; font-size: 14px; cursor: pointer">✕</button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; padding: 22px 24px; flex: 1 1 auto; min-height: 0">
+
+      <!-- Рекомендуем -->
+      <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px; min-width: 0">
+        <div style="display: flex; align-items: baseline; justify-content: space-between">
+          <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 20px; color: #f7f8fb">Рекомендуем сейчас</div>
+          <div style="font-size: 12px; color: #8b93a5">глава II · 41 / 68 · следующая глава через 3 квеста</div>
+        </div>
+        <sc-for list="{{recs}}" as="q" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px; background: #20242e; border: 1px solid {{q.border}}">
+            <div style="width: 46px; height: 46px; border-radius: 10px; background: #12141a; border: 1px solid #343a48; display: flex; align-items: center; justify-content: center; flex: none"><div style="width: 28px; height: 28px; border-radius: 5px; background: {{q.icon}}; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.35), inset 0 3px 0 rgba(255,255,255,0.2)"></div></div>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 auto">
+              <div style="display: flex; align-items: center; gap: 8px"><span style="font-size: 14px; font-weight: 600; color: #f7f8fb">{{q.name}}</span><span style="padding: 1px 7px; border-radius: 999px; background: {{q.tagBg}}; color: {{q.tagFg}}; font-size: 10.5px; font-weight: 500">{{q.tag}}</span></div>
+              <div style="font-size: 12px; color: #8b93a5">{{q.sub}}</div>
+              <div style="height: 4px; border-radius: 2px; background: #12141a; overflow: hidden; width: 260px"><div style="width: {{q.pct}}; height: 100%; background: {{accent}}"></div></div>
+            </div>
+            <div style="display: flex; gap: 6px; flex: none">
+              <sc-for list="{{q.items}}" as="it" hint-placeholder-count="3"><div style="width: 30px; height: 30px; border-radius: 7px; background: #12141a; border: 1px solid #262a35; display: flex; align-items: center; justify-content: center; opacity: {{it.op}}"><div style="width: 18px; height: 18px; border-radius: 3px; background: {{it.bg}}"></div></div></sc-for>
+            </div>
+            <button style="height: 36px; padding: 0 14px; border-radius: 9px; border: none; background: {{accent}}; color: #15181f; font-size: 12.5px; font-weight: 600; cursor: pointer; flex: none">Открыть</button>
+          </div>
+        </sc-for>
+
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 4px">
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 12px; background: #20242e; border: 1px solid #2c313d">
+            <div style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Награды к получению</span><span style="padding: 1px 7px; border-radius: 999px; background: #3a2a1c; color: {{accent}}; font-size: 11px; font-weight: 600">2</span></div>
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div style="width: 40px; height: 40px; border-radius: 9px; background: #12141a; border: 1px solid #343a48; display: flex; align-items: center; justify-content: center; position: relative"><div style="width: 22px; height: 22px; border-radius: 4px; background: #f0c53d"></div><span style="position: absolute; right: 3px; bottom: 1px; font-size: 10.5px; color: #fff; text-shadow: 0 1px 2px #000">8</span></div>
+              <div style="width: 40px; height: 40px; border-radius: 9px; background: #12141a; border: 1px solid #343a48; display: flex; align-items: center; justify-content: center"><div style="width: 22px; height: 22px; border-radius: 4px; background: #5b3a1a"></div></div>
+              <div style="font-size: 12px; color: #8b93a5; margin-left: 2px">за «Динамо» и «Провода»</div>
+              <button style="margin-left: auto; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid #343a48; background: #272c38; color: #f7f8fb; font-size: 12px; font-weight: 500; cursor: pointer">Забрать всё</button>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; background: #20242e; border: 1px solid #2c313d">
+            <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Команда</span>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #c9cfdd">
+              <div style="display: flex; gap: 8px; align-items: center"><span style="width: 18px; height: 18px; border-radius: 4px; background: #5b6273; display: inline-block"></span><span><b style="font-weight: 600; color: #f7f8fb">Vasya</b> выполнил «Динамо»</span><span style="margin-left: auto; color: #5f6678">5 мин</span></div>
+              <div style="display: flex; gap: 8px; align-items: center"><span style="width: 18px; height: 18px; border-radius: 4px; background: #7a4fd1; display: inline-block"></span><span><b style="font-weight: 600; color: #f7f8fb">Lena</b> закрепила «Насос и трубы»</span><span style="margin-left: auto; color: #5f6678">18 мин</span></div>
+              <div style="display: flex; gap: 8px; align-items: center"><span style="width: 18px; height: 18px; border-radius: 4px; background: #2e8b57; display: inline-block"></span><span>Глава I завершена командой</span><span style="margin-left: auto; color: #5f6678">вчера</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Главы -->
+      <div style="display: flex; flex-direction: column; gap: 12px; min-width: 0">
+        <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 20px; color: #f7f8fb">Прогресс</div>
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; background: #20242e; border: 1px solid #2c313d">
+          <sc-for list="{{chapters}}" as="ch" hint-placeholder-count="6">
+            <div style="display: flex; flex-direction: column; gap: 5px; padding: 6px 0">
+              <div style="display: flex; justify-content: space-between; font-size: 12.5px"><span style="color: #f2f3f7">{{ch.name}}</span><span style="color: #8b93a5; font-variant-numeric: tabular-nums">{{ch.count}}</span></div>
+              <div style="height: 6px; border-radius: 3px; background: #12141a; overflow: hidden"><div style="width: {{ch.pct}}; height: 100%; background: {{ch.color}}"></div></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; background: #20242e; border: 1px solid #2c313d">
+          <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5f6678">Лента эпох</span>
+          <div style="display: flex; align-items: center; gap: 0; margin-top: 4px">
+            <div style="width: 14px; height: 14px; border-radius: 50%; background: #6fcf8f"></div><div style="flex: 1 1 auto; height: 2px; background: #6fcf8f"></div>
+            <div style="width: 18px; height: 18px; border-radius: 50%; background: {{accent}}; box-shadow: 0 0 0 4px rgba(228,178,60,0.2)"></div><div style="flex: 1 1 auto; height: 2px; background: #343a48"></div>
+            <div style="width: 14px; height: 14px; border-radius: 50%; background: #343a48"></div><div style="flex: 1 1 auto; height: 2px; background: #343a48"></div>
+            <div style="width: 14px; height: 14px; border-radius: 50%; background: #343a48"></div><div style="flex: 1 1 auto; height: 2px; background: #343a48"></div>
+            <div style="width: 14px; height: 14px; border-radius: 50%; background: #343a48"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: #8b93a5"><span>I</span><span style="color: {{accent}}">II</span><span>III</span><span>IV</span><span>V</span></div>
+          <div style="font-size: 12px; color: #8b93a5; margin-top: 2px">До эпохи III: 3 квеста, ~40 мин по статистике команды</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#e4b23c","options":["#e4b23c","#5fc9a6","#8fb4ff","#f08a5d"]},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.accent ?? '#e4b23c';
+    const recs = [
+      {name: 'Электрический механизм', tag: 'почти готово', tagBg: '#3a2a1c', tagFg: accent, sub: '2 / 3 задач · не хватает 2 механизмов, рецепт в карточке', pct: '66%', icon: '#c9a24a', border: '#3a3320', items: [{bg:'#c9a24a',op:'1'},{bg:'#d47c3e',op:'1'},{bg:'#c0392b',op:'0.4'}]},
+      {name: 'Насос и трубы', tag: 'всё есть', tagBg: '#1f3a2a', tagFg: '#8fe0a8', sub: '0 / 2 задач · предметы уже в инвентаре, можно сдать', pct: '0%', icon: '#3a7bd5', border: '#2c313d', items: [{bg:'#3a7bd5',op:'1'},{bg:'#c9c9cf',op:'1'}]},
+      {name: 'Гайд: Immersive Engineering', tag: 'страница', tagBg: '#1f2a44', tagFg: '#8fb4ff', sub: 'прочитать перед главой III · 2 минуты', pct: '0%', icon: '#5b3a1a', border: '#2c313d', items: [{bg:'#5b3a1a',op:'1'}]}
+    ];
+    const chapters = [
+      {name: 'I · Create', count: '52 / 52', pct: '100%', color: '#6fcf8f'},
+      {name: 'II · Индустрия и ток', count: '41 / 68', pct: '60%', color: accent},
+      {name: 'III · Машины', count: '5 / 74', pct: '7%', color: '#6fcf8f'},
+      {name: 'IV · Энергия', count: '0 / 61', pct: '0%', color: '#6fcf8f'},
+      {name: 'V · Магия и био', count: '0 / 88', pct: '0%', color: '#6fcf8f'},
+      {name: 'Гайды по модам', count: '7 / 23', pct: '30%', color: '#8fb4ff'}
+    ];
+    return { accent, recs, chapters };
+  }
+}
+</script>
+</body>
+</html>

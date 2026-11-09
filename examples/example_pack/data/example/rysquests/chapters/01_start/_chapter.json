@@ -1,0 +1,11 @@
+{
+  "id": "example:01_start",
+  "title": "chapter.example.start.title",
+  "subtitle": "chapter.example.start.subtitle",
+  "icon": "minecraft:wooden_pickaxe",
+  "epoch": 1,
+  "default_view": "flow",
+  "groups": [ { "id": "basics", "title": "chapter.example.start.basics" } ],
+  "requires": [],
+  "hidden": false
+}

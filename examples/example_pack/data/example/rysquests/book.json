@@ -1,0 +1,9 @@
+{
+  "progress_mode": "solo",
+  "default_view": "flow",
+  "default_theme": "ryscore:slate",
+  "title": "book.example.title",
+  "icon": "minecraft:writable_book",
+  "chapter_order": ["example:01_start", "example:02_power"],
+  "hud": { "max_pinned": 3 }
+}

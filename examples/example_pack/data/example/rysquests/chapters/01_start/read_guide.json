@@ -1,0 +1,12 @@
+{
+  "id": "example:start/read_guide",
+  "chapter": "example:01_start",
+  "group": "basics",
+  "title": "quest.example.start.read_guide.title",
+  "text": "quest.example.start.read_guide.text",
+  "icon": "minecraft:book",
+  "requires": ["example:start/first_tools"],
+  "tasks": [ { "type": "rysquests:checkbox", "title": "task.example.read_and_confirm" } ],
+  "rewards": [],
+  "page": true
+}

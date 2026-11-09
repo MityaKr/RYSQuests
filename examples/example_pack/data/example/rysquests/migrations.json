@@ -1,0 +1,5 @@
+{
+  "migrations": [
+    { "id": "2026-11-10-rename-tools", "op": "rename", "from": "example:start/tools", "to": "example:start/first_tools" }
+  ]
+}

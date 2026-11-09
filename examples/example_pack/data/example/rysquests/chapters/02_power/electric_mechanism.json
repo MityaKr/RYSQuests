@@ -1,0 +1,25 @@
+{
+  "id": "example:power/electric_mechanism",
+  "chapter": "example:02_power",
+  "title": "quest.example.power.electric_mechanism.title",
+  "subtitle": "quest.example.power.electric_mechanism.subtitle",
+  "text": "quest.example.power.electric_mechanism.text",
+  "icon": "minecraft:redstone_block",
+  "requires": ["example:power/wires", "example:power/dynamo"],
+  "requires_mode": "all",
+  "tasks": [
+    { "type": "rysquests:item", "item": "#c:plates/copper", "count": 16, "mode": "consume" },
+    { "type": "rysquests:advancement", "advancement": "minecraft:story/mine_stone" },
+    { "type": "rysquests:item", "item": "minecraft:redstone_block", "count": 3, "mode": "observe" }
+  ],
+  "rewards": [
+    { "type": "rysquests:choice", "of": [
+      { "type": "rysquests:item", "item": "minecraft:gold_ingot", "count": 8 },
+      { "type": "rysquests:item", "item": "minecraft:comparator", "count": 2 } ] },
+    { "type": "rysquests:xp", "levels": 2 },
+    { "type": "rysquests:command", "command": "tellraw @p {\"text\":\"Stage 2 unlocked\"}", "as_server": true }
+  ],
+  "layout": { "pin": false },
+  "size": 2,
+  "tags": ["milestone"]
+}

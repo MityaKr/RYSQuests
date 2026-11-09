@@ -1,0 +1,2 @@
+{ "id": "example_broken:x/c", "title": "C", "icon": "minecraft:stone", "requires": ["example_broken:x/d"],
+  "tasks": [ { "type": "rysquests:item", "item": "notamod:does_not_exist", "count": 1 } ], "rewards": [] }
