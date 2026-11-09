@@ -2,10 +2,7 @@
 
 ## Обзор
 
-Один Gradle-проект, один jar, два корневых пакета:
-
-- `works.repka.ryscore` — UI-библиотека семьи: темы (JSON с токенами), примитивы отрисовки, виджеты, доска HUD-стикеров, парсер разметки текста. Не знает о квестах. Контракты повторяют RYScope, внутри только классы Minecraft, без API NeoForge (ADR-15). Выделится в отдельный мод, когда появится второй потребитель (RYScope).
-- `works.repka.rysquests` — сам мод.
+Один Gradle-проект, один пакет `works.repka.rysquests`. Темы и рисование берутся из отдельного мода RYSCore (`ryscore`), он вложен в наш jar через jarJar и объявлен обязательной зависимостью (ADR-23). Своего пакета `works.repka.ryscore` у нас нет.
 
 Сервер авторитетен: книга загружается из датапаков на сервере, прогресс хранится и проверяется на сервере, клиент получает книгу один раз и прогресс диффами. В одиночной игре всё то же через встроенный сервер.
 
@@ -48,22 +45,23 @@ ProgressStore (SavedData) ──► ProgressDiffPayload ──► ClientProgress
 |---|---|
 | `ClientBook`, `ClientProgress` | клиентские копии, обновляются из пакетов |
 | `screen` | `BookScreen` (контейнер видов), виды `HomeView`, `FlowView`, `MapView`, `ListView`; `QuestCard` |
-| `widget` | специфичные для квестов виджеты поверх `ryscore.widget` |
+| `widget` | виджеты книги: `Panel`, `Slot`, `ProgressBar`, `Button`, `Tabs`, `ScrollList` (виртуализованный), `Tooltip`, `TextBlock` |
 | `layout` | `LayeredLayout` (автораскладка), `LayoutCache` |
-| `hud` | регистрация стикеров квестов на доске `ryscore.hud` |
+| `hud` | `StickerBoard` и интерфейс `Sticker` (id, высота, отрисовка, приоритет), стикеры квестов |
 | `input` | `KeyMapping`: открыть книгу (K), сдать готовое (G), закрепить (A) |
-| `markup` | рендер разметки `[[item:…]]` и прочего через `ryscore.markup` |
-
-### `ryscore`
-
-| Пакет | Что внутри |
-|---|---|
-| `ui` | `Draw` (скругления в пикселях устройства, бевели, текст 0.75, стрелки, замок, значок «i»), `Loading` (индикатор расчёта внутри окна) |
-| `ui.theme` | `Theme` (токены и примитивы `panel`, `card`, `plate`, `slot`, `hover`, `button`, `input`, `tab`, `chip`, `tooltipBox`), `ThemeManager` (загрузка из ресурспаков, переключение без перезапуска, следование теме RYScope, ADR-17) |
-| `widget` | `Panel`, `Slot`, `ProgressBar`, `Button`, `Tabs`, `ScrollList` (виртуализованный), `Tooltip` |
-| `hud` | `StickerBoard` (одна доска для всех модов семьи), `Sticker` интерфейс: id, высота, отрисовка, приоритет |
-| `markup` | парсер `[[kind:id|label]]` с синтаксисом RYScope (выражение из `HelpView`), `**жирный**`, предупреждения; рендер в компоненты с иконками предметов и кликами |
+| `markup` | парсер `[[kind:id|label]]` с синтаксисом RYScope, `**жирный**`, предупреждения; рендер с иконками предметов и кликами |
 | `util` | масштаб интерфейса, плотность, анимации с флагом «без анимаций» |
+
+### RYSCore (отдельный мод, папка только для чтения)
+
+| Класс | Что даёт |
+|---|---|
+| `works.repka.ryscore.theme.Theme` | токены темы и примитивы `panel`, `card`, `plate`, `slot`, `hover`, `button`, `input`, `tab`, `chip`, `tooltipBox` |
+| `works.repka.ryscore.theme.ThemeManager` | загрузка тем из `assets/<ns>/ryscore_themes/*.json`, общий для модов семьи выбор темы |
+| `works.repka.ryscore.ui.Draw` | скругления в пикселях устройства, текст, стрелки, замок, значки `info` и `question` |
+| `works.repka.ryscore.ui.Loading` | индикатор расчёта внутри окна |
+
+Чего в коре нет, пишем у себя (`client.widget`, `client.hud`, `client.markup`). Когда это понадобится второму моду, переносим в кор через блок «Запрос к RYSCore». Правила вида и контракт: `RYSCore/CLAUDE.md`.
 
 ## Модель данных в памяти
 
@@ -138,7 +136,7 @@ ProgressStore (SavedData) ──► ProgressDiffPayload ──► ClientProgress
 
 Раскладка карты: `LayeredLayout` (упрощённый Sugiyama: слои по длиннейшему пути от корней, минимизация пересечений барицентром за 4 прохода, фиксированные узлы из `layout.x/y` не двигаются) считается в фоне при первом открытии главы и кэшируется в `config/rysquests/layout-cache/<bookHash>/<chapter>.json`. Рендер только видимых узлов и рёбер.
 
-HUD: стикеры закреплённых квестов регистрируются в `ryscore.hud.StickerBoard`; доска одна на всех модов семьи, прячется в бою (по конфигу) и когда открыт любой экран. Пока RYScore не выделена, у RYScope своя доска целей (x=4, y=4, ширина 132, только без открытого экрана); наша с ней не пересекается и потом примет её через контракт `Sticker`.
+HUD: стикеры закреплённых квестов регистрируются в нашем `client.hud.StickerBoard`; доска прячется в бою (по конфигу) и когда открыт любой экран. У RYScope своя доска целей (x=4, y=4, ширина 132, только без открытого экрана); наша с ней не пересекается. Контракт `Sticker` рассчитан на перенос доски в кор.
 
 ## Потоки
 
@@ -153,12 +151,12 @@ HUD: стикеры закреплённых квестов регистриру
 
 - `RecipeViewerBridge`: `showRecipes(ItemStack)`, `showUsages(ItemStack)`, `renderRecipePreview(...)`; реализации `JeiBridge` (за `ModList.get().isLoaded("jei")`), `NoopBridge`. EMI позже. Отдельный мост к RYScope не нужен (ADR-20).
 - `StageProvider`: `boolean has(ServerPlayer, String stage)`, `grant(...)`. Встроенный: продвижения (`stage` = id продвижения). KubeJS/Game Stages через API.
-- RYScope: жёсткой зависимости нет. Тема следует за ним (ADR-17). Стадия RYScope как награда сначала выдаётся командой `/ryscope stage grant @s <id>`, id файла из папки сборки это `config:<имя>`. Перед своим миксином сверяться с `ryscope.mixins.json`: там уже есть вмешательства в `GuiGraphics`, `Slot`, `CraftingMenu` и другие классы.
+- RYScope: зависимости от него нет, общая тема приходит через RYSCore (ADR-23). Стадия RYScope как награда сначала выдаётся командой `/ryscope stage grant @s <id>`, id файла из папки сборки это `config:<имя>`. Перед своим миксином сверяться с `ryscope.mixins.json`: там уже есть вмешательства в `GuiGraphics`, `Slot`, `CraftingMenu` и другие классы.
 - Импорт FTB Quests: читает SNBT из `config/ftbquests/quests/**` (формат 1.21: `chapters/*.snbt`, `reward_tables`, `chapter_groups`, `data.snbt`) и прогресс из `world/data/ftbquests/`. Соответствие числовых id → строковые ключи по названиям с дедупликацией; сохраняется как первая миграция и как `import-report.md`. Точный формат проверить по коду FTB Quests (см. `08-verify-first.md`).
 
 ## Конфиг
 
-`ModConfigSpec`: клиент (тема, если RYScope не установлен; вид по умолчанию, плотность, анимации, HUD в бою), сервер (режим прогресса по умолчанию, интервал проверки задач, лимит размера пакета книги).
+`ModConfigSpec`: клиент (вид по умолчанию, плотность, анимации, HUD в бою), сервер (режим прогресса по умолчанию, интервал проверки задач, лимит размера пакета книги).
 
 ## Безопасность и границы
 
