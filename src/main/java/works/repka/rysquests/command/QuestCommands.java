@@ -38,6 +38,7 @@ import works.repka.rysquests.data.BookReport.Severity;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.TaskDef;
+import works.repka.rysquests.dev.DevReports;
 import works.repka.rysquests.integration.ftbq.FtbqFiles;
 import works.repka.rysquests.integration.ftbq.FtbqImporter;
 import works.repka.rysquests.integration.ftbq.FtbqProgress;
@@ -70,6 +71,9 @@ public final class QuestCommands {
                 .then(admin("migrate")
                         .then(Commands.literal("--dry-run").executes(context -> migrate(context, false)))
                         .then(Commands.literal("--apply").executes(context -> migrate(context, true))))
+                .then(admin("dev")
+                        .then(Commands.literal("report").executes(QuestCommands::devReport))
+                        .then(Commands.literal("registry").executes(QuestCommands::devRegistry)))
                 .then(admin("reload").executes(QuestCommands::reload))
                 .then(admin("validate").executes(QuestCommands::validate))
                 .then(admin("import").then(Commands.literal("ftbq")
@@ -82,6 +86,25 @@ public final class QuestCommands {
                                 .executes(context -> setProgress(context, false))))
                         .then(Commands.literal("complete").then(Commands.argument("quest", ResourceLocationArgument.id())
                                 .executes(context -> setProgress(context, true)))))));
+    }
+
+    /** Writes logs/rysquests-report.json and .csv, for tools as much as for people. */
+    private static int devReport(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        MinecraftServer server = source.getServer();
+        Util.backgroundExecutor().execute(() -> {
+            DevReports.Report report = DevReports.build(server);
+            DevReports.write(server, report);
+            server.execute(() -> source.sendSuccess(() -> Component.translatable("rysquests.dev.report_done", DevReports.REPORT_JSON), false));
+        });
+        return 1;
+    }
+
+    /** Writes every id a book may use, so that a book can be checked offline. */
+    private static int devRegistry(CommandContext<CommandSourceStack> context) {
+        DevReports.writeRegistry(context.getSource().getServer());
+        context.getSource().sendSuccess(() -> Component.translatable("rysquests.dev.registry_done", DevReports.REGISTRY_JSON), false);
+        return 1;
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> admin(String name) {

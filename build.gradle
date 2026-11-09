@@ -22,6 +22,11 @@ repositories {
         url = rootProject.file('../RYSCore/repo')
         content { includeGroup 'works.repka.ryscore' }
     }
+    maven {
+        name = 'BlameJared (JEI)'
+        url = 'https://maven.blamejared.com'
+        content { includeGroup 'mezz.jei' }
+    }
 }
 
 // In-game autotest: part of the mod only in dev runs, never packaged into the jar.
@@ -77,6 +82,8 @@ neoForge {
 neoForge.addModdingDependenciesTo(sourceSets.autotest)
 
 dependencies {
+    compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
     implementation "works.repka.ryscore:ryscore-neoforge:${ryscore_version}"
     jarJar("works.repka.ryscore:ryscore-neoforge:[${ryscore_version},2.0.0)") {
         version { prefer ryscore_version }

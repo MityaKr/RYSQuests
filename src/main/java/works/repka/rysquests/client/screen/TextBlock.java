@@ -116,7 +116,7 @@ final class TextBlock {
         ItemStack icon = ItemStack.EMPTY;
         String label = span.text();
         Runnable click = reveal;
-        if (span.kind().equals("item") && ResourceLocation.tryParse(span.target()) != null) {
+        if ((span.kind().equals("item") || span.kind().equals("recipe")) && ResourceLocation.tryParse(span.target()) != null) {
             icon = TaskText.stackOf(ResourceLocation.parse(span.target()));
             if (label.isEmpty()) {
                 label = icon.getHoverName().getString();

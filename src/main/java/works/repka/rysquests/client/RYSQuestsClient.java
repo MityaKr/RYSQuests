@@ -34,6 +34,7 @@ public final class RYSQuestsClient {
         ModNetwork.setClientProgressHandler(ClientProgress::receive);
         ModNetwork.setClientPinnedHandler(ClientProgress::receivePinned);
         ModNetwork.setClientStageLocksHandler(ClientProgress::receiveStageLocks);
+        ModNetwork.setClientDevReportHandler(ClientDev::receive);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> QuestKeys.tick());
         NeoForge.EVENT_BUS.addListener(RYSQuestsClient::onClientCommands);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> {

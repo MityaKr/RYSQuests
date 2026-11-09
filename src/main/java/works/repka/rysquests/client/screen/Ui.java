@@ -9,6 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
+import works.repka.rysquests.client.integration.Recipes;
 import works.repka.ryscore.theme.Theme;
 import works.repka.ryscore.theme.ThemeManager;
 import works.repka.ryscore.ui.Draw;
@@ -88,6 +89,7 @@ final class Ui {
         if (over) {
             hoveredStack = stack;
         }
+        hit(x, y, SLOT, SLOT, () -> Recipes.showRecipes(stack));
     }
 
     void item(ItemStack stack, int x, int y) {

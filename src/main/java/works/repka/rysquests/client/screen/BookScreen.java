@@ -19,6 +19,7 @@ import org.lwjgl.glfw.GLFW;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.input.QuestKeys;
+import works.repka.rysquests.client.integration.Recipes;
 import works.repka.rysquests.data.Chapter;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
@@ -38,7 +39,9 @@ public final class BookScreen extends Screen {
     private static final int ROW = 20;
     private static final int HEADER = 18;
     private static final int READING_MIN_PANEL = 430;
-    private static final ViewMode[] TABS = {ViewMode.FLOW, ViewMode.MAP};
+    private static final List<ViewMode> TABS = List.of(ViewMode.HOME, ViewMode.FLOW, ViewMode.MAP, ViewMode.LIST, ViewMode.TIMELINE);
+    @Nullable
+    private static ItemStack lastHovered;
 
     private final List<Ui.Hit> hits = new ArrayList<>();
     private final Map<ResourceLocation, List<Quest>> orderCache = new HashMap<>();
@@ -57,6 +60,15 @@ public final class BookScreen extends Screen {
         super(Component.translatable("rysquests.book.title"));
         views.put(ViewMode.FLOW, new FlowView(this));
         views.put(ViewMode.MAP, new MapView(this));
+        views.put(ViewMode.HOME, new HomeView());
+        views.put(ViewMode.LIST, new ListView(this));
+        views.put(ViewMode.TIMELINE, new TimelineView());
+        views.put(ViewMode.DEV, new DevView());
+    }
+
+    /** What is under the cursor, for the recipe viewer's keys. Empty when the book is closed. */
+    public static ItemStack hoveredStack() {
+        return lastHovered == null || !(Minecraft.getInstance().screen instanceof BookScreen) ? ItemStack.EMPTY : lastHovered;
     }
 
     @Override
@@ -174,7 +186,8 @@ public final class BookScreen extends Screen {
             ui.text(Component.translatable("rysquests.book.empty"), panelX + PAD * 2, panelY + PAD * 2, "text.muted");
             return;
         }
-        int top = panelY + PAD;
+        renderHeader(ui, panelX + PAD, panelY + PAD, panelW - PAD * 2);
+        int top = panelY + PAD + HEADER + 3;
         int bottom = panelY + panelH - PAD;
         int chaptersW = Math.min(112, panelW / 4);
         int readingW = panelW >= READING_MIN_PANEL ? Math.min(200, panelW * 2 / 5) : 0;
@@ -185,11 +198,11 @@ public final class BookScreen extends Screen {
         int viewW = readingLeft - PAD - viewX;
 
         renderChapters(ui, chaptersX, top, chaptersW, bottom - top);
-        renderHeader(ui, viewX, top, viewW);
-        activeView().render(ui, viewX, top + HEADER + 3, viewW, bottom - top - HEADER - 3);
+        activeView().render(ui, viewX, top, viewW, bottom - top);
         if (readingW > 0) {
             renderReading(ui, readingLeft, top, readingW, bottom - top);
         }
+        lastHovered = ui.hoveredStack;
         if (ui.hoveredStack != null) {
             g.renderTooltip(font, ui.hoveredStack, mouseX, mouseY);
         } else if (ui.hoveredText != null) {
@@ -231,7 +244,11 @@ public final class BookScreen extends Screen {
     private void renderHeader(Ui ui, int x, int y, int w) {
         int cursor = x;
         ViewMode current = BookState.currentView();
-        for (ViewMode mode : TABS) {
+        List<ViewMode> tabs = new ArrayList<>(TABS);
+        if (Minecraft.getInstance().player.hasPermissions(2)) {
+            tabs.add(ViewMode.DEV);
+        }
+        for (ViewMode mode : tabs) {
             Component label = Component.translatable("rysquests.view." + mode.getSerializedName());
             int tabW = font.width(label) + 12;
             ui.theme.tab(ui.g, cursor, y, tabW, HEADER - 2, current == mode, ui.over(cursor, y, tabW, HEADER - 2));
@@ -269,7 +286,7 @@ public final class BookScreen extends Screen {
         if (quest.text().isPresent()) {
             ui.small(Component.translatable("rysquests.reading.how").getString(), left, cursor, "text.dim");
             cursor += Ui.LINE;
-            cursor = TextBlock.render(ui, Component.translatable(quest.text().get()).getString(), left, cursor, inner, stack -> { }) + 6;
+            cursor = TextBlock.render(ui, Component.translatable(quest.text().get()).getString(), left, cursor, inner, Recipes::showRecipes) + 6;
         }
         cursor = renderBlocked(ui, quest, left, cursor, inner);
         ui.unclip();
@@ -319,6 +336,10 @@ public final class BookScreen extends Screen {
                     return true;
                 }
             }
+        }
+        if (button == 1 && lastHovered != null) {
+            Recipes.showUsages(lastHovered);
+            return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }

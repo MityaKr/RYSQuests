@@ -8,6 +8,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.resources.language.I18n;
@@ -38,7 +39,11 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientChatReceivedEvent;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
+import works.repka.rysquests.client.ClientDev;
+import works.repka.rysquests.client.integration.Recipes;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
@@ -85,6 +90,8 @@ public final class AutoTest {
     private static int stuck;
     private static boolean finished;
     private static String bookHash = "";
+    private static long lastFrame;
+    private static long worstFrame;
 
     public AutoTest() {
         scenario = System.getProperty(SCENARIO_PROPERTY);
@@ -109,6 +116,13 @@ public final class AutoTest {
             // Reported from the first tick: the client cannot be stopped yet during mod construction.
             step("check scenario name", () -> fail("unknown scenario " + scenario), 0);
         }
+        NeoForge.EVENT_BUS.addListener((ScreenEvent.Render.Post event) -> {
+            long now = System.nanoTime();
+            if (lastFrame != 0) {
+                worstFrame = Math.max(worstFrame, now - lastFrame);
+            }
+            lastFrame = now;
+        });
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> tick());
         NeoForge.EVENT_BUS.addListener((ClientChatReceivedEvent.System event) -> CHAT.add(event.getMessage().getString()));
     }
@@ -204,12 +218,49 @@ public final class AutoTest {
         screenshot("repys_book");
         step("switch to the map", () -> BookScreen.showForTest(ViewMode.MAP), 40);
         screenshot("repys_map");
+        step("switch to what next", () -> BookScreen.showForTest(ViewMode.HOME), 25);
+        screenshot("repys_home");
+        step("switch to the list", () -> BookScreen.showForTest(ViewMode.LIST), 10);
+        screenshot("repys_list");
+        step("switch to the timeline", () -> BookScreen.showForTest(ViewMode.TIMELINE), 25);
+        screenshot("repys_timeline");
+        step("switch to dev", () -> BookScreen.showForTest(ViewMode.DEV), 10);
+        expect("dev report arrived", () -> ClientDev.report() != null);
+        step("log the report", () -> ClientDev.report().sections().forEach(section -> LOGGER.info("[autotest] section {}: {}", section.id(), section.entries().size())), 10);
+        screenshot("repys_dev");
         step("back to the flow", () -> BookScreen.showForTest(ViewMode.FLOW), 5);
+
+        step("measure opening the book", () -> {
+            mc().setScreen(null);
+            long start = System.nanoTime();
+            mc().setScreen(new BookScreen());
+            LOGGER.info("[autotest] opening the book took {} ms", (System.nanoTime() - start) / 1_000_000);
+            worstFrame = 0;
+        }, 30);
+        step("switch through chapters", AutoTest::nextChapter, 5);
+        step("switch through chapters", AutoTest::nextChapter, 5);
+        step("switch through chapters", AutoTest::nextChapter, 5);
+        step("report frame time", () -> LOGGER.info("[autotest] worst frame while switching chapters: {} ms", worstFrame / 1_000_000), 2);
+
+        expect("recipe viewer connected", Recipes::available);
+        step("open a recipe from the book", () -> Recipes.showRecipes(new ItemStack(Items.IRON_INGOT)), 20);
+        expect("recipe window open", () -> mc().screen != null && !(mc().screen instanceof BookScreen));
+        screenshot("repys_recipe");
+        step("leave the recipe window", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 15);
+        expect("back in the book", () -> mc().screen instanceof BookScreen);
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
         expect("book closed", () -> mc().screen == null);
+        step("write the id list for tools", () -> command("rysquests dev registry"), 20);
+        expect("id list written", () -> writtenThisRun(mc().gameDirectory.toPath().resolve("logs").resolve("rysquests-registry.json")));
         step("open the inventory for the FTB panel", () -> pressKey(GLFW.GLFW_KEY_E), 30);
         screenshot("repys_ftb_panel");
         step("close the inventory", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
+    }
+
+    private static void nextChapter() {
+        List<Quest> quests = List.copyOf(ClientBook.current().quests().values());
+        Quest quest = quests.get(ThreadLocalRandom.current().nextInt(quests.size()));
+        BookScreen.selectForTest(quest.chapter().orElseThrow(), quest.id());
     }
 
     private static Quest completedQuest() {

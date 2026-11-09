@@ -8,6 +8,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
+import works.repka.rysquests.client.integration.Recipes;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.RewardDef;
 import works.repka.rysquests.data.TaskDef;
@@ -99,6 +100,9 @@ final class QuestCard {
         ui.item(icon, x + 15, y + 1);
         if (!icon.isEmpty() && ui.over(x + 15, y + 1, 16, 16)) {
             ui.hoveredStack = icon;
+        }
+        if (!icon.isEmpty()) {
+            ui.hit(x + 15, y + 1, 16, 16, () -> Recipes.showRecipes(icon));
         }
         int nameX = x + (icon.isEmpty() ? 16 : 33);
         boolean submit = open && !done && task instanceof ItemTask item && item.mode() == ItemTask.Mode.CONSUME;

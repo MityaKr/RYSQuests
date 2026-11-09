@@ -151,6 +151,10 @@ public final class FtbqImporter {
             out.addProperty("subtitle", subtitleKey);
         }
         itemId(chapter.get("icon")).ifPresent(icon -> out.addProperty("icon", icon));
+        int epoch = source.groups().stream().map(group -> string(group, "id").orElse("")).toList().indexOf(string(chapter, "group").orElse("")) + 1;
+        if (epoch > 0) {
+            out.addProperty("epoch", epoch);
+        }
         files.put("data/" + namespace + "/rysquests/chapters/" + dir + "/_chapter.json", out);
 
         int links = array(chapter, "quest_links").size();

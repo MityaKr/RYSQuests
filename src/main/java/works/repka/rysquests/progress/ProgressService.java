@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import net.minecraft.Util;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponentType;
@@ -29,16 +30,20 @@ import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
+import works.repka.rysquests.api.QuestCompletedEvent;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.RewardDef;
 import works.repka.rysquests.data.TaskDef;
+import works.repka.rysquests.dev.DevReports;
+import works.repka.rysquests.network.DevReportPayload;
 import works.repka.rysquests.network.PinnedPayload;
 import works.repka.rysquests.network.ProgressPayload;
 import works.repka.rysquests.network.QuestActionPayload;
@@ -194,8 +199,14 @@ public final class ProgressService {
             return;
         }
         UUID team = team(player);
-        ProgressStore.get(player.server).put(team, changes);
+        ProgressStore store = ProgressStore.get(player.server);
+        List<ResourceLocation> newlyCompleted = changes.entrySet().stream()
+                .filter(entry -> entry.getValue().completed() && !store.get(team, entry.getKey()).completed())
+                .map(Map.Entry::getKey)
+                .toList();
+        store.put(team, changes);
         ACTIVE.remove(team);
+        newlyCompleted.forEach(id -> NeoForge.EVENT_BUS.post(new QuestCompletedEvent(team, id, player)));
         for (ServerPlayer member : player.server.getPlayerList().getPlayers()) {
             if (team(member).equals(team)) {
                 Map<ResourceLocation, QuestProgress> view = new HashMap<>();
@@ -353,6 +364,16 @@ public final class ProgressService {
         }
         if (payload.action() == QuestActionPayload.CLAIM_ALL) {
             claimAll(player);
+            return;
+        }
+        if (payload.action() == QuestActionPayload.DEV_REPORT) {
+            if (player.hasPermissions(2)) {
+                Util.backgroundExecutor().execute(() -> {
+                    DevReports.Report report = DevReports.build(player.server);
+                    DevReports.write(player.server, report);
+                    player.server.execute(() -> PacketDistributor.sendToPlayer(player, new DevReportPayload(report)));
+                });
+            }
             return;
         }
         Quest quest = book().quests().get(payload.quest());
