@@ -17,6 +17,8 @@ import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.tutorial.TutorialSteps;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
@@ -30,12 +32,16 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientChatReceivedEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.client.ClientBook;
+import works.repka.rysquests.client.ClientProgress;
+import works.repka.rysquests.client.screen.BookScreen;
 import works.repka.rysquests.dev.DevExamplePack;
+import works.repka.rysquests.network.QuestActionPayload;
 
 /**
  * Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
@@ -74,6 +80,8 @@ public final class AutoTest {
             buildDatapackScenario();
         } else if ("validate".equals(scenario)) {
             buildValidateScenario();
+        } else if ("book".equals(scenario)) {
+            buildBookScenario();
         } else {
             // Reported from the first tick: the client cannot be stopped yet during mod construction.
             step("check scenario name", () -> fail("unknown scenario " + scenario), 0);
@@ -135,6 +143,41 @@ public final class AutoTest {
             command(disable);
         }, 20);
         expect("client went back to the clean book", () -> !ClientBook.current().hash().equals(bookHash));
+    }
+
+    /** Plays the first example quest through the real keys and the real packets. */
+    private static void buildBookScenario() {
+        ResourceLocation chapter = ResourceLocation.parse("example:01_start");
+        ResourceLocation quest = ResourceLocation.parse("example:start/first_tools");
+        openWorld();
+        expect("example book reached the client", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
+        step("reset the quest", () -> {
+            command("gamerule sendCommandFeedback false");
+            command("clear @s");
+            command("rysquests progress @s reset " + quest);
+        }, 10);
+        expect("quest is reset", () -> !ClientProgress.get(quest).completed());
+        step("give the required items", () -> {
+            command("give @s minecraft:oak_log 8");
+            command("give @s minecraft:wooden_pickaxe");
+        }, 45);
+        expect("observed item counted by polling", () -> ClientProgress.get(quest).task(1) == 1);
+        step("open the book with its key", () -> {
+            BookScreen.selectForTest(chapter, quest);
+            pressKey(GLFW.GLFW_KEY_K);
+        }, 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        screenshot("book_open");
+        step("submit logs", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.SUBMIT, quest, 0, List.of())), 10);
+        expect("quest completed", () -> ClientProgress.get(quest).completed());
+        expect("logs consumed", () -> mc().player.getInventory().countItem(Items.OAK_LOG) == 0);
+        screenshot("book_completed");
+        step("claim rewards", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, quest, 0, List.of())), 10);
+        expect("reward received", () -> mc().player.getInventory().countItem(Items.BREAD) == 4);
+        expect("quest claimed", () -> ClientProgress.get(quest).claimed().size() == 2);
+        screenshot("book_claimed");
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("book closed", () -> mc().screen == null);
     }
 
     private static boolean chatHas(String text) {

@@ -18,6 +18,11 @@ public record KillTask(ResourceLocation entity, int count, Optional<String> titl
     ).apply(instance, KillTask::new));
 
     @Override
+    public int target() {
+        return count;
+    }
+
+    @Override
     public TaskType<?> type() {
         return TaskTypes.KILL.get();
     }

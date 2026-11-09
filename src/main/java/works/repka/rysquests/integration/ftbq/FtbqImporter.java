@@ -372,9 +372,14 @@ public final class FtbqImporter {
         if (value.isJsonArray()) {
             List<String> lines = new ArrayList<>();
             value.getAsJsonArray().forEach(line -> lines.add(line.getAsString()));
-            return Optional.of(String.join("\n", lines));
+            return Optional.of(gameFormatting(String.join("\n", lines)));
         }
-        return Optional.of(value.getAsString());
+        return Optional.of(gameFormatting(value.getAsString()));
+    }
+
+    /** FTB writes colors as {@code &a}; translations need the game's own section sign. */
+    private static String gameFormatting(String text) {
+        return text.replaceAll("&([0-9a-fk-or])", "§$1");
     }
 
     // --- JSON helpers ---
@@ -416,7 +421,7 @@ public final class FtbqImporter {
 
     /** A readable id from a title: formatting codes dropped, Latin letters and digits kept. */
     private static String slug(String title) {
-        String plain = title.replaceAll("[&§][0-9a-fk-or]", "").toLowerCase(Locale.ROOT);
+        String plain = title.replaceAll("§[0-9a-fk-or]", "").toLowerCase(Locale.ROOT);
         String slug = plain.replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
         return slug.length() > MAX_SLUG ? slug.substring(0, MAX_SLUG).replaceAll("_+$", "") : slug;
     }

@@ -69,6 +69,11 @@ public record ItemTask(
     }
 
     @Override
+    public int target() {
+        return count;
+    }
+
+    @Override
     public List<ItemRef> itemRefs() {
         List<ItemRef> refs = new ArrayList<>(anyOf);
         item.ifPresent(refs::add);

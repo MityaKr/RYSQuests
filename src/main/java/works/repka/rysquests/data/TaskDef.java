@@ -15,6 +15,11 @@ public interface TaskDef {
 
     Optional<String> title();
 
+    /** Progress value at which the task is done. */
+    default int target() {
+        return 1;
+    }
+
     /** Items and tags this task refers to. */
     default List<ItemRef> itemRefs() {
         return List.of();
