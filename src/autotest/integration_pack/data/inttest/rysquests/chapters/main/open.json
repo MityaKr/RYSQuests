@@ -1,0 +1,9 @@
+{
+  "id": "inttest:main/open",
+  "chapter": "inttest:main",
+  "title": "Open",
+  "icon": "minecraft:bread",
+  "tasks": [
+    { "type": "rysquests:checkbox", "title": "Done" }
+  ]
+}

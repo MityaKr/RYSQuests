@@ -2,6 +2,7 @@ package works.repka.rysquests.client;
 
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import works.repka.rysquests.client.integration.Ponders;
 import works.repka.rysquests.client.screen.BookScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.commands.arguments.ResourceLocationArgument;
@@ -48,6 +49,7 @@ public final class RYSQuestsClient {
         ModNetwork.setClientShopHandlers(ClientShop::receive, payload -> BookScreen.onShopResult(payload.ok(), payload.reason()));
         ModNetwork.setClientEditorResultHandler(payload -> BookScreen.onEditorResult(payload.ok(), payload.reason()));
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> QuestKeys.tick());
+        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> Ponders.tick());
         NeoForge.EVENT_BUS.addListener(RYSQuestsClient::onClientCommands);
         NeoForge.EVENT_BUS.addListener((ClientChatReceivedEvent.Player event) -> QuestLinks.onChat(event));
         NeoForge.EVENT_BUS.addListener((ClientChatReceivedEvent.System event) -> QuestLinks.onChat(event));

@@ -8,6 +8,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
+import works.repka.rysquests.client.integration.Ponders;
 import works.repka.rysquests.client.ClientAssets;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.markup.Markup;
@@ -120,12 +121,13 @@ final class GuideCheck {
                 return found != null && ref.page().map(page -> found.pageIndex(page) >= 0).orElse(true);
             }).orElse(false);
         }
-        ResourceLocation id = ResourceLocation.tryParse(span.target());
+        ResourceLocation id = ResourceLocation.tryParse(span.kind().equals("recipe") ? Markup.recipeItem(span.target()) : span.target());
         if (id == null) {
             return false;
         }
         return switch (span.kind()) {
             case "item", "recipe" -> BuiltInRegistries.ITEM.containsKey(id);
+            case "ponder" -> !Ponders.installed() || Ponders.exists(id);
             case "quest" -> book.quests().containsKey(id);
             case "image" -> ClientAssets.imageSize(id) != null || Minecraft.getInstance().getResourceManager().getResource(id).isPresent();
             default -> true;

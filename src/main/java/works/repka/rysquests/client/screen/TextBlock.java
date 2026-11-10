@@ -7,6 +7,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import works.repka.rysquests.client.integration.Ponders;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.markup.Markup;
 import works.repka.rysquests.client.markup.Markup.Paragraph;
@@ -196,8 +197,18 @@ final class TextBlock {
         ItemStack icon = ItemStack.EMPTY;
         String label = span.text();
         Runnable click = reveal;
-        if ((span.kind().equals("item") || span.kind().equals("recipe")) && ResourceLocation.tryParse(span.target()) != null) {
-            icon = TaskText.stackOf(ResourceLocation.parse(span.target()));
+        String item = span.kind().equals("recipe") ? Markup.recipeItem(span.target()) : span.target();
+        if (span.kind().equals("ponder") && ResourceLocation.tryParse(span.target()) != null) {
+            ResourceLocation scene = ResourceLocation.parse(span.target());
+            icon = TaskText.stackOf(scene);
+            if (label.isEmpty()) {
+                label = icon.getHoverName().getString();
+            }
+            if (Ponders.exists(scene)) {
+                click = reveal != null ? reveal : () -> Ponders.open(scene);
+            }
+        } else if ((span.kind().equals("item") || span.kind().equals("recipe")) && ResourceLocation.tryParse(item) != null) {
+            icon = TaskText.stackOf(ResourceLocation.parse(item));
             if (label.isEmpty()) {
                 label = icon.getHoverName().getString();
             }

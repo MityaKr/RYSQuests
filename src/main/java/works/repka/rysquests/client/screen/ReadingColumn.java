@@ -60,7 +60,16 @@ final class ReadingColumn {
         ItemStack target = QuestCard.recipeTarget(quest);
         RecipePreview.Shown recipe = RecipePreview.of(target);
         if (recipe == null) {
-            return y;
+            Recipes.Layout layout = Recipes.layout(target, null);
+            if (layout == null) {
+                return y;
+            }
+            float inner = w - 30;
+            float boxH = 40 + RecipeLayoutView.height(layout, inner) + 15;
+            ui.box(x, y, w, boxH, 12, ui.c("status.bg"), ui.flowBorder());
+            ui.label(Component.translatable("rysquests.reading.recipe", RecipePreview.viewerName()).getString(), x + 15, y + 22.5f, 12, Ui.REGULAR, ui.c("text.muted"));
+            RecipeLayoutView.render(ui, layout, x + 15, y + 40, inner);
+            return y + boxH + GAP;
         }
         float h = 105;
         ui.box(x, y, w, h, 12, ui.c("status.bg"), ui.flowBorder());

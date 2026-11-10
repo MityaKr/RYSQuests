@@ -27,7 +27,7 @@ public final class GuideTopics {
         for (Paragraph paragraph : Markup.parse(text)) {
             for (Span span : paragraph.spans()) {
                 if (List.of(kinds).contains(span.kind())) {
-                    ResourceLocation id = ResourceLocation.tryParse(span.target());
+                    ResourceLocation id = ResourceLocation.tryParse(span.kind().equals("recipe") ? Markup.recipeItem(span.target()) : span.target());
                     if (id != null) {
                         found.add(id);
                     }

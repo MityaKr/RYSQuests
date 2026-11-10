@@ -1,0 +1,6 @@
+{
+  "progress_mode": "solo",
+  "default_view": "flow",
+  "title": "Integrations",
+  "sections": ["story", "guides"]
+}

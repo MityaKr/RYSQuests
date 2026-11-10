@@ -28,6 +28,11 @@ repositories {
         content { includeGroup 'mezz.jei' }
     }
     maven {
+        name = 'Create (Ponder)'
+        url = 'https://maven.createmod.net'
+        content { includeGroup 'net.createmod.ponder' }
+    }
+    maven {
         name = 'Latvian (KubeJS)'
         url = 'https://maven.latvian.dev/releases'
         content { includeGroup 'dev.latvian.mods' }
@@ -60,8 +65,9 @@ neoForge {
         }
         autotest {
             client()
-            gameDirectory = project.file('run')
-            systemProperty 'rysquests.dev.examplePack', project.file((project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : ((project.findProperty('autotest') ?: '').startsWith('guides_design') || (project.findProperty('autotest') ?: '').startsWith('sections_design')) ? 'src/autotest/guides_pack' : 'examples/example_pack').absolutePath
+            // JEI and Create are in run-int/mods, copied from a pack, so that nothing else has to load them.
+            gameDirectory = project.file(project.findProperty('autotest') == 'integrations' ? 'run-int' : 'run')
+            systemProperty 'rysquests.dev.examplePack', project.file(project.findProperty('autotest') == 'integrations' ? 'src/autotest/integration_pack' : (project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : ((project.findProperty('autotest') ?: '').startsWith('guides_design') || (project.findProperty('autotest') ?: '').startsWith('sections_design')) ? 'src/autotest/guides_pack' : 'examples/example_pack').absolutePath
             systemProperty 'rysquests.dev.brokenPack', project.file('examples/broken').absolutePath
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
             // The size of the mockups in design/, so that screenshots can be laid over them.
@@ -110,6 +116,7 @@ dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
     autotestCompileOnly "works.repka.ryscore:ryscore-neoforge:${ryscore_version}"
+    compileOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}") { transitive = false }
     compileOnly("dev.latvian.mods:kubejs-neoforge:${kubejs_version}") { transitive = false }
     compileOnly("dev.latvian.mods:rhino:${rhino_version}") { transitive = false }
     if (project.findProperty('autotest') == 'kubejs') {
@@ -146,7 +153,7 @@ tasks.named('check') {
 }
 
 // The game exits normally even when a scenario fails, so the verdict is read from its log.
-def autotestLog = file('run/logs/latest.log')
+def autotestLog = file(project.findProperty('autotest') == 'integrations' ? 'run-int/logs/latest.log' : 'run/logs/latest.log')
 tasks.matching { it.name == 'runAutotest' }.configureEach {
     doLast {
         def lines = autotestLog.readLines('UTF-8')

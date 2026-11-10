@@ -465,22 +465,31 @@ final class QuestCard {
         boolean hasText = quest.text().isPresent();
         ItemStack target = recipeTarget(quest);
         RecipePreview.Shown recipe = RecipePreview.of(target);
-        if (!hasText && recipe == null) {
+        Recipes.Layout layout = recipe == null ? Recipes.layout(target, null) : null;
+        if (!hasText && recipe == null && layout == null) {
             return y;
         }
-        float h = ui.measure(() -> Math.round(textBlockBody(ui, quest, recipe, x, 0, w)));
+        float h = ui.measure(() -> Math.round(textBlockBody(ui, quest, recipe, layout, x, 0, w)));
         ui.box(x, y, w, h, 10, ui.c("status.bg"), ui.c("status.border"));
-        textBlockBody(ui, quest, recipe, x, y, w);
+        textBlockBody(ui, quest, recipe, layout, x, y, w);
         return y + h + 14;
     }
 
-    private static float textBlockBody(Ui ui, Quest quest, RecipePreview.Shown recipe, float x, float y, float w) {
+    /** The viewer draws what the book cannot read for itself, machines that do not report their result. */
+    private static float textBlockBody(Ui ui, Quest quest, RecipePreview.Shown recipe, Recipes.Layout layout, float x, float y, float w) {
         float left = x + 13;
         float inner = w - 26;
         float cursor = y + 13;
         if (quest.text().isPresent()) {
             cursor = TextBlock.render(ui, Component.translatable(quest.text().get()).getString(), left, cursor, inner,
                     new TextBlock.Look(12.5f, 18.75f, ui.c("button.fg")), Recipes::showRecipes);
+        }
+        if (layout != null) {
+            if (quest.text().isPresent()) {
+                cursor += 8;
+            }
+            RecipeLayoutView.render(ui, layout, left, cursor, inner);
+            cursor += RecipeLayoutView.height(layout, inner);
         }
         if (recipe != null) {
             if (quest.text().isPresent()) {

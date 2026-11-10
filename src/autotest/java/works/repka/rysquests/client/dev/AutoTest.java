@@ -144,6 +144,8 @@ public final class AutoTest {
             buildEditorScenario();
         } else if ("shop".equals(scenario)) {
             buildShopScenario();
+        } else if ("integrations".equals(scenario)) {
+            buildIntegrationsScenario();
         } else if ("quest_editor".equals(scenario)) {
             buildQuestEditorScenario();
         } else if ("kubejs".equals(scenario)) {
@@ -1071,6 +1073,38 @@ public final class AutoTest {
             command("reload");
         }, 60);
         expect("the example is back to its own quests", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
+    }
+
+    private static net.minecraft.world.item.ItemStack integrationBrass() {
+        return new net.minecraft.world.item.ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(ResourceLocation.parse("create:brass_ingot")));
+    }
+
+    /** Recipes drawn by JEI and a scene of Ponder, with both really loaded from run-int/mods. */
+    private static void buildIntegrationsScenario() {
+        ResourceLocation guide = ResourceLocation.parse("inttest:machines");
+        ResourceLocation gearbox = ResourceLocation.parse("create:gearbox");
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+        }, 10);
+        expect("JEI is ready", works.repka.rysquests.client.integration.Recipes::available);
+        expect("JEI draws the machine", () -> works.repka.rysquests.client.integration.Recipes.layout(integrationBrass(), ResourceLocation.parse("create:mixing")) != null);
+        expect("JEI draws a plain recipe", () -> works.repka.rysquests.client.integration.Recipes.layout(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.FURNACE), null) != null);
+        expect("an unknown category finds nothing", () -> works.repka.rysquests.client.integration.Recipes.layout(integrationBrass(), ResourceLocation.parse("create:nothing")) == null);
+        expect("Ponder knows the scene", () -> works.repka.rysquests.client.integration.Ponders.exists(gearbox));
+        expect("an unknown scene is told apart", () -> !works.repka.rysquests.client.integration.Ponders.exists(ResourceLocation.parse("create:nothing")));
+        step("open the page", () -> {
+            mc().setScreen(new BookScreen());
+            BookScreen.openGuideForTest(guide, 0);
+        }, 40);
+        expect("the page is open", () -> BookScreen.guidePageForTest() == 0);
+        screenshot("integrations_page");
+        step("open the scene", () -> works.repka.rysquests.client.integration.Ponders.open(gearbox), 40);
+        expect("Ponder is on screen", () -> mc().screen != null && mc().screen.getClass().getSimpleName().equals("PonderUI"));
+        screenshot("integrations_ponder");
+        step("come back", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 60);
+        expect("back in the book", () -> mc().screen instanceof BookScreen);
     }
 
     /** Commands of the wallet, and a real click on the exchanger of examples/kubejs with KubeJS running. */

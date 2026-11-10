@@ -207,10 +207,11 @@
 
 - `[[item:minecraft:redstone]]` иконка + имя, клик → рецепты во вьюере; `[[item:...|подпись]]`.
 - `[[quest:repys:power/wires]]` ссылка на квест.
-- `[[recipe:kubejs:electric_mechanism]]` одна в строке страницы гайда: карточка рецепта; в тексте: как `item`.
+- `[[recipe:kubejs:electric_mechanism]]` одна в строке страницы гайда: рецепт как его рисует JEI, после `#` можно указать категорию (`[[recipe:create:brass_ingot#create:mixing]]`); в тексте: как `item`.
 - `[[guide:repys:create#rotation]]` ссылка на гайд или его страницу.
 - `[[image:repys:textures/guides/wheel.png|подпись]]` картинка, одна в строке.
-- `[[ponder:create:mechanical_crafter]]`, `[[url:https://…]]`: зарезервировано, пока не работает.
+- `[[ponder:create:mechanical_crafter]]` открывает размышление Ponder, без него ссылка становится текстом.
+- `[[url:https://…]]`: зарезервировано, пока не работает.
 - `**жирный**`, `__курсив__`, `!!предупреждение!!` (янтарный блок), `>>спойлер<<`.
 - Переносы строк `\n`, абзац пустой строкой.
 

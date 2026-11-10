@@ -1,5 +1,6 @@
 package works.repka.rysquests.client.markup;
 
+import net.minecraft.resources.ResourceLocation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -40,6 +41,18 @@ public final class Markup {
             paragraphs.add(new Paragraph(inline(body), warning));
         }
         return paragraphs;
+    }
+
+    /** The item of a {@code [[recipe:]]} target, which may name a viewer's category: {@code create:brass_ingot#create:mixing}. */
+    public static String recipeItem(String target) {
+        int mark = target.indexOf('#');
+        return mark < 0 ? target : target.substring(0, mark);
+    }
+
+    /** @return the category a {@code [[recipe:]]} target names, or null */
+    public static ResourceLocation recipeCategory(String target) {
+        int mark = target.indexOf('#');
+        return mark < 0 ? null : ResourceLocation.tryParse(target.substring(mark + 1));
     }
 
     /** The insertion that fills a whole line, such as a picture. @return null for ordinary text */

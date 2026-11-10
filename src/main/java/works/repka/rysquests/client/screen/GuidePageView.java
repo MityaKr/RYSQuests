@@ -234,8 +234,7 @@ final class GuidePageView implements BookView {
                 continue;
             }
             y = flush(ui, run, x, y, w, look);
-            ResourceLocation target = ResourceLocation.parse(block.target());
-            y = block.kind().equals("image") ? renderImage(ui, target, block.text(), x, y, w) : renderRecipe(ui, target, x, y, w);
+            y = block.kind().equals("image") ? renderImage(ui, ResourceLocation.parse(block.target()), block.text(), x, y, w) : renderRecipe(ui, block.target(), x, y, w);
         }
         return flush(ui, run, x, y, w, look);
     }
@@ -252,7 +251,7 @@ final class GuidePageView implements BookView {
 
     /** A picture without a file or a recipe nobody knows stays an ordinary link in the text. */
     private boolean canDraw(Markup.Span block) {
-        ResourceLocation target = ResourceLocation.tryParse(block.target());
+        ResourceLocation target = ResourceLocation.tryParse(block.kind().equals("recipe") ? Markup.recipeItem(block.target()) : block.target());
         if (target == null) {
             return false;
         }
@@ -260,7 +259,8 @@ final class GuidePageView implements BookView {
             int[] size = guides.imageSize(target);
             return size != null && size[0] > 0 && size[1] > 0;
         }
-        return RecipePreview.of(TaskText.stackOf(target)) != null;
+        ItemStack stack = TaskText.stackOf(target);
+        return Recipes.layout(stack, Markup.recipeCategory(block.target())) != null || RecipePreview.of(stack) != null;
     }
 
     private float renderImage(Ui ui, ResourceLocation texture, String caption, float x, float y, float w) {
@@ -276,8 +276,12 @@ final class GuidePageView implements BookView {
         return y + GAP;
     }
 
-    private static float renderRecipe(Ui ui, ResourceLocation item, float x, float y, float w) {
-        ItemStack target = TaskText.stackOf(item);
+    private static float renderRecipe(Ui ui, String reference, float x, float y, float w) {
+        ItemStack target = TaskText.stackOf(ResourceLocation.parse(Markup.recipeItem(reference)));
+        Recipes.Layout layout = Recipes.layout(target, Markup.recipeCategory(reference));
+        if (layout != null) {
+            return renderLayout(ui, layout, target, x, y, w);
+        }
         RecipePreview.Shown recipe = RecipePreview.of(target);
         ui.box(x, y, w, RECIPE_H, 10, ui.c("card.bg"), ui.c("panel.border"));
         float gridX = x + 11;
@@ -301,6 +305,19 @@ final class GuidePageView implements BookView {
         ui.link(link, pen, cy + 9, 11, ui.c("chip.mod.fg"));
         ui.hit(pen, cy + 2, ui.width(link, 11, Ui.REGULAR), 14, () -> Recipes.showRecipes(recipe.output()));
         return y + RECIPE_H + GAP;
+    }
+
+    private static float renderLayout(Ui ui, Recipes.Layout layout, ItemStack target, float x, float y, float w) {
+        float inner = w - 22;
+        float layoutH = RecipeLayoutView.height(layout, inner);
+        float h = 11 + layoutH + 10 + 14 + 9;
+        ui.box(x, y, w, h, 10, ui.c("card.bg"), ui.c("panel.border"));
+        RecipeLayoutView.render(ui, layout, x + 11, y + 11, inner);
+        String link = Component.translatable("rysquests.guides.open_viewer", RecipePreview.viewerName()).getString();
+        float linkY = y + 11 + layoutH + 10 + 7;
+        ui.link(link, x + 11, linkY, 11, ui.c("chip.mod.fg"));
+        ui.hit(x + 11, linkY - 7, ui.width(link, 11, Ui.REGULAR), 14, () -> Recipes.showRecipes(target));
+        return y + h + GAP;
     }
 
     // --- the panel that gathers itself ---
