@@ -5,7 +5,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.resources.language.I18n;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -51,7 +51,7 @@ final class CardsView implements BookView {
 
     /** A pack's own wording where it gave one, otherwise the general one. */
     private static String own(String key, String fallback, Object... args) {
-        return I18n.exists(key) ? text(key, args) : text(fallback, args);
+        return Language.getInstance().has(key) ? text(key, args) : text(fallback, args);
     }
 
     private static State state(CardsSection section, Card card) {
@@ -82,7 +82,7 @@ final class CardsView implements BookView {
         cursor = renderChips(ui, section, left, cursor, inner) + GAP;
         float bottom = y + h - PAD_Y;
         String hintKey = section.title() + ".hint";
-        if (I18n.exists(hintKey)) {
+        if (Language.getInstance().has(hintKey)) {
             List<String> hint = ui.wrap(tr(hintKey), inner, 11, Ui.REGULAR, 3);
             bottom -= hint.size() * 14;
             ui.lines(hint, left, bottom + hint.size() * 7f, 14, 11, Ui.REGULAR, ui.c("text.dim"));
@@ -170,7 +170,7 @@ final class CardsView implements BookView {
 
     private static List<String> description(Ui ui, CardsSection section, Card card, float width) {
         String key = section.cardKey(card, "desc");
-        return I18n.exists(key) ? ui.wrap(tr(key), width, 11.5f, Ui.REGULAR, 2) : List.of();
+        return Language.getInstance().has(key) ? ui.wrap(tr(key), width, 11.5f, Ui.REGULAR, 2) : List.of();
     }
 
     /** All cards are as tall as the one with the longest description. */
@@ -226,7 +226,7 @@ final class CardsView implements BookView {
         ui.lines(description, left, cursor + description.size() * 8f, 16, 11.5f, Ui.REGULAR, ui.c("button.fg"));
         cursor += Math.max(1, description.size()) * 16 + 4;
         String metaKey = section.cardKey(card, "meta");
-        String meta = state == State.LOCKED && card.stageTitle().isPresent() ? text("rysquests.guides.locked_until", tr(card.stageTitle().get())) : I18n.exists(metaKey) ? tr(metaKey) : "";
+        String meta = state == State.LOCKED && card.stageTitle().isPresent() ? text("rysquests.guides.locked_until", tr(card.stageTitle().get())) : Language.getInstance().has(metaKey) ? tr(metaKey) : "";
         ui.labelFit(meta, left, cursor + 6.5f, inner, 10.5f, Ui.REGULAR, ui.c("text.muted"));
         if (state == State.LOCKED) {
             ui.veil(x, y, w, cardH, 12, ui.c("panel.bg"), 0.45f);
@@ -258,7 +258,7 @@ final class CardsView implements BookView {
         float cursor = listTop - offset;
         ui.clip(Math.round(left - 2), Math.round(listTop), Math.round(inner + 4), Math.round(listH));
         String textKey = section.cardKey(card, "text");
-        if (I18n.exists(textKey)) {
+        if (Language.getInstance().has(textKey)) {
             cursor = TextBlock.render(ui, tr(textKey), left, cursor, inner, new TextBlock.Look(13, 19.5f, ui.readingFg()), Recipes::showRecipes) + 12;
         }
         if (!card.needs().isEmpty()) {
@@ -280,7 +280,7 @@ final class CardsView implements BookView {
             cursor += 7;
         }
         String tipKey = section.cardKey(card, "tip");
-        if (I18n.exists(tipKey)) {
+        if (Language.getInstance().has(tipKey)) {
             cursor = renderTip(ui, tr(tipKey), left, cursor, inner) + 12;
         }
         ui.unclip();

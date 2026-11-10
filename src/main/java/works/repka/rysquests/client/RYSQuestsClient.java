@@ -1,5 +1,8 @@
 package works.repka.rysquests.client;
 
+import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
+import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import works.repka.rysquests.client.screen.BookScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.resources.ResourceLocation;
@@ -33,6 +36,7 @@ public final class RYSQuestsClient {
         modBus.addListener(RYSQuestsClient::onClientSetup);
         modBus.addListener(QuestKeys::register);
         modBus.addListener(StickerBoard::register);
+        modBus.addListener((RegisterClientReloadListenersEvent event) -> event.registerReloadListener((ResourceManagerReloadListener) manager -> ClientAssets.applyLanguage()));
         ModNetwork.setClientBookHandler(ClientBook::receive);
         ModNetwork.setClientProgressHandler(ClientProgress::receive);
         ModNetwork.setClientPinnedHandler(ClientProgress::receivePinned);
@@ -40,6 +44,7 @@ public final class RYSQuestsClient {
         ModNetwork.setClientTeamInfoHandler(ClientProgress::receiveTeamInfo);
         ModNetwork.setClientStageLocksHandler(ClientProgress::receiveStageLocks);
         ModNetwork.setClientDevReportHandler(ClientDev::receive);
+        ModNetwork.setClientEditorResultHandler(payload -> BookScreen.onEditorResult(payload.ok(), payload.reason()));
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> QuestKeys.tick());
         NeoForge.EVENT_BUS.addListener(RYSQuestsClient::onClientCommands);
         NeoForge.EVENT_BUS.addListener((ClientChatReceivedEvent.Player event) -> QuestLinks.onChat(event));

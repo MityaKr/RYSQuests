@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import net.minecraft.client.resources.language.I18n;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -94,7 +94,7 @@ final class MatrixView implements BookView {
         }
         float bottom = y + h - PAD_Y;
         String hintKey = section.title() + ".hint";
-        if (I18n.exists(hintKey)) {
+        if (Language.getInstance().has(hintKey)) {
             List<String> hint = ui.wrap(tr(hintKey), inner, 11, Ui.REGULAR, 3);
             bottom -= hint.size() * 14;
             ui.lines(hint, left, bottom + hint.size() * 7f, 14, 11, Ui.REGULAR, ui.c("text.dim"));
@@ -455,7 +455,7 @@ final class MatrixView implements BookView {
     private float renderWayCard(Ui ui, MatrixSection section, Selected selected, int index, float x, float y, float w) {
         Way way = selected.ways.get(index);
         String textKey = section.wayText(selected.row, selected.column, way);
-        boolean hasText = I18n.exists(textKey) || way.text().isPresent();
+        boolean hasText = Language.getInstance().has(textKey) || way.text().isPresent();
         String body = hasText ? tr(textKey) : "";
         float inner = w - 26;
         TextBlock.Look look = new TextBlock.Look(12, 18, ui.c("button.fg"));

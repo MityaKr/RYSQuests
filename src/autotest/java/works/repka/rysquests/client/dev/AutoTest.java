@@ -6,9 +6,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.Optional;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
+import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.server.MinecraftServer;
@@ -33,6 +36,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.GameRules;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
@@ -63,6 +67,8 @@ import works.repka.rysquests.dev.DevExamplePack;
 import works.repka.rysquests.network.QuestActionPayload;
 import works.repka.rysquests.progress.ProgressService;
 import works.repka.rysquests.progress.ProgressStore;
+import works.repka.rysquests.client.ClientAssets;
+import works.repka.rysquests.network.EditorSavePayload;
 import works.repka.ryscore.theme.ThemeManager;
 import works.repka.ryscore.ui.Type;
 
@@ -85,6 +91,8 @@ public final class AutoTest {
     private static final int EXAMPLE_QUESTS = 7;
     private static final int SWITCHED_CHAPTERS = 4;
     private static final List<ItemStack> RECIPE_REQUESTS = new ArrayList<>();
+    private static final ResourceLocation SERVER_GUIDE = ResourceLocation.parse("teamtest:editor_guide");
+    private static final ResourceLocation SERVER_IMAGE = ResourceLocation.parse("teamtest:textures/guides/editor_guide_1.png");
     private static final boolean USE_RYSTEAMS = Boolean.getBoolean("rysquests.autotest.rysteams");
     private static final int TEAM_COLOR = 0x2E8B57;
     private static final String DRAWN_AS_ICONS = "\u2713\u2714\u2715\u2716\u2717\u2605\u2192\u2198\u2193\u2199\u2190\u2196\u2191\u2197";
@@ -129,6 +137,8 @@ public final class AutoTest {
             buildDesignScenario();
         } else if ("guides".equals(scenario)) {
             buildGuidesScenario();
+        } else if ("editor".equals(scenario)) {
+            buildEditorScenario();
         } else if ("sections".equals(scenario)) {
             buildSectionsScenario();
         } else if ("sections_design".equals(scenario)) {
@@ -462,6 +472,7 @@ public final class AutoTest {
         expect("quest completed", () -> ClientProgress.get(TEAM_QUEST).completed());
         step("claim first", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
         expect("got the reward for each and the single one", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 1);
+        addEditorOnServerSteps();
         expect("the other player has left", () -> players() == 1);
         step("stop the server", () -> command("stop"), 100);
     }
@@ -486,6 +497,11 @@ public final class AutoTest {
         expect("the single reward is taken by the first", () -> ClientProgress.get(TEAM_QUEST).claimed().contains(1) && !ClientProgress.get(TEAM_QUEST).claimed().contains(0));
         step("claim second", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
         expect("got only the reward for each", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 0);
+        expect("the saved guide reached the other player", () -> ClientBook.current().guides().containsKey(SERVER_GUIDE));
+        expect("its text came with the book", () -> Component.translatable(ClientBook.current().guides().get(SERVER_GUIDE).title()).getString().equals("Written on the server"));
+        expect("its picture came with the book", () -> ClientAssets.imageSize(SERVER_IMAGE) != null);
+        step("try to save without rights", () -> PacketDistributor.sendToServer(new EditorSavePayload(Optional.of(ClientBook.current().guides().get(SERVER_GUIDE)), Optional.empty(), "en_us", Map.of(), Map.of())), 20);
+        expect("the server refused", () -> "rysquests.editor.error.denied".equals(BookScreen.lastEditorResultForTest()));
         step("leave the server", () -> {}, 5);
     }
 
@@ -699,6 +715,80 @@ public final class AutoTest {
                 ThemeManager.select("ryscore:slate");
             }, 10);
         }
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+    }
+
+    private static byte[] testPicture() {
+        try (NativeImage image = new NativeImage(16, 9, false)) {
+            image.fillRect(0, 0, 16, 9, 0xFF3366AA);
+            return image.asByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** The operator writes a guide on a dedicated server. The other client checks what reached it. */
+    private static void addEditorOnServerSteps() {
+        step("open the book", () -> mc().setScreen(new BookScreen()), 10);
+        step("write a guide", () -> {
+            BookScreen.editGuideForTest(SERVER_GUIDE);
+            BookScreen.writeGuideForTest("Written on the server", ResourceLocation.parse("minecraft:book"));
+            BookScreen.addImageForTest(SERVER_IMAGE, testPicture());
+            BookScreen.writePageForTest("First", "Picture below\n[[image:" + SERVER_IMAGE + "]]");
+        }, 5);
+        step("save it", BookScreen::editorSaveForTest, 5);
+        expect("the server saved it", BookScreen::editorSavedForTest);
+        expect("the file is on the server", () -> Files.isRegularFile(mc().gameDirectory.toPath().resolve("../run-server/config/rysquests/pack/data/teamtest/rysquests/guides/editor_guide.json")));
+        step("close the book", () -> mc().setScreen(null), 5);
+    }
+
+    /** A guide made in the editor and read back, in a single player world. */
+    private static void buildEditorScenario() {
+        ResourceLocation id = ResourceLocation.parse("example:autotest_editor");
+        ResourceLocation picture = ResourceLocation.parse("example:textures/guides/autotest_editor_1.png");
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+        }, 10);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("open the editor", () -> BookScreen.editGuideForTest(id), 5);
+        expect("the editor is open", BookScreen::editorOpenForTest);
+        step("write the first page", () -> {
+            BookScreen.writeGuideForTest("Autotest guide", ResourceLocation.parse("minecraft:furnace"));
+            BookScreen.addImageForTest(picture, testPicture());
+            BookScreen.writePageForTest("First page", "Build a [[item:minecraft:furnace]] from **cobblestone**.\n[[recipe:minecraft:furnace]]\n[[image:" + picture + "|A picture]]");
+        }, 40);
+        screenshot("editor_page");
+        String before = "Build";
+        step("type a letter", () -> mc().screen.charTyped('Z', 0), 25);
+        expect("the letter is in the text", () -> BookScreen.editorPageTextForTest().startsWith("Z" + before));
+        step("undo it", BookScreen::editorUndoForTest, 3);
+        expect("the letter is gone", () -> BookScreen.editorPageTextForTest().startsWith(before));
+        step("add a screenshot", () -> BookScreen.editorAddPictureForTest(mc().gameDirectory.toPath().resolve("screenshots/rysquests_editor_page.png")), 20);
+        expect("the screenshot is in the text", () -> BookScreen.editorPageTextForTest().contains("autotest_editor_2.png"));
+        step("go to the second page", () -> {
+            if (BookScreen.editorPagesForTest() < 2) {
+                BookScreen.addPageForTest();
+            } else {
+                BookScreen.editorSelectPageForTest(1);
+            }
+            BookScreen.writePageForTest("Second page", "Written at " + System.currentTimeMillis());
+        }, 5);
+        step("click save", () -> mc().screen.mouseClicked(556, 31, GLFW.GLFW_MOUSE_BUTTON_LEFT), 5);
+        expect("the save went through", BookScreen::editorSavedForTest);
+        expect("the book has the guide", () -> ClientBook.current().guides().containsKey(id));
+        expect("its pages are in order", () -> ClientBook.current().guides().get(id).pages().size() == 2);
+        expect("its title is translated", () -> Component.translatable(ClientBook.current().guides().get(id).title()).getString().equals("Autotest guide"));
+        expect("its picture is known", () -> ClientAssets.imageSize(picture) != null);
+        expect("the guide has no broken links", () -> BookScreen.guideIssuesForTest().isEmpty());
+        expect("the file is in the editor's folder", () -> Files.isRegularFile(mc().gameDirectory.toPath().resolve("config/rysquests/pack/data/example/rysquests/guides/autotest_editor.json")));
+        screenshot("editor_saved");
+        step("leave the editor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("the editor is closed", () -> !BookScreen.editorOpenForTest());
+        step("open the saved page", () -> BookScreen.openGuideForTest(id, 0), 40);
+        screenshot("editor_result");
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
     }
 

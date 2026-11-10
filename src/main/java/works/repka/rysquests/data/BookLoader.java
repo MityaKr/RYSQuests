@@ -10,19 +10,28 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import net.minecraft.Util;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
+import net.minecraft.util.profiling.InactiveProfiler;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import works.repka.rysquests.data.BookReport.Issue;
 import works.repka.rysquests.data.BookReport.Severity;
+import works.repka.rysquests.editor.EditorFolder;
 import works.repka.rysquests.network.BookSyncPayload;
+import works.repka.rysquests.progress.ProgressService;
 
 /** Loads the book from datapacks. All the work is done off the main thread; applying the result is a single swap. */
 public final class BookLoader extends SimplePreparableReloadListener<BookHolder.Loaded> {
@@ -45,8 +54,23 @@ public final class BookLoader extends SimplePreparableReloadListener<BookHolder.
         issues.addAll(parsed.issues());
         RawBook raw = new RawBook(parsed.meta(), parsed.chapters(), parsed.quests(), parsed.guides(), parsed.sections(), issues, parsed.migrations());
         BookValidator.Result result = BookValidator.validate(raw, BuiltInRegistries.ITEM::containsKey, ops);
-        byte[] data = BookSerializer.encode(result.book(), registries);
-        return new BookHolder.Loaded(result.book(), result.report(), new BookSyncPayload(result.book().hash(), data), raw.migrations());
+        QuestBook book = result.book().withAssets(BookAssets.read(EditorFolder.root(), result.book()));
+        byte[] data = BookSerializer.encode(book, registries);
+        return new BookHolder.Loaded(book, result.report(), new BookSyncPayload(book.hash(), data), raw.migrations());
+    }
+
+    /** Reads only the book again and sends it to everyone, which is far quicker than reloading all the data of a large pack. */
+    public static void reloadNow(MinecraftServer server, Consumer<QuestBook> done) {
+        BookLoader loader = new BookLoader(server.registryAccess());
+        CompletableFuture.supplyAsync(() -> loader.prepare(server.getResourceManager(), InactiveProfiler.INSTANCE), Util.backgroundExecutor())
+                .thenAcceptAsync(loaded -> {
+                    loader.apply(loaded, server.getResourceManager(), InactiveProfiler.INSTANCE);
+                    for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                        PacketDistributor.sendToPlayer(player, loaded.payload());
+                        ProgressService.sendAll(player);
+                    }
+                    done.accept(loaded.book());
+                }, server);
     }
 
     private static Map<ResourceLocation, JsonElement> read(ResourceManager manager, List<Issue> errors) {

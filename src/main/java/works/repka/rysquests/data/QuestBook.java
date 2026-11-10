@@ -20,18 +20,20 @@ public record QuestBook(
         Map<ResourceLocation, SectionDef> sections,
         Map<ResourceLocation, List<ResourceLocation>> unlocks,
         Map<ResourceLocation, List<ResourceLocation>> byItem,
-        String hash) {
+        String hash,
+        BookAssets assets) {
 
     public static final QuestBook EMPTY = create(BookMeta.DEFAULT, List.of(), List.of(), List.of(), List.of(), "");
 
     /** The book contents as they travel to clients. */
-    public record Wire(BookMeta meta, List<Chapter> chapters, List<Quest> quests, List<Guide> guides, List<SectionDef> sections) {
+    public record Wire(BookMeta meta, List<Chapter> chapters, List<Quest> quests, List<Guide> guides, List<SectionDef> sections, BookAssets assets) {
         public static final Codec<Wire> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 BookMeta.CODEC.fieldOf("meta").forGetter(Wire::meta),
                 Chapter.CODEC.listOf().fieldOf("chapters").forGetter(Wire::chapters),
                 Quest.CODEC.listOf().fieldOf("quests").forGetter(Wire::quests),
                 Guide.CODEC.listOf().optionalFieldOf("guides", List.of()).forGetter(Wire::guides),
-                SectionDef.CODEC.listOf().optionalFieldOf("sections", List.of()).forGetter(Wire::sections)
+                SectionDef.CODEC.listOf().optionalFieldOf("sections", List.of()).forGetter(Wire::sections),
+                BookAssets.CODEC.optionalFieldOf("assets", BookAssets.EMPTY).forGetter(Wire::assets)
         ).apply(instance, Wire::new));
     }
 
@@ -56,14 +58,18 @@ public record QuestBook(
                     .forEach(item -> byItem.computeIfAbsent(item, key -> new ArrayList<>()).add(quest.id()));
         }
         return new QuestBook(meta, Collections.unmodifiableMap(chapterMap), Collections.unmodifiableMap(questMap), Collections.unmodifiableMap(guideMap), Collections.unmodifiableMap(sectionMap),
-                Map.copyOf(unlocks), Map.copyOf(byItem), hash);
+                Map.copyOf(unlocks), Map.copyOf(byItem), hash, BookAssets.EMPTY);
+    }
+
+    public QuestBook withAssets(BookAssets newAssets) {
+        return new QuestBook(meta, chapters, quests, guides, sections, unlocks, byItem, hash, newAssets);
     }
 
     public Wire wire() {
-        return new Wire(meta, List.copyOf(chapters.values()), List.copyOf(quests.values()), List.copyOf(guides.values()), List.copyOf(sections.values()));
+        return new Wire(meta, List.copyOf(chapters.values()), List.copyOf(quests.values()), List.copyOf(guides.values()), List.copyOf(sections.values()), assets);
     }
 
     public static QuestBook fromWire(Wire wire, String hash) {
-        return create(wire.meta(), wire.chapters(), wire.quests(), wire.guides(), wire.sections(), hash);
+        return create(wire.meta(), wire.chapters(), wire.quests(), wire.guides(), wire.sections(), hash).withAssets(wire.assets());
     }
 }

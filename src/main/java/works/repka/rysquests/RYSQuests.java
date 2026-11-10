@@ -5,6 +5,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
@@ -20,6 +21,7 @@ import works.repka.rysquests.command.QuestCommands;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.BookLoader;
 import works.repka.rysquests.dev.DevExamplePack;
+import works.repka.rysquests.editor.EditorFolder;
 import works.repka.rysquests.integration.ftbq.ImportedPack;
 import works.repka.rysquests.migrate.MigrationRunner;
 import works.repka.rysquests.network.ModNetwork;
@@ -41,6 +43,8 @@ public final class RYSQuests {
         modBus.addListener(ModNetwork::register);
         DevExamplePack.register(modBus);
         ImportedPack.register(modBus);
+        EditorFolder.register(modBus);
+        container.registerConfig(ModConfig.Type.COMMON, CommonConfig.SPEC);
         TeamBridge.register();
 
         NeoForge.EVENT_BUS.addListener((AddReloadListenerEvent event) -> event.addListener(new BookLoader(event.getRegistryAccess())));

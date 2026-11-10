@@ -3,11 +3,12 @@ package works.repka.rysquests.client.screen;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.language.I18n;
+import net.minecraft.locale.Language;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
+import works.repka.rysquests.client.ClientAssets;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.markup.Markup;
 import works.repka.rysquests.data.CardsSection;
@@ -97,7 +98,7 @@ final class GuideCheck {
     }
 
     private static void key(String subject, String key, List<DevReports.Entry> entries) {
-        if (key.indexOf(' ') < 0 && key.indexOf('.') > 0 && !I18n.exists(key)) {
+        if (key.indexOf(' ') < 0 && key.indexOf('.') > 0 && !Language.getInstance().has(key)) {
             entries.add(new DevReports.Entry(subject, key));
         }
     }
@@ -108,7 +109,7 @@ final class GuideCheck {
         }
     }
 
-    private static boolean valid(QuestBook book, Markup.Span span) {
+    static boolean valid(QuestBook book, Markup.Span span) {
         if (span.kind().equals("guide")) {
             return GuideRef.parse(span.target()).map(ref -> {
                 Guide guide = book.guides().get(ref.guide());
@@ -126,7 +127,7 @@ final class GuideCheck {
         return switch (span.kind()) {
             case "item", "recipe" -> BuiltInRegistries.ITEM.containsKey(id);
             case "quest" -> book.quests().containsKey(id);
-            case "image" -> Minecraft.getInstance().getResourceManager().getResource(id).isPresent();
+            case "image" -> ClientAssets.imageSize(id) != null || Minecraft.getInstance().getResourceManager().getResource(id).isPresent();
             default -> true;
         };
     }

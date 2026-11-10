@@ -12,6 +12,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
+import works.repka.rysquests.client.ClientAssets;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.markup.GuideTopics;
@@ -161,7 +162,8 @@ final class Guides {
     /** The size of a picture in the resources, read from its header. @return null when there is no such file */
     @Nullable
     int[] imageSize(ResourceLocation texture) {
-        return images.computeIfAbsent(texture, Guides::readImageSize).orElse(null);
+        int[] fromBook = ClientAssets.imageSize(texture);
+        return fromBook != null ? fromBook : images.computeIfAbsent(texture, Guides::readImageSize).orElse(null);
     }
 
     private static Optional<int[]> readImageSize(ResourceLocation texture) {

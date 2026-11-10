@@ -116,7 +116,18 @@ final class GuideLibraryView implements BookView {
         int read = guides.all().stream().mapToInt(ClientProgress::readPages).sum();
         ui.label(text("rysquests.guides.summary", Ui.counted("rysquests.plural.guide", guides.all().size()), Ui.counted("rysquests.plural.page", pages), read),
                 x, y + 25 + 7, 11.5f, Ui.REGULAR, ui.c("text.muted"));
-        screen.renderSectionSearch(ui, x + w, y + HEADER_H / 2f, Math.round(Math.min(SEARCH_W, w / 2f)), null);
+        int searchW = Math.round(Math.min(SEARCH_W, w / 2f));
+        screen.renderSectionSearch(ui, x + w, y + HEADER_H / 2f, searchW, null);
+        if (net.minecraft.client.Minecraft.getInstance().player.hasPermissions(2)) {
+            float size = 34;
+            float plusX = x + w - searchW - 8 - size;
+            float plusY = y + HEADER_H / 2f - size / 2f;
+            boolean over = ui.over(plusX, plusY, size, size);
+            ui.box(plusX, plusY, size, size, 9, over ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
+            ui.icon(Icons.Shape.PLUS, plusX + 11, plusY + 11, 12, ui.c("button.fg"));
+            ui.tooltipIfOver(plusX, plusY, size, size, Component.translatable("rysquests.editor.new_guide"));
+            ui.hit(plusX, plusY, size, size, screen::newGuide);
+        }
     }
 
     /** @return the y below the chips */

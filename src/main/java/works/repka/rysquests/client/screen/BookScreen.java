@@ -75,6 +75,8 @@ public final class BookScreen extends ScaledScreen {
     private static final List<ViewMode> TABS = List.of(ViewMode.MAP, ViewMode.LIST, ViewMode.TIMELINE, ViewMode.HOME, ViewMode.FLOW);
     @Nullable
     private static ItemStack lastHovered;
+    @Nullable
+    private static String lastEditorResult;
 
     private final List<Ui.Hit> hits = new ArrayList<>();
     private final List<Ui.Hit> rightHits = new ArrayList<>();
@@ -115,6 +117,11 @@ public final class BookScreen extends ScaledScreen {
         public void back() {
             BookState.openLibrary();
         }
+
+        @Override
+        public void edit(Guide guide, int page) {
+            openEditor(GuideDraft.of(guide), false);
+        }
     });
     private final GuidePageView pagesSection = new GuidePageView(guides, new GuidePageView.Source() {
         @Nullable
@@ -147,7 +154,16 @@ public final class BookScreen extends ScaledScreen {
         @Override
         public void back() {
         }
+
+        @Override
+        public void edit(Guide guide, int page) {
+            if (BookState.customSection() instanceof PagesSection pages) {
+                openEditor(GuideDraft.of(pages), false);
+            }
+        }
     });
+    @Nullable
+    private EditorView editor;
     private final MatrixView matrix = new MatrixView(this);
     private final CardsView cards = new CardsView();
     @Nullable
@@ -379,9 +395,16 @@ public final class BookScreen extends ScaledScreen {
             }
         }
         List<String> sections = BookState.sections();
-        sectionsW = sections.size() > 1 ? SECTIONS_W : 0;
+        sectionsW = editor != null || sections.size() < 2 ? 0 : SECTIONS_W;
         ui.squareLeft = sectionsW > 0;
-        if (!BookState.inStory()) {
+        if (editor != null) {
+            if (sectionSearch != null) {
+                sectionSearch.visible = false;
+            }
+            ui.shadow(x, y, w, h, 14, 1f);
+            ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
+            editor.render(ui, x + 1, y + 1, w - 2, h - 2);
+        } else if (!BookState.inStory()) {
             renderGuidesFrame(ui, x, y, w, h);
         } else if (BookState.currentView() == ViewMode.FLOW) {
             renderFlowFrame(ui, x, y, w, h);
@@ -440,6 +463,34 @@ public final class BookScreen extends ScaledScreen {
             ui.labelCentered(count, badgeX + badgeW / 2f, y + 13, 9.5f, Ui.SEMIBOLD, ui.c("accent.text"));
         }
         ui.hit(x, y, SECTION_ITEM_W, SECTION_ITEM_H, () -> BookState.openSection(section));
+    }
+
+    private void openEditor(GuideDraft draft, boolean isNew) {
+        editor = new EditorView(this, guides, guidePage, draft, isNew);
+    }
+
+    /** A new guide goes into the namespace of the book. */
+    void newGuide() {
+        ResourceLocation any = book().chapters().keySet().stream().findFirst().orElse(ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "guide"));
+        int number = book().guides().size() + 1;
+        ResourceLocation id = any.withPath("guide_" + number);
+        while (book().guides().containsKey(id)) {
+            number++;
+            id = any.withPath("guide_" + number);
+        }
+        openEditor(GuideDraft.newGuide(id), true);
+    }
+
+    void closeEditor() {
+        editor = null;
+    }
+
+    /** The server's answer to a save. */
+    public static void onEditorResult(boolean ok, String reason) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.editor != null) {
+            screen.editor.onResult(ok, reason);
+        }
+        lastEditorResult = ok ? "" : reason;
     }
 
     private void renderGuidesFrame(Ui ui, int x, int y, int w, int h) {
@@ -742,6 +793,9 @@ public final class BookScreen extends ScaledScreen {
         }
         int x = (int) Math.round(mouseX * 2);
         int y = (int) Math.round(mouseY * 2);
+        if (editor != null) {
+            editor.pointer(mouseX * 2, mouseY * 2);
+        }
         List<Ui.Hit> list = button == 0 ? hits : button == 1 ? rightHits : List.of();
         for (int i = list.size() - 1; i >= 0; i--) {
             Ui.Hit hit = list.get(i);
@@ -767,13 +821,19 @@ public final class BookScreen extends ScaledScreen {
 
     @Override
     protected boolean onDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (editor != null) {
+            editor.drag(mouseX * 2, mouseY * 2);
+            return true;
+        }
         return BookState.inStory() && activeView().drag(dragX * 2, dragY * 2) || super.onDrag(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override
     protected boolean onScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
         double x = mouseX * 2;
-        if (!BookState.inStory()) {
+        if (editor != null) {
+            editor.scroll(x, mouseY * 2, scrollY);
+        } else if (!BookState.inStory()) {
             guideView().scroll(x, mouseY * 2, scrollY);
         } else if (x >= chaptersLeft && x < chaptersRight) {
             if (BookState.currentView() == ViewMode.FLOW) {
@@ -794,7 +854,15 @@ public final class BookScreen extends ScaledScreen {
     }
 
     @Override
+    public boolean charTyped(char c, int modifiers) {
+        return editor != null ? editor.typed(c) : super.charTyped(c, modifiers);
+    }
+
+    @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
+        if (editor != null) {
+            return editor.key(key);
+        }
         boolean typing = searchBox != null && searchBox.isFocused() || sectionSearch != null && sectionSearch.isFocused();
         if (typing && searchBox.isFocused() && key == GLFW.GLFW_KEY_ENTER && !BookState.search.isBlank()) {
             SearchIndex.find(BookState.search).stream().findFirst().ifPresent(BookState::select);
@@ -865,6 +933,85 @@ public final class BookScreen extends ScaledScreen {
 
     public static int sectionPageForTest(ResourceLocation section) {
         return BookState.SECTION_PAGES.getOrDefault(section, 0);
+    }
+
+    /** Opens the editor on a guide with a fixed id, so that repeated runs in the same test folder do not pile up. */
+    public static void editGuideForTest(ResourceLocation id) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            Guide existing = book().guides().get(id);
+            screen.openEditor(existing != null ? GuideDraft.of(existing) : GuideDraft.newGuide(id), existing == null);
+        }
+    }
+
+    public static int editorPagesForTest() {
+        return editorForTest().pagesForTest();
+    }
+
+    public static void editorSelectPageForTest(int index) {
+        editorForTest().selectPageForTest(index);
+    }
+
+    public static void editorAddPictureForTest(java.nio.file.Path file) {
+        editorForTest().addPicture(file);
+    }
+
+    public static String editorPageTextForTest() {
+        return editorForTest().pageTextForTest();
+    }
+
+    public static void editorUndoForTest() {
+        editorForTest().undoForTest();
+    }
+
+    public static void newGuideForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.newGuide();
+        }
+    }
+
+    private static EditorView editorForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.editor : null;
+    }
+
+    public static boolean editorOpenForTest() {
+        return editorForTest() != null;
+    }
+
+    public static void writeGuideForTest(String title, ResourceLocation icon) {
+        editorForTest().writeGuideForTest(title, icon);
+    }
+
+    public static void writePageForTest(String title, String text) {
+        editorForTest().writeForTest(title, text);
+    }
+
+    public static void addPageForTest() {
+        editorForTest().addPageForTest();
+    }
+
+    public static void addImageForTest(ResourceLocation id, byte[] png) {
+        editorForTest().addImageForTest(id, png);
+    }
+
+    public static ResourceLocation editorIdForTest() {
+        return editorForTest().idForTest();
+    }
+
+    public static boolean editorSavedForTest() {
+        return editorForTest().savedForTest();
+    }
+
+    public static String editorStatusForTest() {
+        return editorForTest().statusForTest();
+    }
+
+    public static void editorSaveForTest() {
+        editorForTest().save();
+    }
+
+    @Nullable
+    public static String lastEditorResultForTest() {
+        return lastEditorResult;
     }
 
     public static void showGuidesForTest() {

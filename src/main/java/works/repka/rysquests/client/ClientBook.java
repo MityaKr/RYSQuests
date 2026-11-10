@@ -9,6 +9,7 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.RegistryAccess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import works.repka.rysquests.data.BookAssets;
 import works.repka.rysquests.data.BookSerializer;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.integration.ftbq.ImportedPack;
@@ -38,6 +39,7 @@ public final class ClientBook {
                         LOGGER.error("Could not decode the quest book", failure);
                     } else if (generation == GENERATION.get()) {
                         current = book;
+                        ClientAssets.apply(book.assets());
                         LOGGER.info("Received book: {} chapters, {} quests", book.chapters().size(), book.quests().size());
                         reloadForNewTranslations(book);
                     }
@@ -56,5 +58,6 @@ public final class ClientBook {
     static void clear() {
         GENERATION.incrementAndGet();
         current = QuestBook.EMPTY;
+        ClientAssets.apply(BookAssets.EMPTY);
     }
 }

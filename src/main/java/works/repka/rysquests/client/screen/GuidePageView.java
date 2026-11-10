@@ -2,6 +2,7 @@ package works.repka.rysquests.client.screen;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -64,6 +65,9 @@ final class GuidePageView implements BookView {
         String crumb();
 
         void back();
+
+        /** Opens the editor on what is shown. */
+        void edit(Guide guide, int page);
     }
 
     private final Guides guides;
@@ -149,6 +153,14 @@ final class GuidePageView implements BookView {
         float right = x + w;
         renderArrow(ui, "→", right - 32, cy - 16, index + 1 < guide.pages().size(), () -> source.open(guide, index + 1));
         renderArrow(ui, "←", right - 32 - 10 - 32, cy - 16, index > 0, () -> source.open(guide, index - 1));
+        if (Minecraft.getInstance().player.hasPermissions(2)) {
+            float pencilX = right - 32 - 10 - 32 - 10 - 32 - ui.width(Component.translatable("rysquests.guides.page_of", index + 1, guide.pages().size()).getString(), 11.5f, Ui.REGULAR) - 12;
+            boolean overPencil = ui.over(pencilX, cy - 16, 32, 32);
+            ui.box(pencilX, cy - 16, 32, 32, 8, overPencil ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
+            ui.icon(Icons.Shape.PENCIL, pencilX + 10, cy - 6, 12, ui.c("button.fg"));
+            ui.tooltipIfOver(pencilX, cy - 16, 32, 32, Component.translatable("rysquests.editor.edit"));
+            ui.hit(pencilX, cy - 16, 32, 32, () -> source.edit(guide, index));
+        }
         String pageOf = Component.translatable("rysquests.guides.page_of", index + 1, guide.pages().size()).getString();
         float pageOfW = ui.width(pageOf, 11.5f, Ui.REGULAR);
         float pageOfX = right - 32 - 10 - 32 - 10 - pageOfW;
@@ -212,7 +224,7 @@ final class GuidePageView implements BookView {
     // --- the page ---
 
     /** @return the y below the text */
-    private float renderBody(Ui ui, String body, float x, float y, float w) {
+    float renderBody(Ui ui, String body, float x, float y, float w) {
         TextBlock.Look look = new TextBlock.Look(TEXT_PX, TEXT_LINE, ui.c("text.body"), ui.c("text.primary"));
         StringBuilder run = new StringBuilder();
         for (String line : body.split("\n", -1)) {
