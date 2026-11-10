@@ -81,5 +81,15 @@
   "section.example.rules.safety.title": "Безопасность",
   "section.example.rules.safety.text": "Перед боем с [[item:minecraft:nether_star]] сделай резервную копию.",
   "shop.example.resources": "Ресурсы",
-  "shop.example.food": "Еда"
+  "shop.example.food": "Еда",
+  "achievement.example.category.gathering": "Добыча",
+  "achievement.example.category.world": "Мир",
+  "achievement.example.iron_hoard.name": "Запас железа",
+  "achievement.example.iron_hoard.text": "Держи в инвентаре железные слитки",
+  "achievement.example.iron_hoard.title": "Кузнец",
+  "achievement.example.old_timer.name": "Старожил",
+  "achievement.example.old_timer.text": "Проведи время в этом мире",
+  "achievement.example.chicken_hunter.name": "Гроза курятника",
+  "achievement.example.chicken_hunter.text": "Победи трёх куриц",
+  "achievement.example.chicken_hunter.hint": "кому-то не понравятся перья"
 }

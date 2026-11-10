@@ -1,0 +1,23 @@
+{
+  "id": "design:miner",
+  "category": "Техника",
+  "icon": "minecraft:iron_ore",
+  "task": {
+    "type": "rysquests:item",
+    "item": "minecraft:dirt"
+  },
+  "tiers": [
+    {
+      "tier": "bronze",
+      "amount": 100
+    },
+    {
+      "tier": "silver",
+      "amount": 500
+    },
+    {
+      "tier": "gold",
+      "amount": 2000
+    }
+  ]
+}

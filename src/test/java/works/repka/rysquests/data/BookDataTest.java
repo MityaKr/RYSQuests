@@ -81,8 +81,8 @@ class BookDataTest {
         BookValidator.Result result = validate(example());
 
         assertEquals(List.of(), result.report().issues());
-        assertEquals(7, result.book().quests().size());
-        assertEquals(List.of(ResourceLocation.parse("example:01_start"), ResourceLocation.parse("example:02_power"), ResourceLocation.parse("example:_cards/bosses")),
+        assertEquals(14, result.book().quests().size());
+        assertEquals(List.of(ResourceLocation.parse("example:01_start"), ResourceLocation.parse("example:02_power"), ResourceLocation.parse("example:_achievements"), ResourceLocation.parse("example:_cards/bosses")),
                 List.copyOf(result.book().chapters().keySet()));
     }
 
@@ -231,7 +231,7 @@ class BookDataTest {
         assertEquals(3, furnace.pages().size());
         assertEquals(1, furnace.pageIndex("build"));
         assertRoundTrips(Guide.CODEC, furnace);
-        assertEquals(List.of("story", "guides", "example:ores", "example:bosses", "example:rules", "shop"), book.meta().sections());
+        assertEquals(List.of("story", "guides", "example:ores", "example:bosses", "example:rules", "shop", "achievements"), book.meta().sections());
         QuestBook decoded = QuestBook.fromWire(book.wire(), book.hash());
         assertEquals(book.guides(), decoded.guides());
         assertEquals("example:furnace#fuel", book.quests().get(ResourceLocation.parse("example:start/first_furnace")).guide().orElseThrow().toString());

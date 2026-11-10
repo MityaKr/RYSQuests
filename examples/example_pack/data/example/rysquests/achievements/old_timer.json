@@ -1,0 +1,38 @@
+{
+  "id": "example:old_timer",
+  "category": "achievement.example.category.world",
+  "icon": "minecraft:clock",
+  "task": {
+    "type": "rysquests:stat",
+    "stat": "minecraft:custom",
+    "target": "minecraft:play_time"
+  },
+  "tiers": [
+    {
+      "tier": "bronze",
+      "amount": 1200
+    },
+    {
+      "tier": "silver",
+      "amount": 12000,
+      "rewards": [
+        {
+          "type": "rysquests:currency",
+          "id": "coin",
+          "amount": 10
+        }
+      ]
+    },
+    {
+      "tier": "gold",
+      "amount": 72000,
+      "rewards": [
+        {
+          "type": "rysquests:currency",
+          "id": "coin",
+          "amount": 100
+        }
+      ]
+    }
+  ]
+}

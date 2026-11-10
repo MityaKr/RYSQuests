@@ -1,0 +1,23 @@
+{
+  "id": "example:chicken_hunter",
+  "category": "achievement.example.category.world",
+  "icon": "minecraft:feather",
+  "hidden": true,
+  "task": {
+    "type": "rysquests:kill",
+    "entity": "minecraft:chicken"
+  },
+  "tiers": [
+    {
+      "tier": "gold",
+      "amount": 3,
+      "rewards": [
+        {
+          "type": "rysquests:currency",
+          "id": "coin",
+          "amount": 15
+        }
+      ]
+    }
+  ]
+}

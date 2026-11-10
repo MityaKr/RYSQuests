@@ -81,6 +81,7 @@ final class BookState {
             case Chapter.STORY -> book.chapters().values().stream().anyMatch(chapter -> chapter.isStory() && !chapter.hidden());
             case BookMeta.GUIDES -> !book.guides().isEmpty();
             case BookMeta.SHOP -> !book.offers().isEmpty();
+            case BookMeta.ACHIEVEMENTS -> !book.achievements().isEmpty();
             default -> ResourceLocation.tryParse(id) != null && book.sections().containsKey(ResourceLocation.parse(id));
         };
     }
@@ -109,12 +110,16 @@ final class BookState {
             return previewSection;
         }
         String current = currentSection();
-        ResourceLocation id = current.equals(Chapter.STORY) || current.equals(BookMeta.GUIDES) || current.equals(BookMeta.SHOP) ? null : ResourceLocation.tryParse(current);
+        ResourceLocation id = current.equals(Chapter.STORY) || current.equals(BookMeta.GUIDES) || current.equals(BookMeta.SHOP) || current.equals(BookMeta.ACHIEVEMENTS) ? null : ResourceLocation.tryParse(current);
         return id == null ? null : ClientBook.current().sections().get(id);
     }
 
     static boolean inShop() {
         return currentSection().equals(BookMeta.SHOP);
+    }
+
+    static boolean inAchievements() {
+        return currentSection().equals(BookMeta.ACHIEVEMENTS);
     }
 
     static boolean inStory() {

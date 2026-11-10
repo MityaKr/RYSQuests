@@ -44,6 +44,7 @@ public final class RYSQuestsClient {
         ModNetwork.setClientTeamInfoHandler(ClientProgress::receiveTeamInfo);
         ModNetwork.setClientStageLocksHandler(ClientProgress::receiveStageLocks);
         ModNetwork.setClientDevReportHandler(ClientDev::receive);
+        ModNetwork.setClientAchievementHandler(ClientAchievements::receive);
         ModNetwork.setClientShopHandlers(ClientShop::receive, payload -> BookScreen.onShopResult(payload.ok(), payload.reason()));
         ModNetwork.setClientEditorResultHandler(payload -> BookScreen.onEditorResult(payload.ok(), payload.reason()));
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> QuestKeys.tick());
@@ -54,6 +55,7 @@ public final class RYSQuestsClient {
             ClientBook.clear();
             ClientProgress.clear();
             ClientShop.clear();
+            ClientAchievements.clear();
         });
     }
 

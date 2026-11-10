@@ -25,6 +25,7 @@ import works.repka.rysquests.editor.EditorFolder;
 import works.repka.rysquests.integration.ftbq.ImportedPack;
 import works.repka.rysquests.migrate.MigrationRunner;
 import works.repka.rysquests.network.ModNetwork;
+import works.repka.rysquests.progress.AchievementService;
 import works.repka.rysquests.progress.ProgressService;
 import works.repka.rysquests.progress.TeamBridge;
 import works.repka.rysquests.reward.RewardTypes;
@@ -52,6 +53,8 @@ public final class RYSQuests {
         NeoForge.EVENT_BUS.addListener(RYSQuests::onDatapackSync);
         NeoForge.EVENT_BUS.addListener((ServerStartedEvent event) -> MigrationRunner.applyNew(event.getServer()));
         NeoForge.EVENT_BUS.addListener(RYSQuests::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(AchievementService::onNameFormat);
+        NeoForge.EVENT_BUS.addListener(AchievementService::onTabListName);
         NeoForge.EVENT_BUS.addListener(RYSQuests::onLivingDeath);
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {

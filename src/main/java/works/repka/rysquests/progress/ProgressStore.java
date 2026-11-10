@@ -34,6 +34,8 @@ public final class ProgressStore extends SavedData {
     private static final String WALLETS = "wallets";
     private static final String SHOP_USAGE = "shop_usage";
     private static final String SHOP_HISTORY = "shop_history";
+    private static final String TITLES = "titles";
+    private static final String ACTIVE_TITLE = "active_title";
     private static final int HISTORY_LINES = 30;
     private static final UUID SERVER_TEAM = new UUID(0, 0);
 
@@ -58,6 +60,8 @@ public final class ProgressStore extends SavedData {
     private final Map<UUID, Map<String, Long>> wallets = new HashMap<>();
     private final Map<UUID, Map<String, ShopLimits.Usage>> shopUsage = new HashMap<>();
     private final Map<UUID, List<ShopLine>> shopHistory = new HashMap<>();
+    private final Map<UUID, Set<String>> titles = new HashMap<>();
+    private final Map<UUID, String> activeTitles = new HashMap<>();
 
     /** One operation with money. @param ref the offer or the quest behind it @param times how many trades, 0 for a reward */
     public record ShopLine(long time, long delta, String currency, String ref, int times) {
@@ -98,6 +102,12 @@ public final class ProgressStore extends SavedData {
         if (tag.contains(PINNED_WAYS)) {
             GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(PINNED_WAYS)).result().ifPresent(store.pinnedWays::putAll);
         }
+        if (tag.contains(TITLES)) {
+            GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(TITLES)).result().ifPresent(saved -> saved.forEach((player, owned) -> store.titles.put(player, new HashSet<>(owned))));
+        }
+        if (tag.contains(ACTIVE_TITLE)) {
+            Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.STRING).parse(NbtOps.INSTANCE, tag.get(ACTIVE_TITLE)).result().ifPresent(store.activeTitles::putAll);
+        }
         if (tag.contains(WALLETS)) {
             WALLETS_CODEC.parse(NbtOps.INSTANCE, tag.get(WALLETS)).result().ifPresent(saved -> saved.forEach((owner, money) -> store.wallets.put(owner, new HashMap<>(money))));
         }
@@ -121,6 +131,10 @@ public final class ProgressStore extends SavedData {
         guidePages.forEach((player, read) -> pages.put(player, read.stream().sorted().toList()));
         tag.put(GUIDE_PAGES, GUIDE_PAGES_CODEC.encodeStart(NbtOps.INSTANCE, pages).getOrThrow());
         tag.put(PINNED_WAYS, GUIDE_PAGES_CODEC.encodeStart(NbtOps.INSTANCE, pinnedWays).getOrThrow());
+        Map<UUID, List<String>> owned = new HashMap<>();
+        titles.forEach((player, names) -> owned.put(player, names.stream().sorted().toList()));
+        tag.put(TITLES, GUIDE_PAGES_CODEC.encodeStart(NbtOps.INSTANCE, owned).getOrThrow());
+        tag.put(ACTIVE_TITLE, Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.STRING).encodeStart(NbtOps.INSTANCE, activeTitles).getOrThrow());
         tag.put(WALLETS, WALLETS_CODEC.encodeStart(NbtOps.INSTANCE, wallets).getOrThrow());
         tag.put(SHOP_USAGE, USAGE_CODEC.encodeStart(NbtOps.INSTANCE, shopUsage).getOrThrow());
         tag.put(SHOP_HISTORY, HISTORY_CODEC.encodeStart(NbtOps.INSTANCE, shopHistory).getOrThrow());
@@ -152,6 +166,33 @@ public final class ProgressStore extends SavedData {
     public void setPinned(UUID player, List<ResourceLocation> quests) {
         pinned.put(player, List.copyOf(quests));
         setDirty();
+    }
+
+    public Set<String> titles(UUID player) {
+        return titles.getOrDefault(player, Set.of());
+    }
+
+    public void addTitle(UUID player, String title) {
+        titles.computeIfAbsent(player, id -> new HashSet<>()).add(title);
+        setDirty();
+    }
+
+    public String activeTitle(UUID player) {
+        return activeTitles.getOrDefault(player, "");
+    }
+
+    public void setActiveTitle(UUID player, String title) {
+        if (title.isEmpty()) {
+            activeTitles.remove(player);
+        } else {
+            activeTitles.put(player, title);
+        }
+        setDirty();
+    }
+
+    /** Every saved record of progress, for counting how rare something is. */
+    public Map<UUID, Map<ResourceLocation, QuestProgress>> allProgress() {
+        return teams;
     }
 
     public Map<String, Long> balances(UUID owner) {

@@ -41,6 +41,7 @@ import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.api.QuestCompletedEvent;
 import works.repka.rysquests.data.BookHolder;
+import works.repka.rysquests.data.Achievement;
 import works.repka.rysquests.data.CardsSection;
 import works.repka.rysquests.data.Guide;
 import works.repka.rysquests.data.MatrixSection;
@@ -66,6 +67,7 @@ import works.repka.rysquests.reward.LootTableReward;
 import works.repka.rysquests.reward.RandomReward;
 import works.repka.rysquests.reward.CurrencyReward;
 import works.repka.rysquests.reward.StageReward;
+import works.repka.rysquests.reward.TitleReward;
 import works.repka.rysquests.shop.ShopService;
 import works.repka.rysquests.reward.XpReward;
 import works.repka.rysquests.stage.Stages;
@@ -265,6 +267,23 @@ public final class ProgressService {
                 Map<ResourceLocation, QuestProgress> view = new HashMap<>();
                 changes.forEach((id, progress) -> view.put(id, viewFor(member, id, progress)));
                 PacketDistributor.sendToPlayer(member, new ProgressPayload(false, view));
+                if (newlyCompleted.stream().anyMatch(Achievement::isTierQuest)) {
+                    AchievementService.invalidateRarity();
+                    claimAchievements(member);
+                    AchievementService.send(member);
+                }
+            }
+        }
+    }
+
+    /** Achievements have nothing to press: what is reached is given at once, and on the next login to those who were away. */
+    private static void claimAchievements(ServerPlayer player) {
+        for (Achievement achievement : book().achievements().values()) {
+            for (Achievement.Tier tier : achievement.tiers()) {
+                Quest quest = book().quests().get(achievement.questId(tier));
+                if (quest != null && QuestLogic.status(quest, lookup(player)) == QuestStatus.COMPLETED) {
+                    claim(player, quest, List.of());
+                }
             }
         }
     }
@@ -626,6 +645,7 @@ public final class ProgressService {
             }
             case CommandReward command -> runCommand(player, command);
             case StageReward stage -> Stages.grant(player, stage.stage());
+            case TitleReward title -> AchievementService.grantTitle(player, title.id());
             case CurrencyReward currency -> ShopService.deposit(player, currency.id(), currency.amount(), currency.teamMode() == TeamMode.ONCE, ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "reward"));
             case LootTableReward loot -> rollLoot(player, loot);
             case works.repka.rysquests.reward.ScriptReward script -> ScriptHooks.get().reward(player, script.script());
@@ -693,6 +713,8 @@ public final class ProgressService {
         PacketDistributor.sendToPlayer(player, new ProgressPayload(true, view));
         PacketDistributor.sendToPlayer(player, new PinnedPayload(store.pinned(player.getUUID()), store.pinnedWays(player.getUUID())));
         ShopService.send(player);
+        claimAchievements(player);
+        AchievementService.send(player);
         PacketDistributor.sendToPlayer(player, new GuidePagesPayload(true, List.copyOf(store.guidePages(player.getUUID()))));
         TeamsApi teams = TeamsApi.get();
         int members = Math.max(teams.members(teams.teamOf(player.getUUID())).size(), store.memberCount(team(player)));

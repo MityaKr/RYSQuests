@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 import works.repka.rysquests.data.BookReport.Issue;
 import works.repka.rysquests.data.BookReport.Severity;
 import works.repka.rysquests.migrate.Migration;
@@ -22,6 +23,7 @@ public final class BookParser {
     private static final String GUIDES = "guides/";
     private static final String SECTIONS = "sections/";
     private static final String SHOP = "shop/";
+    private static final String ACHIEVEMENTS = "achievements/";
     private static final String CHAPTER_FILE = "_chapter";
     private static final String QUESTS_FILE = "_quests";
     private static final String BOOK_FILE = "book";
@@ -77,13 +79,26 @@ public final class BookParser {
                 decode(ShopOffer.CODEC, json, ops, id, issues).ifPresent(offers::add);
             }
         });
+        List<Achievement> achievements = new ArrayList<>();
+        Map<ResourceLocation, Boolean> holders = new HashMap<>();
+        sorted.forEach((id, json) -> {
+            if (id.getPath().startsWith(ACHIEVEMENTS)) {
+                decode(Achievement.CODEC, json, ops, id, issues).ifPresent(achievement -> {
+                    achievements.add(achievement);
+                    if (holders.put(achievement.holderChapter(), true) == null) {
+                        chapters.add(new Chapter(achievement.holderChapter(), achievement.holderChapter().toString(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), List.of(), List.of(), true, BookMeta.ACHIEVEMENTS));
+                    }
+                    addTierQuests(achievement, json.getAsJsonObject().get("task"), ops, id, quests, issues);
+                });
+            }
+        });
         List<Migration> migrations = new ArrayList<>();
         sorted.forEach((id, json) -> {
             if (MIGRATIONS_FILE.equals(id.getPath())) {
                 decode(Migration.FILE_CODEC, json, ops, id, issues).ifPresent(migrations::addAll);
             }
         });
-        return new RawBook(meta, chapters, quests, guides, sections, offers, issues, migrations);
+        return new RawBook(meta, chapters, quests, guides, sections, offers, achievements, issues, migrations);
     }
 
     /** Each card with a condition becomes a hidden quest in a chapter of its own section, out of sight of the story. */
@@ -96,6 +111,24 @@ public final class BookParser {
         for (CardsSection.Card card : section.cards()) {
             card.done().ifPresent(task -> quests.add(new Quest(section.questId(card), Optional.of(holder), Optional.empty(), section.cardKey(card, "name"),
                     Optional.empty(), Optional.empty(), card.icon(), List.of(), RequiresMode.ALL, Optional.empty(), List.of(task), List.of(), Optional.empty(),
+                    new QuestOptions(Layout.DEFAULT, 1, false, true, Optional.empty(), false, List.of()))));
+        }
+    }
+
+    /** Each tier counts on its own with the achievement's task, its target set to the tier's amount. */
+    private static void addTierQuests(Achievement achievement, @Nullable JsonElement task, DynamicOps<JsonElement> ops, ResourceLocation file, List<Quest> quests, List<Issue> issues) {
+        if (task == null || !task.isJsonObject()) {
+            issues.add(new Issue(Severity.ERROR, "parse_error", file.toString(), "An achievement needs a 'task'"));
+            return;
+        }
+        for (Achievement.Tier tier : achievement.tiers()) {
+            JsonObject counted = task.getAsJsonObject().deepCopy();
+            counted.addProperty("count", tier.amount());
+            if (!counted.has("mode") && counted.has("type") && counted.get("type").getAsString().endsWith(":item")) {
+                counted.addProperty("mode", "observe");
+            }
+            decode(TaskDef.CODEC, counted, ops, file, issues).ifPresent(parsed -> quests.add(new Quest(achievement.questId(tier), Optional.of(achievement.holderChapter()), Optional.empty(), achievement.titleKey(),
+                    Optional.empty(), Optional.empty(), achievement.icon(), List.of(), RequiresMode.ALL, Optional.empty(), List.of(parsed), tier.rewards(), Optional.empty(),
                     new QuestOptions(Layout.DEFAULT, 1, false, true, Optional.empty(), false, List.of()))));
         }
     }

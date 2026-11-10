@@ -1,0 +1,19 @@
+{
+  "id": "design:team",
+  "category": "Команда",
+  "icon": "minecraft:lapis_lazuli",
+  "task": {
+    "type": "rysquests:item",
+    "item": "minecraft:emerald"
+  },
+  "tiers": [
+    {
+      "tier": "bronze",
+      "amount": 1
+    },
+    {
+      "tier": "silver",
+      "amount": 2
+    }
+  ]
+}

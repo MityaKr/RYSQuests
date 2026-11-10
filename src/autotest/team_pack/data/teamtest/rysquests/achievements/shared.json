@@ -1,0 +1,20 @@
+{
+  "id": "teamtest:shared",
+  "icon": "minecraft:diamond",
+  "task": {
+    "type": "rysquests:item",
+    "item": "minecraft:diamond"
+  },
+  "tiers": [
+    {
+      "tier": "gold",
+      "amount": 1,
+      "rewards": [
+        {
+          "type": "rysquests:title",
+          "id": "title.teamtest.shared"
+        }
+      ]
+    }
+  ]
+}

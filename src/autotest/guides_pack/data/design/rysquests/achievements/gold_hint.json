@@ -1,0 +1,16 @@
+{
+  "id": "design:gold_hint",
+  "category": "Магия",
+  "icon": "minecraft:gold_ingot",
+  "hidden": true,
+  "task": {
+    "type": "rysquests:kill",
+    "entity": "minecraft:piglin"
+  },
+  "tiers": [
+    {
+      "tier": "gold",
+      "amount": 1
+    }
+  ]
+}

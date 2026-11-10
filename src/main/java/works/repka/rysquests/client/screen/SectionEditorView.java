@@ -669,7 +669,7 @@ final class SectionEditorView {
     }
 
     private String sectionName(String id) {
-        if (id.equals(Chapter.STORY) || id.equals(BookMeta.GUIDES) || id.equals(BookMeta.SHOP)) {
+        if (id.equals(Chapter.STORY) || id.equals(BookMeta.GUIDES) || id.equals(BookMeta.SHOP) || id.equals(BookMeta.ACHIEVEMENTS)) {
             return tr("rysquests.section." + id);
         }
         if (state.section != null && state.section.id().toString().equals(id)) {
@@ -683,7 +683,7 @@ final class SectionEditorView {
 
     private void renderRailRow(Ui ui, String id, int index, boolean onRail, float x, float y, float w) {
         ResourceLocation parsed = ResourceLocation.tryParse(id);
-        boolean builtIn = id.equals(Chapter.STORY) || id.equals(BookMeta.GUIDES) || id.equals(BookMeta.SHOP);
+        boolean builtIn = id.equals(Chapter.STORY) || id.equals(BookMeta.GUIDES) || id.equals(BookMeta.SHOP) || id.equals(BookMeta.ACHIEVEMENTS);
         SectionDef section = builtIn || parsed == null ? null : state.section != null && state.section.id().equals(parsed) ? state.section : ClientBook.current().sections().get(parsed);
         boolean selected = section != null && state.section != null && section.id().equals(state.section.id());
         boolean over = ui.over(x, y, w, 32);

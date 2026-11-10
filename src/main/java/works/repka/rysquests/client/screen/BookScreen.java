@@ -169,6 +169,7 @@ public final class BookScreen extends ScaledScreen {
     @Nullable
     private SectionEditorView sectionEditor;
     private final ShopView shop = new ShopView();
+    private final AchievementsView achievements = new AchievementsView();
     private final MatrixView matrix = new MatrixView(this);
     private final CardsView cards = new CardsView();
     @Nullable
@@ -570,6 +571,9 @@ public final class BookScreen extends ScaledScreen {
         if (custom == null) {
             if (BookState.inShop()) {
                 return shop;
+            }
+            if (BookState.inAchievements()) {
+                return achievements;
             }
             return BookState.guidePage >= 0 ? guidePage : guideLibrary;
         }
@@ -1116,6 +1120,12 @@ public final class BookScreen extends ScaledScreen {
 
     public static void clearShopResultForTest() {
         lastShopResult = null;
+    }
+
+    public static void achievementSelectForTest(ResourceLocation id) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.achievements.selectForTest(id);
+        }
     }
 
     public static void newGuideForTest() {

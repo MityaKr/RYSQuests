@@ -114,6 +114,25 @@
 
 Продажа это сделка, которая даёт только валюту. Название валюты берётся из ключа `rysquests.currency.<id>`. Награда квеста: `{ "type": "rysquests:currency", "id": "coin", "amount": 50 }`, с `team_mode: once` идёт в казну команды. Раздел включается строкой `shop` в `sections` файла `book.json`.
 
+## Достижение: `achievements/<id>.json`
+
+```json
+{
+  "id": "repys:factory_worker",
+  "category": "achievement.repys.tech",
+  "icon": "minecraft:crafter",
+  "hidden": false,
+  "task": { "type": "rysquests:stat", "stat": "minecraft:custom", "target": "minecraft:jump" },
+  "tiers": [
+    { "tier": "bronze", "amount": 10,   "rewards": [ { "type": "rysquests:currency", "id": "coin", "amount": 10 } ] },
+    { "tier": "silver", "amount": 100,  "rewards": [ { "type": "rysquests:title", "id": "title.repys.worker" } ] },
+    { "tier": "gold",   "amount": 1000 }
+  ]
+}
+```
+
+Количество в `task` задавать не нужно: его подставляет `amount` уровня. Подходят `kill`, `stat`, `item` (без `mode` это `observe`) и `advancement` (у неё один уровень с `amount: 1`); задача со сдачей или галочкой не считается сама, валидатор предупредит. Тексты: ключи `achievement.<ns>.<id>.name`, `.text`, `.hint` (подсказка скрытого), либо поля `title`, `text`, `hint`. Раздел включается строкой `achievements` в `sections`.
+
 ## Задачи
 
 Все задачи имеют `type`, `count` (по умолчанию 1), `mode` где применимо (`consume` | `observe` | `accumulate`), необязательный `title`.
@@ -216,6 +235,8 @@ ProgressStore {
   wallets: { <uuid игрока или команды>: { <валюта>: long } },
   shop_usage: { <uuid игрока или команды>: { <сделка>: { period: long, count: int } } },
   shop_history: { <uuid игрока>: [ { time, delta, currency, ref, times } ] },
+  titles: { <uuid игрока>: [<ключ титула>] },
+  active_title: { <uuid игрока>: <ключ титула> },
   teams: { <uuid>: {
     quests: { <quest id>: { tasks: [int], completed: long, claimed: [int] } },   // состояние вычисляется из них
     pinned: [<quest id>],

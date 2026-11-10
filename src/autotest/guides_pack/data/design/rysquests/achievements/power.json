@@ -1,0 +1,15 @@
+{
+  "id": "design:power",
+  "category": "Техника",
+  "icon": "minecraft:redstone",
+  "task": {
+    "type": "rysquests:item",
+    "item": "minecraft:redstone"
+  },
+  "tiers": [
+    {
+      "tier": "gold",
+      "amount": 25
+    }
+  ]
+}

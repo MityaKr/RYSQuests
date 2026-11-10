@@ -1,0 +1,23 @@
+{
+  "id": "design:traveler",
+  "category": "Исследование",
+  "icon": "minecraft:compass",
+  "task": {
+    "type": "rysquests:item",
+    "item": "minecraft:sand"
+  },
+  "tiers": [
+    {
+      "tier": "bronze",
+      "amount": 10
+    },
+    {
+      "tier": "silver",
+      "amount": 30
+    },
+    {
+      "tier": "gold",
+      "amount": 100
+    }
+  ]
+}

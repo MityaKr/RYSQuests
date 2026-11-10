@@ -9,6 +9,7 @@
     "design:mining",
     "design:bosses",
     "design:rules",
-    "shop"
+    "shop",
+    "achievements"
   ]
 }

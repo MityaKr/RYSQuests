@@ -1,0 +1,16 @@
+{
+  "id": "design:bee_hint",
+  "category": "Исследование",
+  "icon": "minecraft:honeycomb",
+  "hidden": true,
+  "task": {
+    "type": "rysquests:kill",
+    "entity": "minecraft:bee"
+  },
+  "tiers": [
+    {
+      "tier": "gold",
+      "amount": 1
+    }
+  ]
+}

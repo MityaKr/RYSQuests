@@ -305,7 +305,9 @@ public final class Ui {
     void sectionIcon(String section, float x, float y, float size, int color) {
         float k = size / 24f;
         float thick = Math.max(1f, 2 * k);
-        if (BookMeta.SHOP.equals(section)) {
+        if (BookMeta.ACHIEVEMENTS.equals(section)) {
+            icon(Icons.Shape.STAR, x + 2 * k, y + 2 * k, 20 * k, color);
+        } else if (BookMeta.SHOP.equals(section)) {
             segment(x + 6 * k, y + 8 * k, x + 18 * k, y + 8 * k, thick, color);
             segment(x + 18 * k, y + 8 * k, x + 19 * k, y + 20 * k, thick, color);
             segment(x + 19 * k, y + 20 * k, x + 5 * k, y + 20 * k, thick, color);

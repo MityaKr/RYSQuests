@@ -1,0 +1,15 @@
+{
+  "id": "design:spirits",
+  "category": "Магия",
+  "icon": "minecraft:amethyst_shard",
+  "task": {
+    "type": "rysquests:item",
+    "item": "minecraft:amethyst_shard"
+  },
+  "tiers": [
+    {
+      "tier": "gold",
+      "amount": 8
+    }
+  ]
+}

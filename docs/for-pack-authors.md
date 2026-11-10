@@ -106,6 +106,10 @@
 
 Сделка это файл `data/<ns>/rysquests/shop/<id>.json`, формат в `02-data-format.md`, примеры в `examples/example_pack`. Раздел включается строкой `shop` в `sections`. Монеты дают квесты наградой `rysquests:currency`, для проверки есть команда `/rysquests wallet <игрок> <валюта> <сумма>`. Отчёт `shop_cycles` на вкладке Dev показывает цепочки сделок, которые печатают деньги.
 
+## Достижения
+
+Достижение это файл `data/<ns>/rysquests/achievements/<id>.json` с задачей и уровнями, формат в `02-data-format.md`, примеры в `examples/example_pack`. Раздел включается строкой `achievements` в `sections`. Подходят задачи `kill`, `stat`, `item` и `advancement`. Награды выдаются сами, тип `rysquests:title` даёт титул перед именем.
+
 ## Команды
 
 Уровень прав 2, кроме `team`.

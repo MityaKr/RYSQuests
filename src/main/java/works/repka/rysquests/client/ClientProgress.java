@@ -8,6 +8,7 @@ import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 import works.repka.rysquests.client.hud.StickerBoard;
 import works.repka.rysquests.data.Guide;
+import works.repka.rysquests.data.Achievement;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.network.GuidePagesPayload;
 import works.repka.rysquests.network.PinnedPayload;
@@ -47,7 +48,7 @@ public final class ClientProgress {
         payload.quests().forEach((id, progress) -> {
             if (progress.completed() && !get(id).completed()) {
                 Quest quest = ClientBook.current().quests().get(id);
-                if (quest != null && !quest.options().hidden()) {
+                if (quest != null && (!quest.options().hidden() || Achievement.isTierQuest(quest.id()))) {
                     StickerBoard.celebrate(quest);
                 }
             }

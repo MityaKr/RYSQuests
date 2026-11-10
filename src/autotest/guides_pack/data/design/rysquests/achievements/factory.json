@@ -1,0 +1,48 @@
+{
+  "id": "design:factory",
+  "category": "Техника",
+  "icon": "minecraft:gold_block",
+  "task": {
+    "type": "rysquests:item",
+    "item": "minecraft:cobblestone"
+  },
+  "tiers": [
+    {
+      "tier": "bronze",
+      "amount": 10,
+      "rewards": [
+        {
+          "type": "rysquests:currency",
+          "id": "coin",
+          "amount": 10
+        }
+      ]
+    },
+    {
+      "tier": "silver",
+      "amount": 100,
+      "rewards": [
+        {
+          "type": "rysquests:currency",
+          "id": "coin",
+          "amount": 40
+        },
+        {
+          "type": "rysquests:title",
+          "id": "Заводчанин"
+        }
+      ]
+    },
+    {
+      "tier": "gold",
+      "amount": 1000,
+      "rewards": [
+        {
+          "type": "rysquests:currency",
+          "id": "coin",
+          "amount": 150
+        }
+      ]
+    }
+  ]
+}

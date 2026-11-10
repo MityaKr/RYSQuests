@@ -70,6 +70,7 @@ import works.repka.rysquests.progress.ProgressStore;
 import works.repka.rysquests.client.ClientAssets;
 import works.repka.rysquests.network.EditorSavePayload;
 import works.repka.rysquests.client.ClientShop;
+import works.repka.rysquests.client.ClientAchievements;
 import works.repka.rysquests.network.ShopTradePayload;
 import works.repka.ryscore.theme.ThemeManager;
 import works.repka.ryscore.ui.Type;
@@ -90,7 +91,7 @@ public final class AutoTest {
     private static final int REPYS_MIN_QUESTS = 2000;
     private static final UUID REPYS_PLAYER = UUID.fromString("216ea99a-d6eb-45be-8a5b-3da7852588a5");
     private static final long STARTED_AT = System.currentTimeMillis();
-    private static final int EXAMPLE_QUESTS = 7;
+    private static final int EXAMPLE_QUESTS = 14;
     private static final int SWITCHED_CHAPTERS = 4;
     private static final List<ItemStack> RECIPE_REQUESTS = new ArrayList<>();
     private static final ResourceLocation SERVER_GUIDE = ResourceLocation.parse("teamtest:editor_guide");
@@ -143,6 +144,8 @@ public final class AutoTest {
             buildEditorScenario();
         } else if ("shop".equals(scenario)) {
             buildShopScenario();
+        } else if ("achievements".equals(scenario)) {
+            buildAchievementsScenario();
         } else if ("constructor".equals(scenario)) {
             buildConstructorScenario();
         } else if ("sections".equals(scenario)) {
@@ -707,10 +710,23 @@ public final class AutoTest {
                 command("rysquests wallet @s coin 248");
             }
         }, 20);
+        step("have the items of the achievements mockup", () -> {
+            command("clear @s");
+            command("give @s minecraft:cobblestone 312");
+            command("give @s minecraft:dirt 440");
+            command("give @s minecraft:nether_star 1");
+            command("give @s minecraft:amethyst_shard 2");
+            command("give @s minecraft:sand 18");
+            command("give @s minecraft:emerald 1");
+            command("give @s minecraft:redstone 1");
+        }, 60);
         step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
         expect("book screen open", () -> mc().screen instanceof BookScreen);
-        for (String[] view : new String[][] {{"design:mining", "design_mining"}, {"design:atlas", "design_atlas"}, {"design:bosses", "design_cards"}, {"design:rules", "design_pages"}, {"shop", "design_shop"}}) {
-            step("show " + view[0], () -> BookScreen.showSectionForTest(view[0]), 40);
+        for (String[] view : new String[][] {{"design:mining", "design_mining"}, {"design:atlas", "design_atlas"}, {"design:bosses", "design_cards"}, {"design:rules", "design_pages"}, {"shop", "design_shop"}, {"achievements", "design_achievements"}}) {
+            step("show " + view[0], () -> {
+                BookScreen.showSectionForTest(view[0]);
+                BookScreen.achievementSelectForTest(ResourceLocation.parse("design:factory"));
+            }, 40);
             screenshot(view[1]);
             for (int[] size : new int[][] {{2560, 1440}, {1920, 1080}}) {
                 for (String theme : List.of("slate", "glass")) {
@@ -751,6 +767,8 @@ public final class AutoTest {
     private static final ResourceLocation TEAM_BREAD = ResourceLocation.parse("teamtest:bread");
     private static final ResourceLocation TEAM_ONCE = ResourceLocation.parse("teamtest:once");
     private static final ResourceLocation TEAM_WHEAT = ResourceLocation.parse("teamtest:wheat");
+    private static final ResourceLocation TEAM_ACHIEVEMENT = ResourceLocation.parse("teamtest:_achievements/shared/gold");
+    private static final String TEAM_TITLE = "title.teamtest.shared";
 
     /** The first player buys and sells, and the report catches the pair of trades that prints money. */
     private static void addShopOnServerSteps() {
@@ -768,6 +786,8 @@ public final class AutoTest {
         expect("the sale paid", () -> ClientShop.balance("coin") == 93);
         step("ask for the reports", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.DEV_REPORT, QuestActionPayload.ALL, 0, List.of())), 20);
         expect("the report caught the printing pair", () -> ClientDev.report() != null && ClientDev.report().sections().stream().anyMatch(section -> section.id().equals("shop_cycles") && section.entries().size() == 1));
+        step("reach an achievement of the team", () -> command("give TestA minecraft:diamond 1"), 20);
+        expect("the achievement is reached on the server", () -> ClientProgress.get(TEAM_ACHIEVEMENT).completed() && ClientAchievements.owns(TEAM_TITLE));
     }
 
     private static void addShopMemberSteps() {
@@ -780,6 +800,7 @@ public final class AutoTest {
         expect("the server refuses the second member", () -> "rysquests.shop.error.limit".equals(BookScreen.lastShopResultForTest()));
         step("buy for oneself", () -> trade(TEAM_BREAD), 15);
         expect("a personal limit is personal", () -> ClientShop.used(TEAM_BREAD) == 1 && ClientShop.balance("coin") == 95);
+        expect("the achievement of the team reached the other player", () -> ClientProgress.get(TEAM_ACHIEVEMENT).completed() && ClientAchievements.owns(TEAM_TITLE));
     }
 
     /** The operator writes a guide on a dedicated server. The other client checks what reached it. */
@@ -860,6 +881,93 @@ public final class AutoTest {
         }, 10);
         expect("the server still refuses", () -> "rysquests.shop.error.limit".equals(BookScreen.lastShopResultForTest()));
     }
+
+    private static final ResourceLocation ACH_IRON_BRONZE = ResourceLocation.parse("example:_achievements/iron_hoard/bronze");
+    private static final ResourceLocation ACH_IRON_SILVER = ResourceLocation.parse("example:_achievements/iron_hoard/silver");
+    private static final ResourceLocation ACH_TIME_BRONZE = ResourceLocation.parse("example:_achievements/old_timer/bronze");
+    private static final ResourceLocation ACH_CHICKEN = ResourceLocation.parse("example:_achievements/chicken_hunter/gold");
+    private static final String ACH_TITLE = "achievement.example.iron_hoard.title";
+
+    private static boolean claimed(ResourceLocation quest, int rewards) {
+        return ClientProgress.get(quest).completed() && ClientProgress.get(quest).claimed().size() == rewards;
+    }
+
+    /** The acceptance of achievements: three of them from the example, one hidden, on the example pack. */
+    private static void buildAchievementsScenario() {
+        long[] coins = new long[1];
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+        }, 10);
+        step("start from nothing", () -> {
+            command("clear @s minecraft:iron_ingot");
+            command("kill @e[type=minecraft:chicken]");
+            for (ResourceLocation quest : List.of(ACH_IRON_BRONZE, ACH_IRON_SILVER, ACH_CHICKEN)) {
+                command("rysquests progress @s reset " + quest);
+            }
+        }, 30);
+        expect("nothing is reached", () -> !ClientProgress.get(ACH_IRON_BRONZE).completed() && !ClientProgress.get(ACH_CHICKEN).completed());
+        step("open the book on achievements", () -> {
+            mc().setScreen(new BookScreen());
+            BookScreen.showSectionForTest("achievements");
+            coins[0] = ClientShop.balance("coin");
+        }, 20);
+        expect("achievements are open", () -> "achievements".equals(BookScreen.currentSectionForTest()));
+        screenshot("achievements_hidden");
+        step("get the bronze of iron", () -> command("give @s minecraft:iron_ingot 8"), 40);
+        expect("bronze is reached and given without a click", () -> claimed(ACH_IRON_BRONZE, 1) && ClientShop.balance("coin") == coins[0] + 5);
+        expect("silver goes on counting", () -> ClientProgress.get(ACH_IRON_SILVER).task(0) == 8);
+        step("get the silver of iron", () -> command("give @s minecraft:iron_ingot 24"), 40);
+        expect("the title arrived", () -> claimed(ACH_IRON_SILVER, 1) && ClientAchievements.owns(ACH_TITLE));
+        expect("playing time counted a tier", () -> ClientProgress.get(ACH_TIME_BRONZE).completed());
+        step("defeat chickens", () -> {
+            for (int i = 0; i < 3; i++) {
+                command("summon minecraft:chicken ~ ~ ~2");
+            }
+        }, 10);
+        step("as a player", () -> {
+            for (int i = 0; i < 3; i++) {
+                command("damage @e[type=minecraft:chicken,limit=1,sort=nearest] 100 minecraft:player_attack by @s");
+            }
+        }, 30);
+        expect("the hidden one is reached", () -> claimed(ACH_CHICKEN, 1));
+        expect("the server counted rarity", () -> ClientAchievements.rarity(ACH_CHICKEN) > 0);
+        step("select the hidden one", () -> BookScreen.achievementSelectForTest(ResourceLocation.parse("example:chicken_hunter")), 10);
+        screenshot("achievements_revealed");
+        step("wear the title", () -> PacketDistributor.sendToServer(new works.repka.rysquests.network.SelectTitlePayload(ACH_TITLE)), 20);
+        expect("the title is worn", () -> ACH_TITLE.equals(ClientAchievements.activeTitle()));
+        expect("a title that is not owned is refused", () -> {
+            PacketDistributor.sendToServer(new works.repka.rysquests.network.SelectTitlePayload("nope"));
+            return ACH_TITLE.equals(ClientAchievements.activeTitle());
+        });
+        step("free the board of earlier runs", () -> {
+            ClientProgress.pinned().forEach(quest -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, quest, 0, List.of())));
+            ClientProgress.pinnedWays().forEach(way -> PacketDistributor.sendToServer(new works.repka.rysquests.network.PinWayPayload(way)));
+        }, 20);
+        step("pin the next tier", () -> {
+            if (!ClientProgress.pinned().contains(ACH_IRON_GOLD)) {
+                PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, ACH_IRON_GOLD, 0, List.of()));
+            }
+        }, 20);
+        expect("it is pinned", () -> ClientProgress.pinned().contains(ACH_IRON_GOLD));
+        step("close the book to see the HUD", () -> mc().setScreen(null), 20);
+        screenshot("achievements_hud");
+        step("unpin", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, ACH_IRON_GOLD, 0, List.of())), 20);
+        long[] after = new long[1];
+        step("remember the coins and leave", () -> {
+            after[0] = ClientShop.balance("coin");
+            mc().level.disconnect();
+            mc().disconnect(new TitleScreen());
+        }, 40);
+        openWorld();
+        step("wait for the state", () -> {
+        }, 40);
+        expect("coming back gives nothing twice", () -> ClientShop.balance("coin") == after[0]);
+        expect("the title stayed", () -> ACH_TITLE.equals(ClientAchievements.activeTitle()));
+    }
+
+    private static final ResourceLocation ACH_IRON_GOLD = ResourceLocation.parse("example:_achievements/iron_hoard/gold");
 
     /** The acceptance of the constructor: a mining atlas of five resources and three stages, made in the game. */
     private static void buildConstructorScenario() {

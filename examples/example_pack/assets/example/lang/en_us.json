@@ -81,5 +81,15 @@
   "section.example.rules.safety.title": "Safety",
   "section.example.rules.safety.text": "Back up before fighting for a [[item:minecraft:nether_star]].",
   "shop.example.resources": "Resources",
-  "shop.example.food": "Food"
+  "shop.example.food": "Food",
+  "achievement.example.category.gathering": "Gathering",
+  "achievement.example.category.world": "World",
+  "achievement.example.iron_hoard.name": "Iron hoard",
+  "achievement.example.iron_hoard.text": "Keep iron ingots in your inventory",
+  "achievement.example.iron_hoard.title": "Smith",
+  "achievement.example.old_timer.name": "Old timer",
+  "achievement.example.old_timer.text": "Spend time in this world",
+  "achievement.example.chicken_hunter.name": "Terror of the coop",
+  "achievement.example.chicken_hunter.text": "Defeat three chickens",
+  "achievement.example.chicken_hunter.hint": "someone will not like the feathers"
 }

@@ -8,11 +8,12 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.editor.EditorService;
 import works.repka.rysquests.shop.ShopService;
+import works.repka.rysquests.progress.AchievementService;
 import works.repka.rysquests.progress.ProgressService;
 
 /** Registers payloads. Client handlers are injected, so that this class never refers to client code. */
 public final class ModNetwork {
-    private static final String VERSION = "5";
+    private static final String VERSION = "6";
 
     private static BiConsumer<BookSyncPayload, RegistryAccess> clientBookHandler = (payload, registries) -> {
     };
@@ -36,6 +37,9 @@ public final class ModNetwork {
     private static Consumer<ShopStatePayload> clientShopStateHandler = payload -> {
     };
     private static Consumer<ShopResultPayload> clientShopResultHandler = payload -> {
+    };
+
+    private static Consumer<AchievementStatePayload> clientAchievementHandler = payload -> {
     };
 
     private ModNetwork() {
@@ -74,6 +78,10 @@ public final class ModNetwork {
         clientShopResultHandler = result;
     }
 
+    public static void setClientAchievementHandler(Consumer<AchievementStatePayload> handler) {
+        clientAchievementHandler = handler;
+    }
+
     public static void setClientPinnedHandler(Consumer<PinnedPayload> handler) {
         clientPinnedHandler = handler;
     }
@@ -102,6 +110,10 @@ public final class ModNetwork {
                         (payload, context) -> clientShopResultHandler.accept(payload))
                 .playToServer(ShopTradePayload.TYPE, ShopTradePayload.STREAM_CODEC,
                         (payload, context) -> ShopService.handle((ServerPlayer) context.player(), payload))
+                .playToClient(AchievementStatePayload.TYPE, AchievementStatePayload.STREAM_CODEC,
+                        (payload, context) -> clientAchievementHandler.accept(payload))
+                .playToServer(SelectTitlePayload.TYPE, SelectTitlePayload.STREAM_CODEC,
+                        (payload, context) -> AchievementService.select((ServerPlayer) context.player(), payload.title()))
                 .playToServer(EditorSavePayload.TYPE, EditorSavePayload.STREAM_CODEC,
                         (payload, context) -> EditorService.handle((ServerPlayer) context.player(), payload))
                 .playToServer(PinWayPayload.TYPE, PinWayPayload.STREAM_CODEC,

@@ -1,5 +1,8 @@
 package works.repka.rysquests.data;
 
+import works.repka.rysquests.task.ItemTask;
+import works.repka.rysquests.task.FluidTask;
+import works.repka.rysquests.task.CheckboxTask;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.DynamicOps;
 import java.util.ArrayDeque;
@@ -47,7 +50,8 @@ public final class BookValidator {
         List<Guide> guideList = List.copyOf(guides.values());
         List<SectionDef> sectionList = List.copyOf(sections.values());
         List<ShopOffer> offers = checkOffers(raw, quests, itemExists, issues);
-        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, guideList, sectionList, BookHash.compute(ordered, valid, guideList, sectionList, offers, ops)).withOffers(offers);
+        List<Achievement> achievementList = checkAchievements(raw, itemExists, issues);
+        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, guideList, sectionList, BookHash.compute(ordered, valid, guideList, sectionList, offers, achievementList, ops)).withOffers(offers).withAchievements(achievementList);
         return new Result(book, new BookReport(List.copyOf(issues)));
     }
 
@@ -114,10 +118,39 @@ public final class BookValidator {
         for (String section : meta.sections()) {
             ResourceLocation id = ResourceLocation.tryParse(section);
             boolean custom = id != null && sections.containsKey(id);
-            if (!section.equals(Chapter.STORY) && !section.equals(BookMeta.GUIDES) && !section.equals(BookMeta.SHOP) && !custom) {
+            if (!section.equals(Chapter.STORY) && !section.equals(BookMeta.GUIDES) && !section.equals(BookMeta.SHOP) && !section.equals(BookMeta.ACHIEVEMENTS) && !custom) {
                 issues.add(new Issue(Severity.WARNING, "unknown_section", "book", section));
             }
         }
+    }
+
+    /** Tiers have to grow: the next tier is what a player is told to reach. */
+    private static List<Achievement> checkAchievements(RawBook raw, Predicate<ResourceLocation> itemExists, List<Issue> issues) {
+        Map<ResourceLocation, Achievement> achievements = new LinkedHashMap<>();
+        for (Achievement achievement : raw.achievements()) {
+            if (achievements.containsKey(achievement.id())) {
+                issues.add(error("duplicate_achievement", achievement.id(), ""));
+                continue;
+            }
+            boolean ascending = true;
+            for (int i = 1; i < achievement.tiers().size(); i++) {
+                ascending &= achievement.tiers().get(i).amount() > achievement.tiers().get(i - 1).amount();
+            }
+            if (!ascending) {
+                issues.add(error("achievement_tiers_order", achievement.id(), ""));
+                continue;
+            }
+            achievement.icon().filter(icon -> !itemExists.test(icon)).ifPresent(icon -> issues.add(warning("unknown_item", achievement.id(), icon.toString())));
+            raw.quests().stream().filter(quest -> quest.id().equals(achievement.questId(achievement.tiers().getFirst()))).findFirst().ifPresent(quest -> {
+                TaskDef task = quest.tasks().getFirst();
+                boolean takesItems = task instanceof ItemTask item && item.mode() == ItemTask.Mode.CONSUME || task instanceof FluidTask fluid && fluid.mode() == ItemTask.Mode.CONSUME;
+                if (takesItems || task instanceof CheckboxTask) {
+                    issues.add(warning("achievement_task", achievement.id(), task.type().toString()));
+                }
+            });
+            achievements.put(achievement.id(), achievement);
+        }
+        return List.copyOf(achievements.values());
     }
 
     /** A trade with an item that does not exist cannot be made, so it is left out. A broken quest link only closes it. */

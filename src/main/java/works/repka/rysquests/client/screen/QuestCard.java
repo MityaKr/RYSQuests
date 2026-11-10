@@ -23,6 +23,7 @@ import works.repka.rysquests.reward.CurrencyReward;
 import works.repka.rysquests.reward.ItemReward;
 import works.repka.rysquests.reward.RandomReward;
 import works.repka.rysquests.reward.StageReward;
+import works.repka.rysquests.reward.TitleReward;
 import works.repka.rysquests.reward.XpReward;
 import works.repka.rysquests.task.CheckboxTask;
 import works.repka.rysquests.task.ItemTask;
@@ -133,6 +134,7 @@ final class QuestCard {
                 }
                 case XpReward xp -> parts.add(new Words(xpText(xp), "text.muted"));
                 case CurrencyReward currency -> parts.add(new Words(currencyText(currency), "text.muted"));
+                case TitleReward title -> parts.add(new Words(Component.translatable("rysquests.achievements.title_reward", Component.translatable(title.id())).getString(), "text.muted"));
                 case ChoiceReward choice -> {
                     int option = 0;
                     for (RewardDef candidate : choice.of()) {
@@ -396,6 +398,7 @@ final class QuestCard {
                 case ItemReward item -> slots.add(new Slot(stack(item), item.count(), -1, -1));
                 case XpReward xp -> words.add("+ " + xpText(xp));
                 case CurrencyReward currency -> words.add("+ " + currencyText(currency));
+                case TitleReward title -> words.add("+ " + Component.translatable("rysquests.achievements.title_reward", Component.translatable(title.id())).getString());
                 case StageReward stage -> words.add("+ " + Component.translatable("rysquests.reward.stage", stage.stage()).getString());
                 case ChoiceReward picks -> {
                     choice = index;

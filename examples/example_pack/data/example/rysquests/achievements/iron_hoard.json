@@ -1,0 +1,43 @@
+{
+  "id": "example:iron_hoard",
+  "category": "achievement.example.category.gathering",
+  "icon": "minecraft:iron_ingot",
+  "task": {
+    "type": "rysquests:item",
+    "item": "minecraft:iron_ingot"
+  },
+  "tiers": [
+    {
+      "tier": "bronze",
+      "amount": 8,
+      "rewards": [
+        {
+          "type": "rysquests:currency",
+          "id": "coin",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "tier": "silver",
+      "amount": 32,
+      "rewards": [
+        {
+          "type": "rysquests:title",
+          "id": "achievement.example.iron_hoard.title"
+        }
+      ]
+    },
+    {
+      "tier": "gold",
+      "amount": 128,
+      "rewards": [
+        {
+          "type": "rysquests:currency",
+          "id": "coin",
+          "amount": 50
+        }
+      ]
+    }
+  ]
+}
