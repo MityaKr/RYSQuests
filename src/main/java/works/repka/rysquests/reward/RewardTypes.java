@@ -27,6 +27,8 @@ public final class RewardTypes {
 
     public static final DeferredHolder<RewardType<?>, RewardType<ScriptReward>> SCRIPT = register("script", ScriptReward.CODEC);
 
+    public static final DeferredHolder<RewardType<?>, RewardType<CurrencyReward>> CURRENCY = register("currency", CurrencyReward.CODEC);
+
     private RewardTypes() {
     }
 

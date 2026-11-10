@@ -1,0 +1,23 @@
+{
+  "id": "example:iron",
+  "category": "shop.example.resources",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 8
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:iron_ingot",
+      "count": 16
+    }
+  ],
+  "limit": {
+    "per": "player",
+    "count": 2,
+    "reset": "daily"
+  }
+}

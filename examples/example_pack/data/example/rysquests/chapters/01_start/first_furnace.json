@@ -13,6 +13,7 @@
   "rewards": [
     { "type": "rysquests:choice", "of": [
       { "type": "rysquests:item", "item": "minecraft:coal", "count": 16 },
-      { "type": "rysquests:item", "item": "minecraft:iron_ingot", "count": 4 } ] }
+      { "type": "rysquests:item", "item": "minecraft:iron_ingot", "count": 4 } ] },
+    { "type": "rysquests:currency", "id": "coin", "amount": 10 }
   ]
 }

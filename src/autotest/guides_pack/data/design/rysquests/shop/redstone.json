@@ -1,0 +1,23 @@
+{
+  "id": "design:redstone",
+  "category": "Ресурсы",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 30
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:redstone",
+      "count": 32
+    }
+  ],
+  "limit": {
+    "per": "player",
+    "count": 3,
+    "reset": "daily"
+  }
+}

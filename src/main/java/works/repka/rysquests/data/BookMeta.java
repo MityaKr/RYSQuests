@@ -26,6 +26,7 @@ public record BookMeta(
     }
 
     public static final String GUIDES = "guides";
+    public static final String SHOP = "shop";
 
     private static final ResourceLocation SLATE = ResourceLocation.fromNamespaceAndPath("ryscore", "slate");
 

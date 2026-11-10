@@ -1,0 +1,23 @@
+{
+  "id": "design:carrot",
+  "category": "Еда",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 18
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:golden_carrot",
+      "count": 8
+    }
+  ],
+  "limit": {
+    "per": "player",
+    "count": 3,
+    "reset": "daily"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "teamtest:bread",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 5
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:bread",
+      "count": 4
+    }
+  ],
+  "limit": {
+    "per": "player",
+    "count": 2,
+    "reset": "daily"
+  }
+}

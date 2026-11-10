@@ -96,6 +96,24 @@
 
 Один файл на вкладку, поле `template`: `matrix`, `cards` или `pages`. Id вкладки это путь файла. Формат шаблонов в `09-sections.md`, примеры в `examples/example_pack`.
 
+## Сделка магазина: `shop/<id>.json`
+
+```json
+{
+  "id": "repys:iron_bundle",
+  "icon": "minecraft:iron_ingot",
+  "category": "shop.repys.resources",
+  "cost":  [ { "type": "currency", "id": "coin", "amount": 40 } ],
+  "gives": [ { "type": "item", "id": "minecraft:iron_ingot", "count": 32 } ],
+  "limit": { "per": "player", "count": 3, "reset": "daily" },  // per: player | team; reset: never | daily | weekly
+  "stage": "repys:epoch_2",
+  "stage_title": "shop.repys.epoch_2",
+  "quest": "repys:power/wires"                                  // закрыта до выполнения квеста
+}
+```
+
+Продажа это сделка, которая даёт только валюту. Название валюты берётся из ключа `rysquests.currency.<id>`. Награда квеста: `{ "type": "rysquests:currency", "id": "coin", "amount": 50 }`, с `team_mode: once` идёт в казну команды. Раздел включается строкой `shop` в `sections` файла `book.json`.
+
 ## Задачи
 
 Все задачи имеют `type`, `count` (по умолчанию 1), `mode` где применимо (`consume` | `observe` | `accumulate`), необязательный `title`.
@@ -195,6 +213,9 @@ ProgressStore {
   applied_migrations: [string],
   guide_pages: { <uuid игрока>: ["<guide id>#<page id>"] },
   pinned_ways: { <uuid игрока>: ["<вкладка>#<строка>#<столбец>#<способ>"] },
+  wallets: { <uuid игрока или команды>: { <валюта>: long } },
+  shop_usage: { <uuid игрока или команды>: { <сделка>: { period: long, count: int } } },
+  shop_history: { <uuid игрока>: [ { time, delta, currency, ref, times } ] },
   teams: { <uuid>: {
     quests: { <quest id>: { tasks: [int], completed: long, claimed: [int] } },   // состояние вычисляется из них
     pinned: [<quest id>],

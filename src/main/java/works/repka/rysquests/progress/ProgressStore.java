@@ -1,6 +1,7 @@
 package works.repka.rysquests.progress;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,6 +19,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.data.ProgressMode;
 import works.repka.rysquests.migrate.MigrationEngine;
+import works.repka.rysquests.shop.ShopLimits;
 
 /** Quest progress of all teams, saved with the world. */
 public final class ProgressStore extends SavedData {
@@ -29,6 +31,10 @@ public final class ProgressStore extends SavedData {
     private static final String APPLIED = "applied_migrations";
     private static final String GUIDE_PAGES = "guide_pages";
     private static final String PINNED_WAYS = "pinned_ways";
+    private static final String WALLETS = "wallets";
+    private static final String SHOP_USAGE = "shop_usage";
+    private static final String SHOP_HISTORY = "shop_history";
+    private static final int HISTORY_LINES = 30;
     private static final UUID SERVER_TEAM = new UUID(0, 0);
 
     private static final Codec<Map<UUID, Map<ResourceLocation, QuestProgress>>> CODEC = Codec.unboundedMap(
@@ -37,6 +43,9 @@ public final class ProgressStore extends SavedData {
             UUIDUtil.STRING_CODEC, ResourceLocation.CODEC.listOf());
     private static final Codec<Map<UUID, UUID>> MEMBERS_CODEC = Codec.unboundedMap(UUIDUtil.STRING_CODEC, UUIDUtil.STRING_CODEC);
     private static final Codec<Map<UUID, List<String>>> GUIDE_PAGES_CODEC = Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.STRING.listOf());
+    private static final Codec<Map<UUID, Map<String, Long>>> WALLETS_CODEC = Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.unboundedMap(Codec.STRING, Codec.LONG));
+    private static final Codec<Map<UUID, Map<String, ShopLimits.Usage>>> USAGE_CODEC = Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.unboundedMap(Codec.STRING, ShopLimits.Usage.CODEC));
+    private static final Codec<Map<UUID, List<ShopLine>>> HISTORY_CODEC = Codec.unboundedMap(UUIDUtil.STRING_CODEC, ShopLine.CODEC.listOf());
     private static final Factory<ProgressStore> FACTORY = new Factory<>(ProgressStore::new, ProgressStore::load);
 
     private final Map<UUID, Map<ResourceLocation, QuestProgress>> teams = new HashMap<>();
@@ -46,6 +55,20 @@ public final class ProgressStore extends SavedData {
     private final List<String> applied = new ArrayList<>();
     private final Map<UUID, Set<String>> guidePages = new HashMap<>();
     private final Map<UUID, List<String>> pinnedWays = new HashMap<>();
+    private final Map<UUID, Map<String, Long>> wallets = new HashMap<>();
+    private final Map<UUID, Map<String, ShopLimits.Usage>> shopUsage = new HashMap<>();
+    private final Map<UUID, List<ShopLine>> shopHistory = new HashMap<>();
+
+    /** One operation with money. @param ref the offer or the quest behind it @param times how many trades, 0 for a reward */
+    public record ShopLine(long time, long delta, String currency, String ref, int times) {
+        public static final Codec<ShopLine> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.LONG.fieldOf("time").forGetter(ShopLine::time),
+                Codec.LONG.fieldOf("delta").forGetter(ShopLine::delta),
+                Codec.STRING.fieldOf("currency").forGetter(ShopLine::currency),
+                Codec.STRING.fieldOf("ref").forGetter(ShopLine::ref),
+                Codec.INT.fieldOf("times").forGetter(ShopLine::times)
+        ).apply(instance, ShopLine::new));
+    }
 
     public static ProgressStore get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(FACTORY, NAME);
@@ -75,6 +98,15 @@ public final class ProgressStore extends SavedData {
         if (tag.contains(PINNED_WAYS)) {
             GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(PINNED_WAYS)).result().ifPresent(store.pinnedWays::putAll);
         }
+        if (tag.contains(WALLETS)) {
+            WALLETS_CODEC.parse(NbtOps.INSTANCE, tag.get(WALLETS)).result().ifPresent(saved -> saved.forEach((owner, money) -> store.wallets.put(owner, new HashMap<>(money))));
+        }
+        if (tag.contains(SHOP_USAGE)) {
+            USAGE_CODEC.parse(NbtOps.INSTANCE, tag.get(SHOP_USAGE)).result().ifPresent(saved -> saved.forEach((owner, usage) -> store.shopUsage.put(owner, new HashMap<>(usage))));
+        }
+        if (tag.contains(SHOP_HISTORY)) {
+            HISTORY_CODEC.parse(NbtOps.INSTANCE, tag.get(SHOP_HISTORY)).result().ifPresent(saved -> saved.forEach((owner, lines) -> store.shopHistory.put(owner, new ArrayList<>(lines))));
+        }
         return store;
     }
 
@@ -89,6 +121,9 @@ public final class ProgressStore extends SavedData {
         guidePages.forEach((player, read) -> pages.put(player, read.stream().sorted().toList()));
         tag.put(GUIDE_PAGES, GUIDE_PAGES_CODEC.encodeStart(NbtOps.INSTANCE, pages).getOrThrow());
         tag.put(PINNED_WAYS, GUIDE_PAGES_CODEC.encodeStart(NbtOps.INSTANCE, pinnedWays).getOrThrow());
+        tag.put(WALLETS, WALLETS_CODEC.encodeStart(NbtOps.INSTANCE, wallets).getOrThrow());
+        tag.put(SHOP_USAGE, USAGE_CODEC.encodeStart(NbtOps.INSTANCE, shopUsage).getOrThrow());
+        tag.put(SHOP_HISTORY, HISTORY_CODEC.encodeStart(NbtOps.INSTANCE, shopHistory).getOrThrow());
         return tag;
     }
 
@@ -116,6 +151,43 @@ public final class ProgressStore extends SavedData {
 
     public void setPinned(UUID player, List<ResourceLocation> quests) {
         pinned.put(player, List.copyOf(quests));
+        setDirty();
+    }
+
+    public Map<String, Long> balances(UUID owner) {
+        return wallets.getOrDefault(owner, Map.of());
+    }
+
+    public long balance(UUID owner, String currency) {
+        return balances(owner).getOrDefault(currency, 0L);
+    }
+
+    /** A balance never goes below zero. */
+    public void addBalance(UUID owner, String currency, long delta) {
+        wallets.computeIfAbsent(owner, id -> new HashMap<>()).merge(currency, delta, (old, change) -> Math.max(0, old + change));
+        setDirty();
+    }
+
+    public Map<String, ShopLimits.Usage> shopUsage(UUID owner) {
+        return shopUsage.getOrDefault(owner, Map.of());
+    }
+
+    public void setShopUsage(UUID owner, String offer, ShopLimits.Usage usage) {
+        shopUsage.computeIfAbsent(owner, id -> new HashMap<>()).put(offer, usage);
+        setDirty();
+    }
+
+    /** The latest first. */
+    public List<ShopLine> shopHistory(UUID player) {
+        return shopHistory.getOrDefault(player, List.of());
+    }
+
+    public void addShopHistory(UUID player, ShopLine line) {
+        List<ShopLine> lines = shopHistory.computeIfAbsent(player, id -> new ArrayList<>());
+        lines.addFirst(line);
+        if (lines.size() > HISTORY_LINES) {
+            lines.removeLast();
+        }
         setDirty();
     }
 

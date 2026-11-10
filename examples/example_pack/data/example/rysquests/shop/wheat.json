@@ -1,0 +1,18 @@
+{
+  "id": "example:wheat",
+  "category": "shop.example.food",
+  "cost": [
+    {
+      "type": "item",
+      "id": "minecraft:wheat",
+      "count": 16
+    }
+  ],
+  "gives": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 1
+    }
+  ]
+}

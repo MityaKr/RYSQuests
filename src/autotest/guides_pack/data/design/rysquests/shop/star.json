@@ -1,0 +1,19 @@
+{
+  "id": "design:star",
+  "category": "Редкое",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 900
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:nether_star",
+      "count": 1
+    }
+  ],
+  "quest": "design:01/mechanism"
+}

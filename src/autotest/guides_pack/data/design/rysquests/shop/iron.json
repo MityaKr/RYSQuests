@@ -1,0 +1,23 @@
+{
+  "id": "design:iron",
+  "category": "Ресурсы",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 24
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:iron_ingot",
+      "count": 16
+    }
+  ],
+  "limit": {
+    "per": "player",
+    "count": 5,
+    "reset": "daily"
+  }
+}

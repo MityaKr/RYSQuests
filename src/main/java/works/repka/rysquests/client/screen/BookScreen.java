@@ -77,6 +77,8 @@ public final class BookScreen extends ScaledScreen {
     private static ItemStack lastHovered;
     @Nullable
     private static String lastEditorResult;
+    @Nullable
+    private static String lastShopResult;
 
     private final List<Ui.Hit> hits = new ArrayList<>();
     private final List<Ui.Hit> rightHits = new ArrayList<>();
@@ -166,6 +168,7 @@ public final class BookScreen extends ScaledScreen {
     private EditorView editor;
     @Nullable
     private SectionEditorView sectionEditor;
+    private final ShopView shop = new ShopView();
     private final MatrixView matrix = new MatrixView(this);
     private final CardsView cards = new CardsView();
     @Nullable
@@ -537,6 +540,14 @@ public final class BookScreen extends ScaledScreen {
         editor = null;
     }
 
+    /** The server's answer to a trade. */
+    public static void onShopResult(boolean ok, String reason) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.shop.onResult(ok, reason);
+        }
+        lastShopResult = ok ? "" : reason;
+    }
+
     /** The server's answer to a save. */
     public static void onEditorResult(boolean ok, String reason) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.editor != null) {
@@ -557,6 +568,9 @@ public final class BookScreen extends ScaledScreen {
     private BookView guideView() {
         SectionDef custom = BookState.customSection();
         if (custom == null) {
+            if (BookState.inShop()) {
+                return shop;
+            }
             return BookState.guidePage >= 0 ? guidePage : guideLibrary;
         }
         return switch (custom) {
@@ -1075,6 +1089,33 @@ public final class BookScreen extends ScaledScreen {
 
     public static void constructorSaveForTest() {
         sectionEditorForTest().save();
+    }
+
+    public static void shopTradeForTest(ResourceLocation offer, boolean treasury) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.shop.tradeForTest(offer, treasury);
+        }
+    }
+
+    public static void shopSelectForTest(ResourceLocation offer) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.shop.selectForTest(offer);
+        }
+    }
+
+    public static void shopHistoryForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.shop.showHistoryForTest();
+        }
+    }
+
+    @Nullable
+    public static String lastShopResultForTest() {
+        return lastShopResult;
+    }
+
+    public static void clearShopResultForTest() {
+        lastShopResult = null;
     }
 
     public static void newGuideForTest() {

@@ -76,6 +76,12 @@ public final class QuestCommands {
                         .then(Commands.literal("registry").executes(QuestCommands::devRegistry)))
                 .then(admin("reload").executes(QuestCommands::reload))
                 .then(admin("validate").executes(QuestCommands::validate))
+                .then(admin("wallet").then(Commands.argument("player", EntityArgument.player())
+                        .then(Commands.argument("currency", StringArgumentType.word())
+                                .then(Commands.argument("amount", com.mojang.brigadier.arguments.IntegerArgumentType.integer()).executes(context -> {
+                                    works.repka.rysquests.shop.ShopService.adminDeposit(EntityArgument.getPlayer(context, "player"), StringArgumentType.getString(context, "currency"), com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "amount"));
+                                    return 1;
+                                })))))
                 .then(admin("import").then(Commands.literal("ftbq")
                         .executes(context -> importFtbq(context, DEFAULT_IMPORT_NAMESPACE))
                         .then(Commands.literal("progress").executes(QuestCommands::importFtbqProgress))

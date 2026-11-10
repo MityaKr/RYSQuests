@@ -46,7 +46,8 @@ public final class BookValidator {
         List<Chapter> ordered = orderChapters(raw.meta(), chapters, issues);
         List<Guide> guideList = List.copyOf(guides.values());
         List<SectionDef> sectionList = List.copyOf(sections.values());
-        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, guideList, sectionList, BookHash.compute(ordered, valid, guideList, sectionList, ops));
+        List<ShopOffer> offers = checkOffers(raw, quests, itemExists, issues);
+        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, guideList, sectionList, BookHash.compute(ordered, valid, guideList, sectionList, offers, ops)).withOffers(offers);
         return new Result(book, new BookReport(List.copyOf(issues)));
     }
 
@@ -113,10 +114,33 @@ public final class BookValidator {
         for (String section : meta.sections()) {
             ResourceLocation id = ResourceLocation.tryParse(section);
             boolean custom = id != null && sections.containsKey(id);
-            if (!section.equals(Chapter.STORY) && !section.equals(BookMeta.GUIDES) && !custom) {
+            if (!section.equals(Chapter.STORY) && !section.equals(BookMeta.GUIDES) && !section.equals(BookMeta.SHOP) && !custom) {
                 issues.add(new Issue(Severity.WARNING, "unknown_section", "book", section));
             }
         }
+    }
+
+    /** A trade with an item that does not exist cannot be made, so it is left out. A broken quest link only closes it. */
+    private static List<ShopOffer> checkOffers(RawBook raw, Map<ResourceLocation, Quest> quests, Predicate<ResourceLocation> itemExists, List<Issue> issues) {
+        Map<ResourceLocation, ShopOffer> offers = new LinkedHashMap<>();
+        for (ShopOffer offer : raw.offers()) {
+            if (offers.containsKey(offer.id())) {
+                issues.add(error("duplicate_offer", offer.id(), ""));
+                continue;
+            }
+            boolean valid = true;
+            for (ShopOffer.Entry entry : java.util.stream.Stream.concat(offer.cost().stream(), offer.gives().stream()).toList()) {
+                if (!entry.isCurrency() && entry.item().filter(itemExists).isEmpty()) {
+                    issues.add(error("unknown_item", offer.id(), entry.id()));
+                    valid = false;
+                }
+            }
+            if (valid) {
+                offers.put(offer.id(), offer);
+                offer.quest().filter(quest -> !quests.containsKey(quest)).ifPresent(quest -> issues.add(warning("unknown_offer_quest", offer.id(), quest.toString())));
+            }
+        }
+        return List.copyOf(offers.values());
     }
 
     private static void checkQuest(Quest quest, Map<ResourceLocation, Chapter> chapters, Map<ResourceLocation, Quest> quests,

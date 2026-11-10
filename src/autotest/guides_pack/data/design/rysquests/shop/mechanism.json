@@ -1,0 +1,23 @@
+{
+  "id": "design:mechanism",
+  "category": "Инструменты",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 90
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:clock",
+      "count": 1
+    }
+  ],
+  "limit": {
+    "per": "team",
+    "count": 1,
+    "reset": "never"
+  }
+}

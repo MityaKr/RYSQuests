@@ -1,0 +1,24 @@
+{
+  "id": "example:star",
+  "category": "shop.example.resources",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 100
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:nether_star",
+      "count": 1
+    }
+  ],
+  "stage": "minecraft:story/enter_the_nether",
+  "stage_title": "guide.example.stage.nether",
+  "limit": {
+    "per": "team",
+    "count": 1
+  }
+}

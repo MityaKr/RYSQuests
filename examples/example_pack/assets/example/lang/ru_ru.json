@@ -79,5 +79,7 @@
   "section.example.rules.welcome.title": "Добро пожаловать",
   "section.example.rules.welcome.text": "Здесь автор сборки пишет свои **правила** и лор.\n[[recipe:minecraft:chest]]",
   "section.example.rules.safety.title": "Безопасность",
-  "section.example.rules.safety.text": "Перед боем с [[item:minecraft:nether_star]] сделай резервную копию."
+  "section.example.rules.safety.text": "Перед боем с [[item:minecraft:nether_star]] сделай резервную копию.",
+  "shop.example.resources": "Ресурсы",
+  "shop.example.food": "Еда"
 }

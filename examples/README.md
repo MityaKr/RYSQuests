@@ -23,6 +23,7 @@ examples/
     data/example/rysquests/sections/ores.json        кастомная вкладка на шаблоне Матрица
     data/example/rysquests/sections/bosses.json      кастомная вкладка на шаблоне Карточки
     data/example/rysquests/sections/rules.json       кастомная вкладка на шаблоне Страницы
+    data/example/rysquests/shop/*.json               покупка с лимитом, без лимита, продажа, закрытая до стадии
     assets/example/lang/en_us.json
     assets/example/lang/ru_ru.json
   broken/                      намеренно сломанная книга для теста валидатора

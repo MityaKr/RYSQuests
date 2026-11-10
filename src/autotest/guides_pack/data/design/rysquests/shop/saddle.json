@@ -1,0 +1,23 @@
+{
+  "id": "design:saddle",
+  "category": "Декор",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 60
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:saddle",
+      "count": 1
+    }
+  ],
+  "limit": {
+    "per": "player",
+    "count": 1,
+    "reset": "never"
+  }
+}

@@ -16,12 +16,13 @@ final class BookHash {
     private BookHash() {
     }
 
-    static String compute(List<Chapter> chapters, List<Quest> quests, List<Guide> guides, List<SectionDef> sections, DynamicOps<JsonElement> ops) {
+    static String compute(List<Chapter> chapters, List<Quest> quests, List<Guide> guides, List<SectionDef> sections, List<ShopOffer> offers, DynamicOps<JsonElement> ops) {
         JsonArray root = new JsonArray();
         chapters.stream().sorted(Comparator.comparing(Chapter::id)).forEach(chapter -> root.add(canonical(Chapter.CODEC, chapter, ops)));
         quests.stream().sorted(Comparator.comparing(Quest::id)).forEach(quest -> root.add(canonical(Quest.CODEC, quest, ops)));
         guides.stream().sorted(Comparator.comparing(Guide::id)).forEach(guide -> root.add(canonical(Guide.CODEC, guide, ops)));
         sections.stream().sorted(Comparator.comparing(SectionDef::id)).forEach(section -> root.add(canonical(SectionDef.CODEC, section, ops)));
+        offers.stream().sorted(Comparator.comparing(ShopOffer::id)).forEach(offer -> root.add(canonical(ShopOffer.CODEC, offer, ops)));
         return Hashing.sha256().hashString(root.toString(), StandardCharsets.UTF_8).toString();
     }
 

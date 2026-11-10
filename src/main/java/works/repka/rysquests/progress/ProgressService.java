@@ -38,6 +38,7 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
 import works.repka.ryscore.team.TeamsApi;
+import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.api.QuestCompletedEvent;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.CardsSection;
@@ -47,6 +48,7 @@ import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.SectionDef;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.RewardDef;
+import works.repka.rysquests.data.TeamMode;
 import works.repka.rysquests.data.TaskDef;
 import works.repka.rysquests.dev.DevReports;
 import works.repka.rysquests.network.DevReportPayload;
@@ -62,7 +64,9 @@ import works.repka.rysquests.reward.CommandReward;
 import works.repka.rysquests.reward.ItemReward;
 import works.repka.rysquests.reward.LootTableReward;
 import works.repka.rysquests.reward.RandomReward;
+import works.repka.rysquests.reward.CurrencyReward;
 import works.repka.rysquests.reward.StageReward;
+import works.repka.rysquests.shop.ShopService;
 import works.repka.rysquests.reward.XpReward;
 import works.repka.rysquests.stage.Stages;
 import works.repka.rysquests.task.AdvancementTask;
@@ -181,6 +185,7 @@ public final class ProgressService {
                 cards.cards().forEach(card -> card.stage().ifPresent(stages::add));
             }
         }
+        book().offers().values().forEach(offer -> offer.stage().ifPresent(stages::add));
         return stages;
     }
 
@@ -621,6 +626,7 @@ public final class ProgressService {
             }
             case CommandReward command -> runCommand(player, command);
             case StageReward stage -> Stages.grant(player, stage.stage());
+            case CurrencyReward currency -> ShopService.deposit(player, currency.id(), currency.amount(), currency.teamMode() == TeamMode.ONCE, ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "reward"));
             case LootTableReward loot -> rollLoot(player, loot);
             case works.repka.rysquests.reward.ScriptReward script -> ScriptHooks.get().reward(player, script.script());
             case ChoiceReward options -> {
@@ -686,6 +692,7 @@ public final class ProgressService {
         store.team(team(player)).forEach((id, progress) -> view.put(id, viewFor(player, id, progress)));
         PacketDistributor.sendToPlayer(player, new ProgressPayload(true, view));
         PacketDistributor.sendToPlayer(player, new PinnedPayload(store.pinned(player.getUUID()), store.pinnedWays(player.getUUID())));
+        ShopService.send(player);
         PacketDistributor.sendToPlayer(player, new GuidePagesPayload(true, List.copyOf(store.guidePages(player.getUUID()))));
         TeamsApi teams = TeamsApi.get();
         int members = Math.max(teams.members(teams.teamOf(player.getUUID())).size(), store.memberCount(team(player)));

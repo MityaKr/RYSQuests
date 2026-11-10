@@ -19,6 +19,7 @@ import works.repka.rysquests.network.QuestActionPayload;
 import works.repka.rysquests.progress.QuestProgress;
 import works.repka.rysquests.progress.QuestStatus;
 import works.repka.rysquests.reward.ChoiceReward;
+import works.repka.rysquests.reward.CurrencyReward;
 import works.repka.rysquests.reward.ItemReward;
 import works.repka.rysquests.reward.RandomReward;
 import works.repka.rysquests.reward.StageReward;
@@ -131,6 +132,7 @@ final class QuestCard {
                     }
                 }
                 case XpReward xp -> parts.add(new Words(xpText(xp), "text.muted"));
+                case CurrencyReward currency -> parts.add(new Words(currencyText(currency), "text.muted"));
                 case ChoiceReward choice -> {
                     int option = 0;
                     for (RewardDef candidate : choice.of()) {
@@ -160,6 +162,11 @@ final class QuestCard {
             }
         }
         return parts;
+    }
+
+    private static String currencyText(CurrencyReward reward) {
+        String key = "rysquests.currency." + reward.id();
+        return reward.amount() + " " + (net.minecraft.locale.Language.getInstance().has(key) ? Component.translatable(key).getString() : reward.id());
     }
 
     private static String xpText(XpReward xp) {
@@ -388,6 +395,7 @@ final class QuestCard {
             switch (reward) {
                 case ItemReward item -> slots.add(new Slot(stack(item), item.count(), -1, -1));
                 case XpReward xp -> words.add("+ " + xpText(xp));
+                case CurrencyReward currency -> words.add("+ " + currencyText(currency));
                 case StageReward stage -> words.add("+ " + Component.translatable("rysquests.reward.stage", stage.stage()).getString());
                 case ChoiceReward picks -> {
                     choice = index;

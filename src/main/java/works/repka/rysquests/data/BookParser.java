@@ -21,6 +21,7 @@ public final class BookParser {
     private static final String CHAPTERS = "chapters/";
     private static final String GUIDES = "guides/";
     private static final String SECTIONS = "sections/";
+    private static final String SHOP = "shop/";
     private static final String CHAPTER_FILE = "_chapter";
     private static final String QUESTS_FILE = "_quests";
     private static final String BOOK_FILE = "book";
@@ -70,13 +71,19 @@ public final class BookParser {
             }
         });
         sections.stream().filter(CardsSection.class::isInstance).map(CardsSection.class::cast).forEach(section -> addCardConditions(section, chapters, quests));
+        List<ShopOffer> offers = new ArrayList<>();
+        sorted.forEach((id, json) -> {
+            if (id.getPath().startsWith(SHOP)) {
+                decode(ShopOffer.CODEC, json, ops, id, issues).ifPresent(offers::add);
+            }
+        });
         List<Migration> migrations = new ArrayList<>();
         sorted.forEach((id, json) -> {
             if (MIGRATIONS_FILE.equals(id.getPath())) {
                 decode(Migration.FILE_CODEC, json, ops, id, issues).ifPresent(migrations::addAll);
             }
         });
-        return new RawBook(meta, chapters, quests, guides, sections, issues, migrations);
+        return new RawBook(meta, chapters, quests, guides, sections, offers, issues, migrations);
     }
 
     /** Each card with a condition becomes a hidden quest in a chapter of its own section, out of sight of the story. */

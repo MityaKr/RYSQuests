@@ -1,0 +1,18 @@
+{
+  "id": "design:elytra",
+  "category": "Редкое",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 2400
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:elytra",
+      "count": 1
+    }
+  ]
+}

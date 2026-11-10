@@ -7,11 +7,12 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.editor.EditorService;
+import works.repka.rysquests.shop.ShopService;
 import works.repka.rysquests.progress.ProgressService;
 
 /** Registers payloads. Client handlers are injected, so that this class never refers to client code. */
 public final class ModNetwork {
-    private static final String VERSION = "4";
+    private static final String VERSION = "5";
 
     private static BiConsumer<BookSyncPayload, RegistryAccess> clientBookHandler = (payload, registries) -> {
     };
@@ -30,6 +31,11 @@ public final class ModNetwork {
     };
 
     private static Consumer<EditorResultPayload> clientEditorResultHandler = payload -> {
+    };
+
+    private static Consumer<ShopStatePayload> clientShopStateHandler = payload -> {
+    };
+    private static Consumer<ShopResultPayload> clientShopResultHandler = payload -> {
     };
 
     private ModNetwork() {
@@ -63,6 +69,11 @@ public final class ModNetwork {
         clientEditorResultHandler = handler;
     }
 
+    public static void setClientShopHandlers(Consumer<ShopStatePayload> state, Consumer<ShopResultPayload> result) {
+        clientShopStateHandler = state;
+        clientShopResultHandler = result;
+    }
+
     public static void setClientPinnedHandler(Consumer<PinnedPayload> handler) {
         clientPinnedHandler = handler;
     }
@@ -85,6 +96,12 @@ public final class ModNetwork {
                         (payload, context) -> clientDevReportHandler.accept(payload))
                 .playToClient(EditorResultPayload.TYPE, EditorResultPayload.STREAM_CODEC,
                         (payload, context) -> clientEditorResultHandler.accept(payload))
+                .playToClient(ShopStatePayload.TYPE, ShopStatePayload.STREAM_CODEC,
+                        (payload, context) -> clientShopStateHandler.accept(payload))
+                .playToClient(ShopResultPayload.TYPE, ShopResultPayload.STREAM_CODEC,
+                        (payload, context) -> clientShopResultHandler.accept(payload))
+                .playToServer(ShopTradePayload.TYPE, ShopTradePayload.STREAM_CODEC,
+                        (payload, context) -> ShopService.handle((ServerPlayer) context.player(), payload))
                 .playToServer(EditorSavePayload.TYPE, EditorSavePayload.STREAM_CODEC,
                         (payload, context) -> EditorService.handle((ServerPlayer) context.player(), payload))
                 .playToServer(PinWayPayload.TYPE, PinWayPayload.STREAM_CODEC,

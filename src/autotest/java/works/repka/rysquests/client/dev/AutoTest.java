@@ -69,6 +69,8 @@ import works.repka.rysquests.progress.ProgressService;
 import works.repka.rysquests.progress.ProgressStore;
 import works.repka.rysquests.client.ClientAssets;
 import works.repka.rysquests.network.EditorSavePayload;
+import works.repka.rysquests.client.ClientShop;
+import works.repka.rysquests.network.ShopTradePayload;
 import works.repka.ryscore.theme.ThemeManager;
 import works.repka.ryscore.ui.Type;
 
@@ -139,6 +141,8 @@ public final class AutoTest {
             buildGuidesScenario();
         } else if ("editor".equals(scenario)) {
             buildEditorScenario();
+        } else if ("shop".equals(scenario)) {
+            buildShopScenario();
         } else if ("constructor".equals(scenario)) {
             buildConstructorScenario();
         } else if ("sections".equals(scenario)) {
@@ -474,6 +478,7 @@ public final class AutoTest {
         expect("quest completed", () -> ClientProgress.get(TEAM_QUEST).completed());
         step("claim first", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
         expect("got the reward for each and the single one", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 1);
+        addShopOnServerSteps();
         addEditorOnServerSteps();
         expect("the other player has left", () -> players() == 1);
         step("stop the server", () -> command("stop"), 100);
@@ -499,6 +504,7 @@ public final class AutoTest {
         expect("the single reward is taken by the first", () -> ClientProgress.get(TEAM_QUEST).claimed().contains(1) && !ClientProgress.get(TEAM_QUEST).claimed().contains(0));
         step("claim second", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
         expect("got only the reward for each", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 0);
+        addShopMemberSteps();
         expect("the saved guide reached the other player", () -> ClientBook.current().guides().containsKey(SERVER_GUIDE));
         expect("its text came with the book", () -> Component.translatable(ClientBook.current().guides().get(SERVER_GUIDE).title()).getString().equals("Written on the server"));
         expect("its picture came with the book", () -> ClientAssets.imageSize(SERVER_IMAGE) != null);
@@ -696,9 +702,14 @@ public final class AutoTest {
         }, 40);
         expect("language applied", () -> mc().getOverlay() == null);
         step("reach the middle stage", () -> command("advancement grant @s only minecraft:story/mine_stone"), 120);
+        step("have the coins of the mockup", () -> {
+            if (ClientShop.balance("coin") == 0) {
+                command("rysquests wallet @s coin 248");
+            }
+        }, 20);
         step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
         expect("book screen open", () -> mc().screen instanceof BookScreen);
-        for (String[] view : new String[][] {{"design:mining", "design_mining"}, {"design:atlas", "design_atlas"}, {"design:bosses", "design_cards"}, {"design:rules", "design_pages"}}) {
+        for (String[] view : new String[][] {{"design:mining", "design_mining"}, {"design:atlas", "design_atlas"}, {"design:bosses", "design_cards"}, {"design:rules", "design_pages"}, {"shop", "design_shop"}}) {
             step("show " + view[0], () -> BookScreen.showSectionForTest(view[0]), 40);
             screenshot(view[1]);
             for (int[] size : new int[][] {{2560, 1440}, {1920, 1080}}) {
@@ -737,6 +748,40 @@ public final class AutoTest {
         }
     }
 
+    private static final ResourceLocation TEAM_BREAD = ResourceLocation.parse("teamtest:bread");
+    private static final ResourceLocation TEAM_ONCE = ResourceLocation.parse("teamtest:once");
+    private static final ResourceLocation TEAM_WHEAT = ResourceLocation.parse("teamtest:wheat");
+
+    /** The first player buys and sells, and the report catches the pair of trades that prints money. */
+    private static void addShopOnServerSteps() {
+        step("give both players coins", () -> {
+            command("rysquests wallet TestA coin 100");
+            command("rysquests wallet TestB coin 100");
+            command("give TestA minecraft:wheat 16");
+        }, 20);
+        expect("coins arrived", () -> ClientShop.balance("coin") == 100);
+        step("buy bread", () -> trade(TEAM_BREAD), 15);
+        expect("bread was paid for", () -> ClientShop.balance("coin") == 95 && mc().player.getInventory().countItem(net.minecraft.world.item.Items.BREAD) >= 4);
+        step("buy the one for the team", () -> trade(TEAM_ONCE), 15);
+        expect("team limit is used", () -> ClientShop.used(TEAM_ONCE) == 1);
+        step("sell wheat", () -> trade(TEAM_WHEAT), 15);
+        expect("the sale paid", () -> ClientShop.balance("coin") == 93);
+        step("ask for the reports", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.DEV_REPORT, QuestActionPayload.ALL, 0, List.of())), 20);
+        expect("the report caught the printing pair", () -> ClientDev.report() != null && ClientDev.report().sections().stream().anyMatch(section -> section.id().equals("shop_cycles") && section.entries().size() == 1));
+    }
+
+    private static void addShopMemberSteps() {
+        expect("coins reached the other player", () -> ClientShop.balance("coin") == 100);
+        expect("the team limit is shared", () -> ClientShop.used(TEAM_ONCE) == 1);
+        step("try the team limit", () -> {
+            BookScreen.clearShopResultForTest();
+            trade(TEAM_ONCE);
+        }, 15);
+        expect("the server refuses the second member", () -> "rysquests.shop.error.limit".equals(BookScreen.lastShopResultForTest()));
+        step("buy for oneself", () -> trade(TEAM_BREAD), 15);
+        expect("a personal limit is personal", () -> ClientShop.used(TEAM_BREAD) == 1 && ClientShop.balance("coin") == 95);
+    }
+
     /** The operator writes a guide on a dedicated server. The other client checks what reached it. */
     private static void addEditorOnServerSteps() {
         step("open the book", () -> mc().setScreen(new BookScreen()), 10);
@@ -757,6 +802,63 @@ public final class AutoTest {
         step("save the section", BookScreen::constructorSaveForTest, 5);
         expect("the server saved the section", BookScreen::constructorSavedForTest);
         step("close the book", () -> mc().setScreen(null), 5);
+    }
+
+    private static final ResourceLocation SHOP_IRON = ResourceLocation.parse("example:iron");
+    private static final ResourceLocation SHOP_WHEAT = ResourceLocation.parse("example:wheat");
+
+    private static void trade(ResourceLocation offer) {
+        PacketDistributor.sendToServer(new ShopTradePayload(offer, 1, false));
+    }
+
+    /** Buying and selling, and that leaving the world does not bring a used limit back. */
+    private static void buildShopScenario() {
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+        }, 10);
+        step("get coins and wheat", () -> {
+            command("rysquests wallet @s coin 100");
+            command("give @s minecraft:wheat 16");
+            command("clear @s minecraft:iron_ingot");
+        }, 20);
+        expect("the coins arrived", () -> ClientShop.balance("coin") >= 100);
+        step("open the book on the shop", () -> {
+            mc().setScreen(new BookScreen());
+            BookScreen.showSectionForTest("shop");
+        }, 20);
+        expect("the shop is open", () -> "shop".equals(BookScreen.currentSectionForTest()));
+        screenshot("shop_example");
+        long[] before = new long[1];
+        step("use up the limit", () -> {
+            before[0] = ClientShop.balance("coin");
+            trade(SHOP_IRON);
+            trade(SHOP_IRON);
+        }, 20);
+        expect("the limit is used up", () -> ClientShop.used(SHOP_IRON) == 2);
+        step("try once more", () -> {
+            BookScreen.clearShopResultForTest();
+            trade(SHOP_IRON);
+        }, 10);
+        expect("the server refuses", () -> "rysquests.shop.error.limit".equals(BookScreen.lastShopResultForTest()));
+        step("sell the wheat", () -> trade(SHOP_WHEAT), 15);
+        expect("the sale paid", () -> mc().player.getInventory().countItem(net.minecraft.world.item.Items.WHEAT) == 0);
+        step("show the history", BookScreen::shopHistoryForTest, 10);
+        screenshot("shop_example_history");
+        step("leave the world", () -> {
+            mc().setScreen(null);
+            mc().level.disconnect();
+            mc().disconnect(new TitleScreen());
+        }, 40);
+        openWorld();
+        expect("the shop state came back", () -> ClientShop.balance("coin") > 0);
+        expect("the limit is still used up", () -> ClientShop.used(SHOP_IRON) == 2);
+        step("try after coming back", () -> {
+            BookScreen.clearShopResultForTest();
+            trade(SHOP_IRON);
+        }, 10);
+        expect("the server still refuses", () -> "rysquests.shop.error.limit".equals(BookScreen.lastShopResultForTest()));
     }
 
     /** The acceptance of the constructor: a mining atlas of five resources and three stages, made in the game. */

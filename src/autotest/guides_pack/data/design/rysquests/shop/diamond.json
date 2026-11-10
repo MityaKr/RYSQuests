@@ -1,0 +1,23 @@
+{
+  "id": "design:diamond",
+  "category": "Редкое",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 120
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:diamond",
+      "count": 1
+    }
+  ],
+  "limit": {
+    "per": "player",
+    "count": 2,
+    "reset": "weekly"
+  }
+}

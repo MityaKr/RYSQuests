@@ -102,6 +102,7 @@ public final class DevReports {
         sections.add(new Section("warnings", issues(loaded.report(), BookReport.Severity.WARNING)));
         sections.add(new Section("unreachable", unreachable(server, book)));
         sections.add(new Section("no_recipe", withoutRecipe(server, book)));
+        sections.add(new Section("shop_cycles", shopCycles(book)));
         sections.add(new Section(MIGRATIONS, pendingMigrations(loaded.migrations(), standing)));
         sections.addAll(funnels(book, standing));
         return new Report(book.chapters().size(), book.quests().size(), sections);
@@ -175,6 +176,15 @@ public final class DevReports {
                 .filter(issue -> issue.severity() == severity)
                 .map(issue -> new Entry(issue.subject(), issue.code() + (issue.detail().isEmpty() ? "" : ": " + issue.detail())))
                 .toList();
+    }
+
+    /** Chains of trades that make money from nothing. */
+    private static List<Entry> shopCycles(QuestBook book) {
+        List<Entry> entries = new ArrayList<>();
+        for (List<ResourceLocation> cycle : works.repka.rysquests.shop.ShopCycles.find(book.offers().values())) {
+            entries.add(new Entry(cycle.getFirst().toString(), cycle.toString()));
+        }
+        return entries;
     }
 
     /** Quests no player can ever open: an impossible dependency count, or a stage nothing can give. */

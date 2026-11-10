@@ -231,7 +231,7 @@ class BookDataTest {
         assertEquals(3, furnace.pages().size());
         assertEquals(1, furnace.pageIndex("build"));
         assertRoundTrips(Guide.CODEC, furnace);
-        assertEquals(List.of("story", "guides", "example:ores", "example:bosses", "example:rules"), book.meta().sections());
+        assertEquals(List.of("story", "guides", "example:ores", "example:bosses", "example:rules", "shop"), book.meta().sections());
         QuestBook decoded = QuestBook.fromWire(book.wire(), book.hash());
         assertEquals(book.guides(), decoded.guides());
         assertEquals("example:furnace#fuel", book.quests().get(ResourceLocation.parse("example:start/first_furnace")).guide().orElseThrow().toString());

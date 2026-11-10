@@ -1,0 +1,17 @@
+{
+  "id": "teamtest:cycle_sell",
+  "cost": [
+    {
+      "type": "item",
+      "id": "minecraft:diamond",
+      "count": 1
+    }
+  ],
+  "gives": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 12
+    }
+  ]
+}

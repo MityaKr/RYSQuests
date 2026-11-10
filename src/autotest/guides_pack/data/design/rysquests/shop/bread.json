@@ -1,0 +1,18 @@
+{
+  "id": "design:bread",
+  "category": "Еда",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 6
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:bread",
+      "count": 16
+    }
+  ]
+}

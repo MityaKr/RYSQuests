@@ -1,0 +1,23 @@
+{
+  "id": "design:copper",
+  "category": "Ресурсы",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 20
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:copper_ingot",
+      "count": 16
+    }
+  ],
+  "limit": {
+    "per": "player",
+    "count": 5,
+    "reset": "daily"
+  }
+}

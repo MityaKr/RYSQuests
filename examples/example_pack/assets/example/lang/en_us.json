@@ -79,5 +79,7 @@
   "section.example.rules.welcome.title": "Welcome",
   "section.example.rules.welcome.text": "Here the pack author writes their **rules** and lore.\n[[recipe:minecraft:chest]]",
   "section.example.rules.safety.title": "Safety",
-  "section.example.rules.safety.text": "Back up before fighting for a [[item:minecraft:nether_star]]."
+  "section.example.rules.safety.text": "Back up before fighting for a [[item:minecraft:nether_star]].",
+  "shop.example.resources": "Resources",
+  "shop.example.food": "Food"
 }

@@ -305,7 +305,15 @@ public final class Ui {
     void sectionIcon(String section, float x, float y, float size, int color) {
         float k = size / 24f;
         float thick = Math.max(1f, 2 * k);
-        if (BookMeta.GUIDES.equals(section)) {
+        if (BookMeta.SHOP.equals(section)) {
+            segment(x + 6 * k, y + 8 * k, x + 18 * k, y + 8 * k, thick, color);
+            segment(x + 18 * k, y + 8 * k, x + 19 * k, y + 20 * k, thick, color);
+            segment(x + 19 * k, y + 20 * k, x + 5 * k, y + 20 * k, thick, color);
+            segment(x + 5 * k, y + 20 * k, x + 6 * k, y + 8 * k, thick, color);
+            arc(x + 12 * k, y + 6 * k, 3 * k, 180, 360, thick, color);
+            segment(x + 9 * k, y + 8 * k, x + 9 * k, y + 6 * k, thick, color);
+            segment(x + 15 * k, y + 8 * k, x + 15 * k, y + 6 * k, thick, color);
+        } else if (BookMeta.GUIDES.equals(section)) {
             segment(x + 5 * k, y + 4 * k, x + 16 * k, y + 4 * k, thick, color);
             arc(x + 16 * k, y + 7 * k, 3 * k, -90, 0, thick, color);
             segment(x + 19 * k, y + 7 * k, x + 19 * k, y + 20 * k, thick, color);

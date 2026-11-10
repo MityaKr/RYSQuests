@@ -1,0 +1,20 @@
+{
+  "id": "design:circuit",
+  "category": "Инструменты",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 300
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:comparator",
+      "count": 1
+    }
+  ],
+  "stage": "minecraft:end/kill_dragon",
+  "stage_title": "эпоха III"
+}

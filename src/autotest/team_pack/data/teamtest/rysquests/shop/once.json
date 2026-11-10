@@ -1,0 +1,21 @@
+{
+  "id": "teamtest:once",
+  "cost": [
+    {
+      "type": "currency",
+      "id": "coin",
+      "amount": 5
+    }
+  ],
+  "gives": [
+    {
+      "type": "item",
+      "id": "minecraft:apple",
+      "count": 1
+    }
+  ],
+  "limit": {
+    "per": "team",
+    "count": 1
+  }
+}
