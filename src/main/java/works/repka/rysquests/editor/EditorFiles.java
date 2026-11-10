@@ -21,7 +21,10 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import net.minecraft.resources.ResourceLocation;
 import works.repka.rysquests.data.BookAssets;
+import works.repka.rysquests.data.BookMeta;
+import works.repka.rysquests.data.CardsSection;
 import works.repka.rysquests.data.Guide;
+import works.repka.rysquests.data.MatrixSection;
 import works.repka.rysquests.data.PagesSection;
 import works.repka.rysquests.data.SectionDef;
 
@@ -30,10 +33,10 @@ public final class EditorFiles {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final Pattern LANGUAGE = Pattern.compile("[a-z]{2,3}_[a-z0-9]{2,4}");
     private static final Pattern IMAGE_PATH = Pattern.compile("textures/guides/[a-z0-9_.-]+\\.png");
-    private static final String PAGES = "pages";
-    private static final List<String> GUIDE_FIELDS = List.of("id", "title", "icon", "category", "stage", "stage_title", PAGES);
-    private static final List<String> SECTION_FIELDS = List.of("template", "title", "short_title", "subtitle", "icon", PAGES);
-    private static final List<String> PAGE_FIELDS = List.of("id", "title", "text");
+    /** Every field of guides and sections in the order a file shows them; others follow by name. */
+    private static final List<String> FIELD_ORDER = List.of("template", "id", "type", "title", "name", "short_title", "subtitle", "text", "icon", "category", "item", "count",
+            "advancement", "spoilers", "compact", "search", "row_title", "group", "groups", "art", "mark", "best", "hint", "stage", "stage_title", "done", "needs", "gives", "page", "quest",
+            "links", "columns", "rows", "cells", "cards", "pages");
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G'};
 
     /** A save that cannot be done. @param key the lang key of the reason */
@@ -53,13 +56,13 @@ public final class EditorFiles {
     }
 
     /** Writes a guide or a section of pages with its texts and pictures. Everything is checked before anything is written. */
-    public static void save(Path root, Optional<Guide> guide, Optional<PagesSection> section, String language, Map<String, String> texts,
+    public static void save(Path root, Optional<Guide> guide, Optional<SectionDef> section, String language, Map<String, String> texts,
             Map<ResourceLocation, byte[]> images, boolean createPackFile) throws Rejected, IOException {
         if (guide.isPresent() == section.isPresent()) {
             throw new Rejected("rysquests.editor.error.invalid");
         }
         ResourceLocation id = guide.map(Guide::id).orElseGet(() -> section.get().id());
-        checkPages(guide.map(Guide::pages).orElseGet(() -> section.get().pages()));
+        checkContents(guide, section);
         checkTexts(keysOf(guide, section), language, texts);
         for (Map.Entry<ResourceLocation, byte[]> image : images.entrySet()) {
             checkImage(id, image.getKey(), image.getValue());
@@ -81,19 +84,45 @@ public final class EditorFiles {
         }
     }
 
-    private static void checkPages(List<Guide.Page> pages) throws Rejected {
-        Set<String> ids = new HashSet<>();
-        if (pages.isEmpty()) {
-            throw new Rejected("rysquests.editor.error.no_pages");
-        }
-        for (Guide.Page page : pages) {
-            if (!ids.add(page.id())) {
-                throw new Rejected("rysquests.editor.error.invalid");
-            }
+    private static void checkContents(Optional<Guide> guide, Optional<SectionDef> section) throws Rejected {
+        if (guide.isPresent()) {
+            checkPages(guide.get().pages());
+        } else if (section.get() instanceof PagesSection pages) {
+            checkPages(pages.pages());
+        } else if (section.get() instanceof MatrixSection matrix) {
+            checkIds(matrix.columns().stream().map(MatrixSection.Column::id).toList());
+            checkIds(matrix.rows().stream().map(MatrixSection.Row::id).toList());
+        } else if (section.get() instanceof CardsSection cards) {
+            checkIds(cards.cards().stream().map(CardsSection.Card::id).toList());
         }
     }
 
-    private static Set<String> keysOf(Optional<Guide> guide, Optional<PagesSection> section) {
+    private static void checkPages(List<Guide.Page> pages) throws Rejected {
+        checkIds(pages.stream().map(Guide.Page::id).toList());
+    }
+
+    private static void checkIds(List<String> ids) throws Rejected {
+        if (ids.isEmpty()) {
+            throw new Rejected("rysquests.editor.error.no_pages");
+        }
+        if (new HashSet<>(ids).size() != ids.size()) {
+            throw new Rejected("rysquests.editor.error.invalid");
+        }
+    }
+
+    /** Puts the order of the rail into the book's settings, leaving the rest of them as they are. */
+    public static void saveBook(Path root, String namespace, BookMeta meta, List<String> rail, boolean createPackFile) throws Rejected, IOException {
+        if (rail.isEmpty() || rail.stream().anyMatch(id -> ResourceLocation.tryParse(id) == null)) {
+            throw new Rejected("rysquests.editor.error.invalid");
+        }
+        if (createPackFile) {
+            writePackFile(root);
+        }
+        BookMeta updated = new BookMeta(meta.progressMode(), meta.defaultView(), meta.defaultTheme(), meta.title(), meta.icon(), meta.chapterOrder(), meta.hud(), rail);
+        writeText(root.resolve("data").resolve(namespace).resolve("rysquests/book.json"), GSON.toJson(BookMeta.CODEC.encodeStart(JsonOps.INSTANCE, updated).getOrThrow()) + "\n");
+    }
+
+    private static Set<String> keysOf(Optional<Guide> guide, Optional<SectionDef> section) {
         Set<String> keys = new HashSet<>();
         guide.ifPresent(found -> {
             keys.add(found.title());
@@ -104,15 +133,7 @@ public final class EditorFiles {
                 keys.add(page.text());
             });
         });
-        section.ifPresent(found -> {
-            keys.add(found.title());
-            found.shortTitle().ifPresent(keys::add);
-            found.subtitle().ifPresent(keys::add);
-            found.pages().forEach(page -> {
-                keys.add(page.title());
-                keys.add(page.text());
-            });
-        });
+        section.ifPresent(found -> keys.addAll(found.textKeys()));
         return keys;
     }
 
@@ -145,30 +166,34 @@ public final class EditorFiles {
     }
 
     private static JsonElement encode(Guide guide) {
-        return ordered(Guide.CODEC.encodeStart(JsonOps.INSTANCE, guide).getOrThrow().getAsJsonObject(), GUIDE_FIELDS);
+        return ordered(Guide.CODEC.encodeStart(JsonOps.INSTANCE, guide).getOrThrow());
     }
 
     /** A section's id comes from its file, so the file does not repeat it. */
-    private static JsonElement encode(PagesSection section) {
+    private static JsonElement encode(SectionDef section) {
         JsonObject json = SectionDef.CODEC.encodeStart(JsonOps.INSTANCE, section).getOrThrow().getAsJsonObject();
         json.remove("id");
-        return ordered(json, SECTION_FIELDS);
+        return ordered(json);
     }
 
     /** Codecs do not promise an order of fields, and a file has to diff well, so it is set here. */
-    private static JsonObject ordered(JsonObject json, List<String> fields) {
+    private static JsonElement ordered(JsonElement element) {
+        if (element.isJsonArray()) {
+            JsonArray out = new JsonArray();
+            element.getAsJsonArray().forEach(item -> out.add(ordered(item)));
+            return out;
+        }
+        if (!element.isJsonObject()) {
+            return element;
+        }
+        JsonObject source = element.getAsJsonObject();
         JsonObject out = new JsonObject();
-        for (String field : fields) {
-            if (json.has(field)) {
-                out.add(field, field.equals(PAGES) ? orderedPages(json.getAsJsonArray(PAGES)) : json.get(field));
+        for (String field : FIELD_ORDER) {
+            if (source.has(field)) {
+                out.add(field, ordered(source.get(field)));
             }
         }
-        return out;
-    }
-
-    private static JsonArray orderedPages(JsonArray pages) {
-        JsonArray out = new JsonArray();
-        pages.forEach(page -> out.add(ordered(page.getAsJsonObject(), PAGE_FIELDS)));
+        new java.util.TreeSet<>(source.keySet()).stream().filter(field -> !FIELD_ORDER.contains(field)).forEach(field -> out.add(field, ordered(source.get(field))));
         return out;
     }
 

@@ -68,14 +68,7 @@ public record BookAssets(Map<String, Map<String, String>> texts, Map<ResourceLoc
             guide.stageTitle().ifPresent(keys::add);
             addPages(guide.pages(), keys);
         }
-        for (SectionDef section : book.sections().values()) {
-            if (section instanceof PagesSection pages) {
-                keys.add(pages.title());
-                pages.shortTitle().ifPresent(keys::add);
-                pages.subtitle().ifPresent(keys::add);
-                addPages(pages.pages(), keys);
-            }
-        }
+        book.sections().values().forEach(section -> keys.addAll(section.textKeys()));
         return keys;
     }
 

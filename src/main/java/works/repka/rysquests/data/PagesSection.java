@@ -5,6 +5,7 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 
 /** The "pages" template: a book of pages in the format of guides, without a library. */
@@ -29,6 +30,16 @@ public record PagesSection(
     @Override
     public String template() {
         return TEMPLATE;
+    }
+
+    @Override
+    public Set<String> textKeys() {
+        Set<String> keys = commonKeys();
+        pages.forEach(page -> {
+            keys.add(page.title());
+            keys.add(page.text());
+        });
+        return keys;
     }
 
     /** The same pages as a guide, so that both are read with one view. */

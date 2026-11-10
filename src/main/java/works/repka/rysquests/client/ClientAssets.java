@@ -24,6 +24,7 @@ public final class ClientAssets {
     private static final Map<ResourceLocation, int[]> SIZES = new HashMap<>();
 
     private static BookAssets current = BookAssets.EMPTY;
+    private static Map<String, String> preview = Map.of();
 
     private ClientAssets() {
     }
@@ -92,6 +93,12 @@ public final class ClientAssets {
         return SIZES.get(id);
     }
 
+    /** Texts of unsaved edits, for the editor's look through the player's eyes. */
+    public static void setPreviewTexts(Map<String, String> texts) {
+        preview = Map.copyOf(texts);
+        applyLanguage();
+    }
+
     /** A string can exist in another language only; better to show that than a raw key. */
     public static void applyLanguage() {
         Language language = Language.getInstance();
@@ -100,6 +107,7 @@ public final class ClientAssets {
         current.texts().forEach((code, strings) -> strings.forEach(texts::putIfAbsent));
         texts.putAll(current.texts().getOrDefault(FALLBACK_LANGUAGE, Map.of()));
         texts.putAll(current.texts().getOrDefault(Minecraft.getInstance().getLanguageManager().getSelected(), Map.of()));
+        texts.putAll(preview);
         Language.inject(texts.isEmpty() ? base : new Overlay(base, texts));
     }
 }

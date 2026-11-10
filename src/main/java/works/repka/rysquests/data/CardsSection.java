@@ -5,6 +5,7 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.ExtraCodecs;
 
@@ -58,6 +59,22 @@ public record CardsSection(
     @Override
     public String template() {
         return TEMPLATE;
+    }
+
+    @Override
+    public Set<String> textKeys() {
+        Set<String> keys = commonKeys();
+        for (String part : List.of(".done", ".open", ".locked", ".done_count")) {
+            keys.add(title + part);
+        }
+        groups.forEach(group -> keys.add(groupTitle(group)));
+        for (Card card : cards) {
+            for (String part : List.of("name", "desc", "meta", "text", "tip", "needs_title", "gives_title")) {
+                keys.add(cardKey(card, part));
+            }
+            card.stageTitle().ifPresent(keys::add);
+        }
+        return keys;
     }
 
     public String groupTitle(String group) {

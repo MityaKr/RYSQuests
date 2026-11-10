@@ -164,6 +164,8 @@ public final class BookScreen extends ScaledScreen {
     });
     @Nullable
     private EditorView editor;
+    @Nullable
+    private SectionEditorView sectionEditor;
     private final MatrixView matrix = new MatrixView(this);
     private final CardsView cards = new CardsView();
     @Nullable
@@ -395,7 +397,8 @@ public final class BookScreen extends ScaledScreen {
             }
         }
         List<String> sections = BookState.sections();
-        sectionsW = editor != null || sections.size() < 2 ? 0 : SECTIONS_W;
+        boolean editing = editor != null || sectionEditor != null;
+        sectionsW = editing || sections.size() < 2 ? 0 : SECTIONS_W;
         ui.squareLeft = sectionsW > 0;
         if (editor != null) {
             if (sectionSearch != null) {
@@ -404,6 +407,13 @@ public final class BookScreen extends ScaledScreen {
             ui.shadow(x, y, w, h, 14, 1f);
             ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
             editor.render(ui, x + 1, y + 1, w - 2, h - 2);
+        } else if (sectionEditor != null) {
+            if (sectionSearch != null) {
+                sectionSearch.visible = false;
+            }
+            ui.shadow(x, y, w, h, 14, 1f);
+            ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
+            sectionEditor.render(ui, x + 1, y + 1, w - 2, h - 2);
         } else if (!BookState.inStory()) {
             renderGuidesFrame(ui, x, y, w, h);
         } else if (BookState.currentView() == ViewMode.FLOW) {
@@ -465,6 +475,48 @@ public final class BookScreen extends ScaledScreen {
         ui.hit(x, y, SECTION_ITEM_W, SECTION_ITEM_H, () -> BookState.openSection(section));
     }
 
+    /** The pencil beside a section's title, for operators. */
+    static void editButton(Ui ui, float x, float cy, SectionDef section) {
+        if (Minecraft.getInstance().player.hasPermissions(2)) {
+            boolean over = ui.over(x, cy - 15, 30, 30);
+            ui.box(x, cy - 15, 30, 30, 8, over ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
+            ui.icon(Icons.Shape.PENCIL, x + 9, cy - 6, 12, ui.c("button.fg"));
+            ui.tooltipIfOver(x, cy - 15, 30, 30, Component.translatable("rysquests.editor.edit"));
+            ui.hit(x, cy - 15, 30, 30, () -> {
+                if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+                    screen.openSectionEditor(section);
+                }
+            });
+        }
+    }
+
+    void openSectionEditor(@Nullable SectionDef section) {
+        sectionEditor = new SectionEditorView(this, section);
+    }
+
+    void closeSectionEditor() {
+        sectionEditor = null;
+    }
+
+    void openPagesEditor(PagesSection pages) {
+        sectionEditor = null;
+        openEditor(GuideDraft.of(pages), false);
+    }
+
+    void openNewPagesEditor(ResourceLocation id) {
+        sectionEditor = null;
+        openEditor(GuideDraft.newPages(id), true);
+    }
+
+    /** The section being edited, shown as players will see it. */
+    void renderSectionPreview(Ui ui, int x, int y, int w, int h) {
+        guideView().render(ui, x, y, w, h);
+    }
+
+    void scrollSectionPreview(double mouseX, double mouseY, double amount) {
+        guideView().scroll(mouseX, mouseY, amount);
+    }
+
     private void openEditor(GuideDraft draft, boolean isNew) {
         editor = new EditorView(this, guides, guidePage, draft, isNew);
     }
@@ -489,6 +541,9 @@ public final class BookScreen extends ScaledScreen {
     public static void onEditorResult(boolean ok, String reason) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.editor != null) {
             screen.editor.onResult(ok, reason);
+        }
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.sectionEditor != null) {
+            screen.sectionEditor.onResult(ok, reason);
         }
         lastEditorResult = ok ? "" : reason;
     }
@@ -796,6 +851,9 @@ public final class BookScreen extends ScaledScreen {
         if (editor != null) {
             editor.pointer(mouseX * 2, mouseY * 2);
         }
+        if (sectionEditor != null) {
+            sectionEditor.pointer(mouseX * 2, mouseY * 2);
+        }
         List<Ui.Hit> list = button == 0 ? hits : button == 1 ? rightHits : List.of();
         for (int i = list.size() - 1; i >= 0; i--) {
             Ui.Hit hit = list.get(i);
@@ -825,6 +883,10 @@ public final class BookScreen extends ScaledScreen {
             editor.drag(mouseX * 2, mouseY * 2);
             return true;
         }
+        if (sectionEditor != null) {
+            sectionEditor.drag(mouseX * 2, mouseY * 2);
+            return true;
+        }
         return BookState.inStory() && activeView().drag(dragX * 2, dragY * 2) || super.onDrag(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -833,6 +895,8 @@ public final class BookScreen extends ScaledScreen {
         double x = mouseX * 2;
         if (editor != null) {
             editor.scroll(x, mouseY * 2, scrollY);
+        } else if (sectionEditor != null) {
+            sectionEditor.scroll(x, mouseY * 2, scrollY);
         } else if (!BookState.inStory()) {
             guideView().scroll(x, mouseY * 2, scrollY);
         } else if (x >= chaptersLeft && x < chaptersRight) {
@@ -855,6 +919,9 @@ public final class BookScreen extends ScaledScreen {
 
     @Override
     public boolean charTyped(char c, int modifiers) {
+        if (sectionEditor != null) {
+            return sectionEditor.typed(c);
+        }
         return editor != null ? editor.typed(c) : super.charTyped(c, modifiers);
     }
 
@@ -862,6 +929,9 @@ public final class BookScreen extends ScaledScreen {
     public boolean keyPressed(int key, int scan, int modifiers) {
         if (editor != null) {
             return editor.key(key);
+        }
+        if (sectionEditor != null) {
+            return sectionEditor.key(key);
         }
         boolean typing = searchBox != null && searchBox.isFocused() || sectionSearch != null && sectionSearch.isFocused();
         if (typing && searchBox.isFocused() && key == GLFW.GLFW_KEY_ENTER && !BookState.search.isBlank()) {
@@ -961,6 +1031,50 @@ public final class BookScreen extends ScaledScreen {
 
     public static void editorUndoForTest() {
         editorForTest().undoForTest();
+    }
+
+    private static SectionEditorView sectionEditorForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.sectionEditor : null;
+    }
+
+    public static void openConstructorOnForTest(ResourceLocation section) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.openSectionEditor(book().sections().get(section));
+        }
+    }
+
+    public static void openConstructorForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.openSectionEditor(null);
+        }
+    }
+
+    public static boolean constructorOpenForTest() {
+        return sectionEditorForTest() != null;
+    }
+
+    public static void newMatrixForTest() {
+        sectionEditorForTest().newFromTemplateForTest(MatrixSection.TEMPLATE);
+    }
+
+    public static void buildMatrixForTest(String title, List<String> rows, List<String> columns, ResourceLocation icon) {
+        sectionEditorForTest().buildMatrixForTest(title, rows, columns, icon);
+    }
+
+    public static void selectWayForTest(int row, int column, int way) {
+        sectionEditorForTest().selectWayForTest(row, column, way);
+    }
+
+    public static ResourceLocation constructorSectionForTest() {
+        return sectionEditorForTest().sectionIdForTest();
+    }
+
+    public static boolean constructorSavedForTest() {
+        return sectionEditorForTest().savedForTest();
+    }
+
+    public static void constructorSaveForTest() {
+        sectionEditorForTest().save();
     }
 
     public static void newGuideForTest() {

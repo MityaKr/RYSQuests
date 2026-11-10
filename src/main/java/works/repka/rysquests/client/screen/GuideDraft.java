@@ -89,6 +89,13 @@ final class GuideDraft {
                 new State(new Text(prefix + ".title", false, ""), Optional.empty(), emptyCategory(id), List.of(newPage(id, false, "page_1"))));
     }
 
+    /** A new section of pages starts like a new guide. */
+    static GuideDraft newPages(ResourceLocation id) {
+        String prefix = prefix(id, true);
+        return new GuideDraft(id, true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                new State(new Text(prefix, false, ""), Optional.empty(), emptyCategory(id), List.of(newPage(id, true, "page_1"))));
+    }
+
     private static Page newPage(ResourceLocation id, boolean section, String pageId) {
         String prefix = prefix(id, section) + "." + pageId;
         return new Page(pageId, new Text(prefix + ".title", false, ""), new Text(prefix + ".text", false, ""));

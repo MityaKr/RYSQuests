@@ -139,6 +139,8 @@ public final class AutoTest {
             buildGuidesScenario();
         } else if ("editor".equals(scenario)) {
             buildEditorScenario();
+        } else if ("constructor".equals(scenario)) {
+            buildConstructorScenario();
         } else if ("sections".equals(scenario)) {
             buildSectionsScenario();
         } else if ("sections_design".equals(scenario)) {
@@ -500,7 +502,9 @@ public final class AutoTest {
         expect("the saved guide reached the other player", () -> ClientBook.current().guides().containsKey(SERVER_GUIDE));
         expect("its text came with the book", () -> Component.translatable(ClientBook.current().guides().get(SERVER_GUIDE).title()).getString().equals("Written on the server"));
         expect("its picture came with the book", () -> ClientAssets.imageSize(SERVER_IMAGE) != null);
-        step("try to save without rights", () -> PacketDistributor.sendToServer(new EditorSavePayload(Optional.of(ClientBook.current().guides().get(SERVER_GUIDE)), Optional.empty(), "en_us", Map.of(), Map.of())), 20);
+        expect("the section reached the other player", () -> ClientBook.current().sections().values().stream().anyMatch(section -> Component.translatable(section.title()).getString().equals("Server atlas")));
+        expect("the rail came too", () -> ClientBook.current().meta().sections().size() >= 2);
+        step("try to save without rights", () -> PacketDistributor.sendToServer(new EditorSavePayload(Optional.of(ClientBook.current().guides().get(SERVER_GUIDE)), Optional.empty(), "en_us", Map.of(), Map.of(), List.of())), 20);
         expect("the server refused", () -> "rysquests.editor.error.denied".equals(BookScreen.lastEditorResultForTest()));
         step("leave the server", () -> {}, 5);
     }
@@ -715,6 +719,12 @@ public final class AutoTest {
                 ThemeManager.select("ryscore:slate");
             }, 10);
         }
+        step("open the constructor on the mining atlas", () -> {
+            BookScreen.openConstructorOnForTest(ResourceLocation.parse("design:mining"));
+            BookScreen.selectWayForTest(0, 1, 0);
+        }, 20);
+        screenshot("design_constructor");
+        step("leave the constructor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
     }
 
@@ -739,7 +749,49 @@ public final class AutoTest {
         step("save it", BookScreen::editorSaveForTest, 5);
         expect("the server saved it", BookScreen::editorSavedForTest);
         expect("the file is on the server", () -> Files.isRegularFile(mc().gameDirectory.toPath().resolve("../run-server/config/rysquests/pack/data/teamtest/rysquests/guides/editor_guide.json")));
+        step("make a section on the server", () -> {
+            BookScreen.openConstructorForTest();
+            BookScreen.newMatrixForTest();
+            BookScreen.buildMatrixForTest("Server atlas", List.of("Iron"), List.of("Early", "Middle", "Late"), ResourceLocation.parse("minecraft:iron_ingot"));
+        }, 5);
+        step("save the section", BookScreen::constructorSaveForTest, 5);
+        expect("the server saved the section", BookScreen::constructorSavedForTest);
         step("close the book", () -> mc().setScreen(null), 5);
+    }
+
+    /** The acceptance of the constructor: a mining atlas of five resources and three stages, made in the game. */
+    private static void buildConstructorScenario() {
+        List<String> resources = List.of("Iron", "Copper", "Gold", "Diamond", "Coal");
+        List<String> stages = List.of("Early", "Middle", "Late");
+        ResourceLocation[] made = new ResourceLocation[1];
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+        }, 10);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("open the constructor", BookScreen::openConstructorForTest, 5);
+        expect("the constructor is open", BookScreen::constructorOpenForTest);
+        step("make a matrix from the template", BookScreen::newMatrixForTest, 5);
+        step("fill it", () -> {
+            BookScreen.buildMatrixForTest("Mining atlas", resources, stages, ResourceLocation.parse("minecraft:iron_ingot"));
+            BookScreen.selectWayForTest(0, 1, 0);
+            made[0] = BookScreen.constructorSectionForTest();
+        }, 30);
+        screenshot("constructor_matrix");
+        step("click save", () -> mc().screen.mouseClicked(556, 31, GLFW.GLFW_MOUSE_BUTTON_LEFT), 5);
+        expect("the save went through", BookScreen::constructorSavedForTest);
+        expect("the section is in the book", () -> ClientBook.current().sections().get(made[0]) instanceof works.repka.rysquests.data.MatrixSection matrix && matrix.rows().size() == 5 && matrix.columns().size() == 3);
+        expect("it is on the rail", () -> ClientBook.current().meta().sections().contains(made[0].toString()));
+        expect("its texts came with the book", () -> Component.translatable(ClientBook.current().sections().get(made[0]).title()).getString().equals("Mining atlas"));
+        expect("every text resolves", () -> BookScreen.guideIssuesForTest().isEmpty());
+        step("leave the constructor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("the constructor is closed", () -> !BookScreen.constructorOpenForTest());
+        step("open the section as a player", () -> BookScreen.showSectionForTest(made[0].toString()), 30);
+        expect("the section is open", () -> made[0].toString().equals(BookScreen.currentSectionForTest()));
+        screenshot("constructor_result");
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
     }
 
     /** A guide made in the editor and read back, in a single player world. */

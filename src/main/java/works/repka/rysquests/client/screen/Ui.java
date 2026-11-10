@@ -268,6 +268,10 @@ public final class Ui {
         }
     }
 
+    void iconRotated(Icons.Shape shape, float x, float y, float size, float degrees, int color) {
+        Icons.drawRotated(g, shape, x / PER_GUI, y / PER_GUI, size / PER_GUI, degrees, color);
+    }
+
     void icon(Icons.Shape shape, float x, float y, float size, int color) {
         Icons.draw(g, shape, x / PER_GUI, y / PER_GUI, size / PER_GUI, color);
     }

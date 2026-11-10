@@ -237,7 +237,7 @@ final class EditorView {
         PacketDistributor.sendToServer(new EditorSavePayload(
                 draft.section ? Optional.empty() : Optional.of(draft.toGuide()),
                 draft.section ? Optional.of(draft.toSection()) : Optional.empty(),
-                language, draft.texts(), Map.copyOf(draft.images)));
+                language, draft.texts(), Map.copyOf(draft.images), List.of()));
     }
 
     void onResult(boolean ok, String reason) {
@@ -470,13 +470,13 @@ final class EditorView {
         iconButton(ui, Icons.Shape.REDO, undoX + 36, cy, !redo.isEmpty(), this::stepRedo);
     }
 
-    private static float barButton(Ui ui, String label, float x, float cy, Runnable action) {
+    static float barButton(Ui ui, String label, float x, float cy, Runnable action) {
         float w = ui.buttonWidth(label, 11.5f, Ui.REGULAR, 10) + 2;
         ui.button(label, x, cy - 15, w, 30, 8, 11.5f, Ui.REGULAR, 10, Ui.Style.PLAIN, action);
         return x + w;
     }
 
-    private static void iconButton(Ui ui, Icons.Shape shape, float x, float cy, boolean enabled, Runnable action) {
+    static void iconButton(Ui ui, Icons.Shape shape, float x, float cy, boolean enabled, Runnable action) {
         ui.box(x, cy - 15, 30, 30, 8, enabled && ui.over(x, cy - 15, 30, 30) ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
         ui.icon(shape, x + 9, cy - 6, 12, ui.c(enabled ? "button.fg" : "text.dim"));
         if (enabled) {

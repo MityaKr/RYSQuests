@@ -113,7 +113,7 @@ class EditorFilesTest {
     void sectionFileLeavesItsIdToThePath() throws Exception {
         PagesSection section = new PagesSection(ResourceLocation.parse("t:rules"), "Rules", Optional.empty(), Optional.empty(), Optional.empty(), List.of(new Guide.Page("a", "A", "text")));
 
-        EditorFiles.save(root, Optional.empty(), Optional.of(section), "ru_ru", Map.of(), Map.of(), false);
+        EditorFiles.save(root, Optional.empty(), Optional.of((works.repka.rysquests.data.SectionDef) section), "ru_ru", Map.of(), Map.of(), false);
 
         JsonObject json = readJson("data/t/rysquests/sections/rules.json");
         assertFalse(json.has("id"));

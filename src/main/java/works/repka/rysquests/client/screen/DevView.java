@@ -48,6 +48,13 @@ final class DevView implements BookView {
         float chipX = x + 18 + 36 + ui.width("RYSQuests", 16, Ui.DISPLAY) + 10;
         float chipW = ui.pill("Dev", chipX, cy, 11, Ui.SEMIBOLD, 8, 18, 9, ui.c("chip.mod.bg"), ui.c("chip.mod.fg"));
         float cursor = chipX + chipW + 22;
+        String constructor = Component.translatable("rysquests.editor.open_constructor").getString();
+        float constructorW = ui.buttonWidth(constructor, 11.5f, Ui.REGULAR, 10) + 2;
+        ui.button(constructor, x + w - 18 - constructorW, cy - 15, constructorW, 30, 8, 11.5f, Ui.REGULAR, 10, Ui.Style.PLAIN, () -> {
+            if (net.minecraft.client.Minecraft.getInstance().screen instanceof BookScreen screen) {
+                screen.openSectionEditor(null);
+            }
+        });
         DevReports.Report report = ClientDev.report();
         for (Tab option : Tab.values()) {
             boolean active = option == tab;

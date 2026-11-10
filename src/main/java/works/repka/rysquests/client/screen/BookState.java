@@ -97,9 +97,16 @@ final class BookState {
         return sections.isEmpty() ? Chapter.STORY : sections.getFirst();
     }
 
+    /** The unsaved section the editor shows through the player's eyes. */
+    @Nullable
+    static SectionDef previewSection;
+
     /** The custom section on screen, or null in the story and the guides. */
     @Nullable
     static SectionDef customSection() {
+        if (previewSection != null) {
+            return previewSection;
+        }
         String current = currentSection();
         ResourceLocation id = current.equals(Chapter.STORY) || current.equals(BookMeta.GUIDES) ? null : ResourceLocation.tryParse(current);
         return id == null ? null : ClientBook.current().sections().get(id);

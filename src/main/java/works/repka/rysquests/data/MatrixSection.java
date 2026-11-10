@@ -6,6 +6,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.StringRepresentable;
 
@@ -123,6 +124,28 @@ public record MatrixSection(
     @Override
     public String template() {
         return TEMPLATE;
+    }
+
+    @Override
+    public Set<String> textKeys() {
+        Set<String> keys = commonKeys();
+        search.ifPresent(keys::add);
+        rowTitle.ifPresent(keys::add);
+        groups.forEach(group -> keys.add(groupTitle(group)));
+        for (Column column : columns) {
+            keys.add(column.title());
+            column.hint().ifPresent(keys::add);
+        }
+        for (Row row : rows) {
+            keys.add(rowTitle(row));
+            for (Column column : columns) {
+                for (Way way : row.ways(column)) {
+                    keys.add(wayName(row, column, way));
+                    keys.add(wayText(row, column, way));
+                }
+            }
+        }
+        return keys;
     }
 
     public String rowTitle(Row row) {
