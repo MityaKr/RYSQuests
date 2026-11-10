@@ -22,6 +22,8 @@ public final class ClientProgress {
     private static List<ResourceLocation> pinned = List.of();
     private static Set<ResourceLocation> stageLocked = Set.of();
     private static Set<ResourceLocation> guideLocked = Set.of();
+    private static Set<String> openStages = Set.of();
+    private static List<String> pinnedWays = List.of();
     private static final Set<String> GUIDE_PAGES = new HashSet<>();
     private static int teamSize = 1;
 
@@ -45,7 +47,7 @@ public final class ClientProgress {
         payload.quests().forEach((id, progress) -> {
             if (progress.completed() && !get(id).completed()) {
                 Quest quest = ClientBook.current().quests().get(id);
-                if (quest != null) {
+                if (quest != null && !quest.options().hidden()) {
                     StickerBoard.celebrate(quest);
                 }
             }
@@ -64,11 +66,22 @@ public final class ClientProgress {
 
     static void receivePinned(PinnedPayload payload) {
         pinned = payload.quests();
+        pinnedWays = payload.ways();
     }
 
     static void receiveStageLocks(StageLocksPayload payload) {
         stageLocked = Set.copyOf(payload.quests());
         guideLocked = Set.copyOf(payload.guides());
+        openStages = Set.copyOf(payload.openStages());
+    }
+
+    /** Only knows the stages named by custom sections. */
+    public static boolean hasStage(String stage) {
+        return openStages.contains(stage);
+    }
+
+    public static List<String> pinnedWays() {
+        return pinnedWays;
     }
 
     public static boolean isGuideLocked(ResourceLocation guide) {
@@ -99,6 +112,8 @@ public final class ClientProgress {
         pinned = List.of();
         stageLocked = Set.of();
         guideLocked = Set.of();
+        openStages = Set.of();
+        pinnedWays = List.of();
         GUIDE_PAGES.clear();
     }
 }

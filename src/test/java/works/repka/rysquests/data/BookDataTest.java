@@ -81,8 +81,8 @@ class BookDataTest {
         BookValidator.Result result = validate(example());
 
         assertEquals(List.of(), result.report().issues());
-        assertEquals(6, result.book().quests().size());
-        assertEquals(List.of(ResourceLocation.parse("example:01_start"), ResourceLocation.parse("example:02_power")),
+        assertEquals(7, result.book().quests().size());
+        assertEquals(List.of(ResourceLocation.parse("example:01_start"), ResourceLocation.parse("example:02_power"), ResourceLocation.parse("example:_cards/bosses")),
                 List.copyOf(result.book().chapters().keySet()));
     }
 
@@ -231,7 +231,7 @@ class BookDataTest {
         assertEquals(3, furnace.pages().size());
         assertEquals(1, furnace.pageIndex("build"));
         assertRoundTrips(Guide.CODEC, furnace);
-        assertEquals(List.of("story", "guides"), book.meta().sections());
+        assertEquals(List.of("story", "guides", "example:ores", "example:bosses", "example:rules"), book.meta().sections());
         QuestBook decoded = QuestBook.fromWire(book.wire(), book.hash());
         assertEquals(book.guides(), decoded.guides());
         assertEquals("example:furnace#fuel", book.quests().get(ResourceLocation.parse("example:start/first_furnace")).guide().orElseThrow().toString());
@@ -304,5 +304,81 @@ class BookDataTest {
         assertEquals(List.of(ResourceLocation.parse("minecraft:stone"), ResourceLocation.parse("minecraft:dirt")), GuideTopics.items(text));
         assertEquals(List.of("t:exact", "t:whole", "t:named", "t:item"),
                 GuideTopics.quests(book, guide, guide.pages().getFirst(), text).stream().map(found -> found.id().toString()).toList());
+    }
+
+    // --- custom sections ---
+
+    private static ResourceLocation sectionFile(String name) {
+        return ResourceLocation.fromNamespaceAndPath("t", "sections/" + name);
+    }
+
+    @Test
+    void exampleSectionsLoadWithIdsFromTheirFiles() throws IOException {
+        BookValidator.Result result = validate(example());
+
+        assertEquals(Set.of(), codes(result));
+        assertEquals(Set.of(ResourceLocation.parse("example:ores"), ResourceLocation.parse("example:bosses"), ResourceLocation.parse("example:rules")), result.book().sections().keySet());
+        result.book().sections().values().forEach(section -> assertRoundTrips(SectionDef.CODEC, section));
+        QuestBook decoded = QuestBook.fromWire(result.book().wire(), result.book().hash());
+        assertEquals(result.book().sections(), decoded.sections());
+    }
+
+    @Test
+    void aWayIsFoundByItsPinKey() throws IOException {
+        QuestBook book = validate(example()).book();
+        MatrixSection ores = (MatrixSection) book.sections().get(ResourceLocation.parse("example:ores"));
+        MatrixSection.Row iron = ores.rows().getFirst();
+        MatrixSection.Column middle = ores.columns().get(1);
+        String key = ores.pinKey(iron, middle, iron.ways(middle).getFirst());
+
+        assertEquals("furnace", MatrixSection.findPinned(book, key).orElseThrow().way().id());
+        assertTrue(MatrixSection.findPinned(book, "example:ores#iron#mid#gone").isEmpty());
+        assertTrue(MatrixSection.findPinned(book, "nonsense").isEmpty());
+    }
+
+    @Test
+    void cardConditionBecomesAHiddenQuestOutsideTheStory() throws IOException {
+        QuestBook book = validate(example()).book();
+        Quest condition = book.quests().get(ResourceLocation.parse("example:_cards/bosses/first_stone"));
+
+        assertTrue(condition.options().hidden());
+        assertFalse(book.chapters().get(condition.chapter().orElseThrow()).isStory());
+        assertTrue(book.quests().keySet().stream().noneMatch(id -> id.getPath().endsWith("/wither")));
+    }
+
+    @Test
+    void unknownTemplateIsAParseError() {
+        Map<ResourceLocation, JsonElement> files = singleChapter();
+        files.put(sectionFile("x"), quest("{\"template\":\"nope\",\"title\":\"T\"}"));
+
+        BookValidator.Result result = validate(files);
+
+        assertTrue(codes(result).contains("parse_error"));
+        assertTrue(result.book().sections().isEmpty());
+    }
+
+    @Test
+    void brokenSectionsAreLeftOutAndBrokenLinksOnlyReported() {
+        Map<ResourceLocation, JsonElement> files = singleChapter();
+        files.put(sectionFile("empty"), quest("{\"template\":\"cards\",\"title\":\"T\",\"cards\":[]}"));
+        files.put(sectionFile("twice"), quest("{\"template\":\"pages\",\"title\":\"T\",\"pages\":[{\"id\":\"a\",\"title\":\"T\",\"text\":\"x\"},{\"id\":\"a\",\"title\":\"T\",\"text\":\"y\"}]}"));
+        files.put(sectionFile("links"), quest("{\"template\":\"matrix\",\"title\":\"T\",\"columns\":[{\"id\":\"c\",\"title\":\"C\"}],\"rows\":[{\"id\":\"r\",\"cells\":{\"c\":[{\"id\":\"w\",\"links\":[{\"type\":\"quest\",\"id\":\"t:none\"}]}],\"other\":[]}}]}"));
+
+        BookValidator.Result result = validate(files);
+
+        assertTrue(codes(result).containsAll(Set.of("empty_section", "duplicate_section_id", "unknown_section_link", "unknown_section_column")));
+        assertEquals(Set.of(ResourceLocation.parse("t:links")), result.book().sections().keySet());
+    }
+
+    @Test
+    void cardMayLinkToASectionOfPages() {
+        Map<ResourceLocation, JsonElement> files = singleChapter();
+        files.put(sectionFile("book"), quest("{\"template\":\"pages\",\"title\":\"T\",\"pages\":[{\"id\":\"a\",\"title\":\"T\",\"text\":\"x\"}]}"));
+        files.put(sectionFile("cards"), quest("{\"template\":\"cards\",\"title\":\"T\",\"cards\":[{\"id\":\"c\",\"page\":\"t:book#a\"},{\"id\":\"d\",\"page\":\"t:book#missing\",\"art\":\"red\"}]}"));
+
+        BookValidator.Result result = validate(files);
+
+        assertEquals(1, result.report().issues().stream().filter(issue -> issue.code().equals("unknown_section_link")).count());
+        assertTrue(codes(result).contains("bad_section_color"));
     }
 }

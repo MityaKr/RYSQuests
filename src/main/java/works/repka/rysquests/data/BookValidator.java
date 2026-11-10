@@ -36,7 +36,8 @@ public final class BookValidator {
         Set<ResourceLocation> broken = new LinkedHashSet<>();
         quests.values().forEach(quest -> checkQuest(quest, chapters, quests, itemExists, broken, issues));
         quests.values().forEach(quest -> checkGuideLink(quest, guides, issues));
-        checkSections(raw.meta(), issues);
+        Map<ResourceLocation, SectionDef> sections = SectionValidator.check(raw.sections(), quests, guides, itemExists, issues);
+        checkSections(raw.meta(), sections, issues);
         findCycles(quests, broken, issues);
         spreadBrokenDependencies(quests, broken, issues);
         chapters.values().forEach(chapter -> checkChapter(chapter, chapters, issues));
@@ -44,7 +45,8 @@ public final class BookValidator {
         List<Quest> valid = quests.values().stream().filter(quest -> !broken.contains(quest.id())).toList();
         List<Chapter> ordered = orderChapters(raw.meta(), chapters, issues);
         List<Guide> guideList = List.copyOf(guides.values());
-        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, guideList, BookHash.compute(ordered, valid, guideList, ops));
+        List<SectionDef> sectionList = List.copyOf(sections.values());
+        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, guideList, sectionList, BookHash.compute(ordered, valid, guideList, sectionList, ops));
         return new Result(book, new BookReport(List.copyOf(issues)));
     }
 
@@ -107,9 +109,11 @@ public final class BookValidator {
         });
     }
 
-    private static void checkSections(BookMeta meta, List<Issue> issues) {
+    private static void checkSections(BookMeta meta, Map<ResourceLocation, SectionDef> sections, List<Issue> issues) {
         for (String section : meta.sections()) {
-            if (!section.equals(Chapter.STORY) && !section.equals(BookMeta.GUIDES)) {
+            ResourceLocation id = ResourceLocation.tryParse(section);
+            boolean custom = id != null && sections.containsKey(id);
+            if (!section.equals(Chapter.STORY) && !section.equals(BookMeta.GUIDES) && !custom) {
                 issues.add(new Issue(Severity.WARNING, "unknown_section", "book", section));
             }
         }

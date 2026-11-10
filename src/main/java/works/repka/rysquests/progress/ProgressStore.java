@@ -28,6 +28,7 @@ public final class ProgressStore extends SavedData {
     private static final String MEMBERS = "members";
     private static final String APPLIED = "applied_migrations";
     private static final String GUIDE_PAGES = "guide_pages";
+    private static final String PINNED_WAYS = "pinned_ways";
     private static final UUID SERVER_TEAM = new UUID(0, 0);
 
     private static final Codec<Map<UUID, Map<ResourceLocation, QuestProgress>>> CODEC = Codec.unboundedMap(
@@ -44,6 +45,7 @@ public final class ProgressStore extends SavedData {
     private final Map<UUID, UUID> members = new HashMap<>();
     private final List<String> applied = new ArrayList<>();
     private final Map<UUID, Set<String>> guidePages = new HashMap<>();
+    private final Map<UUID, List<String>> pinnedWays = new HashMap<>();
 
     public static ProgressStore get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(FACTORY, NAME);
@@ -70,6 +72,9 @@ public final class ProgressStore extends SavedData {
             GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(GUIDE_PAGES)).result().ifPresent(saved ->
                     saved.forEach((player, pages) -> store.guidePages.put(player, new HashSet<>(pages))));
         }
+        if (tag.contains(PINNED_WAYS)) {
+            GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(PINNED_WAYS)).result().ifPresent(store.pinnedWays::putAll);
+        }
         return store;
     }
 
@@ -83,6 +88,7 @@ public final class ProgressStore extends SavedData {
         Map<UUID, List<String>> pages = new HashMap<>();
         guidePages.forEach((player, read) -> pages.put(player, read.stream().sorted().toList()));
         tag.put(GUIDE_PAGES, GUIDE_PAGES_CODEC.encodeStart(NbtOps.INSTANCE, pages).getOrThrow());
+        tag.put(PINNED_WAYS, GUIDE_PAGES_CODEC.encodeStart(NbtOps.INSTANCE, pinnedWays).getOrThrow());
         return tag;
     }
 
@@ -110,6 +116,16 @@ public final class ProgressStore extends SavedData {
 
     public void setPinned(UUID player, List<ResourceLocation> quests) {
         pinned.put(player, List.copyOf(quests));
+        setDirty();
+    }
+
+    /** The ways of matrix sections a player keeps on the screen. */
+    public List<String> pinnedWays(UUID player) {
+        return pinnedWays.getOrDefault(player, List.of());
+    }
+
+    public void setPinnedWays(UUID player, List<String> ways) {
+        pinnedWays.put(player, List.copyOf(ways));
         setDirty();
     }
 

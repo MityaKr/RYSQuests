@@ -25,8 +25,12 @@ import works.repka.rysquests.client.integration.Recipes;
 import works.repka.rysquests.data.BookMeta;
 import works.repka.rysquests.data.Chapter;
 import works.repka.rysquests.data.Guide;
+import works.repka.rysquests.data.MatrixSection;
+import works.repka.rysquests.data.PagesSection;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
+import works.repka.rysquests.data.CardsSection;
+import works.repka.rysquests.data.SectionDef;
 import works.repka.rysquests.data.ViewMode;
 import works.repka.rysquests.network.QuestActionPayload;
 import works.repka.rysquests.progress.QuestLogic;
@@ -80,9 +84,74 @@ public final class BookScreen extends ScaledScreen {
     private final ReadingColumn reading = new ReadingColumn(this);
     private final Guides guides = new Guides();
     private final GuideLibraryView guideLibrary = new GuideLibraryView(this, guides);
-    private final GuidePageView guidePage = new GuidePageView(guides);
+    private final GuidePageView guidePage = new GuidePageView(guides, new GuidePageView.Source() {
+        @Nullable
+        @Override
+        public Guide guide() {
+            return BookState.guide == null ? null : book().guides().get(BookState.guide);
+        }
+
+        @Override
+        public int page() {
+            return BookState.guidePage;
+        }
+
+        @Override
+        public void open(Guide guide, int page) {
+            BookState.openGuide(guide, page);
+        }
+
+        @Override
+        public boolean tracksReading() {
+            return true;
+        }
+
+        @Override
+        public String crumb() {
+            return Component.translatable("rysquests.section.guides").getString();
+        }
+
+        @Override
+        public void back() {
+            BookState.openLibrary();
+        }
+    });
+    private final GuidePageView pagesSection = new GuidePageView(guides, new GuidePageView.Source() {
+        @Nullable
+        @Override
+        public Guide guide() {
+            return BookState.customSection() instanceof PagesSection pages ? pages.asGuide() : null;
+        }
+
+        @Override
+        public int page() {
+            return BookState.customSection() instanceof PagesSection pages ? BookState.SECTION_PAGES.getOrDefault(pages.id(), 0) : 0;
+        }
+
+        @Override
+        public void open(Guide guide, int page) {
+            BookState.SECTION_PAGES.put(guide.id(), page);
+        }
+
+        @Override
+        public boolean tracksReading() {
+            return false;
+        }
+
+        @Nullable
+        @Override
+        public String crumb() {
+            return null;
+        }
+
+        @Override
+        public void back() {
+        }
+    });
+    private final MatrixView matrix = new MatrixView(this);
+    private final CardsView cards = new CardsView();
     @Nullable
-    private Field guideSearch;
+    private Field sectionSearch;
     private int sectionsW;
     @Nullable
     private QuestBook cachedFor;
@@ -121,11 +190,11 @@ public final class BookScreen extends ScaledScreen {
         searchBox.setValue(BookState.search);
         searchBox.setResponder(value -> BookState.search = value);
         addWidget(searchBox);
-        guideSearch = new Field(80, 10);
-        guideSearch.setHint(Component.translatable("rysquests.guides.search"));
-        guideSearch.setValue(BookState.guideSearch);
-        guideSearch.setResponder(value -> BookState.guideSearch = value);
-        addWidget(guideSearch);
+        sectionSearch = new Field(80, 10);
+        sectionSearch.setHint(Component.translatable("rysquests.guides.search"));
+        sectionSearch.setValue(BookState.sectionSearch);
+        sectionSearch.setResponder(value -> BookState.sectionSearch = value);
+        addWidget(sectionSearch);
     }
 
     @Override
@@ -291,25 +360,28 @@ public final class BookScreen extends ScaledScreen {
         }
         refreshCounts();
         if (searchBox != null) {
-            boolean searchable = !BookState.inGuides() && (BookState.currentView() == ViewMode.MAP || BookState.currentView() == ViewMode.LIST);
+            boolean searchable = BookState.inStory() && (BookState.currentView() == ViewMode.MAP || BookState.currentView() == ViewMode.LIST);
             searchBox.visible = searchable;
             if (!searchable && searchBox.isFocused()) {
                 searchBox.setFocused(false);
                 setFocused(null);
             }
         }
-        if (guideSearch != null) {
-            boolean searchable = BookState.inGuides() && BookState.guidePage < 0;
-            guideSearch.visible = searchable;
-            if (!searchable && guideSearch.isFocused()) {
-                guideSearch.setFocused(false);
+        if (sectionSearch != null) {
+            boolean searchable = BookState.inGuides() && BookState.guidePage < 0 || BookState.customSection() instanceof MatrixSection table && !table.compact();
+            sectionSearch.visible = searchable;
+            if (!sectionSearch.getValue().equals(BookState.sectionSearch)) {
+                sectionSearch.setValue(BookState.sectionSearch);
+            }
+            if (!searchable && sectionSearch.isFocused()) {
+                sectionSearch.setFocused(false);
                 setFocused(null);
             }
         }
         List<String> sections = BookState.sections();
         sectionsW = sections.size() > 1 ? SECTIONS_W : 0;
         ui.squareLeft = sectionsW > 0;
-        if (BookState.inGuides()) {
+        if (!BookState.inStory()) {
             renderGuidesFrame(ui, x, y, w, h);
         } else if (BookState.currentView() == ViewMode.FLOW) {
             renderFlowFrame(ui, x, y, w, h);
@@ -331,7 +403,7 @@ public final class BookScreen extends ScaledScreen {
     // --- the rail of sections ---
 
     private void renderSections(Ui ui, List<String> sections, int x, int y, int h) {
-        boolean flow = !BookState.inGuides() && BookState.currentView() == ViewMode.FLOW;
+        boolean flow = BookState.inStory() && BookState.currentView() == ViewMode.FLOW;
         ui.fillCorners(x, y, SECTIONS_W, h, flow ? 15 : 13, ui.railBg(), true, false, false, true);
         ui.rect(x + SECTIONS_W - 1, y, 1, h, ui.c("panel.border"));
         float center = x + (SECTIONS_W - 1) / 2f;
@@ -351,8 +423,14 @@ public final class BookScreen extends ScaledScreen {
         }
         int fg = ui.c(open ? "text.primary" : "text.muted");
         float center = x + SECTION_ITEM_W / 2f;
-        ui.sectionIcon(section, center - 10, y + 11.5f, 20, fg);
-        ui.labelCentered(Component.translatable("rysquests.section." + section).getString(), center, y + 35.5f + 6.5f, 10.5f, Ui.REGULAR, fg);
+        SectionDef custom = ResourceLocation.tryParse(section) == null ? null : book().sections().get(ResourceLocation.parse(section));
+        if (custom != null) {
+            ui.item(custom.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY), center - 10, y + 11.5f, 20);
+        } else {
+            ui.sectionIcon(section, center - 10, y + 11.5f, 20, fg);
+        }
+        String name = Component.translatable(custom != null ? custom.shortTitle().orElse(custom.title()) : "rysquests.section." + section).getString();
+        ui.labelCentered(ui.fit(name, SECTION_ITEM_W - 4, 10.5f, Ui.REGULAR), center, y + 35.5f + 6.5f, 10.5f, Ui.REGULAR, fg);
         int badge = section.equals(BookMeta.GUIDES) ? guides.neededCount() : 0;
         if (badge > 0) {
             String count = String.valueOf(badge);
@@ -371,20 +449,29 @@ public final class BookScreen extends ScaledScreen {
     }
 
     private BookView guideView() {
-        return BookState.guidePage >= 0 ? guidePage : guideLibrary;
+        SectionDef custom = BookState.customSection();
+        if (custom == null) {
+            return BookState.guidePage >= 0 ? guidePage : guideLibrary;
+        }
+        return switch (custom) {
+            case MatrixSection table -> matrix;
+            case CardsSection catalog -> cards;
+            case PagesSection pages -> pagesSection;
+        };
     }
 
-    /** The search field of the library, which sits in its header. */
-    void renderGuideSearch(Ui ui, float right, float cy, int w) {
+    /** The search field in the header of a section. @param hint the section's own hint, or null for the usual one */
+    void renderSectionSearch(Ui ui, float right, float cy, int w, @Nullable String hint) {
         float x = right - w;
-        boolean focused = guideSearch != null && guideSearch.isFocused();
+        boolean focused = sectionSearch != null && sectionSearch.isFocused();
         ui.box(x, cy - 19, w, 38, 9, ui.c("input.bg"), focused ? ui.c("card.border") : ui.c("input.border"));
         ui.icon(Icons.Shape.MAGNIFIER, x + 13, cy - 5, 10, ui.c("text.muted"));
-        if (guideSearch != null) {
-            guideSearch.setX(Math.round((x + 29) / 2f));
-            guideSearch.setY(Math.round(cy / 2f) - 5);
-            guideSearch.setWidth(Math.round((w - 29 - 13) / 2f));
-            guideSearch.render(ui.g, ui.mouseX / 2, ui.mouseY / 2, 0);
+        if (sectionSearch != null) {
+            sectionSearch.setHint(hint != null ? Component.literal(hint) : Component.translatable("rysquests.guides.search"));
+            sectionSearch.setX(Math.round((x + 29) / 2f));
+            sectionSearch.setY(Math.round(cy / 2f) - 5);
+            sectionSearch.setWidth(Math.round((w - 29 - 13) / 2f));
+            sectionSearch.render(ui.g, ui.mouseX / 2, ui.mouseY / 2, 0);
         }
     }
 
@@ -664,8 +751,8 @@ public final class BookScreen extends ScaledScreen {
                     searchBox.setFocused(false);
                     setFocused(null);
                 }
-                if (guideSearch != null) {
-                    guideSearch.setFocused(false);
+                if (sectionSearch != null) {
+                    sectionSearch.setFocused(false);
                     setFocused(null);
                 }
                 return true;
@@ -680,13 +767,13 @@ public final class BookScreen extends ScaledScreen {
 
     @Override
     protected boolean onDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        return !BookState.inGuides() && activeView().drag(dragX * 2, dragY * 2) || super.onDrag(mouseX, mouseY, button, dragX, dragY);
+        return BookState.inStory() && activeView().drag(dragX * 2, dragY * 2) || super.onDrag(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override
     protected boolean onScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
         double x = mouseX * 2;
-        if (BookState.inGuides()) {
+        if (!BookState.inStory()) {
             guideView().scroll(x, mouseY * 2, scrollY);
         } else if (x >= chaptersLeft && x < chaptersRight) {
             if (BookState.currentView() == ViewMode.FLOW) {
@@ -708,7 +795,7 @@ public final class BookScreen extends ScaledScreen {
 
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
-        boolean typing = searchBox != null && searchBox.isFocused() || guideSearch != null && guideSearch.isFocused();
+        boolean typing = searchBox != null && searchBox.isFocused() || sectionSearch != null && sectionSearch.isFocused();
         if (typing && searchBox.isFocused() && key == GLFW.GLFW_KEY_ENTER && !BookState.search.isBlank()) {
             SearchIndex.find(BookState.search).stream().findFirst().ifPresent(BookState::select);
             searchBox.setFocused(false);
@@ -721,7 +808,7 @@ public final class BookScreen extends ScaledScreen {
             return true;
         }
         if (!typing) {
-            if ((BookState.inGuides() ? guideView() : activeView()).key(key)) {
+            if ((BookState.inStory() ? activeView() : guideView()).key(key)) {
                 return true;
             }
             if (QuestKeys.OPEN_BOOK.matches(key, scan)) {
@@ -766,6 +853,18 @@ public final class BookScreen extends ScaledScreen {
 
     public static List<String> guideIssuesForTest() {
         return GuideCheck.section().entries().stream().map(entry -> entry.subject() + " " + entry.detail()).toList();
+    }
+
+    public static void showSectionForTest(String section) {
+        BookState.openSection(section);
+    }
+
+    public static String currentSectionForTest() {
+        return BookState.currentSection();
+    }
+
+    public static int sectionPageForTest(ResourceLocation section) {
+        return BookState.SECTION_PAGES.getOrDefault(section, 0);
     }
 
     public static void showGuidesForTest() {

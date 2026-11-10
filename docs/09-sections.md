@@ -77,17 +77,22 @@
 
 ### Формат
 
-Один файл на вкладку: `data/<ns>/rysquests/sections/<id>.json`.
+Один файл на вкладку: `data/<ns>/rysquests/sections/<id>.json`. Id вкладки это путь файла: `repys:mining_atlas`. На рейку вкладка попадает строкой в `sections` файла `book.json`. Живые примеры всех трёх шаблонов в `examples/example_pack`.
 
 ```json
 {
   "template": "matrix",
   "title": "section.repys.mining_atlas",
+  "short_title": "section.repys.mining_atlas.short",
+  "subtitle": "section.repys.mining_atlas.subtitle",
   "icon": "minecraft:iron_pickaxe",
   "spoilers": "dim",
+  "compact": false,
+  "search": "section.repys.mining_atlas.search",
+  "row_title": "section.repys.mining_atlas.rows",
   "groups": ["metal", "gem", "fluid"],
   "columns": [
-    { "id": "early", "title": "section.repys.mining_atlas.early" },
+    { "id": "early", "title": "section.repys.mining_atlas.early", "hint": "section.repys.mining_atlas.early.hint" },
     { "id": "mid",   "title": "section.repys.mining_atlas.mid",  "stage": "repys:epoch_3" },
     { "id": "late",  "title": "section.repys.mining_atlas.late", "stage": "repys:epoch_6" }
   ],
@@ -102,7 +107,7 @@
             "links": [
               { "type": "quest",  "id": "repys:industry/crushing" },
               { "type": "recipe", "id": "create:crushed_raw_iron" },
-              { "type": "guide",  "id": "create/crushing" }
+              { "type": "guide",  "id": "repys:create#crushing" }
             ]
           }
         ]
@@ -112,15 +117,17 @@
 }
 ```
 
+`compact: true` рисует ячейки значками, как `Atlas.dc.html`. `mark` это `auto` или `manual`. Название группы берётся из ключа `<title>.group.<id>`, строки из `<title>.<row>.name`, если у неё нет своего `title`.
+
 Тексты способа берутся из lang по ключу `<title вкладки>.<row>.<column>.<way>.name` и `.text`. Id строк и способов строковые и стабильные, как у квестов. Прогресса у кастомной вкладки нет, на сервере она ничего не хранит: файл уходит клиенту вместе с книгой.
 
 ### Шаблон «Карточки»
 
 Каталог: сетка карточек с фильтрами и поиском. Макет: `design/Cards.dc.html` (пример «Боссы»).
 
-- Карточка: иконка, фон, название, строка описания, метка (например измерение), группа для фильтра, необязательные `stage` (закрыта до стадии) и `done` (условие отметки, тот же тип, что задача квеста).
-- Справа панель выбранной карточки: описание.
-- Кнопка «Открыть страницу»: полная страница в формате гайдов.
+- Карточка: иконка, цвет фона `art` (`#rrggbb`), группа для фильтра, необязательные `stage` и `stage_title` (закрыта до стадии) и `done` (условие отметки, тот же тип, что задача квеста).
+- Справа панель выбранной карточки: описание, `needs`, `gives`, совет.
+- Кнопка «Открыть страницу» ведёт по `page` на гайд или вкладку на шаблоне «Страницы», «К квесту» по `quest`.
 
 ```json
 {
@@ -129,16 +136,20 @@
   "icon": "minecraft:wither_skeleton_skull",
   "groups": ["overworld", "nether", "end", "modded"],
   "cards": [
-    { "id": "wither", "icon": "minecraft:nether_star", "group": "nether",
-      "done": { "type": "kill", "entity": "minecraft:wither" },
-      "page": "repys:bosses/wither" }
+    { "id": "wither", "icon": "minecraft:nether_star", "group": "nether", "art": "#22232a",
+      "done": { "type": "rysquests:kill", "entity": "minecraft:wither" },
+      "needs": [ { "item": "minecraft:soul_sand", "count": 4 } ],
+      "gives": ["minecraft:nether_star"],
+      "page": "repys:boss_pages#wither" }
   ]
 }
 ```
 
+Тексты карточки: ключи `<title>.<card>.name`, `.desc`, `.meta`, `.text`, `.tip`, `.needs_title`, `.gives_title`. Вкладка может заменить общие слова ключами `<title>.done`, `<title>.open`, `<title>.locked` и `<title>.done_count`.
+
 ### Шаблон «Страницы»
 
-Книга из страниц текста. **Это замена Patchouli** внутри книги квестов. Вид игрока тот же, что у гайда изнутри. Формат страниц и редактор те же, что у гайдов, файлы лежат в `sections/<id>/`. Подходит для правил сервера, лора, списка изменений, справочника по сборке.
+Книга из страниц текста. **Это замена Patchouli** внутри книги квестов. Вид игрока тот же, что у гайда изнутри. Формат страниц и редактор те же, что у гайдов, страницы лежат в одном файле вкладки в поле `pages`. Подходит для правил сервера, лора, списка изменений, справочника по сборке.
 
 Гайды это по сути встроенная вкладка на «Страницах» с двумя добавками: связь с квестами и библиотека.
 

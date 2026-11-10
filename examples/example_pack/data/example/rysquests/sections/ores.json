@@ -1,0 +1,108 @@
+{
+  "template": "matrix",
+  "title": "section.example.ores",
+  "short_title": "section.example.ores.short",
+  "subtitle": "section.example.ores.subtitle",
+  "icon": "minecraft:iron_pickaxe",
+  "spoilers": "dim",
+  "search": "section.example.ores.search",
+  "row_title": "section.example.ores.rows",
+  "groups": [
+    "metal",
+    "gem"
+  ],
+  "columns": [
+    {
+      "id": "early",
+      "title": "section.example.ores.early",
+      "hint": "section.example.ores.early.hint"
+    },
+    {
+      "id": "mid",
+      "title": "section.example.ores.mid",
+      "hint": "section.example.ores.mid.hint",
+      "stage": "minecraft:story/mine_stone"
+    },
+    {
+      "id": "late",
+      "title": "section.example.ores.late",
+      "hint": "section.example.ores.late.hint",
+      "stage": "minecraft:story/enter_the_nether"
+    }
+  ],
+  "rows": [
+    {
+      "id": "iron",
+      "icon": "minecraft:iron_ingot",
+      "group": "metal",
+      "cells": {
+        "early": [
+          {
+            "id": "cave",
+            "icon": "minecraft:stone_pickaxe"
+          }
+        ],
+        "mid": [
+          {
+            "id": "furnace",
+            "icon": "minecraft:furnace",
+            "best": true,
+            "needs": [
+              "minecraft:furnace",
+              "minecraft:coal"
+            ],
+            "links": [
+              {
+                "type": "quest",
+                "id": "example:start/first_furnace"
+              },
+              {
+                "type": "recipe",
+                "id": "minecraft:furnace"
+              },
+              {
+                "type": "guide",
+                "id": "example:furnace#fuel"
+              }
+            ]
+          },
+          {
+            "id": "hopper",
+            "icon": "minecraft:hopper",
+            "mark": "auto",
+            "needs": [
+              "minecraft:hopper"
+            ]
+          }
+        ],
+        "late": [
+          {
+            "id": "golems",
+            "icon": "minecraft:iron_block",
+            "mark": "auto"
+          }
+        ]
+      }
+    },
+    {
+      "id": "diamond",
+      "icon": "minecraft:diamond",
+      "group": "gem",
+      "cells": {
+        "mid": [
+          {
+            "id": "deep",
+            "icon": "minecraft:iron_pickaxe",
+            "best": true
+          }
+        ],
+        "late": [
+          {
+            "id": "fortune",
+            "icon": "minecraft:enchanted_book"
+          }
+        ]
+      }
+    }
+  ]
+}

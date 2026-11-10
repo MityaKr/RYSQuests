@@ -1,6 +1,7 @@
 package works.repka.rysquests.data;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
@@ -8,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import net.minecraft.resources.ResourceLocation;
 import works.repka.rysquests.data.BookReport.Issue;
@@ -18,6 +20,7 @@ import works.repka.rysquests.migrate.Migration;
 public final class BookParser {
     private static final String CHAPTERS = "chapters/";
     private static final String GUIDES = "guides/";
+    private static final String SECTIONS = "sections/";
     private static final String CHAPTER_FILE = "_chapter";
     private static final String QUESTS_FILE = "_quests";
     private static final String BOOK_FILE = "book";
@@ -58,13 +61,36 @@ public final class BookParser {
                 decode(Guide.CODEC, json, ops, id, issues).ifPresent(guides::add);
             }
         });
+        List<SectionDef> sections = new ArrayList<>();
+        sorted.forEach((id, json) -> {
+            if (id.getPath().startsWith(SECTIONS) && json.isJsonObject()) {
+                JsonObject withId = json.getAsJsonObject().deepCopy();
+                withId.addProperty("id", id.withPath(id.getPath().substring(SECTIONS.length())).toString());
+                decode(SectionDef.CODEC, withId, ops, id, issues).ifPresent(sections::add);
+            }
+        });
+        sections.stream().filter(CardsSection.class::isInstance).map(CardsSection.class::cast).forEach(section -> addCardConditions(section, chapters, quests));
         List<Migration> migrations = new ArrayList<>();
         sorted.forEach((id, json) -> {
             if (MIGRATIONS_FILE.equals(id.getPath())) {
                 decode(Migration.FILE_CODEC, json, ops, id, issues).ifPresent(migrations::addAll);
             }
         });
-        return new RawBook(meta, chapters, quests, guides, issues, migrations);
+        return new RawBook(meta, chapters, quests, guides, sections, issues, migrations);
+    }
+
+    /** Each card with a condition becomes a hidden quest in a chapter of its own section, out of sight of the story. */
+    private static void addCardConditions(CardsSection section, List<Chapter> chapters, List<Quest> quests) {
+        if (section.cards().stream().allMatch(card -> card.done().isEmpty())) {
+            return;
+        }
+        ResourceLocation holder = section.holderChapter();
+        chapters.add(new Chapter(holder, section.title(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), List.of(), List.of(), true, section.id().toString()));
+        for (CardsSection.Card card : section.cards()) {
+            card.done().ifPresent(task -> quests.add(new Quest(section.questId(card), Optional.of(holder), Optional.empty(), section.cardKey(card, "name"),
+                    Optional.empty(), Optional.empty(), card.icon(), List.of(), RequiresMode.ALL, Optional.empty(), List.of(task), List.of(), Optional.empty(),
+                    new QuestOptions(Layout.DEFAULT, 1, false, true, Optional.empty(), false, List.of()))));
+        }
     }
 
     private static BookMeta parseMeta(Map<ResourceLocation, JsonElement> files, DynamicOps<JsonElement> ops, List<Issue> issues) {

@@ -15,6 +15,7 @@ import works.repka.rysquests.client.ClientConfig;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.input.QuestKeys;
 import works.repka.rysquests.client.screen.Ui;
+import works.repka.rysquests.data.MatrixSection;
 import works.repka.rysquests.data.Quest;
 import works.repka.ryscore.ui.Anchors;
 import works.repka.ryscore.ui.Draw;
@@ -68,6 +69,9 @@ public final class StickerBoard {
             if (quest != null && !ClientProgress.get(id).completed()) {
                 stickers.add(new QuestSticker(quest));
             }
+        }
+        for (String key : ClientProgress.pinnedWays()) {
+            MatrixSection.findPinned(ClientBook.current(), key).ifPresent(pinned -> stickers.add(new WaySticker(key, pinned)));
         }
         stickers.sort(Comparator.comparingInt(Sticker::priority).reversed());
         DONE.forEach(done -> stickers.add(done.card));

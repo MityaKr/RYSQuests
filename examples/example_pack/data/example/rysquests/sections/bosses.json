@@ -1,0 +1,46 @@
+{
+  "template": "cards",
+  "title": "section.example.bosses",
+  "short_title": "section.example.bosses.short",
+  "subtitle": "section.example.bosses.subtitle",
+  "icon": "minecraft:wither_skeleton_skull",
+  "groups": [
+    "overworld",
+    "nether"
+  ],
+  "cards": [
+    {
+      "id": "first_stone",
+      "icon": "minecraft:cobblestone",
+      "group": "overworld",
+      "art": "#22232a",
+      "done": {
+        "type": "rysquests:advancement",
+        "advancement": "minecraft:story/mine_stone"
+      },
+      "quest": "example:start/first_tools"
+    },
+    {
+      "id": "wither",
+      "icon": "minecraft:nether_star",
+      "group": "nether",
+      "art": "#2a1c1c",
+      "needs": [
+        {
+          "item": "minecraft:wither_skeleton_skull",
+          "count": 3
+        },
+        {
+          "item": "minecraft:soul_sand",
+          "count": 4
+        }
+      ],
+      "gives": [
+        "minecraft:nether_star"
+      ],
+      "page": "example:rules#safety",
+      "stage": "minecraft:story/enter_the_nether",
+      "stage_title": "guide.example.stage.nether"
+    }
+  ]
+}

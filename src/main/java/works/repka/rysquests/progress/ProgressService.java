@@ -40,8 +40,11 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.api.QuestCompletedEvent;
 import works.repka.rysquests.data.BookHolder;
+import works.repka.rysquests.data.CardsSection;
 import works.repka.rysquests.data.Guide;
+import works.repka.rysquests.data.MatrixSection;
 import works.repka.rysquests.data.Quest;
+import works.repka.rysquests.data.SectionDef;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.RewardDef;
 import works.repka.rysquests.data.TaskDef;
@@ -83,6 +86,7 @@ public final class ProgressService {
     private static final Map<UUID, Integer> INVENTORY_HASH = new HashMap<>();
     private static final Map<UUID, Set<ResourceLocation>> STAGE_LOCKS = new HashMap<>();
     private static final Map<UUID, Set<ResourceLocation>> GUIDE_LOCKS = new HashMap<>();
+    private static final Map<UUID, Set<String>> OPEN_STAGES = new HashMap<>();
     private static QuestBook activeBook;
 
     private ProgressService() {
@@ -150,14 +154,34 @@ public final class ProgressService {
                 guideLocks.add(guide.id());
             }
         }
+        Set<String> open = new HashSet<>();
+        for (String stage : sectionStages()) {
+            if (Stages.has(player, stage)) {
+                open.add(stage);
+            }
+        }
         boolean questsChanged = !locks.equals(STAGE_LOCKS.put(player.getUUID(), locks));
         boolean guidesChanged = !guideLocks.equals(GUIDE_LOCKS.put(player.getUUID(), guideLocks));
+        boolean stagesChanged = !open.equals(OPEN_STAGES.put(player.getUUID(), open));
         if (questsChanged) {
             ACTIVE.remove(team(player));
         }
-        if (questsChanged || guidesChanged) {
-            PacketDistributor.sendToPlayer(player, new StageLocksPayload(List.copyOf(locks), List.copyOf(guideLocks)));
+        if (questsChanged || guidesChanged || stagesChanged) {
+            PacketDistributor.sendToPlayer(player, new StageLocksPayload(List.copyOf(locks), List.copyOf(guideLocks), List.copyOf(open)));
         }
+    }
+
+    /** The stages custom sections look at. */
+    private static Set<String> sectionStages() {
+        Set<String> stages = new HashSet<>();
+        for (SectionDef section : book().sections().values()) {
+            if (section instanceof MatrixSection matrix) {
+                matrix.columns().forEach(column -> column.stage().ifPresent(stages::add));
+            } else if (section instanceof CardsSection cards) {
+                cards.cards().forEach(card -> card.stage().ifPresent(stages::add));
+            }
+        }
+        return stages;
     }
 
     private static List<Quest> active(ServerPlayer player) {
@@ -476,11 +500,25 @@ public final class ProgressService {
     private static void togglePin(ServerPlayer player, Quest quest) {
         ProgressStore store = ProgressStore.get(player.server);
         List<ResourceLocation> pinned = new ArrayList<>(store.pinned(player.getUUID()));
-        if (!pinned.remove(quest.id()) && pinned.size() < book().meta().hud().maxPinned()) {
+        if (!pinned.remove(quest.id()) && pinned.size() + store.pinnedWays(player.getUUID()).size() < book().meta().hud().maxPinned()) {
             pinned.add(quest.id());
         }
         store.setPinned(player.getUUID(), pinned);
-        PacketDistributor.sendToPlayer(player, new PinnedPayload(List.copyOf(pinned)));
+        PacketDistributor.sendToPlayer(player, new PinnedPayload(List.copyOf(pinned), store.pinnedWays(player.getUUID())));
+    }
+
+    /** Quests and ways share the player's limit of pinned cards. */
+    public static void togglePinnedWay(ServerPlayer player, String key) {
+        if (MatrixSection.findPinned(book(), key).isEmpty()) {
+            return;
+        }
+        ProgressStore store = ProgressStore.get(player.server);
+        List<String> ways = new ArrayList<>(store.pinnedWays(player.getUUID()));
+        if (!ways.remove(key) && ways.size() + store.pinned(player.getUUID()).size() < book().meta().hud().maxPinned()) {
+            ways.add(key);
+        }
+        store.setPinnedWays(player.getUUID(), ways);
+        PacketDistributor.sendToPlayer(player, new PinnedPayload(store.pinned(player.getUUID()), List.copyOf(ways)));
     }
 
     private static boolean isOpen(ServerPlayer player, Quest quest) {
@@ -647,13 +685,14 @@ public final class ProgressService {
         Map<ResourceLocation, QuestProgress> view = new HashMap<>();
         store.team(team(player)).forEach((id, progress) -> view.put(id, viewFor(player, id, progress)));
         PacketDistributor.sendToPlayer(player, new ProgressPayload(true, view));
-        PacketDistributor.sendToPlayer(player, new PinnedPayload(store.pinned(player.getUUID())));
+        PacketDistributor.sendToPlayer(player, new PinnedPayload(store.pinned(player.getUUID()), store.pinnedWays(player.getUUID())));
         PacketDistributor.sendToPlayer(player, new GuidePagesPayload(true, List.copyOf(store.guidePages(player.getUUID()))));
         TeamsApi teams = TeamsApi.get();
         int members = Math.max(teams.members(teams.teamOf(player.getUUID())).size(), store.memberCount(team(player)));
         PacketDistributor.sendToPlayer(player, new TeamInfoPayload(members));
         STAGE_LOCKS.remove(player.getUUID());
         GUIDE_LOCKS.remove(player.getUUID());
+        OPEN_STAGES.remove(player.getUUID());
         refreshStageLocks(player);
     }
 
@@ -662,6 +701,7 @@ public final class ProgressService {
         INVENTORY_HASH.remove(player.getUUID());
         STAGE_LOCKS.remove(player.getUUID());
         GUIDE_LOCKS.remove(player.getUUID());
+        OPEN_STAGES.remove(player.getUUID());
     }
 
     public static void setCompleted(ServerPlayer player, Quest quest, boolean completed) {

@@ -14,7 +14,6 @@ import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.data.Guide;
 import works.repka.rysquests.data.Quest;
-import works.repka.ryscore.ui.Draw;
 import works.repka.ryscore.ui.Icons;
 
 /** The library of guides, from {@code design/Guides.dc.html}: cards, and the contents of the selected guide on the right. */
@@ -25,9 +24,8 @@ final class GuideLibraryView implements BookView {
     private static final int GAP = 12;
     private static final int HEADER_H = 38;
     private static final int SEARCH_W = 286;
-    private static final int CHIP_H = 27;
-    private static final int CHIP_GAP = 6;
-    private static final int CHIP_ROW = 33;
+    private static final int CHIP_H = Chips.HEIGHT;
+    private static final int CHIP_ROW = Chips.ROW;
     private static final int BANNER_H = 54;
     private static final int COLUMNS = 4;
     private static final int CARD_H = 104;
@@ -82,16 +80,16 @@ final class GuideLibraryView implements BookView {
     // --- what is listed ---
 
     private List<Guide> shown() {
-        String query = BookState.guideSearch.trim();
+        String query = BookState.sectionSearch.trim();
         List<Guide> list = new ArrayList<>();
         for (Guide guide : guides.all()) {
-            boolean category = BookState.guideCategory.isEmpty() || guide.category().filter(BookState.guideCategory::equals).isPresent();
+            boolean category = BookState.sectionCategory.isEmpty() || guide.category().filter(BookState.sectionCategory::equals).isPresent();
             if (category && (query.isEmpty() || guides.matches(guide, query))) {
                 list.add(guide);
             }
         }
         Comparator<Guide> byName = Comparator.comparing(guide -> tr(guide.title()));
-        list.sort(BookState.guideByName ? byName : Comparator.<Guide, Integer>comparing(guide -> rank(guides.state(guide))).thenComparing(byName));
+        list.sort(BookState.sectionByName ? byName : Comparator.<Guide, Integer>comparing(guide -> rank(guides.state(guide))).thenComparing(byName));
         return list;
     }
 
@@ -118,7 +116,7 @@ final class GuideLibraryView implements BookView {
         int read = guides.all().stream().mapToInt(ClientProgress::readPages).sum();
         ui.label(text("rysquests.guides.summary", Ui.counted("rysquests.plural.guide", guides.all().size()), Ui.counted("rysquests.plural.page", pages), read),
                 x, y + 25 + 7, 11.5f, Ui.REGULAR, ui.c("text.muted"));
-        screen.renderGuideSearch(ui, x + w, y + HEADER_H / 2f, Math.round(Math.min(SEARCH_W, w / 2f)));
+        screen.renderSectionSearch(ui, x + w, y + HEADER_H / 2f, Math.round(Math.min(SEARCH_W, w / 2f)), null);
     }
 
     /** @return the y below the chips */
@@ -132,28 +130,12 @@ final class GuideLibraryView implements BookView {
         named.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed().thenComparing(entry -> tr(entry.getKey())))
                 .forEach(entry -> counts.put(entry.getKey(), entry.getValue()));
-        float pen = x;
-        float row = y;
-        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
-            String label = entry.getKey().isEmpty() ? tr("rysquests.guides.category_all") : tr(entry.getKey());
-            String count = String.valueOf(entry.getValue());
-            float chipW = ui.width(label + " ", 12, Ui.REGULAR) + ui.width(count, 12, Ui.REGULAR) + 24;
-            if (pen + chipW > x + w && pen > x) {
-                pen = x;
-                row += CHIP_ROW;
-            }
-            boolean on = entry.getKey().equals(BookState.guideCategory);
-            boolean over = ui.over(pen, row, chipW, CHIP_H);
-            ui.box(pen, row, chipW, CHIP_H, CHIP_H / 2f, on || over ? ui.c("button.bg") : 0, on ? ui.c("button.border") : ui.c("panel.border"));
-            int fg = ui.c(on ? "text.primary" : "button.fg");
-            float cy = row + CHIP_H / 2f;
-            ui.label(label, pen + 12, cy, 12, Ui.REGULAR, fg);
-            ui.label(count, pen + 12 + ui.width(label + " ", 12, Ui.REGULAR), cy, 12, Ui.REGULAR, Draw.alpha(fg, 0.6f));
-            String category = entry.getKey();
-            ui.hit(pen, row, chipW, CHIP_H, () -> BookState.guideCategory = category);
-            pen += chipW + CHIP_GAP;
-        }
-        String sort = tr(BookState.guideByName ? "rysquests.guides.sort_name" : "rysquests.guides.sort_needed");
+        List<Chips.Chip> chips = new ArrayList<>();
+        counts.forEach((key, count) -> chips.add(new Chips.Chip(key, key.isEmpty() ? tr("rysquests.guides.category_all") : tr(key), count)));
+        float[] end = Chips.render(ui, chips, BookState.sectionCategory, key -> BookState.sectionCategory = key, x, y, w);
+        float pen = end[0];
+        float row = end[1];
+        String sort = tr(BookState.sectionByName ? "rysquests.guides.sort_name" : "rysquests.guides.sort_needed");
         float sortW = ui.width(sort, 12, Ui.REGULAR) + 24 + 14;
         if (pen + sortW > x + w) {
             row += CHIP_ROW;
@@ -162,7 +144,7 @@ final class GuideLibraryView implements BookView {
         ui.box(sortX, row, sortW, CHIP_H, CHIP_H / 2f, ui.over(sortX, row, sortW, CHIP_H) ? ui.c("button.bg") : 0, ui.c("panel.border"));
         ui.label(sort, sortX + 12, row + CHIP_H / 2f, 12, Ui.REGULAR, ui.c("text.muted"));
         ui.icon(Icons.Shape.CHEVRON_DOWN, sortX + sortW - 21, row + CHIP_H / 2f - 4.5f, 9, ui.c("text.muted"));
-        ui.hit(sortX, row, sortW, CHIP_H, () -> BookState.guideByName = !BookState.guideByName);
+        ui.hit(sortX, row, sortW, CHIP_H, () -> BookState.sectionByName = !BookState.sectionByName);
         return row + CHIP_H;
     }
 

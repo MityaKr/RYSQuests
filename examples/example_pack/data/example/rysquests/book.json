@@ -6,5 +6,5 @@
   "icon": "minecraft:writable_book",
   "chapter_order": ["example:01_start", "example:02_power"],
   "hud": { "max_pinned": 3 },
-  "sections": ["story", "guides"]
+  "sections": ["story", "guides", "example:ores", "example:bosses", "example:rules"]
 }

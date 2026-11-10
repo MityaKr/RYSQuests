@@ -13,7 +13,7 @@
   "icon": "kubejs:brass_mechanism",
   "chapter_order": ["repys:01_create", "repys:02_power"],
   "hud": { "max_pinned": 3 },
-  "sections": ["story", "guides"]     // рейка разделов, без поля её нет
+  "sections": ["story", "guides", "repys:mining_atlas"]  // рейка разделов, без поля её нет
 }
 ```
 
@@ -91,6 +91,10 @@
   ]
 }
 ```
+
+## Кастомная вкладка: `sections/<id>.json`
+
+Один файл на вкладку, поле `template`: `matrix`, `cards` или `pages`. Id вкладки это путь файла. Формат шаблонов в `09-sections.md`, примеры в `examples/example_pack`.
 
 ## Задачи
 
@@ -186,6 +190,7 @@ ProgressStore {
   version: int,
   applied_migrations: [string],
   guide_pages: { <uuid игрока>: ["<guide id>#<page id>"] },
+  pinned_ways: { <uuid игрока>: ["<вкладка>#<строка>#<столбец>#<способ>"] },
   teams: { <uuid>: {
     quests: { <quest id>: { tasks: [int], completed: long, claimed: [int] } },   // состояние вычисляется из них
     pinned: [<quest id>],

@@ -4,6 +4,10 @@
   "title": "Книга",
   "sections": [
     "story",
-    "guides"
+    "guides",
+    "design:atlas",
+    "design:mining",
+    "design:bosses",
+    "design:rules"
   ]
 }

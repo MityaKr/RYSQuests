@@ -1,0 +1,268 @@
+{
+  "template": "matrix",
+  "title": "Атлас добычи",
+  "short_title": "Добыча",
+  "subtitle": "откуда брать ресурс на каждой стадии игры",
+  "icon": "minecraft:iron_pickaxe",
+  "search": "Найти ресурс",
+  "row_title": "Ресурс",
+  "groups": [
+    "metal",
+    "gem",
+    "liquid",
+    "organic",
+    "other"
+  ],
+  "columns": [
+    {
+      "id": "early",
+      "title": "Ранняя",
+      "hint": "эпохи I–II"
+    },
+    {
+      "id": "mid",
+      "title": "Средняя",
+      "hint": "эпохи III–V",
+      "stage": "minecraft:story/mine_stone"
+    },
+    {
+      "id": "late",
+      "title": "Поздняя",
+      "hint": "эпохи VI–IX",
+      "stage": "minecraft:end/kill_dragon"
+    }
+  ],
+  "rows": [
+    {
+      "id": "iron",
+      "title": "Железо",
+      "icon": "minecraft:iron_ingot",
+      "group": "metal",
+      "cells": {
+        "early": [
+          {
+            "id": "y16",
+            "name": "Шахта, Y 16",
+            "icon": "minecraft:stone_pickaxe"
+          }
+        ],
+        "mid": [
+          {
+            "id": "crush",
+            "name": "Дробление руды",
+            "icon": "minecraft:grindstone",
+            "best": true,
+            "text": "Сырая руда идёт через дробильные колёса, потом в печь. Выход выше, чем у обычной плавки.",
+            "needs": [
+              "minecraft:grindstone",
+              "minecraft:clock"
+            ],
+            "links": [
+              {
+                "type": "quest",
+                "id": "design:01/rotation"
+              },
+              {
+                "type": "recipe",
+                "id": "minecraft:grindstone"
+              },
+              {
+                "type": "guide",
+                "id": "design:create#rotation"
+              }
+            ]
+          },
+          {
+            "id": "wash",
+            "name": "Промывка гравия",
+            "icon": "minecraft:gravel",
+            "mark": "auto",
+            "text": "Вентилятор с водой промывает гравий: самородки идут без шахты, можно оставить работать.",
+            "needs": [
+              "minecraft:iron_bars",
+              "minecraft:gravel"
+            ],
+            "links": [
+              {
+                "type": "quest",
+                "id": "design:01/rotation"
+              },
+              {
+                "type": "recipe",
+                "id": "minecraft:gravel"
+              }
+            ]
+          }
+        ],
+        "late": [
+          {
+            "id": "golem",
+            "name": "Ферма големов",
+            "icon": "minecraft:iron_block",
+            "mark": "auto"
+          }
+        ]
+      }
+    },
+    {
+      "id": "copper",
+      "title": "Медь",
+      "icon": "minecraft:copper_ingot",
+      "group": "metal",
+      "cells": {
+        "early": [
+          {
+            "id": "y48",
+            "name": "Шахта, Y 48",
+            "icon": "minecraft:stone_pickaxe"
+          }
+        ],
+        "mid": [
+          {
+            "id": "crush",
+            "name": "Дробление руды",
+            "icon": "minecraft:grindstone",
+            "best": true
+          }
+        ],
+        "late": [
+          {
+            "id": "drowned",
+            "name": "Ферма утопленников",
+            "icon": "minecraft:trident",
+            "mark": "auto"
+          }
+        ]
+      }
+    },
+    {
+      "id": "redstone",
+      "title": "Редстоун",
+      "icon": "minecraft:redstone",
+      "group": "gem",
+      "cells": {
+        "early": [
+          {
+            "id": "deep",
+            "name": "Глубокая шахта",
+            "icon": "minecraft:deepslate"
+          }
+        ],
+        "mid": [
+          {
+            "id": "trade",
+            "name": "Торговля со священником",
+            "icon": "minecraft:emerald",
+            "best": true
+          }
+        ],
+        "late": [
+          {
+            "id": "witch",
+            "name": "Ферма ведьм",
+            "icon": "minecraft:glass_bottle",
+            "mark": "auto"
+          }
+        ]
+      }
+    },
+    {
+      "id": "diamond",
+      "title": "Алмаз",
+      "icon": "minecraft:diamond",
+      "group": "gem",
+      "cells": {
+        "early": [
+          {
+            "id": "y59",
+            "name": "Шахта, Y −59",
+            "icon": "minecraft:iron_pickaxe"
+          }
+        ],
+        "mid": [
+          {
+            "id": "luck",
+            "name": "Шахта с удачей III",
+            "icon": "minecraft:enchanted_book",
+            "best": true
+          },
+          {
+            "id": "chest",
+            "name": "Сундуки структур",
+            "icon": "minecraft:chest"
+          }
+        ],
+        "late": [
+          {
+            "id": "mod",
+            "name": "Способ из мода автора",
+            "icon": "minecraft:command_block"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lava",
+      "title": "Лава",
+      "icon": "minecraft:lava_bucket",
+      "group": "liquid",
+      "cells": {
+        "early": [
+          {
+            "id": "lakes",
+            "name": "Вёдра из озёр",
+            "icon": "minecraft:bucket"
+          }
+        ],
+        "mid": [
+          {
+            "id": "drip",
+            "name": "Капельник и котёл",
+            "icon": "minecraft:cauldron",
+            "mark": "auto",
+            "best": true
+          }
+        ],
+        "late": [
+          {
+            "id": "pump",
+            "name": "Насос в Незере",
+            "icon": "minecraft:netherrack",
+            "mark": "auto"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quartz",
+      "title": "Кварц",
+      "icon": "minecraft:quartz",
+      "group": "gem",
+      "cells": {
+        "early": [
+          {
+            "id": "ore",
+            "name": "Руда в Незере",
+            "icon": "minecraft:nether_quartz_ore"
+          }
+        ],
+        "mid": [
+          {
+            "id": "barter",
+            "name": "Бартер с пиглинами",
+            "icon": "minecraft:gold_ingot",
+            "best": true
+          }
+        ],
+        "late": [
+          {
+            "id": "auto",
+            "name": "Авто-бартер",
+            "icon": "minecraft:gold_block",
+            "mark": "auto"
+          }
+        ]
+      }
+    }
+  ]
+}

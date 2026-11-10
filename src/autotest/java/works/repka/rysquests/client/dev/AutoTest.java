@@ -82,7 +82,7 @@ public final class AutoTest {
     private static final int REPYS_MIN_QUESTS = 2000;
     private static final UUID REPYS_PLAYER = UUID.fromString("216ea99a-d6eb-45be-8a5b-3da7852588a5");
     private static final long STARTED_AT = System.currentTimeMillis();
-    private static final int EXAMPLE_QUESTS = 6;
+    private static final int EXAMPLE_QUESTS = 7;
     private static final int SWITCHED_CHAPTERS = 4;
     private static final List<ItemStack> RECIPE_REQUESTS = new ArrayList<>();
     private static final boolean USE_RYSTEAMS = Boolean.getBoolean("rysquests.autotest.rysteams");
@@ -129,6 +129,10 @@ public final class AutoTest {
             buildDesignScenario();
         } else if ("guides".equals(scenario)) {
             buildGuidesScenario();
+        } else if ("sections".equals(scenario)) {
+            buildSectionsScenario();
+        } else if ("sections_design".equals(scenario)) {
+            buildSectionsDesignScenario();
         } else if ("guides_design".equals(scenario)) {
             buildGuidesDesignScenario();
         } else if ("team_a".equals(scenario)) {
@@ -585,6 +589,116 @@ public final class AutoTest {
             mc().resizeDisplay();
             ThemeManager.select("ryscore:slate");
         }, 10);
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+    }
+
+    private static final double RAIL_X = 41.5;
+
+    private static double railY(int index) {
+        return (37 + 58 + 66 * index + 30) / 2.0;
+    }
+
+    /** Custom sections on the example pack, and that a section file can be edited by hand. */
+    private static void buildSectionsScenario() {
+        ResourceLocation ores = ResourceLocation.parse("example:ores");
+        ResourceLocation bosses = ResourceLocation.parse("example:bosses");
+        ResourceLocation rules = ResourceLocation.parse("example:rules");
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+        }, 10);
+        step("command answers go to chat", () -> command("gamerule sendCommandFeedback true"), 5);
+        step("take the stage back", () -> command("advancement revoke @s only minecraft:story/mine_stone"), 120);
+        expect("the middle column is closed", () -> !ClientProgress.hasStage("minecraft:story/mine_stone"));
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("click the matrix on the rail", () -> mc().screen.mouseClicked(RAIL_X, railY(2), GLFW.GLFW_MOUSE_BUTTON_LEFT), 5);
+        expect("the matrix is open", () -> ores.toString().equals(BookScreen.currentSectionForTest()));
+        screenshot("sections_example_matrix_before");
+        step("reach the stage", () -> command("advancement grant @s only minecraft:story/mine_stone"), 120);
+        expect("the current column follows the stage", () -> ClientProgress.hasStage("minecraft:story/mine_stone"));
+        screenshot("sections_example_matrix");
+        step("start with nothing pinned, the world is reused", () -> List.copyOf(ClientProgress.pinnedWays()).forEach(key ->
+                PacketDistributor.sendToServer(new works.repka.rysquests.network.PinWayPayload(key))), 10);
+        expect("nothing is pinned", () -> ClientProgress.pinnedWays().isEmpty());
+        step("pin the way", () -> mc().screen.mouseClicked(509.5, 365, GLFW.GLFW_MOUSE_BUTTON_LEFT), 10);
+        expect("the way is pinned", () -> ClientProgress.pinnedWays().size() == 1);
+        step("click the cards on the rail", () -> mc().screen.mouseClicked(RAIL_X, railY(3), GLFW.GLFW_MOUSE_BUTTON_LEFT), 5);
+        expect("the cards are open", () -> bosses.toString().equals(BookScreen.currentSectionForTest()));
+        expect("the condition marks the card", () -> ClientProgress.get(ResourceLocation.parse("example:_cards/bosses/first_stone")).completed());
+        screenshot("sections_example_cards");
+        step("click the pages on the rail", () -> mc().screen.mouseClicked(RAIL_X, railY(4), GLFW.GLFW_MOUSE_BUTTON_LEFT), 25);
+        expect("the pages are open", () -> rules.toString().equals(BookScreen.currentSectionForTest()));
+        step("turn the page", () -> pressKey(GLFW.GLFW_KEY_RIGHT), 5);
+        expect("the next page is open", () -> BookScreen.sectionPageForTest(rules) == 1);
+        screenshot("sections_example_pages");
+        expect("the sections have no broken links", () -> BookScreen.guideIssuesForTest().isEmpty());
+        step("write a section file by hand", () -> writeLiveSection("Before"), 1);
+        step("let the game find the pack", () -> command("reload"), 40);
+        step("switch it on", () -> command("datapack enable \"file/autotest_section\""), 40);
+        expect("the file is in the book", () -> liveTitle().equals("Before"));
+        step("edit the file", () -> writeLiveSection("After"), 1);
+        step("reload the book", () -> command("rysquests reload"), 40);
+        expect("the edit is in the book", () -> liveTitle().equals("After"));
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+        expect("book closed", () -> mc().screen == null);
+        step("wait for the board", () -> {}, 5);
+        screenshot("sections_example_hud");
+    }
+
+    private static String liveTitle() {
+        var section = ClientBook.current().sections().get(ResourceLocation.parse("autotest:live"));
+        return section == null ? "" : section.title();
+    }
+
+    private static void writeLiveSection(String title) {
+        try {
+            java.nio.file.Path pack = mc().getSingleplayerServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.DATAPACK_DIR).resolve("autotest_section");
+            java.nio.file.Path file = pack.resolve("data/autotest/rysquests/sections/live.json");
+            java.nio.file.Files.createDirectories(file.getParent());
+            java.nio.file.Files.writeString(pack.resolve("pack.mcmeta"), "{\"pack\":{\"pack_format\":48,\"description\":\"autotest\"}}");
+            java.nio.file.Files.writeString(file, "{\"template\":\"pages\",\"title\":\"" + title + "\",\"pages\":[{\"id\":\"a\",\"title\":\"A\",\"text\":\"x\"}]}");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** The custom sections with the contents of their mockups. */
+    private static void buildSectionsDesignScenario() {
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("reach the middle stage", () -> command("advancement grant @s only minecraft:story/mine_stone"), 120);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        for (String[] view : new String[][] {{"design:mining", "design_mining"}, {"design:atlas", "design_atlas"}, {"design:bosses", "design_cards"}, {"design:rules", "design_pages"}}) {
+            step("show " + view[0], () -> BookScreen.showSectionForTest(view[0]), 40);
+            screenshot(view[1]);
+            for (int[] size : new int[][] {{2560, 1440}, {1920, 1080}}) {
+                for (String theme : List.of("slate", "glass")) {
+                    step("show " + view[0] + " " + size[0] + " " + theme, () -> {
+                        mc().getWindow().setWindowed(size[0], size[1]);
+                        mc().options.guiScale().set(0);
+                        mc().resizeDisplay();
+                        ThemeManager.select("ryscore:" + theme);
+                    }, 15);
+                    screenshot("sections_" + view[1] + "_" + size[0] + "_" + theme);
+                }
+            }
+            step("back to the size of the mockups", () -> {
+                mc().getWindow().setWindowed(1280, 800);
+                mc().options.guiScale().set(2);
+                mc().resizeDisplay();
+                ThemeManager.select("ryscore:slate");
+            }, 10);
+        }
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
     }
 

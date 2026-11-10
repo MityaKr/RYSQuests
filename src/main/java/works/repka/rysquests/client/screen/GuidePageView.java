@@ -48,7 +48,26 @@ final class GuidePageView implements BookView {
     private record Topics(QuestBook book, ResourceLocation guide, int page, List<Quest> quests, List<ItemStack> items) {
     }
 
+    /** What the view shows: a guide of the library, or a section on the pages template. */
+    interface Source {
+        @Nullable
+        Guide guide();
+
+        int page();
+
+        void open(Guide guide, int page);
+
+        boolean tracksReading();
+
+        /** The first part of the path above the title, which leads back, or null when there is nowhere to go. */
+        @Nullable
+        String crumb();
+
+        void back();
+    }
+
     private final Guides guides;
+    private final Source source;
     private final Scroll textScroll = new Scroll();
     private final Scroll tocScroll = new Scroll();
     private final Scroll panelScroll = new Scroll();
@@ -57,27 +76,23 @@ final class GuidePageView implements BookView {
     @Nullable
     private Topics topics;
 
-    GuidePageView(Guides guides) {
+    GuidePageView(Guides guides, Source source) {
         this.guides = guides;
+        this.source = source;
     }
 
     private static String tr(String key) {
         return Component.translatable(key).getString();
     }
 
-    @Nullable
-    private static Guide open() {
-        return BookState.guide == null ? null : ClientBook.current().guides().get(BookState.guide);
-    }
-
     @Override
     public void render(Ui ui, int x, int y, int w, int h) {
-        Guide guide = open();
+        Guide guide = source.guide();
         if (guide == null) {
-            BookState.guidePage = -1;
+            source.back();
             return;
         }
-        int index = Math.min(BookState.guidePage, guide.pages().size() - 1);
+        int index = Math.clamp(source.page(), 0, guide.pages().size() - 1);
         Guide.Page page = guide.pages().get(index);
         String body = tr(page.text());
         panelLeft = x + w - PANEL_W;
@@ -120,16 +135,20 @@ final class GuidePageView implements BookView {
         float cy = y + HEADER_H / 2f;
         ui.cell(GuideLibraryView.icon(guide), x, y, 38, 38, 8, 20, ui.c("slot.bg"), ui.c("card.border"));
         float textX = x + 38 + 12;
-        String guides = tr("rysquests.section.guides");
-        float crumbW = ui.width(guides, 11.5f, Ui.REGULAR);
-        boolean over = ui.over(textX, y, crumbW, 14);
-        ui.label(guides, textX, y + 7, 11.5f, Ui.REGULAR, ui.c(over ? "text.primary" : "text.muted"));
-        ui.hit(textX, y, crumbW, 14, BookState::openLibrary);
-        ui.icon(Icons.Shape.CHEVRON_RIGHT, textX + crumbW + 4, y + 3, 8, ui.c("text.dim"));
-        ui.label(tr(guide.title()), textX + crumbW + 16, y + 7, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+        String crumb = source.crumb();
+        float pen = textX;
+        if (crumb != null) {
+            float crumbW = ui.width(crumb, 11.5f, Ui.REGULAR);
+            boolean over = ui.over(textX, y, crumbW, 14);
+            ui.label(crumb, textX, y + 7, 11.5f, Ui.REGULAR, ui.c(over ? "text.primary" : "text.muted"));
+            ui.hit(textX, y, crumbW, 14, source::back);
+            ui.icon(Icons.Shape.CHEVRON_RIGHT, textX + crumbW + 4, y + 3, 8, ui.c("text.dim"));
+            pen += crumbW + 16;
+        }
+        ui.label(tr(guide.title()), pen, y + 7, 11.5f, Ui.REGULAR, ui.c("text.muted"));
         float right = x + w;
-        renderArrow(ui, "→", right - 32, cy - 16, index + 1 < guide.pages().size(), () -> BookState.openGuide(guide, index + 1));
-        renderArrow(ui, "←", right - 32 - 10 - 32, cy - 16, index > 0, () -> BookState.openGuide(guide, index - 1));
+        renderArrow(ui, "→", right - 32, cy - 16, index + 1 < guide.pages().size(), () -> source.open(guide, index + 1));
+        renderArrow(ui, "←", right - 32 - 10 - 32, cy - 16, index > 0, () -> source.open(guide, index - 1));
         String pageOf = Component.translatable("rysquests.guides.page_of", index + 1, guide.pages().size()).getString();
         float pageOfW = ui.width(pageOf, 11.5f, Ui.REGULAR);
         float pageOfX = right - 32 - 10 - 32 - 10 - pageOfW;
@@ -161,9 +180,9 @@ final class GuidePageView implements BookView {
         ui.unclip();
     }
 
-    private static void renderTocRow(Ui ui, Guide guide, int index, boolean now, float x, float y) {
+    private void renderTocRow(Ui ui, Guide guide, int index, boolean now, float x, float y) {
         Guide.Page page = guide.pages().get(index);
-        boolean read = ClientProgress.isRead(guide, page);
+        boolean read = source.tracksReading() && ClientProgress.isRead(guide, page);
         float cy = y + TOC_ROW / 2f;
         if (now) {
             ui.fill(x, y, TOC_W, TOC_ROW, 7, ui.c("button.bg"));
@@ -175,10 +194,10 @@ final class GuidePageView implements BookView {
             ui.check(x + 10, cy - 5.5f, 11, ui.c("state.ok"));
         }
         ui.labelFitTip(tr(page.title()), x + 30, cy, TOC_W - 38, 12, Ui.REGULAR, ui.c(now ? "text.primary" : read ? "text.muted" : "button.fg"));
-        ui.hit(x, y, TOC_W, TOC_ROW, () -> BookState.openGuide(guide, index));
+        ui.hit(x, y, TOC_W, TOC_ROW, () -> source.open(guide, index));
     }
 
-    private static void renderNext(Ui ui, Guide guide, int next, float x, float y, float w) {
+    private void renderNext(Ui ui, Guide guide, int next, float x, float y, float w) {
         boolean over = ui.over(x, y, w, NEXT_H);
         ui.box(x, y, w, NEXT_H, 9, over ? ui.c("slot.hover") : ui.c("card.bg"), ui.c("panel.border"));
         float cy = y + NEXT_H / 2f;
@@ -187,7 +206,7 @@ final class GuidePageView implements BookView {
         float pen = x + 13 + ui.width(label, 11, Ui.REGULAR) + 10;
         ui.labelFit(tr(guide.pages().get(next).title()), pen, cy, x + w - 34 - pen, 12.5f, Ui.MEDIUM, ui.c("text.primary"));
         ui.labelRight("→", x + w - 13, cy, 13, Ui.REGULAR, ui.c("text.muted"));
-        ui.hit(x, y, w, NEXT_H, () -> BookState.openGuide(guide, next));
+        ui.hit(x, y, w, NEXT_H, () -> source.open(guide, next));
     }
 
     // --- the page ---
@@ -377,15 +396,15 @@ final class GuidePageView implements BookView {
 
     @Override
     public boolean key(int key) {
-        Guide guide = open();
+        Guide guide = source.guide();
         if (guide == null) {
             return false;
         }
-        int next = key == GLFW.GLFW_KEY_RIGHT ? BookState.guidePage + 1 : key == GLFW.GLFW_KEY_LEFT ? BookState.guidePage - 1 : -1;
+        int next = key == GLFW.GLFW_KEY_RIGHT ? source.page() + 1 : key == GLFW.GLFW_KEY_LEFT ? source.page() - 1 : -1;
         if (next < 0 || next >= guide.pages().size()) {
             return key == GLFW.GLFW_KEY_RIGHT || key == GLFW.GLFW_KEY_LEFT;
         }
-        BookState.openGuide(guide, next);
+        source.open(guide, next);
         return true;
     }
 }

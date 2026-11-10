@@ -1,0 +1,18 @@
+{
+  "template": "pages",
+  "title": "section.example.rules",
+  "short_title": "section.example.rules.short",
+  "icon": "minecraft:writable_book",
+  "pages": [
+    {
+      "id": "welcome",
+      "title": "section.example.rules.welcome.title",
+      "text": "section.example.rules.welcome.text"
+    },
+    {
+      "id": "safety",
+      "title": "section.example.rules.safety.title",
+      "text": "section.example.rules.safety.text"
+    }
+  ]
+}

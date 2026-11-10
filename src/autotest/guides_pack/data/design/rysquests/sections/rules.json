@@ -1,0 +1,18 @@
+{
+  "template": "pages",
+  "title": "Правила сервера",
+  "short_title": "Правила",
+  "icon": "minecraft:writable_book",
+  "pages": [
+    {
+      "id": "welcome",
+      "title": "Добро пожаловать",
+      "text": "Здесь автор сборки пишет свои **правила** и лор.\n\nНужен [[item:minecraft:comparator]] для [[quest:design:01/mechanism|первого механизма]].\n[[recipe:minecraft:comparator]]"
+    },
+    {
+      "id": "pvp",
+      "title": "PvP",
+      "text": "Текст страницы."
+    }
+  ]
+}

@@ -20,6 +20,9 @@ examples/
     data/example/rysquests/guides/tools.json
     data/example/rysquests/guides/nether.json        закрыт до стадии
     assets/example/textures/guides/furnace.png       картинка для гайда
+    data/example/rysquests/sections/ores.json        кастомная вкладка на шаблоне Матрица
+    data/example/rysquests/sections/bosses.json      кастомная вкладка на шаблоне Карточки
+    data/example/rysquests/sections/rules.json       кастомная вкладка на шаблоне Страницы
     assets/example/lang/en_us.json
     assets/example/lang/ru_ru.json
   broken/                      намеренно сломанная книга для теста валидатора

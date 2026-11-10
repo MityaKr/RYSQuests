@@ -61,7 +61,7 @@ neoForge {
         autotest {
             client()
             gameDirectory = project.file('run')
-            systemProperty 'rysquests.dev.examplePack', project.file((project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : (project.findProperty('autotest') ?: '').startsWith('guides_design') ? 'src/autotest/guides_pack' : 'examples/example_pack').absolutePath
+            systemProperty 'rysquests.dev.examplePack', project.file((project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : ((project.findProperty('autotest') ?: '').startsWith('guides_design') || (project.findProperty('autotest') ?: '').startsWith('sections_design')) ? 'src/autotest/guides_pack' : 'examples/example_pack').absolutePath
             systemProperty 'rysquests.dev.brokenPack', project.file('examples/broken').absolutePath
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
             // The size of the mockups in design/, so that screenshots can be laid over them.

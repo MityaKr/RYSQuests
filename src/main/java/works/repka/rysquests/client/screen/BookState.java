@@ -15,7 +15,9 @@ import works.repka.rysquests.data.Chapter;
 import works.repka.rysquests.data.Guide;
 import works.repka.rysquests.data.GuideRef;
 import works.repka.rysquests.data.Quest;
+import works.repka.rysquests.data.PagesSection;
 import works.repka.rysquests.data.QuestBook;
+import works.repka.rysquests.data.SectionDef;
 import works.repka.rysquests.data.ViewMode;
 import works.repka.rysquests.network.QuestActionPayload;
 import works.repka.rysquests.progress.QuestLogic;
@@ -38,9 +40,18 @@ final class BookState {
     static ResourceLocation guide;
     /** The open page of {@link #guide}, or -1 for the library. */
     static int guidePage = -1;
-    static String guideSearch = "";
-    static String guideCategory = "";
-    static boolean guideByName;
+    /** The search, the filter chip and the order of the section on screen. */
+    static String sectionSearch = "";
+    static String sectionCategory = "";
+    static boolean sectionByName;
+    /** The open page of each section on the pages template. */
+    static final Map<ResourceLocation, Integer> SECTION_PAGES = new HashMap<>();
+    static final Map<ResourceLocation, MatrixPick> MATRIX_PICKS = new HashMap<>();
+    static final Map<ResourceLocation, String> CARD_PICKS = new HashMap<>();
+
+    /** The selected cell of a matrix and the way chosen in it. */
+    record MatrixPick(String row, String column, int way) {
+    }
     static boolean showDone;
     static boolean showRest;
     /** Picks of choice rewards by reward index, for the selected quest. */
@@ -69,16 +80,33 @@ final class BookState {
         return switch (id) {
             case Chapter.STORY -> book.chapters().values().stream().anyMatch(chapter -> chapter.isStory() && !chapter.hidden());
             case BookMeta.GUIDES -> !book.guides().isEmpty();
-            default -> false;
+            default -> ResourceLocation.tryParse(id) != null && book.sections().containsKey(ResourceLocation.parse(id));
         };
     }
 
     static String currentSection() {
-        List<String> sections = sections();
-        if (section != null && sections.contains(section)) {
+        QuestBook book = ClientBook.current();
+        if (book.meta().sections().isEmpty()) {
+            return Chapter.STORY;
+        }
+        // A section that is not on the rail can still be open: a card's page leads to one.
+        if (section != null && hasContent(book, section)) {
             return section;
         }
+        List<String> sections = sections();
         return sections.isEmpty() ? Chapter.STORY : sections.getFirst();
+    }
+
+    /** The custom section on screen, or null in the story and the guides. */
+    @Nullable
+    static SectionDef customSection() {
+        String current = currentSection();
+        ResourceLocation id = current.equals(Chapter.STORY) || current.equals(BookMeta.GUIDES) ? null : ResourceLocation.tryParse(current);
+        return id == null ? null : ClientBook.current().sections().get(id);
+    }
+
+    static boolean inStory() {
+        return currentSection().equals(Chapter.STORY);
     }
 
     static boolean inGuides() {
@@ -88,6 +116,8 @@ final class BookState {
     static void openSection(String id) {
         section = id;
         guidePage = -1;
+        sectionSearch = "";
+        sectionCategory = "";
     }
 
     static void openLibrary() {
@@ -108,6 +138,10 @@ final class BookState {
     static void openRef(GuideRef ref) {
         Guide target = ClientBook.current().guides().get(ref.guide());
         if (target == null) {
+            if (ClientBook.current().sections().get(ref.guide()) instanceof PagesSection pages) {
+                openSection(pages.id().toString());
+                SECTION_PAGES.put(pages.id(), Math.max(0, ref.page().map(pages.asGuide()::pageIndex).orElse(0)));
+            }
             return;
         }
         if (ClientProgress.isGuideLocked(target.id())) {

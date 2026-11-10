@@ -13,6 +13,7 @@ import works.repka.rysquests.client.markup.Markup.Paragraph;
 import works.repka.rysquests.client.markup.Markup.Span;
 import works.repka.rysquests.data.Guide;
 import works.repka.rysquests.data.GuideRef;
+import works.repka.rysquests.data.PagesSection;
 import works.repka.rysquests.data.Quest;
 import works.repka.ryscore.ui.Type;
 
@@ -217,6 +218,11 @@ final class TextBlock {
                 if (label.isEmpty()) {
                     int page = ref.page().map(guide::pageIndex).orElse(-1);
                     label = Component.translatable(page >= 0 ? guide.pages().get(page).title() : guide.title()).getString();
+                }
+                click = reveal != null ? reveal : () -> BookState.openRef(ref);
+            } else if (ClientBook.current().sections().get(ref.guide()) instanceof PagesSection pages) {
+                if (label.isEmpty()) {
+                    label = Component.translatable(pages.title()).getString();
                 }
                 click = reveal != null ? reveal : () -> BookState.openRef(ref);
             }

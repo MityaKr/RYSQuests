@@ -1,0 +1,95 @@
+{
+  "template": "cards",
+  "title": "Боссы",
+  "short_title": "Боссы",
+  "subtitle": "кого, где и чем побеждать",
+  "icon": "minecraft:wither_skeleton_skull",
+  "groups": [
+    "overworld",
+    "nether",
+    "end",
+    "summon",
+    "modded"
+  ],
+  "cards": [
+    {
+      "id": "guardian",
+      "icon": "minecraft:prismarine_crystals",
+      "group": "overworld",
+      "art": "#1d2a2c",
+      "done": {
+        "type": "rysquests:advancement",
+        "advancement": "minecraft:story/mine_stone"
+      }
+    },
+    {
+      "id": "dragon",
+      "icon": "minecraft:dragon_egg",
+      "group": "end",
+      "art": "#221d2e",
+      "done": {
+        "type": "rysquests:advancement",
+        "advancement": "minecraft:story/mine_stone"
+      }
+    },
+    {
+      "id": "wither",
+      "icon": "minecraft:nether_star",
+      "group": "summon",
+      "art": "#22232a",
+      "done": {
+        "type": "rysquests:advancement",
+        "advancement": "minecraft:end/kill_dragon"
+      },
+      "needs": [
+        {
+          "item": "minecraft:wither_skeleton_skull",
+          "count": 3
+        },
+        {
+          "item": "minecraft:soul_sand",
+          "count": 4
+        }
+      ],
+      "gives": [
+        "minecraft:nether_star"
+      ],
+      "page": "design:rules#welcome",
+      "quest": "design:01/mechanism"
+    },
+    {
+      "id": "warden",
+      "icon": "minecraft:sculk",
+      "group": "overworld",
+      "art": "#16242a",
+      "done": {
+        "type": "rysquests:advancement",
+        "advancement": "minecraft:end/kill_dragon"
+      }
+    },
+    {
+      "id": "mod1",
+      "icon": "minecraft:magma_cream",
+      "group": "nether",
+      "art": "#2a1c1c",
+      "done": {
+        "type": "rysquests:advancement",
+        "advancement": "minecraft:end/kill_dragon"
+      },
+      "stage": "minecraft:end/kill_dragon",
+      "stage_title": "эпоха VI"
+    },
+    {
+      "id": "mod2",
+      "icon": "minecraft:chorus_fruit",
+      "group": "modded",
+      "art": "#1b2a26",
+      "done": {
+        "type": "rysquests:advancement",
+        "advancement": "minecraft:end/kill_dragon"
+      },
+      "stage": "minecraft:end/kill_dragon",
+      "stage_title": "эпоха VIII"
+    }
+  ]
+}
