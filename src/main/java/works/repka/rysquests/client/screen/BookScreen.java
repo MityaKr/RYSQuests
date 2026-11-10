@@ -168,6 +168,8 @@ public final class BookScreen extends ScaledScreen {
     private EditorView editor;
     @Nullable
     private SectionEditorView sectionEditor;
+    @Nullable
+    private QuestEditorView questEditor;
     private final ShopView shop = new ShopView();
     private final AchievementsView achievements = new AchievementsView();
     private final MatrixView matrix = new MatrixView(this);
@@ -401,10 +403,17 @@ public final class BookScreen extends ScaledScreen {
             }
         }
         List<String> sections = BookState.sections();
-        boolean editing = editor != null || sectionEditor != null;
+        boolean editing = editor != null || sectionEditor != null || questEditor != null;
         sectionsW = editing || sections.size() < 2 ? 0 : SECTIONS_W;
         ui.squareLeft = sectionsW > 0;
-        if (editor != null) {
+        if (questEditor != null) {
+            if (sectionSearch != null) {
+                sectionSearch.visible = false;
+            }
+            ui.shadow(x, y, w, h, 14, 1f);
+            ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
+            questEditor.render(ui, x + 1, y + 1, w - 2, h - 2);
+        } else if (editor != null) {
             if (sectionSearch != null) {
                 sectionSearch.visible = false;
             }
@@ -502,6 +511,14 @@ public final class BookScreen extends ScaledScreen {
         sectionEditor = null;
     }
 
+    void openQuestEditor() {
+        questEditor = new QuestEditorView(this);
+    }
+
+    void closeQuestEditor() {
+        questEditor = null;
+    }
+
     void openPagesEditor(PagesSection pages) {
         sectionEditor = null;
         openEditor(GuideDraft.of(pages), false);
@@ -556,6 +573,9 @@ public final class BookScreen extends ScaledScreen {
         }
         if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.sectionEditor != null) {
             screen.sectionEditor.onResult(ok, reason);
+        }
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.questEditor != null) {
+            screen.questEditor.onResult(ok, reason);
         }
         lastEditorResult = ok ? "" : reason;
     }
@@ -872,6 +892,9 @@ public final class BookScreen extends ScaledScreen {
         if (sectionEditor != null) {
             sectionEditor.pointer(mouseX * 2, mouseY * 2);
         }
+        if (questEditor != null) {
+            questEditor.pointer(mouseX * 2, mouseY * 2);
+        }
         List<Ui.Hit> list = button == 0 ? hits : button == 1 ? rightHits : List.of();
         for (int i = list.size() - 1; i >= 0; i--) {
             Ui.Hit hit = list.get(i);
@@ -896,7 +919,20 @@ public final class BookScreen extends ScaledScreen {
     }
 
     @Override
+    protected boolean onRelease(double mouseX, double mouseY, int button) {
+        if (questEditor != null) {
+            questEditor.release(mouseX * 2, mouseY * 2);
+            return true;
+        }
+        return super.onRelease(mouseX, mouseY, button);
+    }
+
+    @Override
     protected boolean onDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (questEditor != null) {
+            questEditor.drag(mouseX * 2, mouseY * 2);
+            return true;
+        }
         if (editor != null) {
             editor.drag(mouseX * 2, mouseY * 2);
             return true;
@@ -911,7 +947,9 @@ public final class BookScreen extends ScaledScreen {
     @Override
     protected boolean onScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
         double x = mouseX * 2;
-        if (editor != null) {
+        if (questEditor != null) {
+            questEditor.scroll(x, mouseY * 2, scrollY);
+        } else if (editor != null) {
             editor.scroll(x, mouseY * 2, scrollY);
         } else if (sectionEditor != null) {
             sectionEditor.scroll(x, mouseY * 2, scrollY);
@@ -937,6 +975,9 @@ public final class BookScreen extends ScaledScreen {
 
     @Override
     public boolean charTyped(char c, int modifiers) {
+        if (questEditor != null) {
+            return questEditor.typed(c);
+        }
         if (sectionEditor != null) {
             return sectionEditor.typed(c);
         }
@@ -945,6 +986,9 @@ public final class BookScreen extends ScaledScreen {
 
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
+        if (questEditor != null) {
+            return questEditor.key(key);
+        }
         if (editor != null) {
             return editor.key(key);
         }
@@ -1126,6 +1170,92 @@ public final class BookScreen extends ScaledScreen {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
             screen.achievements.selectForTest(id);
         }
+    }
+
+    private static QuestEditorView questEditorForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.questEditor : null;
+    }
+
+    public static void openQuestEditorForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.openQuestEditor();
+        }
+    }
+
+    public static boolean questEditorOpenForTest() {
+        return questEditorForTest() != null;
+    }
+
+    public static void questNewChapterForTest(String title) {
+        questEditorForTest().newChapterForTest(title);
+    }
+
+    public static ResourceLocation questChapterForTest() {
+        return questEditorForTest().chapterForTest();
+    }
+
+    public static ResourceLocation questAddForTest(String title) {
+        return questEditorForTest().addQuestForTest(title);
+    }
+
+    public static void questItemTaskForTest(ResourceLocation item, int count) {
+        questEditorForTest().addItemTaskForTest(item, count);
+    }
+
+    public static void questCoinRewardForTest(int amount) {
+        questEditorForTest().addCoinRewardForTest(amount);
+    }
+
+    public static void questMoveForTest(ResourceLocation id, int x, int y) {
+        questEditorForTest().moveForTest(id, x, y);
+    }
+
+    public static void questLinkForTest(ResourceLocation from, ResourceLocation to) {
+        questEditorForTest().linkForTest(from, to);
+    }
+
+    public static void questEpochForTest(int epoch) {
+        questEditorForTest().chapterEpochForTest(epoch);
+    }
+
+    public static void questAutoLayoutForTest() {
+        questEditorForTest().autoLayoutForTest();
+    }
+
+    public static void questSelectForTest(ResourceLocation id) {
+        questEditorForTest().selectForTest(id);
+    }
+
+    public static void questLinkModeForTest(boolean on) {
+        questEditorForTest().linkModeForTest(on);
+    }
+
+    public static void questTabForTest(String name) {
+        questEditorForTest().tabForTest(name);
+    }
+
+    public static boolean questDirtyForTest() {
+        return questEditorForTest().dirtyForTest();
+    }
+
+    public static String questStatusForTest() {
+        return questEditorForTest().statusForTest();
+    }
+
+    public static void questSaveForTest() {
+        questEditorForTest().save();
+    }
+
+    public static float[] questRectForTest(ResourceLocation id) {
+        return questEditorForTest().rectForTest(id);
+    }
+
+    public static Quest questDraftForTest(ResourceLocation id) {
+        return questEditorForTest().questForTest(id);
+    }
+
+    public static boolean questLayoutReadyForTest() {
+        return questEditorForTest().layoutReadyForTest();
     }
 
     public static void newGuideForTest() {

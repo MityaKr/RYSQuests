@@ -6,6 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
 import java.io.IOException;
 import java.io.Reader;
@@ -23,9 +24,11 @@ import net.minecraft.resources.ResourceLocation;
 import works.repka.rysquests.data.BookAssets;
 import works.repka.rysquests.data.BookMeta;
 import works.repka.rysquests.data.CardsSection;
+import works.repka.rysquests.data.Chapter;
 import works.repka.rysquests.data.Guide;
 import works.repka.rysquests.data.MatrixSection;
 import works.repka.rysquests.data.PagesSection;
+import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.SectionDef;
 
 /** Writes what the editor saves into a folder laid out like a pack. Knows nothing about the game, so it can be tested. */
@@ -37,6 +40,14 @@ public final class EditorFiles {
     private static final List<String> FIELD_ORDER = List.of("template", "id", "type", "title", "name", "short_title", "subtitle", "text", "icon", "category", "item", "count",
             "advancement", "spoilers", "compact", "search", "row_title", "group", "groups", "art", "mark", "best", "hint", "stage", "stage_title", "done", "needs", "gives", "page", "quest",
             "links", "columns", "rows", "cells", "cards", "pages");
+    private static final List<String> QUEST_ORDER = List.of("id", "chapter", "group", "title", "subtitle", "text", "icon", "requires", "requires_mode", "stage_required", "guide", "tasks", "rewards",
+            "layout", "size", "optional", "hidden", "repeatable", "page", "tags");
+    private static final List<String> CHAPTER_ORDER = List.of("id", "title", "subtitle", "icon", "epoch", "default_view", "section", "hidden", "requires", "groups");
+    /** Tasks and rewards start with their type, as the files written by hand do. */
+    private static final List<String> RULE_ORDER = List.of("type", "id", "item", "any_of", "entity", "stat", "target", "advancement", "dimension", "biome", "structure", "pos", "radius", "fluid", "script", "table", "stage", "command",
+            "levels", "points", "count", "amount", "rolls", "mode", "nbt", "of", "weights", "title", "pin", "x", "y");
+    private static final String CHAPTER_FILE = "_chapter.json";
+    private static final Pattern FILE_NAME = Pattern.compile("[a-z0-9_-]+");
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G'};
 
     /** A save that cannot be done. @param key the lang key of the reason */
@@ -110,6 +121,82 @@ public final class EditorFiles {
         }
     }
 
+    /**
+     * Where the pack's chapters already live, so that a quest keeps its file.
+     * @param quests quest id to file
+     * @param chapters chapter id to its {@code _chapter.json}
+     * @param shared quests that sit together in one list file, which this editor does not write
+     */
+    public record QuestFiles(Map<ResourceLocation, ResourceLocation> quests, Map<ResourceLocation, ResourceLocation> chapters, Set<ResourceLocation> shared) {
+    }
+
+    /** Writes a chapter's changed quests, one file each, with their texts. Everything is checked before anything is written. */
+    public static void saveChapter(Path root, Chapter chapter, boolean chapterChanged, List<Quest> quests, QuestFiles known, String language, Map<String, String> texts,
+            DynamicOps<JsonElement> ops, boolean createPackFile) throws Rejected, IOException {
+        if (!LANGUAGE.matcher(language).matches()) {
+            throw new Rejected("rysquests.editor.error.invalid");
+        }
+        ResourceLocation chapterFile = known.chapters().getOrDefault(chapter.id(), ResourceLocation.fromNamespaceAndPath(chapter.id().getNamespace(), "rysquests/chapters/" + chapter.id().getPath() + "/" + CHAPTER_FILE));
+        checkFolder(chapterFile.getPath());
+        String folder = chapterFile.getPath().substring(0, chapterFile.getPath().lastIndexOf('/') + 1);
+        Set<String> keys = new HashSet<>();
+        keys.add(chapter.title());
+        chapter.groups().forEach(group -> keys.add(group.title()));
+        Map<Path, JsonElement> files = new java.util.LinkedHashMap<>();
+        for (Quest quest : quests) {
+            if (known.shared().contains(quest.id())) {
+                throw new Rejected("rysquests.editor.error.shared_file");
+            }
+            if (quest.chapter().filter(chapter.id()::equals).isEmpty()) {
+                throw new Rejected("rysquests.editor.error.invalid");
+            }
+            ResourceLocation file = known.quests().get(quest.id());
+            if (file == null) {
+                String name = quest.id().getPath().substring(quest.id().getPath().lastIndexOf('/') + 1);
+                if (!FILE_NAME.matcher(name).matches() || name.startsWith("_")) {
+                    throw new Rejected("rysquests.editor.error.invalid");
+                }
+                file = ResourceLocation.fromNamespaceAndPath(chapterFile.getNamespace(), folder + name + ".json");
+            }
+            checkFolder(file.getPath());
+            files.put(dataFile(root, file), ordered(Quest.CODEC.encodeStart(ops, quest).getOrThrow(), QUEST_ORDER, RULE_ORDER));
+            keys.add(quest.title());
+            quest.subtitle().ifPresent(keys::add);
+            quest.text().ifPresent(keys::add);
+        }
+        if (!keys.containsAll(texts.keySet())) {
+            throw new Rejected("rysquests.editor.error.invalid");
+        }
+        if (chapterChanged) {
+            files.put(dataFile(root, chapterFile), ordered(Chapter.CODEC.encodeStart(ops, chapter).getOrThrow(), CHAPTER_ORDER, RULE_ORDER));
+        }
+        if (createPackFile) {
+            writePackFile(root);
+        }
+        for (Map.Entry<Path, JsonElement> file : files.entrySet()) {
+            writeText(file.getKey(), GSON.toJson(file.getValue()) + "\n");
+        }
+        if (!texts.isEmpty()) {
+            mergeLang(root.resolve("assets").resolve(chapter.id().getNamespace()).resolve("lang").resolve(language + ".json"), texts);
+        }
+    }
+
+    private static Path dataFile(Path root, ResourceLocation file) {
+        return root.resolve("data").resolve(file.getNamespace()).resolve(file.getPath());
+    }
+
+    /** A resource path may hold {@code ..}, which must not lead out of the pack. */
+    private static void checkFolder(String path) throws Rejected {
+        if (!path.startsWith("rysquests/chapters/") || !path.endsWith(".json")) {
+            throw new Rejected("rysquests.editor.error.invalid");
+        }
+        for (String segment : path.substring(0, path.length() - ".json".length()).split("/")) {
+            if (!FILE_NAME.matcher(segment).matches()) {
+                throw new Rejected("rysquests.editor.error.invalid");
+            }
+        }
+    }
+
     /** Puts the order of the rail into the book's settings, leaving the rest of them as they are. */
     public static void saveBook(Path root, String namespace, BookMeta meta, List<String> rail, boolean createPackFile) throws Rejected, IOException {
         if (rail.isEmpty() || rail.stream().anyMatch(id -> ResourceLocation.tryParse(id) == null)) {
@@ -178,9 +265,13 @@ public final class EditorFiles {
 
     /** Codecs do not promise an order of fields, and a file has to diff well, so it is set here. */
     private static JsonElement ordered(JsonElement element) {
+        return ordered(element, FIELD_ORDER, FIELD_ORDER);
+    }
+
+    private static JsonElement ordered(JsonElement element, List<String> order, List<String> nested) {
         if (element.isJsonArray()) {
             JsonArray out = new JsonArray();
-            element.getAsJsonArray().forEach(item -> out.add(ordered(item)));
+            element.getAsJsonArray().forEach(item -> out.add(ordered(item, nested, nested)));
             return out;
         }
         if (!element.isJsonObject()) {
@@ -188,12 +279,12 @@ public final class EditorFiles {
         }
         JsonObject source = element.getAsJsonObject();
         JsonObject out = new JsonObject();
-        for (String field : FIELD_ORDER) {
+        for (String field : order) {
             if (source.has(field)) {
-                out.add(field, ordered(source.get(field)));
+                out.add(field, ordered(source.get(field), nested, nested));
             }
         }
-        new java.util.TreeSet<>(source.keySet()).stream().filter(field -> !FIELD_ORDER.contains(field)).forEach(field -> out.add(field, ordered(source.get(field))));
+        new java.util.TreeSet<>(source.keySet()).stream().filter(field -> !order.contains(field)).forEach(field -> out.add(field, ordered(source.get(field), nested, nested)));
         return out;
     }
 

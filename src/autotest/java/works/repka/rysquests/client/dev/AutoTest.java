@@ -144,6 +144,8 @@ public final class AutoTest {
             buildEditorScenario();
         } else if ("shop".equals(scenario)) {
             buildShopScenario();
+        } else if ("quest_editor".equals(scenario)) {
+            buildQuestEditorScenario();
         } else if ("kubejs".equals(scenario)) {
             buildKubeJsScenario();
         } else if ("achievements".equals(scenario)) {
@@ -824,6 +826,15 @@ public final class AutoTest {
         }, 5);
         step("save the section", BookScreen::constructorSaveForTest, 5);
         expect("the server saved the section", BookScreen::constructorSavedForTest);
+        step("leave the constructor for the quest editor", () -> mc().setScreen(new BookScreen()), 5);
+        step("make a chapter on the server", () -> {
+            BookScreen.openQuestEditorForTest();
+            BookScreen.questNewChapterForTest("Server chapter");
+            BookScreen.questAddForTest("Server quest");
+            BookScreen.questSaveForTest();
+        }, 40);
+        expect("the server saved the chapter", () -> !BookScreen.questDirtyForTest());
+        expect("the chapter file is on the server", () -> Files.isRegularFile(mc().gameDirectory.toPath().resolve("../run-server/config/rysquests/pack/data/" + BookScreen.questChapterForTest().getNamespace() + "/rysquests/chapters/" + BookScreen.questChapterForTest().getPath() + "/_chapter.json")));
         step("close the book", () -> mc().setScreen(null), 5);
     }
 
@@ -882,6 +893,157 @@ public final class AutoTest {
             trade(SHOP_IRON);
         }, 10);
         expect("the server still refuses", () -> "rysquests.shop.error.limit".equals(BookScreen.lastShopResultForTest()));
+    }
+
+    private static final String[][] QUEST_EDITOR_NODES = {
+            {"Латунь", "minecraft:gold_ingot", "0", "24"}, {"Шестерни", "minecraft:oak_planks", "0", "120"}, {"Провода", "minecraft:copper_ingot", "168", "24"}, {"Динамо", "minecraft:iron_block", "168", "120"},
+            {"Электрический механизм", "minecraft:clock", "336", "72"}, {"Первая машина", "minecraft:emerald_block", "384", "168"}, {"Солнечные панели", "minecraft:daylight_detector", "384", "312"},
+            {"Насос и трубы", "minecraft:lapis_block", "0", "240"}, {"Котёл", "minecraft:furnace", "168", "240"}, {"Турбина", "minecraft:piston", "384", "240"}};
+
+    private static void click(double x, double y) {
+        mc().screen.mouseClicked(x / 2, y / 2, GLFW.GLFW_MOUSE_BUTTON_LEFT);
+    }
+
+    private static void dragTo(double x, double y) {
+        mc().screen.mouseDragged(x / 2, y / 2, GLFW.GLFW_MOUSE_BUTTON_LEFT, 0, 0);
+    }
+
+    private static void release(double x, double y) {
+        mc().screen.mouseReleased(x / 2, y / 2, GLFW.GLFW_MOUSE_BUTTON_LEFT);
+    }
+
+    /** The acceptance of the quest editor: a chapter of ten quests with dependencies, made in the game, read back from its files. */
+    private static void buildQuestEditorScenario() {
+        List<ResourceLocation> ids = new ArrayList<>();
+        ResourceLocation[] chapter = new ResourceLocation[1];
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("open the book", () -> mc().setScreen(new BookScreen()), 20);
+        step("open the quest editor", BookScreen::openQuestEditorForTest, 10);
+        expect("the editor is open", BookScreen::questEditorOpenForTest);
+        step("make a chapter of ten quests", () -> {
+            BookScreen.questNewChapterForTest("Индустрия и ток");
+            BookScreen.questEpochForTest(2);
+            chapter[0] = BookScreen.questChapterForTest();
+            for (String[] node : QUEST_EDITOR_NODES) {
+                ResourceLocation id = BookScreen.questAddForTest(node[0]);
+                ids.add(id);
+                BookScreen.questMoveForTest(id, Integer.parseInt(node[2]), Integer.parseInt(node[3]));
+                BookScreen.questItemTaskForTest(ResourceLocation.parse(node[1]), 3);
+                BookScreen.questCoinRewardForTest(5);
+            }
+        }, 10);
+        step("link most of them", () -> {
+            BookScreen.questLinkForTest(ids.get(0), ids.get(2));
+            BookScreen.questLinkForTest(ids.get(1), ids.get(3));
+            BookScreen.questLinkForTest(ids.get(2), ids.get(4));
+            BookScreen.questLinkForTest(ids.get(3), ids.get(4));
+            BookScreen.questLinkForTest(ids.get(7), ids.get(8));
+            BookScreen.questLinkForTest(ids.get(8), ids.get(9));
+            BookScreen.questSelectForTest(ids.get(4));
+        }, 10);
+        expect("a circle is refused", () -> {
+            BookScreen.questLinkForTest(ids.get(4), ids.get(0));
+            return BookScreen.questDraftForTest(ids.get(0)).requires().isEmpty() && BookScreen.questStatusForTest() != null;
+        });
+        step("pull a dependency with the mouse, and hold it", () -> {
+            float[] node = BookScreen.questRectForTest(ids.get(4));
+            float[] target = BookScreen.questRectForTest(ids.get(5));
+            click(node[0] + node[2] + 12, node[1] + node[3] / 2f);
+            dragTo(target[0] - 8, target[1] + 22);
+        }, 4);
+        screenshot("design_quest_editor");
+        step("drop it on the quest", () -> {
+            float[] target = BookScreen.questRectForTest(ids.get(5));
+            dragTo(target[0] + 20, target[1] + 20);
+            release(target[0] + 20, target[1] + 20);
+        }, 4);
+        expect("the mouse added the dependency", () -> BookScreen.questDraftForTest(ids.get(5)).requires().contains(ids.get(4)));
+        step("drag a quest with the mouse", () -> {
+            float[] node = BookScreen.questRectForTest(ids.get(6));
+            click(node[0] + 30, node[1] + 15);
+            dragTo(node[0] + 30 + 48, node[1] + 15 + 24);
+            release(node[0] + 30 + 48, node[1] + 15 + 24);
+        }, 4);
+        expect("it moved along the grid", () -> BookScreen.questDraftForTest(ids.get(6)).options().layout().x().orElse(0) == 432 && BookScreen.questDraftForTest(ids.get(6)).options().layout().y().orElse(0) == 336);
+        step("show the json tab", () -> {
+            BookScreen.questSelectForTest(ids.get(4));
+            BookScreen.questTabForTest("JSON");
+        }, 4);
+        screenshot("quest_editor_json");
+        step("back to properties and save", () -> {
+            BookScreen.questTabForTest("PROPS");
+            BookScreen.questSaveForTest();
+        }, 40);
+        expect("the save went through", () -> !BookScreen.questDirtyForTest());
+        expect("the chapter is in the book", () -> ClientBook.current().chapters().containsKey(chapter[0]));
+        expect("all ten are in the book", () -> ids.stream().allMatch(ClientBook.current().quests()::containsKey));
+        Path[] file = new Path[1];
+        expect("the files match the format", () -> {
+            Path folder = mc().gameDirectory.toPath().resolve("config/rysquests/pack/data/" + chapter[0].getNamespace() + "/rysquests/chapters/" + chapter[0].getPath());
+            file[0] = folder.resolve("quest_5.json");
+            try {
+                String text = Files.readString(file[0]);
+                var json = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+                List<String> order = new ArrayList<>(json.keySet());
+                var quest = works.repka.rysquests.data.Quest.CODEC.parse(net.minecraft.resources.RegistryOps.create(com.mojang.serialization.JsonOps.INSTANCE, mc().level.registryAccess()), json).getOrThrow();
+                return Files.isRegularFile(folder.resolve("_chapter.json"))
+                        && order.indexOf("id") == 0 && order.indexOf("title") < order.indexOf("tasks") && order.indexOf("tasks") < order.indexOf("rewards")
+                        && json.get("tasks").getAsJsonArray().get(0).getAsJsonObject().keySet().iterator().next().equals("type")
+                        && quest.requires().size() == 2 && quest.tasks().size() == 1 && quest.rewards().size() == 1
+                        && Files.readString(mc().gameDirectory.toPath().resolve("config/rysquests/pack/assets/" + chapter[0].getNamespace() + "/lang/ru_ru.json")).contains("Электрический механизм");
+            } catch (java.io.IOException e) {
+                return false;
+            }
+        });
+        step("change a file outside the game", () -> {
+            try {
+                Files.writeString(file[0], Files.readString(file[0]).replace("\"chapter\"", "\"icon\": \"minecraft:diamond\",\n  \"chapter\""));
+            } catch (java.io.IOException e) {
+                fail("could not change the file: " + e);
+            }
+            command("reload");
+        }, 60);
+        expect("the map followed the file", () -> BookScreen.questDraftForTest(ids.get(4)).icon().filter(ResourceLocation.parse("minecraft:diamond")::equals).isPresent() && !BookScreen.questDirtyForTest());
+        step("look at the highlight", () -> BookScreen.questSelectForTest(ids.get(0)), 10);
+        screenshot("quest_editor_external");
+        for (int[] size : new int[][] {{2560, 1440}, {1920, 1080}}) {
+            for (String theme : List.of("slate", "glass")) {
+                step("show the editor " + size[0] + " " + theme, () -> {
+                    mc().getWindow().setWindowed(size[0], size[1]);
+                    mc().options.guiScale().set(0);
+                    mc().resizeDisplay();
+                    ThemeManager.select("ryscore:" + theme);
+                }, 15);
+                screenshot("quest_editor_" + size[0] + "_" + theme);
+            }
+        }
+        step("back to the size of the mockups", () -> {
+            mc().getWindow().setWindowed(1280, 800);
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+            ThemeManager.select("ryscore:slate");
+        }, 15);
+        step("leave the editor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
+        expect("the editor closed", () -> !BookScreen.questEditorOpenForTest());
+        step("take the chapter away, other scenarios count the quests of the example", () -> {
+            try {
+                Path game = mc().gameDirectory.toPath();
+                Files.createDirectories(game.resolve("_stale"));
+                Files.move(file[0].getParent(), game.resolve("_stale/quest_editor_" + System.currentTimeMillis()));
+            } catch (java.io.IOException e) {
+                fail("could not move the chapter: " + e);
+            }
+            command("reload");
+        }, 60);
+        expect("the example is back to its own quests", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
     }
 
     /** Commands of the wallet, and a real click on the exchanger of examples/kubejs with KubeJS running. */

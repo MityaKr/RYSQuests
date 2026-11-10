@@ -648,6 +648,12 @@ final class SectionEditorView {
             renderRailRow(ui, rail.get(i), i, true, left, cursor, inner);
             cursor += 35;
         }
+        for (String builtIn : List.of(Chapter.STORY, BookMeta.GUIDES, BookMeta.SHOP, BookMeta.ACHIEVEMENTS)) {
+            if (!rail.contains(builtIn)) {
+                renderRailRow(ui, builtIn, -1, false, left, cursor, inner);
+                cursor += 35;
+            }
+        }
         for (SectionDef other : ClientBook.current().sections().values()) {
             if (!rail.contains(other.id().toString())) {
                 renderRailRow(ui, other.id().toString(), -1, false, left, cursor, inner);

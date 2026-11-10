@@ -16,7 +16,8 @@ from pathlib import Path
 KNOWN_TASKS = {"rysquests:item", "rysquests:checkbox", "rysquests:advancement", "rysquests:stat",
                "rysquests:visit", "rysquests:kill", "rysquests:fluid", "rysquests:script"}
 KNOWN_REWARDS = {"rysquests:item", "rysquests:xp", "rysquests:command", "rysquests:choice",
-                 "rysquests:random", "rysquests:stage", "rysquests:loot_table", "rysquests:script"}
+                 "rysquests:random", "rysquests:stage", "rysquests:loot_table", "rysquests:script",
+                 "rysquests:currency", "rysquests:title"}
 SPECIAL_FILES = {"_chapter.json", "_quests.json"}
 
 

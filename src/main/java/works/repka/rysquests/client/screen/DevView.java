@@ -55,6 +55,13 @@ final class DevView implements BookView {
                 screen.openSectionEditor(null);
             }
         });
+        String quests = Component.translatable("rysquests.quest_editor.open").getString();
+        float questsW = ui.buttonWidth(quests, 11.5f, Ui.REGULAR, 10) + 2;
+        ui.button(quests, x + w - 18 - constructorW - 6 - questsW, cy - 15, questsW, 30, 8, 11.5f, Ui.REGULAR, 10, Ui.Style.PLAIN, () -> {
+            if (net.minecraft.client.Minecraft.getInstance().screen instanceof BookScreen screen) {
+                screen.openQuestEditor();
+            }
+        });
         DevReports.Report report = ClientDev.report();
         for (Tab option : Tab.values()) {
             boolean active = option == tab;

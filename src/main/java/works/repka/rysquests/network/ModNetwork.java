@@ -13,7 +13,7 @@ import works.repka.rysquests.progress.ProgressService;
 
 /** Registers payloads. Client handlers are injected, so that this class never refers to client code. */
 public final class ModNetwork {
-    private static final String VERSION = "6";
+    private static final String VERSION = "7";
 
     private static BiConsumer<BookSyncPayload, RegistryAccess> clientBookHandler = (payload, registries) -> {
     };
@@ -114,6 +114,8 @@ public final class ModNetwork {
                         (payload, context) -> clientAchievementHandler.accept(payload))
                 .playToServer(SelectTitlePayload.TYPE, SelectTitlePayload.STREAM_CODEC,
                         (payload, context) -> AchievementService.select((ServerPlayer) context.player(), payload.title()))
+                .playToServer(QuestEditorSavePayload.TYPE, QuestEditorSavePayload.STREAM_CODEC,
+                        (payload, context) -> EditorService.handleQuests((ServerPlayer) context.player(), payload))
                 .playToServer(EditorSavePayload.TYPE, EditorSavePayload.STREAM_CODEC,
                         (payload, context) -> EditorService.handle((ServerPlayer) context.player(), payload))
                 .playToServer(PinWayPayload.TYPE, PinWayPayload.STREAM_CODEC,
