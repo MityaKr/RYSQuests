@@ -64,7 +64,9 @@ public final class Ui {
     /** Set while the rail of sections touches the window's left edge: the columns beside it have square corners there. */
     boolean squareLeft;
     private final ArrayDeque<int[]> clipStack = new ArrayDeque<>();
+    private int clipLeft = Integer.MIN_VALUE;
     private int clipTop = Integer.MIN_VALUE;
+    private int clipRight = Integer.MAX_VALUE;
     private int clipBottom = Integer.MAX_VALUE;
 
     public Ui(GuiGraphics g, int guiMouseX, int guiMouseY, List<Hit> hits, List<Hit> rightHits, Kit.Hits kitHits) {
@@ -143,18 +145,23 @@ public final class Ui {
 
     // --- clipping and input ---
 
+    /** Clips drawing, hover and clicks alike: what is cut off, like a quest panned under the chapter column, cannot be clicked. */
     void clip(int x, int y, int w, int h) {
         Draw.scissor(g, Math.floorDiv(x, 2), Math.floorDiv(y, 2), Math.floorDiv(x + w + 1, 2), Math.floorDiv(y + h + 1, 2));
-        clipStack.push(new int[] {clipTop, clipBottom});
+        clipStack.push(new int[] {clipLeft, clipTop, clipRight, clipBottom});
+        clipLeft = x;
         clipTop = y;
+        clipRight = x + w;
         clipBottom = y + h;
     }
 
     void unclip() {
         g.disableScissor();
         int[] previous = clipStack.pop();
-        clipTop = previous[0];
-        clipBottom = previous[1];
+        clipLeft = previous[0];
+        clipTop = previous[1];
+        clipRight = previous[2];
+        clipBottom = previous[3];
     }
 
     /** Runs drawing code only to learn its result: nothing shows and nothing becomes clickable. */
@@ -166,7 +173,8 @@ public final class Ui {
     }
 
     boolean over(float x, float y, float w, float h) {
-        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h && mouseY >= clipTop && mouseY < clipBottom;
+        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h
+                && mouseX >= clipLeft && mouseX < clipRight && mouseY >= clipTop && mouseY < clipBottom;
     }
 
     void hit(float x, float y, float w, float h, Runnable action) {
@@ -178,10 +186,12 @@ public final class Ui {
     }
 
     private void add(List<Hit> list, float x, float y, float w, float h, Runnable action) {
+        int left = Math.max(Math.round(x), clipLeft);
+        int right = Math.min(Math.round(x + w), clipRight);
         int top = Math.max(Math.round(y), clipTop);
         int bottom = Math.min(Math.round(y + h), clipBottom);
-        if (bottom > top) {
-            list.add(new Hit(Math.round(x), top, Math.round(w), bottom - top, action));
+        if (bottom > top && right > left) {
+            list.add(new Hit(left, top, right - left, bottom - top, action));
         }
     }
 

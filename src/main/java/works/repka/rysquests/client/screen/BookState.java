@@ -56,6 +56,8 @@ final class BookState {
     static boolean showRest;
     /** Picks of choice rewards by reward index, for the selected quest. */
     static final Map<Integer, Integer> PICKS = new HashMap<>();
+    /** When the claim button last asked for a pick: the options blink for a moment after it. */
+    static long pickNudge;
     static final Set<String> REVEALED = new HashSet<>();
 
     private BookState() {

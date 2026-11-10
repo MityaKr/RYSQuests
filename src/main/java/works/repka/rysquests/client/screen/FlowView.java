@@ -422,7 +422,7 @@ final class FlowView implements BookView {
         int submit = screen.readyToSubmit();
         int claim = screen.readyToClaim();
         String submitText = Component.translatable("rysquests.flow.submit_all", submit).getString();
-        String claimText = Component.translatable("rysquests.flow.claim_all", claim).getString();
+        String claimText = screen.claimAllLabel(Component.translatable("rysquests.flow.claim_all", claim).getString());
         String hint = Component.translatable("rysquests.flow.hint", QuestKeys.label(QuestKeys.OPEN_BOOK)).getString();
         float[] base = {submit > 0 ? ui.buttonWidth(submitText, 13, Ui.SEMIBOLD, 16) : 0, claim > 0 ? ui.buttonWidth(claimText, 13, Ui.REGULAR, 16) + 2 : 0, ui.width(hint, 12, Ui.REGULAR)};
         float[] min = {submit > 0 ? ui.buttonMinWidth(submitText, 13, Ui.SEMIBOLD, 16) : 0, claim > 0 ? ui.buttonMinWidth(claimText, 13, Ui.REGULAR, 16) + 2 : 0, ui.minWidth(hint, 12, Ui.REGULAR)};
@@ -434,7 +434,7 @@ final class FlowView implements BookView {
             cursor += widths[0] + 8;
         }
         if (claim > 0) {
-            ui.button(claimText, cursor, top, widths[1], 40, 10, 13, Ui.REGULAR, 16, Ui.Style.PLAIN, () -> QuestKeys.sendAll(QuestActionPayload.CLAIM_ALL));
+            ui.button(claimText, cursor, top, widths[1], 40, 10, 13, Ui.REGULAR, 16, Ui.Style.PLAIN, screen::claimAll);
             cursor += widths[1] + 8;
         }
         float hintX = x + w - PAD - widths[2];

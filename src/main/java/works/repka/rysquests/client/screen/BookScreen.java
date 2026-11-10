@@ -184,6 +184,9 @@ public final class BookScreen extends ScaledScreen {
     private long countsAt;
     private int claimCount;
     private List<ItemStack> claimStacks = List.of();
+    private boolean plainClaim;
+    @Nullable
+    private Quest pickQuest;
     private final Scroll chapterScroll = new Scroll();
     private final Scroll railScroll = new Scroll();
     private final Scroll cardScroll = new Scroll();
@@ -326,16 +329,52 @@ public final class BookScreen extends ScaledScreen {
         countsAt = now;
         int count = 0;
         List<ItemStack> stacks = new ArrayList<>();
+        boolean plain = false;
+        Quest pick = null;
         for (Quest quest : book().quests().values()) {
             if (inStory(quest) && BookState.status(quest) == QuestStatus.COMPLETED) {
                 count++;
                 if (stacks.size() < 2) {
                     stacks.addAll(QuestCard.rewardStacks(quest, 2 - stacks.size()));
                 }
+                plain |= QuestCard.hasUnclaimedPlain(quest);
+                if (pick == null && QuestCard.hasUnclaimedChoice(quest)) {
+                    pick = quest;
+                }
             }
         }
         claimCount = count;
         claimStacks = stacks;
+        plainClaim = plain;
+        pickQuest = pick;
+    }
+
+    /** Only choices are left: claiming everything can give nothing, so the button opens a quest to pick in. */
+    boolean onlyPicksLeft() {
+        refreshCounts();
+        return !plainClaim && pickQuest != null;
+    }
+
+    /** The bulk claim of every button: everything that needs no decision, or else the first quest that waits for one. */
+    void claimAll() {
+        refreshCounts();
+        if (onlyPicksLeft()) {
+            Quest quest = pickQuest;
+            BookState.select(quest);
+            ViewMode view = BookState.currentView();
+            if (view != ViewMode.MAP && view != ViewMode.FLOW && view != ViewMode.LIST) {
+                BookState.view = ViewMode.FLOW;
+            }
+            BookState.pickNudge = System.currentTimeMillis();
+        } else {
+            QuestKeys.sendAll(QuestActionPayload.CLAIM_ALL);
+            countsAt = 0;
+        }
+    }
+
+    /** The label of a bulk claim button: its own words, or "choose a reward" when only choices are left. */
+    String claimAllLabel(String own) {
+        return onlyPicksLeft() ? Component.translatable("rysquests.book.pick_reward").getString() : own;
     }
 
     /** What a locked quest still needs, in words. */
@@ -848,9 +887,9 @@ public final class BookScreen extends ScaledScreen {
         for (int i = 0; i < claimStacks.size(); i++) {
             ui.cell(claimStacks.get(i), x + 11 + i * 38, y + 31, 30, 30, 6, 16, ui.c("panel.bg"), ui.c("card.border"));
         }
-        String label = Component.translatable("rysquests.book.claim_short").getString();
+        String label = onlyPicksLeft() ? Component.translatable("rysquests.book.pick_short").getString() : Component.translatable("rysquests.book.claim_short").getString();
         float bw = ui.buttonWidth(label, 11.5f, Ui.SEMIBOLD, 10);
-        ui.button(label, x + w - 11 - bw, y + 32, bw, 28, 7, 11.5f, Ui.SEMIBOLD, 10, Ui.Style.ACCENT, () -> QuestKeys.sendAll(QuestActionPayload.CLAIM_ALL));
+        ui.button(label, x + w - 11 - bw, y + 32, bw, 28, 7, 11.5f, Ui.SEMIBOLD, 10, Ui.Style.ACCENT, this::claimAll);
     }
 
     private void renderCard(Ui ui, int x, int y, int w, int h) {
@@ -1055,6 +1094,26 @@ public final class BookScreen extends ScaledScreen {
             BookState.view = ViewMode.FLOW;
             Minecraft.getInstance().setScreen(new BookScreen());
         }
+    }
+
+    public static boolean onlyPicksLeftForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.countsAt = 0;
+            return screen.onlyPicksLeft();
+        }
+        return false;
+    }
+
+    public static void claimAllForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.countsAt = 0;
+            screen.claimAll();
+        }
+    }
+
+    @Nullable
+    public static ResourceLocation selectedQuestForTest() {
+        return BookState.quest;
     }
 
     public static boolean inGuidesForTest() {

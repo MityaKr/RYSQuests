@@ -1475,6 +1475,21 @@ public final class AutoTest {
         step("open chat for the link", () -> pressKey(GLFW.GLFW_KEY_T), 10);
         screenshot("design_chat");
         step("close chat", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        step("finish the quest with a choice and open the map", () -> {
+            command("rysquests progress @s complete " + mechanism);
+            BookScreen.selectForTest(chapter, ResourceLocation.parse("design:02/brass"));
+            BookScreen.showForTest(ViewMode.MAP);
+            pressKey(GLFW.GLFW_KEY_K);
+        }, 30);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("claim everything that needs no choice", BookScreen::claimAllForTest, 30);
+        expect("only the choice is left", BookScreen::onlyPicksLeftForTest);
+        step("the claim button opens the quest to pick in", BookScreen::claimAllForTest, 10);
+        expect("the quest with the choice is selected", () -> quest.equals(BookScreen.selectedQuestForTest()));
+        screenshot("design_pick");
+        step("pick the second option and claim", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, quest, 0, List.of(1))), 20);
+        expect("the choice was claimed", () -> ClientProgress.get(quest).claimed().contains(0) && !BookScreen.onlyPicksLeftForTest());
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
     }
 
     /** Plays the first example quest through the real keys and the real packets. */

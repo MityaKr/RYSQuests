@@ -232,14 +232,22 @@ final class HomeView implements BookView {
             ui.cell(stack, x + 17 + i * 48, slotY, 42, 42, 9, 22, ui.c("slot.bg"), ui.c("card.border"));
             ui.count(stack.getCount(), x + 17 + i * 48 + 37, slotY + 40);
         }
-        String claim = Component.translatable("rysquests.home.claim_all").getString();
+        BookScreen screen = net.minecraft.client.Minecraft.getInstance().screen instanceof BookScreen open ? open : null;
+        String own = Component.translatable("rysquests.home.claim_all").getString();
+        String claim = screen == null ? own : screen.claimAllLabel(own);
         float textX = x + 17 + stacks.size() * 48 + 2;
         float room = w - 34 - stacks.size() * 48 - 2;
         String names = claimNames();
         float[] widths = Ui.shrink(room, 12, new float[] {ui.width(names, 12, Ui.REGULAR), ui.buttonWidth(claim, 12, Ui.MEDIUM, 12) + 2},
                 new float[] {ui.minWidth(names, 12, Ui.REGULAR), ui.buttonMinWidth(claim, 12, Ui.MEDIUM, 12) + 2});
         ui.lines(ui.wrap(names, widths[0] + 1, 12, Ui.REGULAR, 2), textX, slotY + 21, 15, 12, Ui.REGULAR, ui.c("text.muted"));
-        ui.button(claim, x + w - 17 - widths[1], slotY + 5, widths[1], 32, 8, 12, Ui.MEDIUM, 12, Ui.Style.PLAIN, () -> QuestKeys.sendAll(QuestActionPayload.CLAIM_ALL));
+        ui.button(claim, x + w - 17 - widths[1], slotY + 5, widths[1], 32, 8, 12, Ui.MEDIUM, 12, Ui.Style.PLAIN, () -> {
+            if (screen != null) {
+                screen.claimAll();
+            } else {
+                QuestKeys.sendAll(QuestActionPayload.CLAIM_ALL);
+            }
+        });
     }
 
     private String claimNames() {

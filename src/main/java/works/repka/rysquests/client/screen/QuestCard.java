@@ -183,7 +183,7 @@ final class QuestCard {
             return y - 14;
         }
         parts.addFirst(new Words(Component.translatable("rysquests.flow.reward").getString(), "text.muted"));
-        String claim = status == QuestStatus.COMPLETED ? Component.translatable("rysquests.book.claim_short").getString() : "";
+        String claim = claimLabel(quest, status);
         float claimW = claim.isEmpty() ? 0 : ui.buttonWidth(claim, 13, Ui.SEMIBOLD, 14);
         float room = w - (claim.isEmpty() ? 0 : claimW + 10);
         while (parts.size() > 1 && minRow(ui, parts) > room) {
@@ -216,7 +216,7 @@ final class QuestCard {
                 ui.lines(wrapped.get(i), pen, cy, 16, 13, Ui.REGULAR, ui.c(words.token));
             } else if (part instanceof Slot slot) {
                 boolean picked = slot.pickReward >= 0 && BookState.PICKS.getOrDefault(slot.pickReward, -1) == slot.pickOption;
-                ui.cell(slot.stack, pen, cy - 16, 32, 32, 7, 18, ui.c("slot.bg"), picked ? ui.c("accent") : ui.c("card.border"));
+                ui.cell(slot.stack, pen, cy - 16, 32, 32, 7, 18, ui.c("slot.bg"), optionBorder(ui, quest, status, slot, picked));
                 ui.count(slot.count, pen + 29, cy + 15);
                 if (slot.pickReward >= 0) {
                     ui.hit(pen, cy - 16, 32, 32, () -> BookState.PICKS.put(slot.pickReward, slot.pickOption));
@@ -225,7 +225,7 @@ final class QuestCard {
             pen += widths[i] + 10;
         }
         if (!claim.isEmpty()) {
-            ui.button(claim, x + w - claimW, cy - 17, claimW, 34, 9, 13, Ui.SEMIBOLD, 14, Ui.Style.ACCENT, () -> claim(quest));
+            ui.button(claim, x + w - claimW, cy - 17, claimW, 34, 9, 13, Ui.SEMIBOLD, 14, awaitsPick(quest) ? Ui.Style.PLAIN : Ui.Style.ACCENT, claimAction(quest));
         }
         return y + height;
     }
@@ -269,6 +269,71 @@ final class QuestCard {
             picks.add(BookState.PICKS.getOrDefault(i, -1));
         }
         send(QuestActionPayload.CLAIM, quest, 0, picks);
+    }
+
+    /** A choice reward still waits for a decision: the quest cannot be claimed in one press until it is made. */
+    static boolean hasUnclaimedChoice(Quest quest) {
+        List<Integer> claimed = ClientProgress.get(quest.id()).claimed();
+        for (int i = 0; i < quest.rewards().size(); i++) {
+            if (quest.rewards().get(i) instanceof ChoiceReward && !claimed.contains(i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Something a bulk claim can give without asking: claiming everything leaves only the choices. */
+    static boolean hasUnclaimedPlain(Quest quest) {
+        List<Integer> claimed = ClientProgress.get(quest.id()).claimed();
+        for (int i = 0; i < quest.rewards().size(); i++) {
+            if (!(quest.rewards().get(i) instanceof ChoiceReward) && !claimed.contains(i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The selected quest has a choice with nothing picked yet. */
+    private static boolean awaitsPick(Quest quest) {
+        List<Integer> claimed = ClientProgress.get(quest.id()).claimed();
+        for (int i = 0; i < quest.rewards().size(); i++) {
+            if (quest.rewards().get(i) instanceof ChoiceReward choice && !claimed.contains(i)) {
+                int pick = BookState.PICKS.getOrDefault(i, -1);
+                if (pick < 0 || pick >= choice.of().size()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** The claim button's text, or "" when the quest is not done. Until a choice is made it asks for one. */
+    private static String claimLabel(Quest quest, QuestStatus status) {
+        if (status != QuestStatus.COMPLETED) {
+            return "";
+        }
+        return Component.translatable(awaitsPick(quest) ? "rysquests.book.pick_first" : "rysquests.book.claim_short").getString();
+    }
+
+    /** Claims, or, while a choice waits, makes its options blink so that the player sees what to pick. */
+    private static Runnable claimAction(Quest quest) {
+        return awaitsPick(quest) ? () -> BookState.pickNudge = System.currentTimeMillis() : () -> claim(quest);
+    }
+
+    private static final long NUDGE_MS = 1200;
+    private static final long BLINK_MS = 200;
+
+    /** The border of an option of a choice: the accent when picked, a warm hint while a pick is awaited, blinking after a press. */
+    private static int optionBorder(Ui ui, Quest quest, QuestStatus status, Slot slot, boolean picked) {
+        if (picked) {
+            return ui.c("accent");
+        }
+        if (slot.pickReward < 0 || status != QuestStatus.COMPLETED || !awaitsPick(quest)) {
+            return ui.c("card.border");
+        }
+        long since = System.currentTimeMillis() - BookState.pickNudge;
+        boolean blink = since >= 0 && since < NUDGE_MS && (since / BLINK_MS) % 2 == 0;
+        return blink ? ui.c("accent") : ui.warmBorder(0.5f);
     }
 
     static void send(int action, Quest quest, int value, List<Integer> picks) {
@@ -432,7 +497,7 @@ final class QuestCard {
         float cy = rowY + h / 2f;
         float pen = x;
         int perRow = Math.max(1, Math.min(slots.size(), (int) ((w + 8) / 54f)));
-        String claimText = status == QuestStatus.COMPLETED ? Component.translatable("rysquests.book.claim_short").getString() : "";
+        String claimText = claimLabel(quest, status);
         float claimW = claimText.isEmpty() ? 0 : ui.buttonWidth(claimText, 11.5f, Ui.SEMIBOLD, 10);
         int limit = Math.min(MAX_SLOTS + 1, perRow);
         for (int i = 0; i < Math.min(limit, slots.size()); i++) {
@@ -440,7 +505,7 @@ final class QuestCard {
             boolean picked = slot.pickReward >= 0 && BookState.PICKS.getOrDefault(slot.pickReward, -1) == slot.pickOption;
             float size = picked ? 48 : 46;
             float sy = cy - size / 2f;
-            ui.cell(slot.stack, pen, sy, size, size, 9, 24, ui.c("slot.bg"), picked ? 0 : ui.c("card.border"));
+            ui.cell(slot.stack, pen, sy, size, size, 9, 24, ui.c("slot.bg"), picked ? 0 : optionBorder(ui, quest, status, slot, false));
             if (picked) {
                 ui.strokeBold(pen, sy, size, size, 9, ui.c("accent"));
             }
@@ -451,7 +516,7 @@ final class QuestCard {
             pen += size + 8;
         }
         if (!claimText.isEmpty()) {
-            ui.button(claimText, x + w - claimW, cy - 14, claimW, 28, 7, 11.5f, Ui.SEMIBOLD, 10, Ui.Style.ACCENT, () -> claim(quest));
+            ui.button(claimText, x + w - claimW, cy - 14, claimW, 28, 7, 11.5f, Ui.SEMIBOLD, 10, awaitsPick(quest) ? Ui.Style.PLAIN : Ui.Style.ACCENT, claimAction(quest));
         }
         if (!words.isEmpty()) {
             float textX = pen + 4;

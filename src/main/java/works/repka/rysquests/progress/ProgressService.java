@@ -519,12 +519,11 @@ public final class ProgressService {
         return any;
     }
 
-    /** Choice rewards need a decision, so quests with one are left for the player to open. */
+    /** Gives everything that needs no decision: a choice stays unclaimed until the player opens its quest and picks. */
     private static void claimAll(ServerPlayer player) {
         Function<ResourceLocation, QuestProgress> progress = lookup(player);
         List<Quest> ready = book().quests().values().stream()
                 .filter(quest -> QuestLogic.status(quest, progress) == QuestStatus.COMPLETED)
-                .filter(quest -> quest.rewards().stream().noneMatch(ChoiceReward.class::isInstance))
                 .toList();
         boolean given = false;
         for (Quest quest : ready) {
