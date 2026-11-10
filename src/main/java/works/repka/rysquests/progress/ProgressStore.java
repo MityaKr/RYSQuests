@@ -126,6 +126,11 @@ public final class ProgressStore extends SavedData {
         setDirty();
     }
 
+    /** Players in a team made with our own commands. */
+    public int memberCount(UUID team) {
+        return (int) members.values().stream().filter(team::equals).count();
+    }
+
     public void setTeam(UUID player, UUID team) {
         members.put(player, team);
         setDirty();

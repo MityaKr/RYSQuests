@@ -1,0 +1,9 @@
+{
+  "progress_mode": "team",
+  "default_view": "flow",
+  "default_theme": "ryscore:slate",
+  "title": "Team test",
+  "chapter_order": [
+    "teamtest:main"
+  ]
+}

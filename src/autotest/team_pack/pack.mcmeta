@@ -1,0 +1,10 @@
+{
+  "pack": {
+    "description": "RYSQuests book for the two player test",
+    "pack_format": 48,
+    "supported_formats": [
+      34,
+      48
+    ]
+  }
+}

@@ -621,7 +621,8 @@ public final class ProgressService {
         PacketDistributor.sendToPlayer(player, new ProgressPayload(true, view));
         PacketDistributor.sendToPlayer(player, new PinnedPayload(store.pinned(player.getUUID())));
         TeamsApi teams = TeamsApi.get();
-        PacketDistributor.sendToPlayer(player, new TeamInfoPayload(teams.members(teams.teamOf(player.getUUID())).size()));
+        int members = Math.max(teams.members(teams.teamOf(player.getUUID())).size(), store.memberCount(team(player)));
+        PacketDistributor.sendToPlayer(player, new TeamInfoPayload(members));
         STAGE_LOCKS.remove(player.getUUID());
         refreshStageLocks(player);
     }

@@ -152,7 +152,7 @@ public final class QuestCommands {
 
     private static void refreshTeam(ServerPlayer player) {
         ProgressService.invalidateAll();
-        ProgressService.sendAll(player);
+        player.server.getPlayerList().getPlayers().forEach(ProgressService::sendAll);
     }
 
     private static int migrate(CommandContext<CommandSourceStack> context, boolean apply) {

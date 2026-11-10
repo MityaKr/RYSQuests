@@ -67,6 +67,25 @@ neoForge {
             // The size of the mockups in design/, so that screenshots can be laid over them.
             programArguments.addAll '--width', '1280', '--height', '800'
         }
+        // A dedicated server and two clients, for what a single player cannot show. The server needs eula.txt in its folder.
+        dedicatedServer {
+            server()
+            gameDirectory = project.file('run-server')
+            systemProperty 'rysquests.dev.examplePack', project.file('src/autotest/team_pack').absolutePath
+            programArgument '--nogui'
+        }
+        teamClientA {
+            client()
+            gameDirectory = project.file('run-a')
+            systemProperty 'rysquests.autotest', 'team_a'
+            programArguments.addAll '--username', 'TestA', '--width', '1280', '--height', '800'
+        }
+        teamClientB {
+            client()
+            gameDirectory = project.file('run-b')
+            systemProperty 'rysquests.autotest', 'team_b'
+            programArguments.addAll '--username', 'TestB', '--width', '1280', '--height', '800'
+        }
         // Full path on a copy of the real pack: its mods load from run-repys/mods, the instance itself stays untouched.
         repysAutotest {
             client()

@@ -1,0 +1,26 @@
+{
+  "id": "teamtest:shared",
+  "chapter": "teamtest:main",
+  "title": "Shared quest",
+  "icon": "minecraft:bread",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Done"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:bread",
+      "count": 1
+    },
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:diamond",
+      "count": 1,
+      "team_mode": "once"
+    }
+  ]
+}

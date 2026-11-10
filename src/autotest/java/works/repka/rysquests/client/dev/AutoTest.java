@@ -21,6 +21,9 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.BackupConfirmScreen;
+import net.minecraft.client.gui.screens.ConnectScreen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.tutorial.TutorialSteps;
 import net.minecraft.core.registries.Registries;
@@ -78,6 +81,8 @@ public final class AutoTest {
     private static final long STARTED_AT = System.currentTimeMillis();
     private static final int EXAMPLE_QUESTS = 6;
     private static final int SWITCHED_CHAPTERS = 4;
+    private static final String TEST_SERVER = "localhost:25577";
+    private static final ResourceLocation TEAM_QUEST = ResourceLocation.parse("teamtest:shared");
     private static final ResourceLocation SCRIPT_QUEST = ResourceLocation.parse("repys:autotest/script");
 
     private record Step(String name, BooleanSupplier ready, Runnable action, int waitAfter) {}
@@ -115,6 +120,10 @@ public final class AutoTest {
             buildRepysScenario();
         } else if ("design".equals(scenario)) {
             buildDesignScenario();
+        } else if ("team_a".equals(scenario)) {
+            buildTeamLeaderScenario();
+        } else if ("team_b".equals(scenario)) {
+            buildTeamMemberScenario();
         } else {
             // Reported from the first tick: the client cannot be stopped yet during mod construction.
             step("check scenario name", () -> fail("unknown scenario " + scenario), 0);
@@ -324,6 +333,63 @@ public final class AutoTest {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static void joinServer() {
+        STEPS.add(new Step("connect to the test server", () -> mc().screen != null && mc().level == null && mc().getOverlay() == null && total > 40, () -> {
+            mc().options.pauseOnLostFocus = false;
+            mc().options.onboardAccessibility = false;
+            if (!(mc().screen instanceof TitleScreen)) {
+                mc().setScreen(new TitleScreen());
+            }
+            ConnectScreen.startConnecting(mc().screen, mc(), ServerAddress.parseString(TEST_SERVER), new ServerData("test", TEST_SERVER, ServerData.Type.OTHER), false, null);
+        }, 20));
+        STEPS.add(new Step("joined the server", () -> mc().player != null && mc().level != null && mc().screen == null, () -> {}, 40));
+    }
+
+    private static int players() {
+        return mc().getConnection().getOnlinePlayers().size();
+    }
+
+    private static int count(net.minecraft.world.item.Item item) {
+        return mc().player.getInventory().countItem(item);
+    }
+
+    /** Leads a team of two on a dedicated server and closes the server when the other player has left. */
+    private static void buildTeamLeaderScenario() {
+        joinServer();
+        expect("the book came over the network", () -> ClientBook.current().quests().containsKey(TEAM_QUEST));
+        expect("the other player is here", () -> players() == 2);
+        step("create a team", () -> command("rysquests team create"), 20);
+        step("invite the other player", () -> command("rysquests team invite TestB"), 10);
+        expect("the other player joined", () -> ClientProgress.teamSize() == 2);
+        step("open the book on the server", () -> {
+            BookScreen.selectForTest(ResourceLocation.parse("teamtest:main"), TEAM_QUEST);
+            pressKey(GLFW.GLFW_KEY_K);
+        }, 20);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("switch to the map", () -> BookScreen.showForTest(ViewMode.MAP), 20);
+        screenshot("server_team");
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
+        step("confirm the shared task", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CHECK, TEAM_QUEST, 0, List.of())), 20);
+        expect("quest completed", () -> ClientProgress.get(TEAM_QUEST).completed());
+        step("claim first", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
+        expect("got the reward for each and the single one", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 1);
+        expect("the other player has left", () -> players() == 1);
+        step("stop the server", () -> command("stop"), 100);
+    }
+
+    /** Joins the team by invitation and shows what the second member gets. */
+    private static void buildTeamMemberScenario() {
+        joinServer();
+        expect("invited", () -> CHAT.stream().anyMatch(line -> line.contains("/rysquests team join")));
+        step("join the team", () -> command("rysquests team join"), 20);
+        expect("team of two on this client", () -> ClientProgress.teamSize() == 2);
+        expect("progress is shared", () -> ClientProgress.get(TEAM_QUEST).completed());
+        expect("the single reward is taken by the first", () -> ClientProgress.get(TEAM_QUEST).claimed().contains(1) && !ClientProgress.get(TEAM_QUEST).claimed().contains(0));
+        step("claim second", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
+        expect("got only the reward for each", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 0);
+        step("leave the server", () -> {}, 5);
     }
 
     /** Puts the book into the state of the mockups and photographs every screen, for comparing with them pixel by pixel. */
