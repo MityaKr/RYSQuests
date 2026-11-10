@@ -1432,4 +1432,10 @@ public final class BookScreen extends ScaledScreen {
         BookState.chapter = chapter;
         BookState.quest = quest;
     }
+
+    public static void mapZoomForTest(float zoom) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(ViewMode.MAP) instanceof MapView map) {
+            map.zoomForTest(zoom);
+        }
+    }
 }

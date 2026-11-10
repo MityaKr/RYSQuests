@@ -1432,6 +1432,9 @@ public final class AutoTest {
         screenshot("design_flow");
         step("switch to the map", () -> BookScreen.showForTest(ViewMode.MAP), 40);
         screenshot("design_map");
+        step("zoom the map all the way out", () -> BookScreen.mapZoomForTest(0.35f), 10);
+        screenshot("design_map_far");
+        step("zoom the map back", () -> BookScreen.mapZoomForTest(1f), 5);
         step("click the list tab", () -> mc().screen.mouseClicked(150, 33.5, GLFW.GLFW_MOUSE_BUTTON_LEFT), 5);
         expect("the tab switched the view", () -> BookScreen.viewForTest() == ViewMode.LIST);
         step("switch to the list", () -> BookScreen.showForTest(ViewMode.LIST), 10);

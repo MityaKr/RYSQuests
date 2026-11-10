@@ -513,6 +513,10 @@ final class MapView implements BookView {
         }
     }
 
+    void zoomForTest(float value) {
+        zoom = Mth.clamp(value, MIN_ZOOM, MAX_ZOOM);
+    }
+
     @Override
     public boolean drag(double deltaX, double deltaY) {
         panX -= (float) (deltaX / zoom);
