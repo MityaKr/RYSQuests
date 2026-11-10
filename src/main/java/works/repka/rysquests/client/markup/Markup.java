@@ -42,6 +42,21 @@ public final class Markup {
         return paragraphs;
     }
 
+    /** The insertion that fills a whole line, such as a picture. @return null for ordinary text */
+    public static Span block(Paragraph paragraph) {
+        Span only = null;
+        for (Span span : paragraph.spans()) {
+            if (span.isLink() || !span.text().isBlank()) {
+                if (only != null) {
+                    return null;
+                }
+                only = span;
+            }
+        }
+        boolean block = only != null && !paragraph.warning() && (only.kind().equals("image") || only.kind().equals("recipe"));
+        return block ? only : null;
+    }
+
     private static List<Span> inline(String text) {
         List<Span> spans = new ArrayList<>();
         Matcher matcher = INLINE.matcher(text);

@@ -10,7 +10,7 @@ import works.repka.rysquests.progress.ProgressService;
 
 /** Registers payloads. Client handlers are injected, so that this class never refers to client code. */
 public final class ModNetwork {
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
 
     private static BiConsumer<BookSyncPayload, RegistryAccess> clientBookHandler = (payload, registries) -> {
     };
@@ -23,6 +23,9 @@ public final class ModNetwork {
     private static Consumer<StageLocksPayload> clientStageLocksHandler = payload -> {
     };
     private static Consumer<DevReportPayload> clientDevReportHandler = payload -> {
+    };
+
+    private static Consumer<GuidePagesPayload> clientGuidePagesHandler = payload -> {
     };
 
     private ModNetwork() {
@@ -48,6 +51,10 @@ public final class ModNetwork {
         clientTeamInfoHandler = handler;
     }
 
+    public static void setClientGuidePagesHandler(Consumer<GuidePagesPayload> handler) {
+        clientGuidePagesHandler = handler;
+    }
+
     public static void setClientPinnedHandler(Consumer<PinnedPayload> handler) {
         clientPinnedHandler = handler;
     }
@@ -64,6 +71,8 @@ public final class ModNetwork {
                         (payload, context) -> clientTeamInfoHandler.accept(payload))
                 .playToClient(StageLocksPayload.TYPE, StageLocksPayload.STREAM_CODEC,
                         (payload, context) -> clientStageLocksHandler.accept(payload))
+                .playToClient(GuidePagesPayload.TYPE, GuidePagesPayload.STREAM_CODEC,
+                        (payload, context) -> clientGuidePagesHandler.accept(payload))
                 .playToClient(DevReportPayload.TYPE, DevReportPayload.STREAM_CODEC,
                         (payload, context) -> clientDevReportHandler.accept(payload))
                 .playToServer(QuestActionPayload.TYPE, QuestActionPayload.STREAM_CODEC,

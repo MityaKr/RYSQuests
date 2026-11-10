@@ -1,0 +1,15 @@
+{
+  "id": "example:nether",
+  "title": "guide.example.nether.title",
+  "icon": "minecraft:netherrack",
+  "category": "guide.example.category.world",
+  "stage": "minecraft:story/enter_the_nether",
+  "stage_title": "guide.example.stage.nether",
+  "pages": [
+    {
+      "id": "portal",
+      "title": "guide.example.nether.portal.title",
+      "text": "guide.example.nether.portal.text"
+    }
+  ]
+}

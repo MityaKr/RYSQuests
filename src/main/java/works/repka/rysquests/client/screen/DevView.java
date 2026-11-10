@@ -214,6 +214,7 @@ final class DevView implements BookView {
     private List<DevReports.Section> sections(DevReports.Report report) {
         List<DevReports.Section> sections = new ArrayList<>(report.sections().stream().filter(DevView::isShownSection).toList());
         sections.add(untranslated());
+        sections.add(GuideCheck.section());
         return sections;
     }
 

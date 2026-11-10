@@ -17,6 +17,7 @@ import works.repka.rysquests.migrate.Migration;
 /** Turns the files of a datapack into a {@link RawBook}. One broken file never stops the others. */
 public final class BookParser {
     private static final String CHAPTERS = "chapters/";
+    private static final String GUIDES = "guides/";
     private static final String CHAPTER_FILE = "_chapter";
     private static final String QUESTS_FILE = "_quests";
     private static final String BOOK_FILE = "book";
@@ -51,13 +52,19 @@ public final class BookParser {
             Codec<List<Quest>> codec = QUESTS_FILE.equals(name) ? Quest.CODEC.listOf() : Quest.CODEC.xmap(List::of, List::getFirst);
             decode(codec, json, ops, id, issues).ifPresent(parsed -> parsed.forEach(quest -> quests.add(linkChapter(quest, id, chapterByFolder))));
         });
+        List<Guide> guides = new ArrayList<>();
+        sorted.forEach((id, json) -> {
+            if (id.getPath().startsWith(GUIDES)) {
+                decode(Guide.CODEC, json, ops, id, issues).ifPresent(guides::add);
+            }
+        });
         List<Migration> migrations = new ArrayList<>();
         sorted.forEach((id, json) -> {
             if (MIGRATIONS_FILE.equals(id.getPath())) {
                 decode(Migration.FILE_CODEC, json, ops, id, issues).ifPresent(migrations::addAll);
             }
         });
-        return new RawBook(meta, chapters, quests, issues, migrations);
+        return new RawBook(meta, chapters, quests, guides, issues, migrations);
     }
 
     private static BookMeta parseMeta(Map<ResourceLocation, JsonElement> files, DynamicOps<JsonElement> ops, List<Issue> issues) {

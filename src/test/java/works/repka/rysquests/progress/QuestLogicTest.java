@@ -27,7 +27,7 @@ class QuestLogicTest {
 
     private static Quest quest(RequiresMode mode, List<RewardDef> rewards, ResourceLocation... requires) {
         return new Quest(ResourceLocation.parse("t:q"), Optional.empty(), Optional.empty(), "t", Optional.empty(), Optional.empty(), Optional.empty(),
-                List.of(requires), mode, Optional.empty(), List.of(), rewards,
+                List.of(requires), mode, Optional.empty(), List.of(), rewards, Optional.empty(),
                 new QuestOptions(Layout.DEFAULT, 1, false, false, Optional.empty(), false, List.of()));
     }
 

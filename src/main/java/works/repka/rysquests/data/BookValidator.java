@@ -31,16 +31,20 @@ public final class BookValidator {
         List<Issue> issues = new ArrayList<>(raw.issues());
         Map<ResourceLocation, Chapter> chapters = dedupeChapters(raw, issues);
         Map<ResourceLocation, Quest> quests = dedupeQuests(raw, issues);
+        Map<ResourceLocation, Guide> guides = checkGuides(raw, itemExists, issues);
 
         Set<ResourceLocation> broken = new LinkedHashSet<>();
         quests.values().forEach(quest -> checkQuest(quest, chapters, quests, itemExists, broken, issues));
+        quests.values().forEach(quest -> checkGuideLink(quest, guides, issues));
+        checkSections(raw.meta(), issues);
         findCycles(quests, broken, issues);
         spreadBrokenDependencies(quests, broken, issues);
         chapters.values().forEach(chapter -> checkChapter(chapter, chapters, issues));
 
         List<Quest> valid = quests.values().stream().filter(quest -> !broken.contains(quest.id())).toList();
         List<Chapter> ordered = orderChapters(raw.meta(), chapters, issues);
-        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, BookHash.compute(ordered, valid, ops));
+        List<Guide> guideList = List.copyOf(guides.values());
+        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, guideList, BookHash.compute(ordered, valid, guideList, ops));
         return new Result(book, new BookReport(List.copyOf(issues)));
     }
 
@@ -62,6 +66,53 @@ public final class BookValidator {
             }
         }
         return quests;
+    }
+
+    /** A guide without readable pages is left out; the rest of the book is not affected. */
+    private static Map<ResourceLocation, Guide> checkGuides(RawBook raw, Predicate<ResourceLocation> itemExists, List<Issue> issues) {
+        Map<ResourceLocation, Guide> guides = new LinkedHashMap<>();
+        for (Guide guide : raw.guides()) {
+            if (guides.containsKey(guide.id())) {
+                issues.add(error("duplicate_guide", guide.id(), ""));
+                continue;
+            }
+            if (guide.pages().isEmpty()) {
+                issues.add(error("empty_guide", guide.id(), ""));
+                continue;
+            }
+            Set<String> pages = new HashSet<>();
+            boolean valid = true;
+            for (Guide.Page page : guide.pages()) {
+                if (!pages.add(page.id())) {
+                    issues.add(error("duplicate_guide_page", guide.id(), page.id()));
+                    valid = false;
+                }
+            }
+            if (valid) {
+                guides.put(guide.id(), guide);
+                guide.icon().filter(icon -> !itemExists.test(icon)).ifPresent(icon -> issues.add(warning("unknown_item", guide.id(), icon.toString())));
+            }
+        }
+        return guides;
+    }
+
+    private static void checkGuideLink(Quest quest, Map<ResourceLocation, Guide> guides, List<Issue> issues) {
+        quest.guide().ifPresent(ref -> {
+            Guide guide = guides.get(ref.guide());
+            if (guide == null) {
+                issues.add(warning("unknown_guide", quest.id(), ref.toString()));
+            } else if (ref.page().filter(page -> guide.pageIndex(page) < 0).isPresent()) {
+                issues.add(warning("unknown_guide_page", quest.id(), ref.toString()));
+            }
+        });
+    }
+
+    private static void checkSections(BookMeta meta, List<Issue> issues) {
+        for (String section : meta.sections()) {
+            if (!section.equals(Chapter.STORY) && !section.equals(BookMeta.GUIDES)) {
+                issues.add(new Issue(Severity.WARNING, "unknown_section", "book", section));
+            }
+        }
     }
 
     private static void checkQuest(Quest quest, Map<ResourceLocation, Chapter> chapters, Map<ResourceLocation, Quest> quests,

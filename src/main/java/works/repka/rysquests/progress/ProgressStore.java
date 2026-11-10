@@ -3,8 +3,10 @@ package works.repka.rysquests.progress;
 import com.mojang.serialization.Codec;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.UUIDUtil;
@@ -25,6 +27,7 @@ public final class ProgressStore extends SavedData {
     private static final String PINNED = "pinned";
     private static final String MEMBERS = "members";
     private static final String APPLIED = "applied_migrations";
+    private static final String GUIDE_PAGES = "guide_pages";
     private static final UUID SERVER_TEAM = new UUID(0, 0);
 
     private static final Codec<Map<UUID, Map<ResourceLocation, QuestProgress>>> CODEC = Codec.unboundedMap(
@@ -32,6 +35,7 @@ public final class ProgressStore extends SavedData {
     private static final Codec<Map<UUID, List<ResourceLocation>>> PINNED_CODEC = Codec.unboundedMap(
             UUIDUtil.STRING_CODEC, ResourceLocation.CODEC.listOf());
     private static final Codec<Map<UUID, UUID>> MEMBERS_CODEC = Codec.unboundedMap(UUIDUtil.STRING_CODEC, UUIDUtil.STRING_CODEC);
+    private static final Codec<Map<UUID, List<String>>> GUIDE_PAGES_CODEC = Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.STRING.listOf());
     private static final Factory<ProgressStore> FACTORY = new Factory<>(ProgressStore::new, ProgressStore::load);
 
     private final Map<UUID, Map<ResourceLocation, QuestProgress>> teams = new HashMap<>();
@@ -39,12 +43,13 @@ public final class ProgressStore extends SavedData {
     private final Map<UUID, List<ResourceLocation>> pinned = new HashMap<>();
     private final Map<UUID, UUID> members = new HashMap<>();
     private final List<String> applied = new ArrayList<>();
+    private final Map<UUID, Set<String>> guidePages = new HashMap<>();
 
     public static ProgressStore get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(FACTORY, NAME);
     }
 
-    private static ProgressStore load(CompoundTag tag, HolderLookup.Provider registries) {
+    static ProgressStore load(CompoundTag tag, HolderLookup.Provider registries) {
         ProgressStore store = new ProgressStore();
         CODEC.parse(NbtOps.INSTANCE, tag.get(TEAMS)).result().ifPresent(saved ->
                 saved.forEach((team, quests) -> store.teams.put(team, new HashMap<>(quests))));
@@ -61,6 +66,10 @@ public final class ProgressStore extends SavedData {
         if (tag.contains(APPLIED)) {
             Codec.STRING.listOf().parse(NbtOps.INSTANCE, tag.get(APPLIED)).result().ifPresent(store.applied::addAll);
         }
+        if (tag.contains(GUIDE_PAGES)) {
+            GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(GUIDE_PAGES)).result().ifPresent(saved ->
+                    saved.forEach((player, pages) -> store.guidePages.put(player, new HashSet<>(pages))));
+        }
         return store;
     }
 
@@ -71,6 +80,9 @@ public final class ProgressStore extends SavedData {
         tag.put(PINNED, PINNED_CODEC.encodeStart(NbtOps.INSTANCE, pinned).getOrThrow());
         tag.put(MEMBERS, MEMBERS_CODEC.encodeStart(NbtOps.INSTANCE, members).getOrThrow());
         tag.put(APPLIED, Codec.STRING.listOf().encodeStart(NbtOps.INSTANCE, applied).getOrThrow());
+        Map<UUID, List<String>> pages = new HashMap<>();
+        guidePages.forEach((player, read) -> pages.put(player, read.stream().sorted().toList()));
+        tag.put(GUIDE_PAGES, GUIDE_PAGES_CODEC.encodeStart(NbtOps.INSTANCE, pages).getOrThrow());
         return tag;
     }
 
@@ -99,6 +111,20 @@ public final class ProgressStore extends SavedData {
     public void setPinned(UUID player, List<ResourceLocation> quests) {
         pinned.put(player, List.copyOf(quests));
         setDirty();
+    }
+
+    /** The guide pages a player has read. Reading is personal, also in a team. */
+    public Set<String> guidePages(UUID player) {
+        return guidePages.getOrDefault(player, Set.of());
+    }
+
+    /** @return whether the page was not read before */
+    public boolean markGuidePage(UUID player, String key) {
+        boolean added = guidePages.computeIfAbsent(player, id -> new HashSet<>()).add(key);
+        if (added) {
+            setDirty();
+        }
+        return added;
     }
 
     /** Whose progress a player works on, under the book's progress mode. */

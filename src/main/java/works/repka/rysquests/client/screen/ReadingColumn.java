@@ -48,6 +48,8 @@ final class ReadingColumn {
             cursor = TextBlock.render(ui, Component.translatable(quest.text().get()).getString(), left, cursor, inner,
                     new TextBlock.Look(14.5f, 23.9f, ui.readingFg()), Recipes::showRecipes) + GAP;
         }
+        float belowButton = QuestCard.guideButton(ui, quest, left, cursor);
+        cursor = belowButton > cursor ? belowButton + GAP - 8 : cursor;
         cursor = renderRecipe(ui, quest, left, cursor, inner);
         cursor = renderBlocked(ui, quest, left, cursor, inner);
         ui.unclip();

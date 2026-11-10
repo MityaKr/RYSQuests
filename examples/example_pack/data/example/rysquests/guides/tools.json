@@ -1,0 +1,13 @@
+{
+  "id": "example:tools",
+  "title": "guide.example.tools.title",
+  "icon": "minecraft:iron_pickaxe",
+  "category": "guide.example.category.basics",
+  "pages": [
+    {
+      "id": "pickaxe",
+      "title": "guide.example.tools.pickaxe.title",
+      "text": "guide.example.tools.pickaxe.text"
+    }
+  ]
+}

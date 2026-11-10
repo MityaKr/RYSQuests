@@ -20,6 +20,7 @@ public record Quest(
         Optional<String> stageRequired,
         List<TaskDef> tasks,
         List<RewardDef> rewards,
+        Optional<GuideRef> guide,
         QuestOptions options) {
 
     public static final Codec<Quest> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -35,11 +36,12 @@ public record Quest(
             Codec.STRING.optionalFieldOf("stage_required").forGetter(Quest::stageRequired),
             TaskDef.CODEC.listOf().optionalFieldOf("tasks", List.of()).forGetter(Quest::tasks),
             RewardDef.CODEC.listOf().optionalFieldOf("rewards", List.of()).forGetter(Quest::rewards),
+            GuideRef.CODEC.optionalFieldOf("guide").forGetter(Quest::guide),
             QuestOptions.CODEC.forGetter(Quest::options)
     ).apply(instance, Quest::new));
 
     public Quest withChapter(ResourceLocation chapterId) {
         return new Quest(id, Optional.of(chapterId), group, title, subtitle, text, icon, requires, requiresMode,
-                stageRequired, tasks, rewards, options);
+                stageRequired, tasks, rewards, guide, options);
     }
 }

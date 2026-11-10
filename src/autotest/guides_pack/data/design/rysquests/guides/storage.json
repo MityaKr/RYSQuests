@@ -1,0 +1,29 @@
+{
+  "id": "design:storage",
+  "title": "Sophisticated Storage",
+  "icon": "minecraft:chest",
+  "category": "Хранение",
+  "stage_title": "эпоха I",
+  "pages": [
+    {
+      "id": "p1",
+      "title": "Страница 1",
+      "text": "Текст страницы."
+    },
+    {
+      "id": "p2",
+      "title": "Страница 2",
+      "text": "Текст страницы."
+    },
+    {
+      "id": "p3",
+      "title": "Страница 3",
+      "text": "Текст страницы."
+    },
+    {
+      "id": "p4",
+      "title": "Страница 4",
+      "text": "Текст страницы."
+    }
+  ]
+}

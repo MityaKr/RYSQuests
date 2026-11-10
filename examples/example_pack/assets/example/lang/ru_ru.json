@@ -19,5 +19,21 @@
   "quest.example.power.electric_mechanism.title": "Электрический механизм",
   "quest.example.power.electric_mechanism.subtitle": "Ключевой предмет эпохи II",
   "quest.example.power.electric_mechanism.text": "Требует [[quest:example:power/wires]] и [[quest:example:power/dynamo]]. Сдай медные листы, оставь 3 [[item:minecraft:redstone_block]].",
-  "task.example.read_and_confirm": "Прочитать и отметить"
+  "task.example.read_and_confirm": "Прочитать и отметить",
+  "guide.example.category.basics": "Основы",
+  "guide.example.category.world": "Мир",
+  "guide.example.stage.nether": "после входа в Незер",
+  "guide.example.furnace.title": "Печь",
+  "guide.example.furnace.fuel.title": "Топливо",
+  "guide.example.furnace.fuel.text": "[[item:minecraft:furnace]] плавит руду, но ему нужно топливо. Лучше всего подходит [[item:minecraft:coal]].\n\n**Совет:** поставь печь рядом с сундуком. Твоё задание: [[quest:example:start/first_furnace]].",
+  "guide.example.furnace.build.title": "Как собрать",
+  "guide.example.furnace.build.text": "Печь собирается из восьми булыжников:\n[[recipe:minecraft:furnace]]\n[[image:example:textures/guides/furnace.png|Печь рядом с сундуком]]\nДальше смотри [[guide:example:furnace#next|что плавить потом]].",
+  "guide.example.furnace.next.title": "Что дальше",
+  "guide.example.furnace.next.text": "Когда железа станет много, собери [[item:minecraft:blast_furnace]]: она плавит вдвое быстрее.",
+  "guide.example.tools.title": "Инструменты",
+  "guide.example.tools.pickaxe.title": "Кирка",
+  "guide.example.tools.pickaxe.text": "Железо добывается каменной киркой: [[item:minecraft:stone_pickaxe]].",
+  "guide.example.nether.title": "Незер",
+  "guide.example.nether.portal.title": "Портал",
+  "guide.example.nether.portal.text": "Портал строится из [[item:minecraft:obsidian]]."
 }

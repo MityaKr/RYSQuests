@@ -1,0 +1,22 @@
+{
+  "id": "design:01/rotation",
+  "chapter": "design:01",
+  "title": "Первое вращение",
+  "icon": "minecraft:water_bucket",
+  "guide": "design:create#rotation",
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Поставить колесо"
+    },
+    {
+      "type": "rysquests:checkbox",
+      "title": "Провести вал"
+    },
+    {
+      "type": "rysquests:checkbox",
+      "title": "Подключить станок"
+    }
+  ],
+  "rewards": []
+}

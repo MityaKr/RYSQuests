@@ -19,5 +19,21 @@
   "quest.example.power.electric_mechanism.title": "Electric Mechanism",
   "quest.example.power.electric_mechanism.subtitle": "Key item of epoch II",
   "quest.example.power.electric_mechanism.text": "Requires [[quest:example:power/wires]] and [[quest:example:power/dynamo]]. Hand in copper plates, keep 3 [[item:minecraft:redstone_block]].",
-  "task.example.read_and_confirm": "Read and confirm"
+  "task.example.read_and_confirm": "Read and confirm",
+  "guide.example.category.basics": "Basics",
+  "guide.example.category.world": "World",
+  "guide.example.stage.nether": "after entering the Nether",
+  "guide.example.furnace.title": "Furnace",
+  "guide.example.furnace.fuel.title": "Fuel",
+  "guide.example.furnace.fuel.text": "[[item:minecraft:furnace]] smelts ore, but it needs fuel. [[item:minecraft:coal]] works best.\n\n**Tip:** place the furnace next to a chest. Your quest: [[quest:example:start/first_furnace]].",
+  "guide.example.furnace.build.title": "How to build",
+  "guide.example.furnace.build.text": "A furnace takes eight cobblestone:\n[[recipe:minecraft:furnace]]\n[[image:example:textures/guides/furnace.png|A furnace next to a chest]]\nThen see [[guide:example:furnace#next|what to smelt next]].",
+  "guide.example.furnace.next.title": "What next",
+  "guide.example.furnace.next.text": "Once you have plenty of iron, build a [[item:minecraft:blast_furnace]]: it smelts twice as fast.",
+  "guide.example.tools.title": "Tools",
+  "guide.example.tools.pickaxe.title": "Pickaxe",
+  "guide.example.tools.pickaxe.text": "Iron is mined with a stone pickaxe: [[item:minecraft:stone_pickaxe]].",
+  "guide.example.nether.title": "Nether",
+  "guide.example.nether.portal.title": "Portal",
+  "guide.example.nether.portal.text": "A portal is built from [[item:minecraft:obsidian]]."
 }

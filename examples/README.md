@@ -16,6 +16,10 @@ examples/
     data/example/rysquests/chapters/02_power/wires.json
     data/example/rysquests/chapters/02_power/dynamo.json
     data/example/rysquests/chapters/02_power/electric_mechanism.json
+    data/example/rysquests/guides/furnace.json       гайд со всеми вставками, на него ссылается квест first_furnace
+    data/example/rysquests/guides/tools.json
+    data/example/rysquests/guides/nether.json        закрыт до стадии
+    assets/example/textures/guides/furnace.png       картинка для гайда
     assets/example/lang/en_us.json
     assets/example/lang/ru_ru.json
   broken/                      намеренно сломанная книга для теста валидатора

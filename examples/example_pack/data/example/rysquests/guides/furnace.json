@@ -1,0 +1,23 @@
+{
+  "id": "example:furnace",
+  "title": "guide.example.furnace.title",
+  "icon": "minecraft:furnace",
+  "category": "guide.example.category.basics",
+  "pages": [
+    {
+      "id": "fuel",
+      "title": "guide.example.furnace.fuel.title",
+      "text": "guide.example.furnace.fuel.text"
+    },
+    {
+      "id": "build",
+      "title": "guide.example.furnace.build.title",
+      "text": "guide.example.furnace.build.text"
+    },
+    {
+      "id": "next",
+      "title": "guide.example.furnace.next.title",
+      "text": "guide.example.furnace.next.text"
+    }
+  ]
+}

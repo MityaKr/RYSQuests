@@ -20,6 +20,8 @@ public record QuestActionPayload(int action, ResourceLocation quest, int value, 
     public static final int CLAIM_ALL = 4;
     public static final int PIN = 5;
     public static final int DEV_REPORT = 6;
+    /** {@code quest} is the guide and {@code value} the page index. */
+    public static final int READ_GUIDE_PAGE = 7;
     /** Quest id for actions that apply to the whole book. */
     public static final ResourceLocation ALL = ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "all");
 

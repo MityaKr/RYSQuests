@@ -15,6 +15,7 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.neoforged.fml.ModList;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,8 +24,11 @@ import org.jetbrains.annotations.Nullable;
  * background once per recipe reload, since a large pack has tens of thousands of recipes.
  */
 final class RecipePreview {
-    record Shown(List<ItemStack> inputs, ItemStack output) {
+    /** @param grid the inputs by slot of a crafting grid, empty stacks where nothing goes */
+    record Shown(List<ItemStack> inputs, ItemStack output, List<ItemStack> grid) {
     }
+
+    private static final int GRID_SIDE = 3;
 
     @Nullable
     private static volatile Map<Item, RecipeHolder<?>> index;
@@ -105,7 +109,21 @@ final class RecipePreview {
                 inputs.add(option.copy());
             }
         }
-        return new Shown(inputs, holder.value().getResultItem(access).copy());
+        return new Shown(inputs, holder.value().getResultItem(access).copy(), grid(holder.value()));
+    }
+
+    private static List<ItemStack> grid(Recipe<?> recipe) {
+        List<ItemStack> grid = new ArrayList<>();
+        List<Ingredient> ingredients = recipe.getIngredients();
+        int width = recipe instanceof ShapedRecipe shaped ? shaped.getWidth() : GRID_SIDE;
+        for (int slot = 0; slot < GRID_SIDE * GRID_SIDE; slot++) {
+            int column = slot % GRID_SIDE;
+            int index = slot / GRID_SIDE * width + column;
+            boolean inside = column < width && index < ingredients.size();
+            ItemStack[] options = inside ? ingredients.get(index).getItems() : new ItemStack[0];
+            grid.add(options.length == 0 ? ItemStack.EMPTY : options[0]);
+        }
+        return grid;
     }
 
     /** How many of an input the player holds. */

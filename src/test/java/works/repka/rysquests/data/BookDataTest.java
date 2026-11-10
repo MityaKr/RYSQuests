@@ -25,6 +25,7 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
+import works.repka.rysquests.client.markup.GuideTopics;
 
 class BookDataTest {
     private static final Path EXAMPLES = Path.of(System.getProperty("rysquests.examplesDir"));
@@ -208,5 +209,100 @@ class BookDataTest {
         assertEquals(book.chapters(), decoded.chapters());
         assertEquals(book.meta(), decoded.meta());
         assertEquals(book.unlocks(), decoded.unlocks());
+    }
+
+    // --- guides ---
+
+    private static ResourceLocation guideFile(String name) {
+        return ResourceLocation.fromNamespaceAndPath("t", "guides/" + name);
+    }
+
+    private static JsonElement guide(String id, String pages) {
+        return quest("{\"id\":\"" + id + "\",\"title\":\"G\",\"pages\":" + pages + "}");
+    }
+
+    private static final String ONE_PAGE = "[{\"id\":\"p\",\"title\":\"T\",\"text\":\"x\"}]";
+
+    @Test
+    void exampleGuidesLoadAndTravelToTheClient() throws IOException {
+        QuestBook book = validate(example()).book();
+
+        Guide furnace = book.guides().get(ResourceLocation.parse("example:furnace"));
+        assertEquals(3, furnace.pages().size());
+        assertEquals(1, furnace.pageIndex("build"));
+        assertRoundTrips(Guide.CODEC, furnace);
+        assertEquals(List.of("story", "guides"), book.meta().sections());
+        QuestBook decoded = QuestBook.fromWire(book.wire(), book.hash());
+        assertEquals(book.guides(), decoded.guides());
+        assertEquals("example:furnace#fuel", book.quests().get(ResourceLocation.parse("example:start/first_furnace")).guide().orElseThrow().toString());
+    }
+
+    @Test
+    void guideLinkKeepsItsPage() {
+        GuideRef page = GuideRef.parse("a:b#c").orElseThrow();
+        assertEquals(ResourceLocation.parse("a:b"), page.guide());
+        assertEquals("c", page.page().orElseThrow());
+        assertTrue(GuideRef.parse("a:b").orElseThrow().page().isEmpty());
+        assertTrue(GuideRef.parse("a:b#").isEmpty());
+        assertRoundTrips(GuideRef.CODEC, page);
+    }
+
+    @Test
+    void questWithUnknownGuideStaysAndIsReported() {
+        Map<ResourceLocation, JsonElement> files = singleChapter();
+        files.put(questFile("a"), quest("{\"id\":\"t:a\",\"title\":\"A\",\"guide\":\"t:none\"}"));
+
+        BookValidator.Result result = validate(files);
+
+        assertTrue(codes(result).contains("unknown_guide"));
+        assertTrue(result.book().quests().containsKey(ResourceLocation.parse("t:a")));
+    }
+
+    @Test
+    void questWithUnknownGuidePageIsReported() {
+        Map<ResourceLocation, JsonElement> files = singleChapter();
+        files.put(guideFile("g"), guide("t:g", ONE_PAGE));
+        files.put(questFile("a"), quest("{\"id\":\"t:a\",\"title\":\"A\",\"guide\":\"t:g#other\"}"));
+
+        assertTrue(codes(validate(files)).contains("unknown_guide_page"));
+    }
+
+    @Test
+    void guideWithoutPagesOrWithRepeatedPagesIsLeftOut() {
+        Map<ResourceLocation, JsonElement> files = singleChapter();
+        files.put(guideFile("empty"), guide("t:empty", "[]"));
+        files.put(guideFile("twice"), guide("t:twice", "[{\"id\":\"p\",\"title\":\"T\",\"text\":\"x\"},{\"id\":\"p\",\"title\":\"T\",\"text\":\"y\"}]"));
+        files.put(guideFile("fine"), guide("t:fine", ONE_PAGE));
+
+        BookValidator.Result result = validate(files);
+
+        assertTrue(codes(result).containsAll(Set.of("empty_guide", "duplicate_guide_page")));
+        assertEquals(Set.of(ResourceLocation.parse("t:fine")), result.book().guides().keySet());
+    }
+
+    @Test
+    void unknownSectionIsReported() {
+        Map<ResourceLocation, JsonElement> files = singleChapter();
+        files.put(ResourceLocation.fromNamespaceAndPath("t", "book"), quest("{\"sections\":[\"story\",\"wat\"]}"));
+
+        assertTrue(codes(validate(files)).contains("unknown_section"));
+    }
+
+    @Test
+    void topicsGatherFromThePageClosestFirst() {
+        Map<ResourceLocation, JsonElement> files = singleChapter();
+        files.put(guideFile("g"), guide("t:g", ONE_PAGE));
+        files.put(questFile("whole"), quest("{\"id\":\"t:whole\",\"title\":\"A\",\"guide\":\"t:g\"}"));
+        files.put(questFile("exact"), quest("{\"id\":\"t:exact\",\"title\":\"A\",\"guide\":\"t:g#p\"}"));
+        files.put(questFile("named"), quest("{\"id\":\"t:named\",\"title\":\"A\"}"));
+        files.put(questFile("item"), quest("{\"id\":\"t:item\",\"title\":\"A\",\"tasks\":[{\"type\":\"rysquests:item\",\"item\":\"minecraft:stone\",\"count\":1}]}"));
+        files.put(questFile("other"), quest("{\"id\":\"t:other\",\"title\":\"A\"}"));
+        QuestBook book = validate(files).book();
+        Guide guide = book.guides().get(ResourceLocation.parse("t:g"));
+        String text = "[[recipe:minecraft:stone]] and [[item:minecraft:dirt]], again [[item:minecraft:stone|stone]]. See [[quest:t:named]].";
+
+        assertEquals(List.of(ResourceLocation.parse("minecraft:stone"), ResourceLocation.parse("minecraft:dirt")), GuideTopics.items(text));
+        assertEquals(List.of("t:exact", "t:whole", "t:named", "t:item"),
+                GuideTopics.quests(book, guide, guide.pages().getFirst(), text).stream().map(found -> found.id().toString()).toList());
     }
 }

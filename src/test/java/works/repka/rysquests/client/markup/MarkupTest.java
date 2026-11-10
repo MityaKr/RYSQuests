@@ -60,4 +60,24 @@ class MarkupTest {
     void unfinishedMarkersAreLeftAsText() {
         assertEquals("**a [[b", Markup.parse("**a [[b").getFirst().spans().getFirst().text());
     }
+
+    @Test
+    void insertionAloneOnALineIsABlock() {
+        assertEquals("image", Markup.block(Markup.parse("[[image:a:b.png|caption]]").getFirst()).kind());
+        assertEquals("recipe", Markup.block(Markup.parse("  [[recipe:minecraft:stone]] ").getFirst()).kind());
+    }
+
+    @Test
+    void insertionInsideTextIsNotABlock() {
+        assertEquals(null, Markup.block(Markup.parse("see [[recipe:minecraft:stone]]").getFirst()));
+        assertEquals(null, Markup.block(Markup.parse("[[item:minecraft:stone]]").getFirst()));
+        assertEquals(null, Markup.block(Markup.parse("").getFirst()));
+    }
+
+    @Test
+    void guideLinkKeepsPageInTarget() {
+        Span link = Markup.parse("[[guide:a:b#c|read]]").getFirst().spans().getFirst();
+        assertEquals("guide", link.kind());
+        assertEquals("a:b#c", link.target());
+    }
 }

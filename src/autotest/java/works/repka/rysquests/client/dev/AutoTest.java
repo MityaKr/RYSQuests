@@ -84,6 +84,7 @@ public final class AutoTest {
     private static final long STARTED_AT = System.currentTimeMillis();
     private static final int EXAMPLE_QUESTS = 6;
     private static final int SWITCHED_CHAPTERS = 4;
+    private static final List<ItemStack> RECIPE_REQUESTS = new ArrayList<>();
     private static final boolean USE_RYSTEAMS = Boolean.getBoolean("rysquests.autotest.rysteams");
     private static final int TEAM_COLOR = 0x2E8B57;
     private static final String DRAWN_AS_ICONS = "\u2713\u2714\u2715\u2716\u2717\u2605\u2192\u2198\u2193\u2199\u2190\u2196\u2191\u2197";
@@ -126,6 +127,10 @@ public final class AutoTest {
             buildRepysScenario();
         } else if ("design".equals(scenario) || "design_sizes".equals(scenario)) {
             buildDesignScenario();
+        } else if ("guides".equals(scenario)) {
+            buildGuidesScenario();
+        } else if ("guides_design".equals(scenario)) {
+            buildGuidesDesignScenario();
         } else if ("team_a".equals(scenario)) {
             buildTeamLeaderScenario();
         } else if ("team_b".equals(scenario)) {
@@ -167,6 +172,7 @@ public final class AutoTest {
         String enable = "datapack enable \"" + DevExamplePack.BROKEN_PACK_ID + "\"";
         String disable = "datapack disable \"" + DevExamplePack.BROKEN_PACK_ID + "\"";
         openWorld();
+        step("command answers go to chat, other scenarios turn them off", () -> command("gamerule sendCommandFeedback true"), 5);
         step("make sure the broken pack is off", () -> command(disable), 60);
         expect("example book reached the client", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
 
@@ -480,6 +486,114 @@ public final class AutoTest {
     }
 
     /** Puts the book into the state of the mockups and photographs every screen, for comparing with them pixel by pixel. */
+    /** What a player does with a guide, on the example pack. */
+    private static void buildGuidesScenario() {
+        ResourceLocation furnace = ResourceLocation.parse("example:furnace");
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+        }, 10);
+        step("listen for recipe requests", () -> Recipes.set(new Recipes.Bridge() {
+            @Override
+            public void showRecipes(ItemStack stack) {
+                RECIPE_REQUESTS.add(stack);
+            }
+
+            @Override
+            public void showUsages(ItemStack stack) {
+            }
+        }), 1);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("click the guides on the rail", () -> mc().screen.mouseClicked(41.5, 95, GLFW.GLFW_MOUSE_BUTTON_LEFT), 5);
+        expect("the library is open", () -> BookScreen.inGuidesForTest() && BookScreen.guidePageForTest() == -1);
+        step("select the guide", () -> BookScreen.selectGuideForTest(furnace), 5);
+        screenshot("guides_example_library");
+        step("click its first page", () -> mc().screen.mouseClicked(504, 72, GLFW.GLFW_MOUSE_BUTTON_LEFT), 15);
+        expect("the page is open", () -> BookScreen.guidePageForTest() == 0);
+        expect("the page counts as read", () -> isRead(furnace, 0));
+        screenshot("guides_example_page");
+        step("click the item in the text", () -> mc().screen.mouseClicked(169.5, 56, GLFW.GLFW_MOUSE_BUTTON_LEFT), 3);
+        expect("the item opens its recipe", () -> RECIPE_REQUESTS.stream().anyMatch(stack -> stack.is(net.minecraft.world.item.Items.FURNACE)));
+        step("turn the page", () -> pressKey(GLFW.GLFW_KEY_RIGHT), 40);
+        expect("the next page is open", () -> BookScreen.guidePageForTest() == 1);
+        expect("that page counts as read too", () -> isRead(furnace, 1));
+        screenshot("guides_example_recipe");
+        step("the quest's button leads to its page", () -> BookScreen.openRefForTest(ClientBook.current().quests().get(ResourceLocation.parse("example:start/first_furnace")).guide().orElseThrow()), 5);
+        expect("the button's page is open", () -> BookScreen.guidePageForTest() == 0);
+        expect("the guides have no broken links", () -> BookScreen.guideIssuesForTest().isEmpty());
+        step("back to the story", () -> {
+            BookScreen.showStoryForTest();
+            BookScreen.selectForTest(ResourceLocation.parse("example:01_start"), ResourceLocation.parse("example:start/first_furnace"));
+            BookScreen.showForTest(ViewMode.FLOW);
+        }, 15);
+        expect("the story is open", () -> !BookScreen.inGuidesForTest());
+        screenshot("guides_example_flow");
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+    }
+
+    private static boolean isRead(ResourceLocation guide, int page) {
+        var found = ClientBook.current().guides().get(guide);
+        return ClientProgress.isRead(found, found.pages().get(page));
+    }
+
+    /** The guide screens with the contents of their mockups, at the sizes a screen is handed over at. */
+    private static void buildGuidesDesignScenario() {
+        ResourceLocation create = ResourceLocation.parse("design:create");
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("read what the mockup shows as read", () -> {
+            sendRead(create, 7);
+            sendRead(ResourceLocation.parse("design:farmer"), 6);
+            sendRead(ResourceLocation.parse("design:storage"), 4);
+        }, 20);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("show the library", () -> BookScreen.selectGuideForTest(create), 10);
+        screenshot("design_guides");
+        step("open a page", () -> BookScreen.openGuideForTest(create, 2), 40);
+        screenshot("design_guidepage");
+        for (boolean page : List.of(false, true)) {
+            for (int[] size : new int[][] {{2560, 1440}, {1920, 1080}}) {
+                for (String theme : List.of("slate", "glass")) {
+                    step("show " + (page ? "page " : "library ") + size[0] + " " + theme, () -> {
+                        mc().getWindow().setWindowed(size[0], size[1]);
+                        mc().options.guiScale().set(0);
+                        mc().resizeDisplay();
+                        ThemeManager.select("ryscore:" + theme);
+                        if (page) {
+                            BookScreen.openGuideForTest(create, 2);
+                        } else {
+                            BookScreen.selectGuideForTest(create);
+                        }
+                    }, 15);
+                    screenshot("guides_" + (page ? "page" : "library") + "_" + size[0] + "_" + theme);
+                }
+            }
+        }
+        step("back to the size of the mockups", () -> {
+            mc().getWindow().setWindowed(1280, 800);
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+            ThemeManager.select("ryscore:slate");
+        }, 10);
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+    }
+
+    private static void sendRead(ResourceLocation guide, int pages) {
+        for (int i = 0; i < pages; i++) {
+            PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.READ_GUIDE_PAGE, guide, i, List.of()));
+        }
+    }
+
     private static void buildDesignScenario() {
         String mechanism = "design:02/mechanism";
         ResourceLocation chapter = ResourceLocation.parse("design:02");

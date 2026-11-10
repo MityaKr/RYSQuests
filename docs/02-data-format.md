@@ -12,7 +12,8 @@
   "title": "book.repys.title",
   "icon": "kubejs:brass_mechanism",
   "chapter_order": ["repys:01_create", "repys:02_power"],
-  "hud": { "max_pinned": 3 }
+  "hud": { "max_pinned": 3 },
+  "sections": ["story", "guides"]     // рейка разделов, без поля её нет
 }
 ```
 
@@ -66,11 +67,30 @@
   "hidden": false,                     // не отправлять клиенту, пока зависимости не выполнены
   "repeatable": null,                  // null или {"cooldown_minutes": 60}
   "page": false,                       // true: страница без задач, засчитывается прочтением
+  "guide": "repys:create#rotation",    // гайд или его страница, даёт кнопку «Как это работает»
   "tags": ["milestone"]                // milestone: веха в Ленте, key_item: ключевой предмет эпохи
 }
 ```
 
 Поля `chapter` можно опускать: тогда берётся из папки. `requires` ссылаются только на квесты; зависимость от главы задаётся на главе.
+
+## Гайд: `guides/<id>.json`
+
+Один файл на гайд, тексты в lang. Подробно в `09-sections.md`, раздел «Гайды».
+
+```json
+{
+  "id": "repys:create",
+  "title": "guide.repys.create.title",
+  "icon": "create:cogwheel",
+  "category": "guide.repys.category.tech",   // необязательно, чип в библиотеке
+  "stage": "repys:epoch_3",                  // необязательно, закрыт до стадии
+  "stage_title": "guide.repys.stage.epoch_3", // необязательно, название стадии для игрока
+  "pages": [
+    { "id": "rotation", "title": "guide.repys.create.rotation.title", "text": "guide.repys.create.rotation.text" }
+  ]
+}
+```
 
 ## Задачи
 
@@ -142,8 +162,10 @@
 
 - `[[item:minecraft:redstone]]` иконка + имя, клик → рецепты во вьюере; `[[item:...|подпись]]`.
 - `[[quest:repys:power/wires]]` ссылка на квест.
-- `[[recipe:kubejs:electric_mechanism]]` раскрывающийся рецепт (если есть мост к вьюеру).
-- `[[guide:create:guide#4]]`, `[[ponder:create:mechanical_crafter]]`, `[[url:https://…]]`.
+- `[[recipe:kubejs:electric_mechanism]]` одна в строке страницы гайда: карточка рецепта; в тексте: как `item`.
+- `[[guide:repys:create#rotation]]` ссылка на гайд или его страницу.
+- `[[image:repys:textures/guides/wheel.png|подпись]]` картинка, одна в строке.
+- `[[ponder:create:mechanical_crafter]]`, `[[url:https://…]]`.
 - `**жирный**`, `__курсив__`, `!!предупреждение!!` (янтарный блок), `>>спойлер<<`.
 - Переносы строк `\n`, абзац пустой строкой.
 
@@ -163,6 +185,7 @@ SHA-256 от канонического JSON всех квестов и глав
 ProgressStore {
   version: int,
   applied_migrations: [string],
+  guide_pages: { <uuid игрока>: ["<guide id>#<page id>"] },
   teams: { <uuid>: {
     quests: { <quest id>: { tasks: [int], completed: long, claimed: [int] } },   // состояние вычисляется из них
     pinned: [<quest id>],

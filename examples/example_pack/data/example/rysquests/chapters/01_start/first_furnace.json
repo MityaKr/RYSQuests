@@ -4,6 +4,7 @@
   "title": "quest.example.start.first_furnace.title",
   "text": "quest.example.start.first_furnace.text",
   "icon": "minecraft:furnace",
+  "guide": "example:furnace#fuel",
   "requires": ["example:start/first_tools"],
   "tasks": [
     { "type": "rysquests:item", "item": "minecraft:furnace", "count": 1, "mode": "observe" },

@@ -15,7 +15,8 @@ public record BookMeta(
         Optional<String> title,
         Optional<ResourceLocation> icon,
         List<ResourceLocation> chapterOrder,
-        Hud hud) {
+        Hud hud,
+        List<String> sections) {
 
     public record Hud(int maxPinned) {
         static final Hud DEFAULT = new Hud(3);
@@ -24,10 +25,12 @@ public record BookMeta(
         ).apply(instance, Hud::new));
     }
 
+    public static final String GUIDES = "guides";
+
     private static final ResourceLocation SLATE = ResourceLocation.fromNamespaceAndPath("ryscore", "slate");
 
     public static final BookMeta DEFAULT = new BookMeta(ProgressMode.SOLO, ViewMode.FLOW, SLATE,
-            Optional.empty(), Optional.empty(), List.of(), Hud.DEFAULT);
+            Optional.empty(), Optional.empty(), List.of(), Hud.DEFAULT, List.of());
 
     public static final Codec<BookMeta> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             ProgressMode.CODEC.optionalFieldOf("progress_mode", ProgressMode.SOLO).forGetter(BookMeta::progressMode),
@@ -36,6 +39,7 @@ public record BookMeta(
             Codec.STRING.optionalFieldOf("title").forGetter(BookMeta::title),
             ResourceLocation.CODEC.optionalFieldOf("icon").forGetter(BookMeta::icon),
             ResourceLocation.CODEC.listOf().optionalFieldOf("chapter_order", List.of()).forGetter(BookMeta::chapterOrder),
-            Hud.CODEC.optionalFieldOf("hud", Hud.DEFAULT).forGetter(BookMeta::hud)
+            Hud.CODEC.optionalFieldOf("hud", Hud.DEFAULT).forGetter(BookMeta::hud),
+            Codec.STRING.listOf().optionalFieldOf("sections", List.of()).forGetter(BookMeta::sections)
     ).apply(instance, BookMeta::new));
 }

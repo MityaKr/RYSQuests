@@ -11,6 +11,8 @@ import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.markup.Markup;
 import works.repka.rysquests.client.markup.Markup.Paragraph;
 import works.repka.rysquests.client.markup.Markup.Span;
+import works.repka.rysquests.data.Guide;
+import works.repka.rysquests.data.GuideRef;
 import works.repka.rysquests.data.Quest;
 import works.repka.ryscore.ui.Type;
 
@@ -20,7 +22,11 @@ final class TextBlock {
     private static final char FORMAT = '§';
 
     /** The look of the text: its size, line height and color. */
-    record Look(float px, float lineHeight, int color) {
+    record Look(float px, float lineHeight, int color, int boldColor) {
+        Look(float px, float lineHeight, int color) {
+            this(px, lineHeight, color, color);
+        }
+
         float iconSize() {
             return Math.round(px * 0.97f);
         }
@@ -128,7 +134,7 @@ final class TextBlock {
             ui.fill(x, cy - look.px * 0.6f, word.width, look.px * 1.2f, 3, ui.c("text.dim"));
         } else {
             for (Piece piece : word.pieces) {
-                int color = word.link ? ui.c("chip.mod.fg") : piece.color != 0 ? piece.color : look.color;
+                int color = word.link ? ui.c("chip.mod.fg") : piece.color != 0 ? piece.color : piece.weight == Ui.SEMIBOLD ? look.boldColor : look.color;
                 ui.label(piece.text, pen, cy, look.px, piece.weight, color);
                 float w = ui.width(piece.text, look.px, piece.weight);
                 if (word.link) {
@@ -203,6 +209,16 @@ final class TextBlock {
                     label = Component.translatable(quest.title()).getString();
                 }
                 click = reveal != null ? reveal : () -> BookState.select(quest);
+            }
+        } else if (span.kind().equals("guide") && GuideRef.parse(span.target()).isPresent()) {
+            GuideRef ref = GuideRef.parse(span.target()).get();
+            Guide guide = ClientBook.current().guides().get(ref.guide());
+            if (guide != null) {
+                if (label.isEmpty()) {
+                    int page = ref.page().map(guide::pageIndex).orElse(-1);
+                    label = Component.translatable(page >= 0 ? guide.pages().get(page).title() : guide.title()).getString();
+                }
+                click = reveal != null ? reveal : () -> BookState.openRef(ref);
             }
         }
         if (label.isEmpty()) {

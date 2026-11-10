@@ -36,6 +36,7 @@ public final class RYSQuestsClient {
         ModNetwork.setClientBookHandler(ClientBook::receive);
         ModNetwork.setClientProgressHandler(ClientProgress::receive);
         ModNetwork.setClientPinnedHandler(ClientProgress::receivePinned);
+        ModNetwork.setClientGuidePagesHandler(ClientProgress::receiveGuidePages);
         ModNetwork.setClientTeamInfoHandler(ClientProgress::receiveTeamInfo);
         ModNetwork.setClientStageLocksHandler(ClientProgress::receiveStageLocks);
         ModNetwork.setClientDevReportHandler(ClientDev::receive);

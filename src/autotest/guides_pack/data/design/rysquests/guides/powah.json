@@ -1,0 +1,35 @@
+{
+  "id": "design:powah",
+  "title": "Powah",
+  "icon": "minecraft:redstone",
+  "category": "Энергия",
+  "stage_title": "эпоха IV",
+  "pages": [
+    {
+      "id": "p1",
+      "title": "Страница 1",
+      "text": "Текст страницы."
+    },
+    {
+      "id": "p2",
+      "title": "Страница 2",
+      "text": "Текст страницы."
+    },
+    {
+      "id": "p3",
+      "title": "Страница 3",
+      "text": "Текст страницы."
+    },
+    {
+      "id": "p4",
+      "title": "Страница 4",
+      "text": "Текст страницы."
+    },
+    {
+      "id": "p5",
+      "title": "Страница 5",
+      "text": "Текст страницы."
+    }
+  ],
+  "stage": "minecraft:end/kill_dragon"
+}

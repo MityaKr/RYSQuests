@@ -79,6 +79,17 @@ final class QuestCard {
         return quest.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
     }
 
+    /** The way from a quest to the guide it points at. @return the y below the button */
+    static float guideButton(Ui ui, Quest quest, float x, float y) {
+        if (quest.guide().isEmpty() || !ClientBook.current().guides().containsKey(quest.guide().get().guide())) {
+            return y;
+        }
+        String label = Component.translatable("rysquests.card.guide").getString();
+        float w = ui.buttonWidth(label, 12, Ui.REGULAR, 14) + 2;
+        ui.button(label, x, y, w, 34, 9, 12, Ui.REGULAR, 14, Ui.Style.PLAIN, () -> BookState.openRef(quest.guide().get()));
+        return y + 34 + 8;
+    }
+
     static void pinButton(Ui ui, Quest quest, float x, float y, float size, float radius) {
         boolean pinned = ClientProgress.pinned().contains(quest.id());
         boolean over = ui.over(x, y, size, size);
@@ -278,6 +289,7 @@ final class QuestCard {
         }
         cursor = rewards(ui, quest, status, left, cursor, inner);
         cursor = textBlock(ui, quest, left, cursor, inner);
+        cursor = guideButton(ui, quest, left, cursor);
         actions(ui, quest, left, cursor);
         cursor += 34 + 18;
         return Math.round(cursor - y);

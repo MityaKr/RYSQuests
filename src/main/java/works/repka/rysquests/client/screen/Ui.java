@@ -8,9 +8,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import works.repka.rysquests.client.integration.Recipes;
+import works.repka.rysquests.data.BookMeta;
 import works.repka.ryscore.theme.Theme;
 import works.repka.ryscore.theme.ThemeManager;
 import works.repka.ryscore.ui.Draw;
@@ -59,6 +61,8 @@ public final class Ui {
     ItemStack hoveredStack;
     @Nullable
     Component hoveredText;
+    /** Set while the rail of sections touches the window's left edge: the columns beside it have square corners there. */
+    boolean squareLeft;
     private final ArrayDeque<int[]> clipStack = new ArrayDeque<>();
     private int clipTop = Integer.MIN_VALUE;
     private int clipBottom = Integer.MAX_VALUE;
@@ -204,6 +208,10 @@ public final class Ui {
     /** A fill rounded only at the named corners: columns that touch the window's edge. */
     void fillCorners(float x, float y, float w, float h, float r, int color, boolean topLeft, boolean topRight, boolean bottomRight, boolean bottomLeft) {
         fill(x, y, w, h, r, color);
+        if (squareLeft) {
+            topLeft = false;
+            bottomLeft = false;
+        }
         if (!topLeft) {
             rect(x, y, r, r, color);
         }
@@ -289,6 +297,47 @@ public final class Ui {
         fill(x, bodyY, w, size - size * 0.42f, 1.5f, color);
     }
 
+    /** The line icon of a section of the book, the mockup's 24 unit drawing at any size. */
+    void sectionIcon(String section, float x, float y, float size, int color) {
+        float k = size / 24f;
+        float thick = Math.max(1f, 2 * k);
+        if (BookMeta.GUIDES.equals(section)) {
+            segment(x + 5 * k, y + 4 * k, x + 16 * k, y + 4 * k, thick, color);
+            arc(x + 16 * k, y + 7 * k, 3 * k, -90, 0, thick, color);
+            segment(x + 19 * k, y + 7 * k, x + 19 * k, y + 20 * k, thick, color);
+            segment(x + 19 * k, y + 20 * k, x + 8 * k, y + 20 * k, thick, color);
+            arc(x + 8 * k, y + 17 * k, 3 * k, 90, 270, thick, color);
+            segment(x + 5 * k, y + 17 * k, x + 5 * k, y + 4 * k, thick, color);
+            segment(x + 8 * k, y + 14 * k, x + 19 * k, y + 14 * k, thick, color);
+        } else {
+            float cx = x + 12 * k;
+            float cy = y + 12 * k;
+            float r = 9 * k;
+            segment(cx, cy - r, cx + r, cy, thick, color);
+            segment(cx + r, cy, cx, cy + r, thick, color);
+            segment(cx, cy + r, cx - r, cy, thick, color);
+            segment(cx - r, cy, cx, cy - r, thick, color);
+        }
+    }
+
+    private void arc(float cx, float cy, float r, float from, float to, float thick, int color) {
+        int steps = 8;
+        for (int i = 0; i < steps; i++) {
+            double a = Math.toRadians(from + (to - from) * i / steps);
+            double b = Math.toRadians(from + (to - from) * (i + 1) / steps);
+            segment(cx + r * (float) Math.cos(a), cy + r * (float) Math.sin(a), cx + r * (float) Math.cos(b), cy + r * (float) Math.sin(b), thick, color);
+        }
+    }
+
+    /** A picture from the resources, stretched to the given size. */
+    void image(ResourceLocation texture, float x, float y, float w, float h, int textureW, int textureH) {
+        g.pose().pushPose();
+        g.pose().translate(x / PER_GUI, y / PER_GUI, 0);
+        g.pose().scale(w / PER_GUI / textureW, h / PER_GUI / textureH, 1);
+        g.blit(texture, 0, 0, 0f, 0f, textureW, textureH, textureW, textureH);
+        g.pose().popPose();
+    }
+
     /** The mod's mark: the mockup's 56 unit drawing at any size. */
     void logo(float x, float y, float size) {
         float k = size / 56f;
@@ -343,6 +392,14 @@ public final class Ui {
 
     public float width(String text, float px, Type.Weight weight) {
         return Draw.labelWidth(text, px, weight) * PER_GUI;
+    }
+
+    /** A label cut to fit, which shows all of itself under the cursor when it was cut. */
+    void labelFitTip(String text, float x, float cy, float maxWidth, float px, Type.Weight weight, int color) {
+        labelFit(text, x, cy, maxWidth, px, weight, color);
+        if (width(text, px, weight) > maxWidth) {
+            tooltipIfOver(x, cy - px, maxWidth, px * 2, Component.literal(text));
+        }
     }
 
     String fit(String text, float maxWidth, float px, Type.Weight weight) {

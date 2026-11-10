@@ -1,0 +1,16 @@
+{
+  "id": "design:01/mechanism",
+  "chapter": "design:01",
+  "title": "Электрический механизм",
+  "icon": "minecraft:comparator",
+  "guide": "design:create#crafter",
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:comparator",
+      "count": 3,
+      "mode": "consume"
+    }
+  ],
+  "rewards": []
+}

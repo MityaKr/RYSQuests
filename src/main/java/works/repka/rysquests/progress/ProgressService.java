@@ -40,6 +40,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.api.QuestCompletedEvent;
 import works.repka.rysquests.data.BookHolder;
+import works.repka.rysquests.data.Guide;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.RewardDef;
@@ -49,6 +50,7 @@ import works.repka.rysquests.network.DevReportPayload;
 import works.repka.rysquests.network.PinnedPayload;
 import works.repka.rysquests.api.ScriptHooks;
 import works.repka.rysquests.network.TeamInfoPayload;
+import works.repka.rysquests.network.GuidePagesPayload;
 import works.repka.rysquests.network.ProgressPayload;
 import works.repka.rysquests.network.QuestActionPayload;
 import works.repka.rysquests.network.StageLocksPayload;
@@ -80,6 +82,7 @@ public final class ProgressService {
     private static final Map<UUID, List<Quest>> ACTIVE = new HashMap<>();
     private static final Map<UUID, Integer> INVENTORY_HASH = new HashMap<>();
     private static final Map<UUID, Set<ResourceLocation>> STAGE_LOCKS = new HashMap<>();
+    private static final Map<UUID, Set<ResourceLocation>> GUIDE_LOCKS = new HashMap<>();
     private static QuestBook activeBook;
 
     private ProgressService() {
@@ -141,9 +144,19 @@ public final class ProgressService {
                 locks.add(quest.id());
             }
         }
-        if (!locks.equals(STAGE_LOCKS.put(player.getUUID(), locks))) {
+        Set<ResourceLocation> guideLocks = new HashSet<>();
+        for (Guide guide : book().guides().values()) {
+            if (guide.stage().filter(stage -> !Stages.has(player, stage)).isPresent()) {
+                guideLocks.add(guide.id());
+            }
+        }
+        boolean questsChanged = !locks.equals(STAGE_LOCKS.put(player.getUUID(), locks));
+        boolean guidesChanged = !guideLocks.equals(GUIDE_LOCKS.put(player.getUUID(), guideLocks));
+        if (questsChanged) {
             ACTIVE.remove(team(player));
-            PacketDistributor.sendToPlayer(player, new StageLocksPayload(List.copyOf(locks)));
+        }
+        if (questsChanged || guidesChanged) {
+            PacketDistributor.sendToPlayer(player, new StageLocksPayload(List.copyOf(locks), List.copyOf(guideLocks)));
         }
     }
 
@@ -397,6 +410,10 @@ public final class ProgressService {
             }
             return;
         }
+        if (payload.action() == QuestActionPayload.READ_GUIDE_PAGE) {
+            readGuidePage(player, payload.quest(), payload.value());
+            return;
+        }
         Quest quest = book().quests().get(payload.quest());
         if (quest == null) {
             return;
@@ -408,6 +425,17 @@ public final class ProgressService {
             case QuestActionPayload.PIN -> togglePin(player, quest);
             default -> {
             }
+        }
+    }
+
+    private static void readGuidePage(ServerPlayer player, ResourceLocation guideId, int index) {
+        Guide guide = book().guides().get(guideId);
+        if (guide == null || index < 0 || index >= guide.pages().size()) {
+            return;
+        }
+        String key = guide.readKey(guide.pages().get(index));
+        if (ProgressStore.get(player.server).markGuidePage(player.getUUID(), key)) {
+            PacketDistributor.sendToPlayer(player, new GuidePagesPayload(false, List.of(key)));
         }
     }
 
@@ -620,10 +648,12 @@ public final class ProgressService {
         store.team(team(player)).forEach((id, progress) -> view.put(id, viewFor(player, id, progress)));
         PacketDistributor.sendToPlayer(player, new ProgressPayload(true, view));
         PacketDistributor.sendToPlayer(player, new PinnedPayload(store.pinned(player.getUUID())));
+        PacketDistributor.sendToPlayer(player, new GuidePagesPayload(true, List.copyOf(store.guidePages(player.getUUID()))));
         TeamsApi teams = TeamsApi.get();
         int members = Math.max(teams.members(teams.teamOf(player.getUUID())).size(), store.memberCount(team(player)));
         PacketDistributor.sendToPlayer(player, new TeamInfoPayload(members));
         STAGE_LOCKS.remove(player.getUUID());
+        GUIDE_LOCKS.remove(player.getUUID());
         refreshStageLocks(player);
     }
 
@@ -631,6 +661,7 @@ public final class ProgressService {
         ACTIVE.remove(team(player));
         INVENTORY_HASH.remove(player.getUUID());
         STAGE_LOCKS.remove(player.getUUID());
+        GUIDE_LOCKS.remove(player.getUUID());
     }
 
     public static void setCompleted(ServerPlayer player, Quest quest, boolean completed) {

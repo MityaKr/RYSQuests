@@ -43,7 +43,7 @@ public final class BookLoader extends SimplePreparableReloadListener<BookHolder.
         RawBook parsed = BookParser.parse(files, ops);
         List<Issue> issues = new ArrayList<>(readErrors);
         issues.addAll(parsed.issues());
-        RawBook raw = new RawBook(parsed.meta(), parsed.chapters(), parsed.quests(), issues, parsed.migrations());
+        RawBook raw = new RawBook(parsed.meta(), parsed.chapters(), parsed.quests(), parsed.guides(), issues, parsed.migrations());
         BookValidator.Result result = BookValidator.validate(raw, BuiltInRegistries.ITEM::containsKey, ops);
         byte[] data = BookSerializer.encode(result.book(), registries);
         return new BookHolder.Loaded(result.book(), result.report(), new BookSyncPayload(result.book().hash(), data), raw.migrations());
@@ -65,8 +65,8 @@ public final class BookLoader extends SimplePreparableReloadListener<BookHolder.
     @Override
     protected void apply(BookHolder.Loaded loaded, ResourceManager manager, ProfilerFiller profiler) {
         BookHolder.set(loaded);
-        LOGGER.info("Loaded book: {} chapters, {} quests, {} errors, {} warnings, {} bytes to sync",
-                loaded.book().chapters().size(), loaded.book().quests().size(),
+        LOGGER.info("Loaded book: {} chapters, {} quests, {} guides, {} errors, {} warnings, {} bytes to sync",
+                loaded.book().chapters().size(), loaded.book().quests().size(), loaded.book().guides().size(),
                 loaded.report().errors(), loaded.report().warnings(), loaded.payload().data().length);
     }
 }
