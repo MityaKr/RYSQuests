@@ -261,6 +261,7 @@
   "rysquests.guides.topic_items": "Предметы на странице",
   "rysquests.guides.your_quest": "твой квест по этой теме",
   "rysquests.guides.to_quest": "К квесту",
+  "rysquests.book.back": "Назад (Backspace)",
   "rysquests.guides.quest_line": "Глава %s · %s из %s задач",
   "rysquests.guides.quest_locked": "закрыт",
   "rysquests.guides.quest_done": "выполнен",

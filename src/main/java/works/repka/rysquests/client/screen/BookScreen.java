@@ -477,6 +477,9 @@ public final class BookScreen extends ScaledScreen {
         if (sectionsW > 0) {
             renderSections(ui, sections, x + 1, y + 1, h - 2);
         }
+        if (!editing && BookState.previewSection == null) {
+            BookState.track();
+        }
         lastHovered = ui.hoveredStack;
         if (ui.hoveredStack != null) {
             g.renderTooltip(font, ui.hoveredStack, mouseX, mouseY);
@@ -934,6 +937,9 @@ public final class BookScreen extends ScaledScreen {
         if (questEditor != null) {
             questEditor.pointer(mouseX * 2, mouseY * 2);
         }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_4 && editor == null && sectionEditor == null && questEditor == null && BookState.back()) {
+            return true;
+        }
         List<Ui.Hit> list = button == 0 ? hits : button == 1 ? rightHits : List.of();
         for (int i = list.size() - 1; i >= 0; i--) {
             Ui.Hit hit = list.get(i);
@@ -1058,6 +1064,9 @@ public final class BookScreen extends ScaledScreen {
         }
         if (!typing) {
             if ((BookState.inStory() ? activeView() : guideView()).key(key)) {
+                return true;
+            }
+            if (key == GLFW.GLFW_KEY_BACKSPACE && BookState.back()) {
                 return true;
             }
             if (QuestKeys.OPEN_BOOK.matches(key, scan)) {

@@ -142,8 +142,19 @@ final class GuidePageView implements BookView {
 
     private void renderHeader(Ui ui, Guide guide, Guide.Page page, int index, float x, float y, float w) {
         float cy = y + HEADER_H / 2f;
-        ui.cell(GuideLibraryView.icon(guide), x, y, 38, 38, 8, 20, ui.c("slot.bg"), ui.c("card.border"));
-        float textX = x + 38 + 12;
+        float lead = 0;
+        if (BookState.canGoBack()) {
+            // Back to wherever the player came from, a quest or another page: the arrows on the right only turn pages.
+            float backY = y + 19 - 16;
+            boolean over = ui.over(x, backY, 32, 32);
+            ui.box(x, backY, 32, 32, 8, over ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
+            ui.icon(Icons.Shape.UNDO, x + 10, backY + 10, 12, ui.c("button.fg"));
+            ui.tooltipIfOver(x, backY, 32, 32, Component.translatable("rysquests.book.back"));
+            ui.hit(x, backY, 32, 32, BookState::back);
+            lead = 32 + 10;
+        }
+        ui.cell(GuideLibraryView.icon(guide), x + lead, y, 38, 38, 8, 20, ui.c("slot.bg"), ui.c("card.border"));
+        float textX = x + lead + 38 + 12;
         String crumb = source.crumb();
         float pen = textX;
         if (crumb != null) {

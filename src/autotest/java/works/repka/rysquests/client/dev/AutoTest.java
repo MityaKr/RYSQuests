@@ -573,6 +573,15 @@ public final class AutoTest {
         }, 15);
         expect("the story is open", () -> !BookScreen.inGuidesForTest());
         screenshot("guides_example_flow");
+        ResourceLocation furnaceQuest = ResourceLocation.parse("example:start/first_furnace");
+        step("press how it works", () -> BookScreen.openRefForTest(ClientBook.current().quests().get(furnaceQuest).guide().orElseThrow()), 10);
+        step("pick another page in the list", () -> BookScreen.openGuideForTest(furnace, 1), 10);
+        expect("the other page is open", () -> BookScreen.inGuidesForTest() && BookScreen.guidePageForTest() == 1);
+        screenshot("guides_back_button");
+        step("press Backspace", () -> pressKey(GLFW.GLFW_KEY_BACKSPACE), 10);
+        expect("back on the page the quest led to", () -> BookScreen.inGuidesForTest() && BookScreen.guidePageForTest() == 0);
+        step("press Backspace again", () -> pressKey(GLFW.GLFW_KEY_BACKSPACE), 10);
+        expect("back at the quest", () -> !BookScreen.inGuidesForTest() && furnaceQuest.equals(BookScreen.selectedQuestForTest()));
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
     }
 

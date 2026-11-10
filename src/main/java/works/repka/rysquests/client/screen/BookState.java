@@ -63,6 +63,69 @@ final class BookState {
     private BookState() {
     }
 
+    // --- history: where the player came from, for Backspace and the back button ---
+
+    /** Everything that makes a place in the book: what Backspace returns to. */
+    record Place(String section, @Nullable ViewMode view, @Nullable ResourceLocation chapter, @Nullable ResourceLocation quest,
+            @Nullable ResourceLocation guide, int guidePage, int sectionPage) {
+    }
+
+    private static final int HISTORY_LIMIT = 64;
+    private static final java.util.ArrayDeque<Place> HISTORY = new java.util.ArrayDeque<>();
+    @Nullable
+    private static Place last;
+    /** Set by {@link #back()}: the next frame settles the restored place and is not a step of its own. */
+    private static boolean restoring;
+
+    private static Place here() {
+        String current = currentSection();
+        ResourceLocation pages = customSection() instanceof PagesSection shown ? shown.id() : null;
+        return new Place(current, view, chapter, quest, guide, guidePage, pages == null ? -1 : SECTION_PAGES.getOrDefault(pages, 0));
+    }
+
+    /**
+     * Called at the end of every frame, after the views have settled what they show: a place that differs from the last one
+     * means the player went somewhere, and the last one is history.
+     */
+    static void track() {
+        Place now = here();
+        if (restoring) {
+            restoring = false;
+        } else if (last != null && !now.equals(last)) {
+            HISTORY.push(last);
+            while (HISTORY.size() > HISTORY_LIMIT) {
+                HISTORY.removeLast();
+            }
+        }
+        last = now;
+    }
+
+    static boolean canGoBack() {
+        return !HISTORY.isEmpty();
+    }
+
+    /** Returns to the place before the current one. @return false when there is nowhere to go */
+    static boolean back() {
+        Place previous = HISTORY.poll();
+        if (previous == null) {
+            return false;
+        }
+        if (previous.quest() != null && !previous.quest().equals(quest)) {
+            PICKS.clear();
+        }
+        section = previous.section();
+        view = previous.view();
+        chapter = previous.chapter();
+        quest = previous.quest();
+        guide = previous.guide();
+        guidePage = previous.guidePage();
+        if (previous.sectionPage() >= 0 && ResourceLocation.tryParse(previous.section()) != null) {
+            SECTION_PAGES.put(ResourceLocation.parse(previous.section()), previous.sectionPage());
+        }
+        restoring = true;
+        return true;
+    }
+
     static void select(Quest selected) {
         if (!selected.id().equals(quest)) {
             PICKS.clear();

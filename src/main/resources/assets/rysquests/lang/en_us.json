@@ -261,6 +261,7 @@
   "rysquests.guides.topic_items": "Items on this page",
   "rysquests.guides.your_quest": "your quest on this topic",
   "rysquests.guides.to_quest": "To quest",
+  "rysquests.book.back": "Back (Backspace)",
   "rysquests.guides.quest_line": "Chapter %s · %s of %s tasks",
   "rysquests.guides.quest_locked": "locked",
   "rysquests.guides.quest_done": "done",
