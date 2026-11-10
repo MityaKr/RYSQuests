@@ -210,6 +210,9 @@ public final class FtbqImporter {
         for (JsonElement reward : array(quest, "rewards")) {
             convertReward(reward.getAsJsonObject(), id).ifPresent(converted -> {
                 ids.rewards().put(string(reward.getAsJsonObject(), "id").orElseThrow(), new Ref(id, rewards.size()));
+                if (bool(reward.getAsJsonObject(), "team_reward")) {
+                    converted.addProperty("team_mode", "once");
+                }
                 rewards.add(converted);
             });
         }

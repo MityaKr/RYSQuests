@@ -487,6 +487,9 @@ public final class AutoTest {
         expect("got the reward for each and the single one", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 1);
         addShopOnServerSteps();
         addEditorOnServerSteps();
+        step("import FTB progress where the other player took the reward", AutoTest::writeFtbqPartyFile, 5);
+        step("run the import", () -> command("rysquests import ftbq progress"), 20);
+        expect("the leader has not taken what the other player took", () -> ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().isEmpty());
         expect("the other player has left", () -> players() == 1);
         step("stop the server", () -> command("stop"), 100);
     }
@@ -517,6 +520,7 @@ public final class AutoTest {
         expect("its picture came with the book", () -> ClientAssets.imageSize(SERVER_IMAGE) != null);
         expect("the section reached the other player", () -> ClientBook.current().sections().values().stream().anyMatch(section -> Component.translatable(section.title()).getString().equals("Server atlas")));
         expect("the rail came too", () -> ClientBook.current().meta().sections().size() >= 2);
+        expect("the import knows this player took the reward", () -> ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().contains(0));
         step("try to save without rights", () -> PacketDistributor.sendToServer(new EditorSavePayload(Optional.of(ClientBook.current().guides().get(SERVER_GUIDE)), Optional.empty(), "en_us", Map.of(), Map.of(), List.of())), 20);
         expect("the server refused", () -> "rysquests.editor.error.denied".equals(BookScreen.lastEditorResultForTest()));
         step("leave the server", () -> {}, 5);
@@ -765,6 +769,29 @@ public final class AutoTest {
             return image.asByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private static final ResourceLocation TEAM_IMPORTED = ResourceLocation.parse("teamtest:imported");
+
+    /** The format FTB Quests writes, for a party whose second member took a reward. Only the dedicated server's folder is touched. */
+    private static void writeFtbqPartyFile() {
+        try {
+            Path server = mc().gameDirectory.toPath().resolve("../run-server");
+            java.util.Properties properties = new java.util.Properties();
+            try (var reader = Files.newBufferedReader(server.resolve("server.properties"))) {
+                properties.load(reader);
+            }
+            String team = mc().player.getUUID().toString().replace("-", "");
+            String other = mc().getConnection().getPlayerInfo("TestB").getProfile().getId().toString().replace("-", "");
+            Path saves = server.resolve(properties.getProperty("level-name")).resolve("ftbquests");
+            Files.createDirectories(saves);
+            Files.writeString(saves.resolve(team + ".snbt"), "{\n\tversion: 1\n\tuuid: \"" + team + "\"\n\tcompleted: {\n\t\tAAAAAAAAAAAAAAAA: 1793285774000L\n\t}\n\tclaimed_rewards: {\n\t\t\"" + other + ":BBBBBBBBBBBBBBBB\": 1793285774481L\n\t}\n}\n");
+            Path ids = server.resolve("config/rysquests/import/ftbq-ids.json");
+            Files.createDirectories(ids.getParent());
+            Files.writeString(ids, "{\"quests\":{\"AAAAAAAAAAAAAAAA\":\"teamtest:imported\"},\"tasks\":{},\"rewards\":{\"BBBBBBBBBBBBBBBB\":{\"quest\":\"teamtest:imported\",\"index\":0}}}");
+        } catch (IOException e) {
+            fail("could not write the FTB file: " + e);
         }
     }
 

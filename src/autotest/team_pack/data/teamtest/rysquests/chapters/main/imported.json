@@ -1,0 +1,20 @@
+{
+  "id": "teamtest:imported",
+  "chapter": "teamtest:main",
+  "title": "Imported quest",
+  "icon": "minecraft:paper",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Done"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:paper",
+      "count": 1
+    }
+  ]
+}

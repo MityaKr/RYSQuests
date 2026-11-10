@@ -338,7 +338,6 @@ assets/<ns>/textures/guides/    картинки гайдов
 | `[[image:repys:textures/guides/wheel.png\|подпись]]` | картинка, одна в строке |
 | `[[quest:repys:power/wires]]`, `[[quest:id\|подпись]]` | ссылка на квест |
 | `[[guide:repys:create#rotation]]` | ссылка на гайд или его страницу |
-| `[[ponder:create:mechanical_crafter]]`, `[[url:https://…]]` | Ponder, сайт |
 | `**жирный**`, `__курсив__` | начертание |
 | `!!предупреждение!!` | янтарный блок |
 | `>>спойлер<<` | спойлер |
@@ -685,6 +684,8 @@ BlockEvents.rightClicked(EXCHANGER, event => {
 2. `/rysquests import ftbq repys` создаёт книгу в `config/rysquests/import/`.
 3. `/rysquests import ftbq progress` переносит прогресс из `world/ftbquests/`.
 4. Перенеси `data/` и `assets/` из папки импорта в датапак сборки. Файл `ftbq-ids.json` оставь: по нему импортируется прогресс.
+
+Забранные награды переносятся по игрокам: в отряде FTB каждый видит забранным только то, что забрал сам. Награда `team_reward` становится наградой `team_mode: once`.
 
 Импорт только читает файлы FTB. Это снимок, а не синхронизация: повторный импорт перезапишет папку импорта, а повторный импорт прогресса заменит прогресс RYSQuests. Пока включены оба мода, награду можно забрать дважды, перед выпуском FTB Quests нужно убрать.
 
