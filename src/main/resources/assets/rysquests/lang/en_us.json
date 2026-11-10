@@ -211,6 +211,7 @@
   "rysquests.dev.tab.migrations": "Migrations",
   "rysquests.dev.tab.import": "Import",
   "rysquests.dev.export": "Export CSV",
+  "rysquests.dev.exit": "Leave Dev",
   "rysquests.dev.funnel_title": "Funnel of chapter %s",
   "rysquests.dev.funnel_hint": "share of teams that reached the quest",
   "rysquests.dev.funnel_empty": "Nobody has started this chapter yet",

@@ -248,6 +248,11 @@ public final class Ui {
         fill(x, y, size, size, size / 2f, color);
     }
 
+    /** A ring drawn as one shape, so that it stays even at any GUI scale: two stacked circles round apart. */
+    void ring(float x, float y, float size, float stroke, int color) {
+        Draw.roundBorder(g, x / PER_GUI, y / PER_GUI, size / PER_GUI, size / PER_GUI, radius(size / 2f), color, stroke / PER_GUI);
+    }
+
     public void bar(float x, float y, float w, float h, float r, float ratio, int color) {
         fill(x, y, w, h, r, c("slot.bg"));
         if (ratio > 0) {

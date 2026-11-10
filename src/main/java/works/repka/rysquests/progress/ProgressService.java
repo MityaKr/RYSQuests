@@ -278,13 +278,17 @@ public final class ProgressService {
 
     /** Achievements have nothing to press: what is reached is given at once, and on the next login to those who were away. */
     private static void claimAchievements(ServerPlayer player) {
+        boolean given = false;
         for (Achievement achievement : book().achievements().values()) {
             for (Achievement.Tier tier : achievement.tiers()) {
                 Quest quest = book().quests().get(achievement.questId(tier));
                 if (quest != null && QuestLogic.status(quest, lookup(player)) == QuestStatus.COMPLETED) {
-                    claim(player, quest, List.of());
+                    given |= claim(player, quest, List.of());
                 }
             }
+        }
+        if (given) {
+            Feedback.reward(player);
         }
     }
 
@@ -469,7 +473,11 @@ public final class ProgressService {
         switch (payload.action()) {
             case QuestActionPayload.SUBMIT -> submit(player, quest);
             case QuestActionPayload.CHECK -> check(player, quest, payload.value());
-            case QuestActionPayload.CLAIM -> claim(player, quest, payload.choices());
+            case QuestActionPayload.CLAIM -> {
+                if (claim(player, quest, payload.choices())) {
+                    Feedback.reward(player);
+                }
+            }
             case QuestActionPayload.PIN -> togglePin(player, quest);
             default -> {
             }
@@ -514,11 +522,17 @@ public final class ProgressService {
     /** Choice rewards need a decision, so quests with one are left for the player to open. */
     private static void claimAll(ServerPlayer player) {
         Function<ResourceLocation, QuestProgress> progress = lookup(player);
-        book().quests().values().stream()
+        List<Quest> ready = book().quests().values().stream()
                 .filter(quest -> QuestLogic.status(quest, progress) == QuestStatus.COMPLETED)
                 .filter(quest -> quest.rewards().stream().noneMatch(ChoiceReward.class::isInstance))
-                .toList()
-                .forEach(quest -> claim(player, quest, List.of()));
+                .toList();
+        boolean given = false;
+        for (Quest quest : ready) {
+            given |= claim(player, quest, List.of());
+        }
+        if (given) {
+            Feedback.reward(player);
+        }
     }
 
     private static void togglePin(ServerPlayer player, Quest quest) {
@@ -601,12 +615,13 @@ public final class ProgressService {
         apply(player, Map.of(quest.id(), finish(quest, before, values)));
     }
 
-    private static void claim(ServerPlayer player, Quest quest, List<Integer> choices) {
+    /** @return whether any reward was given now */
+    private static boolean claim(ServerPlayer player, Quest quest, List<Integer> choices) {
         UUID team = team(player);
         ProgressStore store = ProgressStore.get(player.server);
         QuestProgress before = viewFor(player, quest.id(), store.get(team, quest.id()));
         if (!before.completed() || !TeamsApi.get().can(player.getUUID(), "claim_rewards")) {
-            return;
+            return false;
         }
         List<Integer> claimed = new ArrayList<>(before.claimed());
         for (int i = 0; i < quest.rewards().size(); i++) {
@@ -614,12 +629,13 @@ public final class ProgressService {
                 claimed.add(i);
             }
         }
+        boolean given = claimed.size() > before.claimed().size();
         boolean allClaimed = claimed.size() >= quest.rewards().size();
         if (allClaimed && quest.options().repeatable().isPresent()) {
             long cooldown = quest.options().repeatable().get().cooldownMinutes() * MINUTE_MS;
             store.put(player.getUUID(), team.equals(player.getUUID()) ? Map.of() : Map.of(quest.id(), QuestProgress.EMPTY));
             apply(player, Map.of(quest.id(), new QuestProgress(List.of(), 0, List.of(), cooldown > 0 ? System.currentTimeMillis() + cooldown : 0)));
-            return;
+            return given;
         }
         if (team.equals(player.getUUID())) {
             apply(player, Map.of(quest.id(), before.withClaimed(List.copyOf(claimed))));
@@ -633,6 +649,7 @@ public final class ProgressService {
                 PacketDistributor.sendToPlayer(player, new ProgressPayload(false, Map.of(quest.id(), before.withClaimed(List.copyOf(claimed)))));
             }
         }
+        return given;
     }
 
     /** @return false when the reward stays unclaimed, which only happens to a choice with no valid pick */

@@ -39,6 +39,10 @@ final class AchievementsView implements BookView {
     private static final int TIER_H = 50;
     private static final int WHEEL = 48;
     private static final String HIDDEN_FILTER = "\0hidden";
+    /** Medal colors are the metals of design/Achievements.dc.html and stay the same in every theme (ADR-41). */
+    private static final int GOLD = 0xFFF0C53D;
+    private static final int SILVER = 0xFFC9C9CF;
+    private static final int BRONZE = 0xFFB87333;
 
     private final Scroll gridScroll = new Scroll();
     private String category = "";
@@ -103,9 +107,9 @@ final class AchievementsView implements BookView {
             return ui.c("card.border");
         }
         return switch (tier.tier()) {
-            case "gold" -> ui.c("accent");
-            case "silver" -> ui.c("button.fg");
-            default -> ui.mix("accent", "state.bad", 0.35f);
+            case "gold" -> GOLD;
+            case "silver" -> SILVER;
+            default -> BRONZE;
         };
     }
 
@@ -236,8 +240,8 @@ final class AchievementsView implements BookView {
     }
 
     private static void medalIcon(Ui ui, ItemStack icon, int color, float x, float y, float size, float stroke, float iconSize) {
-        ui.circle(x, y, size, color);
-        ui.circle(x + stroke, y + stroke, size - stroke * 2, ui.c("slot.bg"));
+        ui.circle(x, y, size, ui.c("slot.bg"));
+        ui.ring(x, y, size, stroke, color);
         ui.item(icon, x + (size - iconSize) / 2f, y + (size - iconSize) / 2f, iconSize);
     }
 
@@ -346,8 +350,7 @@ final class AchievementsView implements BookView {
         ui.box(x, y, w, TIER_H, 9, ui.c("status.bg"), isNext ? ui.warmBorder(0.34f) : ui.c("panel.border"));
         float cy = y + TIER_H / 2f;
         int color = medal(ui, tier);
-        ui.circle(x + 11, cy - 8, 16, color);
-        ui.circle(x + 14, cy - 5, 10, ui.c("status.bg"));
+        ui.ring(x + 11, cy - 8, 16, 3, color);
         ui.labelFit(StringUtils.capitalize(tierName(tier)) + " · " + Numbers.compact(tier.amount()), x + 37, cy - 8, w - 37 - 80, 12.5f, Ui.REGULAR, ui.nameFg());
         ui.labelFit(rewards(tier), x + 37, cy + 9, w - 37 - 80, 11, Ui.REGULAR, ui.c("text.muted"));
         String status = got ? tr("rysquests.achievements.got") : Math.round(100 * Math.min(1f, (float) progress(achievement) / tier.amount())) + " %";

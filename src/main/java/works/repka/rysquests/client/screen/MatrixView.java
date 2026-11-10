@@ -41,10 +41,17 @@ final class MatrixView implements BookView {
     private static final int CELL_GAP_COMPACT = 4;
     private static final int ROW_GAP = 6;
     private static final int CELL_MIN = 74;
-    private static final int WAY_H = 28;
+    /** Way icons are as large as the icon in the panel's head, with the same padding on every side (ADR-41). */
+    private static final int WAY_ICON = 26;
+    private static final int WAY_PAD = 6;
+    private static final int WAY_H = WAY_ICON + WAY_PAD * 2;
     private static final int WAY_GAP = 4;
-    private static final int RING = 26;
-    private static final int ROW_MIN_COMPACT = 44;
+    private static final int RING = WAY_ICON + WAY_PAD * 2;
+    /** A crowded compact cell falls back to the mockup's ring, so that its ways still fit. */
+    private static final int SMALL_ICON = 16;
+    private static final int SMALL_PAD = 5;
+    private static final int CELL_PAD_COMPACT = 6;
+    private static final int ROW_MIN_COMPACT = RING + CELL_PAD_COMPACT * 2;
     private static final int LINK_H = 30;
     private static final int WHEEL = 48;
     private static final float PAST_VEIL = 0.2f;
@@ -366,10 +373,11 @@ final class MatrixView implements BookView {
     private static void renderWayChip(Ui ui, MatrixSection section, Row row, Column column, Way way, float x, float y, float w) {
         ui.box(x, y, w, WAY_H, 7, ui.c("status.bg"), way.best() ? ui.warmBorder(0.34f) : ui.c("panel.border"));
         float cy = y + WAY_H / 2f;
-        ui.item(way.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY), x + 8, cy - 8, 16);
+        ui.item(way.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY), x + WAY_PAD, cy - WAY_ICON / 2f, WAY_ICON);
         String tag = tag(way, false);
         float tagW = tag.isEmpty() ? 0 : ui.width(tag, 10.5f, Ui.REGULAR) + 6;
-        ui.labelFitTip(tr(section.wayName(row, column, way)), x + 30, cy, w - 30 - 8 - tagW, 12, Ui.REGULAR, ui.nameFg());
+        float textX = WAY_PAD + WAY_ICON + 8;
+        ui.labelFitTip(tr(section.wayName(row, column, way)), x + textX, cy, w - textX - 8 - tagW, 12, Ui.REGULAR, ui.nameFg());
         if (!tag.isEmpty()) {
             ui.labelRight(tag, x + w - 8, cy, 10.5f, Ui.REGULAR, ui.c(way.best() ? "accent" : "text.muted"));
         }
@@ -387,9 +395,16 @@ final class MatrixView implements BookView {
         boolean now = state == State.NOW;
         ui.box(x, y, w, h, 8, now ? ui.warmBorder(0.05f) : ui.mix("slot.bg", "card.bg", 0.4f), ui.mix("slot.bg", "panel.border", 0.5f));
         List<Way> ways = hidden(section, state) ? List.of() : row.ways(column);
-        int perRow = Math.max(1, (int) ((w - 8 + WAY_GAP) / (RING + WAY_GAP)));
-        int lines = (ways.size() + perRow - 1) / perRow;
-        float top = y + (h - (lines * RING + Math.max(0, lines - 1) * WAY_GAP)) / 2f;
+        int icon = WAY_ICON;
+        int pad = WAY_PAD;
+        if (lines(ways.size(), w, RING) * (RING + WAY_GAP) - WAY_GAP > h - CELL_PAD_COMPACT * 2) {
+            icon = SMALL_ICON;
+            pad = SMALL_PAD;
+        }
+        int size = icon + pad * 2;
+        int perRow = perRow(w, size);
+        int lines = lines(ways.size(), w, size);
+        float top = y + (h - (lines * size + Math.max(0, lines - 1) * WAY_GAP)) / 2f;
         int ring = state == State.PAST ? ui.c("state.ok") : now ? ui.c("accent") : ui.c("card.border");
         // The last hit wins, so the cell goes first and the icons pick their own way on top of it.
         if (!ways.isEmpty()) {
@@ -397,18 +412,27 @@ final class MatrixView implements BookView {
         }
         for (int i = 0; i < ways.size(); i++) {
             int inRow = i / perRow < lines - 1 ? perRow : ways.size() - (lines - 1) * perRow;
-            float rowW = inRow * RING + (inRow - 1) * WAY_GAP;
-            float rx = x + (w - rowW) / 2f + (i % perRow) * (RING + WAY_GAP);
-            float ry = top + (i / perRow) * (RING + WAY_GAP);
+            float rowW = inRow * size + (inRow - 1) * WAY_GAP;
+            float rx = x + (w - rowW) / 2f + (i % perRow) * (size + WAY_GAP);
+            float ry = top + (i / perRow) * (size + WAY_GAP);
             Way way = ways.get(i);
-            ui.fill(rx, ry, RING, RING, 7, ui.c("slot.bg"));
-            ui.strokeBold(rx, ry, RING, RING, 7, i == chosenWay ? ui.c("text.primary") : ring);
-            ui.item(way.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY), rx + 5, ry + 5, 16);
-            ui.tooltipIfOver(rx, ry, RING, RING, Component.translatable(section.wayName(row, column, way)));
+            ui.fill(rx, ry, size, size, 7, ui.c("slot.bg"));
+            ui.strokeBold(rx, ry, size, size, 7, i == chosenWay ? ui.c("text.primary") : ring);
+            ui.item(way.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY), rx + pad, ry + pad, icon);
+            ui.tooltipIfOver(rx, ry, size, size, Component.translatable(section.wayName(row, column, way)));
             int index = i;
-            ui.hit(rx, ry, RING, RING, () -> pick(section, row, column, index));
+            ui.hit(rx, ry, size, size, () -> pick(section, row, column, index));
         }
         veil(ui, state, x, y, w, h, 8);
+    }
+
+    private static int perRow(float w, int size) {
+        return Math.max(1, (int) ((w - CELL_PAD_COMPACT * 2 + WAY_GAP) / (size + WAY_GAP)));
+    }
+
+    private static int lines(int ways, float w, int size) {
+        int perRow = perRow(w, size);
+        return (ways + perRow - 1) / perRow;
     }
 
     private static void veil(Ui ui, State state, float x, float y, float w, float h, float r) {

@@ -58,6 +58,7 @@ public final class ShopService {
         String problem = offer == null ? "rysquests.shop.error.unknown" : trade(player, offer, payload.times(), payload.treasury());
         PacketDistributor.sendToPlayer(player, new ShopResultPayload(problem == null, problem == null ? "" : problem));
         if (problem == null) {
+            works.repka.rysquests.progress.Feedback.trade(player, offer.isSale());
             sendToTeam(player);
         }
     }

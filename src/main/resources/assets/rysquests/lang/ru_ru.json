@@ -211,6 +211,7 @@
   "rysquests.dev.tab.migrations": "Миграции",
   "rysquests.dev.tab.import": "Импорт",
   "rysquests.dev.export": "Экспорт CSV",
+  "rysquests.dev.exit": "Выйти из Dev",
   "rysquests.dev.funnel_title": "Воронка главы %s",
   "rysquests.dev.funnel_hint": "доля команд, дошедших до квеста",
   "rysquests.dev.funnel_empty": "Пока никто не начинал эту главу",

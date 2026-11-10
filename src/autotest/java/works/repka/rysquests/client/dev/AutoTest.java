@@ -749,6 +749,14 @@ public final class AutoTest {
                     screenshot("sections_" + view[1] + "_" + size[0] + "_" + theme);
                 }
             }
+            // GUI scale 3 puts mockup pixels on half screen pixels, where shapes that round apart drift.
+            step("show " + view[0] + " at gui 3", () -> {
+                mc().getWindow().setWindowed(1920, 1080);
+                mc().options.guiScale().set(3);
+                mc().resizeDisplay();
+                ThemeManager.select("ryscore:slate");
+            }, 15);
+            screenshot("sections_" + view[1] + "_gui3");
             step("back to the size of the mockups", () -> {
                 mc().getWindow().setWindowed(1280, 800);
                 mc().options.guiScale().set(2);
@@ -1439,6 +1447,17 @@ public final class AutoTest {
         expect("dev report arrived", () -> ClientDev.report() != null);
         step("wait for the report on screen", () -> {}, 10);
         screenshot("design_dev");
+        step("show dev as wide as a player's screen", () -> {
+            mc().getWindow().setWindowed(2000, 1060);
+            mc().options.guiScale().set(0);
+            mc().resizeDisplay();
+        }, 15);
+        screenshot("design_dev_wide");
+        step("back to the size of the mockups", () -> {
+            mc().getWindow().setWindowed(1280, 800);
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+        }, 10);
         if ("design_sizes".equals(scenario)) {
             addSizeSteps();
         }

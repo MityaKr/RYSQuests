@@ -48,20 +48,6 @@ final class DevView implements BookView {
         float chipX = x + 18 + 36 + ui.width("RYSQuests", 16, Ui.DISPLAY) + 10;
         float chipW = ui.pill("Dev", chipX, cy, 11, Ui.SEMIBOLD, 8, 18, 9, ui.c("chip.mod.bg"), ui.c("chip.mod.fg"));
         float cursor = chipX + chipW + 22;
-        String constructor = Component.translatable("rysquests.editor.open_constructor").getString();
-        float constructorW = ui.buttonWidth(constructor, 11.5f, Ui.REGULAR, 10) + 2;
-        ui.button(constructor, x + w - 18 - constructorW, cy - 15, constructorW, 30, 8, 11.5f, Ui.REGULAR, 10, Ui.Style.PLAIN, () -> {
-            if (net.minecraft.client.Minecraft.getInstance().screen instanceof BookScreen screen) {
-                screen.openSectionEditor(null);
-            }
-        });
-        String quests = Component.translatable("rysquests.quest_editor.open").getString();
-        float questsW = ui.buttonWidth(quests, 11.5f, Ui.REGULAR, 10) + 2;
-        ui.button(quests, x + w - 18 - constructorW - 6 - questsW, cy - 15, questsW, 30, 8, 11.5f, Ui.REGULAR, 10, Ui.Style.PLAIN, () -> {
-            if (net.minecraft.client.Minecraft.getInstance().screen instanceof BookScreen screen) {
-                screen.openQuestEditor();
-            }
-        });
         DevReports.Report report = ClientDev.report();
         for (Tab option : Tab.values()) {
             boolean active = option == tab;
@@ -83,15 +69,39 @@ final class DevView implements BookView {
             });
             cursor += tabW + 4;
         }
-        String export = Component.translatable("rysquests.dev.export").getString();
-        float exportW = ui.buttonWidth(export, 11.5f, Ui.REGULAR, 11);
-        ui.button(export, x + w - 18 - exportW, cy - 15, exportW, 30, 8, 11.5f, Ui.REGULAR, 11, Ui.Style.PLAIN, () -> command("rysquests dev report"));
+        // Laid out from the right edge: the way out always, then each tool while it fits before the tabs.
+        float right = x + w - 18;
+        right = barButton(ui, Component.translatable("rysquests.dev.exit").getString(), right, cy, -1, () -> BookState.view = ViewMode.FLOW);
+        right = barButton(ui, Component.translatable("rysquests.dev.export").getString(), right, cy, cursor, () -> command("rysquests dev report"));
+        right = barButton(ui, Component.translatable("rysquests.editor.open_constructor").getString(), right, cy, cursor, () -> {
+            if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+                screen.openSectionEditor(null);
+            }
+        });
+        right = barButton(ui, Component.translatable("rysquests.quest_editor.open").getString(), right, cy, cursor, () -> {
+            if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+                screen.openQuestEditor();
+            }
+        });
         if (report != null) {
             String summary = Component.translatable("rysquests.dev.summary", report.chapters(), report.quests()).getString();
-            if (x + w - 18 - exportW - 12 - ui.width(summary, 11.5f, Ui.REGULAR) >= cursor + 12) {
-                ui.labelRight(summary, x + w - 18 - exportW - 12, cy, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+            if (right - 6 - ui.width(summary, 11.5f, Ui.REGULAR) >= cursor + 12) {
+                ui.labelRight(summary, right - 6, cy, 11.5f, Ui.REGULAR, ui.c("text.muted"));
             }
         }
+    }
+
+    /**
+     * A button of the bar placed to the left of {@code right}; skipped when it would reach {@code limit} (a negative limit never skips).
+     * @return the new right edge for the next item
+     */
+    private static float barButton(Ui ui, String label, float right, float cy, float limit, Runnable action) {
+        float width = ui.buttonWidth(label, 11.5f, Ui.REGULAR, 10) + 2;
+        if (limit >= 0 && right - width < limit + 12) {
+            return right;
+        }
+        ui.button(label, right - width, cy - 15, width, 30, 8, 11.5f, Ui.REGULAR, 10, Ui.Style.PLAIN, action);
+        return right - width - 6;
     }
 
     private static int problems(DevReports.Report report) {
