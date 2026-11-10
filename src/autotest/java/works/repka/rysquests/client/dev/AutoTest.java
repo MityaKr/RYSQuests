@@ -1499,6 +1499,10 @@ public final class AutoTest {
         step("the claim button opens the quest to pick in", BookScreen::claimAllForTest, 10);
         expect("the quest with the choice is selected", () -> quest.equals(BookScreen.selectedQuestForTest()));
         screenshot("design_pick");
+        expect("the quest is still pinned", () -> ClientProgress.pinned().contains(quest));
+        step("zoom out until the pinned quest is in plain sight", () -> BookScreen.mapZoomForTest(0.75f), 10);
+        screenshot("design_pinned_map");
+        step("zoom the map back", () -> BookScreen.mapZoomForTest(1f), 5);
         step("pick the second option and claim", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, quest, 0, List.of(1))), 20);
         expect("the choice was claimed", () -> ClientProgress.get(quest).claimed().contains(0) && !BookScreen.onlyPicksLeftForTest());
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);

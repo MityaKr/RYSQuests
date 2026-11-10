@@ -344,7 +344,22 @@ final class MapView implements BookView {
         float textW = NODE_W - 11 - 22 - 8 - 11;
         ui.labelFit(Component.translatable(quest.title()).getString(), textX, y + 9 + 7.5f, textW, 12, Ui.REGULAR, Draw.alpha(ui.nameFg(), opacity));
         subline(ui, quest, status, current, textX, y + 25 + 6.5f, textW, opacity);
+        pinBadge(ui, quest, x + NODE_W, y);
         addHit(ui, quest, x, y, NODE_W, NODE_H, () -> click(quest, current));
+    }
+
+    private static final int PIN_BADGE = 22;
+
+    /** A pinned quest wears a pin on its top right corner, as a card pinned to the board. */
+    private static void pinBadge(Ui ui, Quest quest, float right, float top) {
+        if (!ClientProgress.pinned().contains(quest.id())) {
+            return;
+        }
+        float x = right - PIN_BADGE + 7;
+        float y = top - 7;
+        ui.circle(x - 2, y - 2, PIN_BADGE + 4, ui.mapBg());
+        ui.circle(x, y, PIN_BADGE, ui.c("accent"));
+        ui.icon(works.repka.ryscore.ui.Icons.Shape.PIN, x + 5, y + 5, PIN_BADGE - 10, ui.c("accent.text"));
     }
 
     private void click(Quest quest, Layout current) {
@@ -409,6 +424,7 @@ final class MapView implements BookView {
         float subY = top + lines.size() * 15;
         ui.labelFit(Component.translatable("rysquests.map.tasks", done, total).getString(), textX, subY + 6.5f, textW, 10.5f, Ui.REGULAR, ui.c("accent"));
         ui.bar(textX, subY + 13 + 4, textW, 3, 2, total == 0 ? 0 : (float) done / total, ui.c("accent"));
+        pinBadge(ui, quest, x + ACTIVE_W, y);
         addHit(ui, quest, x, y, ACTIVE_W, ACTIVE_H, () -> BookState.select(quest));
     }
 
@@ -425,7 +441,8 @@ final class MapView implements BookView {
         String count = counts[0] + " / " + counts[1];
         ui.label(count, left, cy, 12.5f, Ui.REGULAR, ui.c("text.muted"));
         left += ui.width(count, 12.5f, Ui.REGULAR) + 10;
-        String chip = Component.translatable(expandAll ? "rysquests.map.expanded" : "rysquests.map.auto").getString();
+        // The chip says what a click does, not what is shown now (ADR-43).
+        String chip = Component.translatable(expandAll ? "rysquests.map.fold_done" : "rysquests.map.unfold_all").getString();
         float chipW = ui.pill(chip, left, cy, 11, Ui.REGULAR, 8, 18, 9, ui.c("chip.mod.bg"), ui.c("chip.mod.fg"));
         ui.hit(left, cy - 9, chipW, 18, () -> expandAll = !expandAll);
         String hint = Component.translatable("rysquests.map.hint").getString();

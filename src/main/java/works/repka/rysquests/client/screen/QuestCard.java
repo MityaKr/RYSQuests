@@ -97,11 +97,8 @@ final class QuestCard {
         boolean over = ui.over(x, y, size, size);
         ui.box(x, y, size, size, radius, over ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
         int color = ui.c(pinned ? "accent" : "button.fg");
-        float glyph = 11;
-        float gx = x + (size - glyph) / 2f;
-        float gy = y + (size - glyph) / 2f;
-        ui.stroke(gx, gy, glyph, glyph, 1, color);
-        ui.rect(gx + 3, gy + 3, glyph - 6, glyph - 6, color);
+        float glyph = 13;
+        ui.icon(Icons.Shape.PIN, x + (size - glyph) / 2f, y + (size - glyph) / 2f, glyph, color);
         ui.hit(x, y, size, size, () -> send(QuestActionPayload.PIN, quest, 0, List.of()));
         ui.tooltipIfOver(x, y, size, size, Component.translatable(pinned ? "rysquests.book.unpin" : "rysquests.book.pin"));
     }
