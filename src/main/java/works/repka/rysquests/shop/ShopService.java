@@ -1,19 +1,24 @@
 package works.repka.rysquests.shop;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.jetbrains.annotations.Nullable;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.ProgressMode;
 import works.repka.rysquests.data.ShopOffer;
@@ -26,6 +31,11 @@ import works.repka.rysquests.stage.Stages;
 /** Makes trades. Nothing the client says is believed: balance, limit, stage, quest and free space are all checked here. */
 public final class ShopService {
     private static final int MAX_TIMES = 64;
+
+    /** What a command or a script does to a balance. */
+    public enum WalletOp {
+        ADD, TAKE, SET
+    }
 
     private ShopService() {
     }
@@ -186,9 +196,89 @@ public final class ShopService {
         sendToTeam(player);
     }
 
-    /** An administrator's change of a personal balance. */
-    public static void adminDeposit(ServerPlayer player, String currency, long amount) {
-        ProgressStore.get(player.server).addBalance(player.getUUID(), currency, amount);
+    public static boolean hasTreasury(ServerPlayer player) {
+        return inTeam(player);
+    }
+
+    public static long balance(ServerPlayer player, boolean treasury, String currency) {
+        return treasury && !inTeam(player) ? 0 : ProgressStore.get(player.server).balance(treasury ? team(player) : player.getUUID(), currency);
+    }
+
+    /** A change from a command or a script. @return false for a treasury without a team, or for taking more than there is */
+    public static boolean change(ServerPlayer player, boolean treasury, String currency, WalletOp op, long amount) {
+        if (treasury && !inTeam(player)) {
+            return false;
+        }
+        ProgressStore store = ProgressStore.get(player.server);
+        UUID owner = treasury ? team(player) : player.getUUID();
+        long before = store.balance(owner, currency);
+        long delta = switch (op) {
+            case ADD -> amount;
+            case TAKE -> -amount;
+            case SET -> amount - before;
+        };
+        if (before + delta < 0) {
+            return false;
+        }
+        if (delta != 0) {
+            store.addBalance(owner, currency, delta);
+            store.addShopHistory(player.getUUID(), new ProgressStore.ShopLine(System.currentTimeMillis(), delta, currency, ProgressStore.ShopLine.TRANSFER, 0));
+            sendToTeam(player);
+        }
+        return true;
+    }
+
+    /** @return the coins added. Takes items first in whole batches, so that nothing can be paid twice or lost. */
+    public static long exchange(ServerPlayer player, String item, String currency, int items, long coins, boolean heldOnly) {
+        if (items < 1 || coins < 1) {
+            throw new IllegalArgumentException("An exchange needs a positive number of items and coins");
+        }
+        Predicate<ItemStack> matches = matcher(item);
+        Inventory inventory = player.getInventory();
+        List<ItemStack> stacks = new ArrayList<>();
+        if (heldOnly) {
+            stacks.add(player.getMainHandItem());
+        } else {
+            stacks.addAll(inventory.items);
+            stacks.addAll(inventory.offhand);
+        }
+        long held = stacks.stream().filter(matches).mapToLong(ItemStack::getCount).sum();
+        long batches = held / items;
+        if (batches == 0) {
+            return 0;
+        }
+        long left = batches * items;
+        for (ItemStack stack : stacks) {
+            if (left > 0 && matches.test(stack)) {
+                int taken = (int) Math.min(left, stack.getCount());
+                stack.shrink(taken);
+                left -= taken;
+            }
+        }
+        inventory.setChanged();
+        long payout = batches * coins;
+        ProgressStore store = ProgressStore.get(player.server);
+        store.addBalance(player.getUUID(), currency, payout);
+        store.addShopHistory(player.getUUID(), new ProgressStore.ShopLine(System.currentTimeMillis(), payout, currency, ProgressStore.ShopLine.EXCHANGE, (int) batches));
+        sendToTeam(player);
+        return payout;
+    }
+
+    private static Predicate<ItemStack> matcher(String item) {
+        if (item.startsWith("#")) {
+            TagKey<Item> tag = TagKey.create(Registries.ITEM, ResourceLocation.parse(item.substring(1)));
+            return stack -> stack.is(tag);
+        }
+        ResourceLocation id = ResourceLocation.parse(item);
+        return stack -> !stack.isEmpty() && BuiltInRegistries.ITEM.getKey(stack.getItem()).equals(id);
+    }
+
+    /** Forgets what a player has used of the limits, and their team's too. @param offer one trade, or null for all */
+    public static void resetLimits(ServerPlayer player, @Nullable ResourceLocation offer) {
+        ProgressStore store = ProgressStore.get(player.server);
+        String key = offer == null ? null : offer.toString();
+        store.clearShopUsage(player.getUUID(), key);
+        store.clearShopUsage(team(player), key);
         sendToTeam(player);
     }
 

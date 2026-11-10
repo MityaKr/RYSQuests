@@ -1,10 +1,12 @@
 package works.repka.rysquests.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -13,11 +15,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
+import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -29,14 +35,17 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.fml.loading.FMLPaths;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import works.repka.rysquests.data.Achievement;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.BookReport;
 import works.repka.rysquests.data.BookReport.Issue;
 import works.repka.rysquests.data.BookReport.Severity;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
+import works.repka.rysquests.data.ShopOffer;
 import works.repka.rysquests.data.TaskDef;
 import works.repka.rysquests.dev.DevReports;
 import works.repka.rysquests.integration.ftbq.FtbqFiles;
@@ -45,9 +54,13 @@ import works.repka.rysquests.integration.ftbq.FtbqProgress;
 import works.repka.rysquests.integration.ftbq.ImportedPack;
 import works.repka.rysquests.migrate.MigrationEngine;
 import works.repka.rysquests.migrate.MigrationRunner;
+import works.repka.rysquests.progress.AchievementService;
 import works.repka.rysquests.progress.ProgressService;
 import works.repka.rysquests.progress.ProgressStore;
 import works.repka.rysquests.progress.QuestProgress;
+import works.repka.rysquests.reward.CurrencyReward;
+import works.repka.rysquests.shop.ShopService;
+import works.repka.rysquests.shop.ShopService.WalletOp;
 import works.repka.rysquests.task.ItemRef;
 
 /** The {@code /rysquests} command tree. */
@@ -57,8 +70,28 @@ public final class QuestCommands {
     private static final int ISSUES_IN_CHAT = 10;
     private static final String DEFAULT_IMPORT_NAMESPACE = "ftbq";
     private static final Map<UUID, UUID> INVITES = new HashMap<>();
+    private static final SuggestionProvider<CommandSourceStack> OFFERS = (context, builder) -> SharedSuggestionProvider.suggestResource(BookHolder.current().book().offers().keySet(), builder);
+    private static final SuggestionProvider<CommandSourceStack> ACHIEVEMENTS = (context, builder) -> SharedSuggestionProvider.suggestResource(BookHolder.current().book().achievements().keySet(), builder);
+    private static final SuggestionProvider<CommandSourceStack> CURRENCIES = (context, builder) -> SharedSuggestionProvider.suggest(currencies(), builder);
 
     private QuestCommands() {
+    }
+
+    /** The currencies the book mentions, for suggestions: a currency has no list of its own. */
+    private static Set<String> currencies() {
+        QuestBook book = BookHolder.current().book();
+        Set<String> names = new TreeSet<>();
+        for (ShopOffer offer : book.offers().values()) {
+            Stream.concat(offer.cost().stream(), offer.gives().stream()).filter(ShopOffer.Entry::isCurrency).forEach(entry -> names.add(entry.id()));
+        }
+        for (Quest quest : book.quests().values()) {
+            quest.rewards().forEach(reward -> {
+                if (reward instanceof CurrencyReward currency) {
+                    names.add(currency.id());
+                }
+            });
+        }
+        return names;
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -76,12 +109,13 @@ public final class QuestCommands {
                         .then(Commands.literal("registry").executes(QuestCommands::devRegistry)))
                 .then(admin("reload").executes(QuestCommands::reload))
                 .then(admin("validate").executes(QuestCommands::validate))
-                .then(admin("wallet").then(Commands.argument("player", EntityArgument.player())
-                        .then(Commands.argument("currency", StringArgumentType.word())
-                                .then(Commands.argument("amount", com.mojang.brigadier.arguments.IntegerArgumentType.integer()).executes(context -> {
-                                    works.repka.rysquests.shop.ShopService.adminDeposit(EntityArgument.getPlayer(context, "player"), StringArgumentType.getString(context, "currency"), com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "amount"));
-                                    return 1;
-                                })))))
+                .then(walletBranch(admin("wallet"), false).then(walletBranch(Commands.literal("treasury"), true)))
+                .then(admin("shop").then(Commands.literal("reset").then(Commands.argument("players", EntityArgument.players())
+                        .executes(context -> shopReset(context, null))
+                        .then(Commands.argument("offer", ResourceLocationArgument.id()).suggests(OFFERS)
+                                .executes(context -> shopReset(context, ResourceLocationArgument.getId(context, "offer")))))))
+                .then(admin("title").then(titleAction("give", true)).then(titleAction("take", false)))
+                .then(admin("achievement").then(achievementAction("complete", true)).then(achievementAction("reset", false)))
                 .then(admin("import").then(Commands.literal("ftbq")
                         .executes(context -> importFtbq(context, DEFAULT_IMPORT_NAMESPACE))
                         .then(Commands.literal("progress").executes(QuestCommands::importFtbqProgress))
@@ -112,6 +146,120 @@ public final class QuestCommands {
         DevReports.writeRegistry(context.getSource().getServer());
         context.getSource().sendSuccess(() -> Component.translatable("rysquests.dev.registry_done", DevReports.REGISTRY_JSON), false);
         return 1;
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> walletBranch(LiteralArgumentBuilder<CommandSourceStack> root, boolean treasury) {
+        return root
+                .then(Commands.literal("get").then(Commands.argument("player", EntityArgument.player())
+                        .then(Commands.argument("currency", StringArgumentType.word()).suggests(CURRENCIES).executes(context -> walletGet(context, treasury)))))
+                .then(walletAction("add", WalletOp.ADD, 1, treasury))
+                .then(walletAction("take", WalletOp.TAKE, 1, treasury))
+                .then(walletAction("set", WalletOp.SET, 0, treasury));
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> walletAction(String name, WalletOp op, long minimum, boolean treasury) {
+        return Commands.literal(name).then(Commands.argument("players", EntityArgument.players())
+                .then(Commands.argument("currency", StringArgumentType.word()).suggests(CURRENCIES)
+                        .then(Commands.argument("amount", LongArgumentType.longArg(minimum)).executes(context -> walletChange(context, op, treasury)))));
+    }
+
+    /** @return the balance, so that {@code /execute store} and {@code /execute if} can use it */
+    private static int walletGet(CommandContext<CommandSourceStack> context, boolean treasury) throws CommandSyntaxException {
+        ServerPlayer player = EntityArgument.getPlayer(context, "player");
+        String currency = StringArgumentType.getString(context, "currency");
+        if (treasury && !ShopService.hasTreasury(player)) {
+            context.getSource().sendFailure(Component.translatable("rysquests.wallet.no_team", player.getDisplayName()));
+            return 0;
+        }
+        long balance = ShopService.balance(player, treasury, currency);
+        context.getSource().sendSuccess(() -> Component.translatable(treasury ? "rysquests.wallet.treasury" : "rysquests.wallet.balance", player.getDisplayName(), balance, currency), false);
+        return (int) Math.min(balance, Integer.MAX_VALUE);
+    }
+
+    /** @return how many players it worked for */
+    private static int walletChange(CommandContext<CommandSourceStack> context, WalletOp op, boolean treasury) throws CommandSyntaxException {
+        String currency = StringArgumentType.getString(context, "currency");
+        long amount = LongArgumentType.getLong(context, "amount");
+        int done = 0;
+        for (ServerPlayer player : EntityArgument.getPlayers(context, "players")) {
+            if (treasury && !ShopService.hasTreasury(player)) {
+                context.getSource().sendFailure(Component.translatable("rysquests.wallet.no_team", player.getDisplayName()));
+            } else if (ShopService.change(player, treasury, currency, op, amount)) {
+                long balance = ShopService.balance(player, treasury, currency);
+                context.getSource().sendSuccess(() -> Component.translatable(treasury ? "rysquests.wallet.treasury" : "rysquests.wallet.balance", player.getDisplayName(), balance, currency), true);
+                done++;
+            } else {
+                context.getSource().sendFailure(Component.translatable("rysquests.wallet.not_enough", player.getDisplayName(), ShopService.balance(player, treasury, currency), currency));
+            }
+        }
+        return done;
+    }
+
+    private static int shopReset(CommandContext<CommandSourceStack> context, @Nullable ResourceLocation offer) throws CommandSyntaxException {
+        if (offer != null && !BookHolder.current().book().offers().containsKey(offer)) {
+            context.getSource().sendFailure(Component.translatable("rysquests.shop.unknown_offer", offer.toString()));
+            return 0;
+        }
+        var players = EntityArgument.getPlayers(context, "players");
+        players.forEach(player -> ShopService.resetLimits(player, offer));
+        context.getSource().sendSuccess(() -> Component.translatable("rysquests.shop.limits_reset", players.size()), true);
+        return players.size();
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> titleAction(String name, boolean give) {
+        return Commands.literal(name).then(Commands.argument("players", EntityArgument.players())
+                .then(Commands.argument("title", StringArgumentType.string()).executes(context -> {
+                    String title = StringArgumentType.getString(context, "title");
+                    var players = EntityArgument.getPlayers(context, "players");
+                    players.forEach(player -> {
+                        if (give) {
+                            AchievementService.grantTitle(player, title);
+                        } else {
+                            AchievementService.takeTitle(player, title);
+                        }
+                    });
+                    context.getSource().sendSuccess(() -> Component.translatable(give ? "rysquests.title.given" : "rysquests.title.taken", Component.translatable(title), players.size()), true);
+                    return players.size();
+                })));
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> achievementAction(String name, boolean completed) {
+        return Commands.literal(name).then(Commands.argument("player", EntityArgument.player())
+                .then(Commands.argument("achievement", ResourceLocationArgument.id()).suggests(ACHIEVEMENTS)
+                        .executes(context -> achievement(context, completed, null))
+                        .then(Commands.argument("tier", StringArgumentType.word()).executes(context -> achievement(context, completed, StringArgumentType.getString(context, "tier"))))));
+    }
+
+    /** Completing a tier takes the ones below it along; resetting one takes the ones above. Rewards follow as usual. */
+    private static int achievement(CommandContext<CommandSourceStack> context, boolean completed, @Nullable String tierName) throws CommandSyntaxException {
+        ServerPlayer player = EntityArgument.getPlayer(context, "player");
+        ResourceLocation id = ResourceLocationArgument.getId(context, "achievement");
+        QuestBook book = BookHolder.current().book();
+        Achievement achievement = book.achievements().get(id);
+        if (achievement == null) {
+            context.getSource().sendFailure(Component.translatable("rysquests.achievement.unknown", id.toString()));
+            return 0;
+        }
+        List<Achievement.Tier> tiers = achievement.tiers();
+        int index = completed ? tiers.size() - 1 : 0;
+        if (tierName != null) {
+            index = tiers.stream().map(Achievement.Tier::tier).toList().indexOf(tierName);
+            if (index < 0) {
+                context.getSource().sendFailure(Component.translatable("rysquests.achievement.unknown_tier", tierName));
+                return 0;
+            }
+        }
+        int changed = 0;
+        for (int i = completed ? 0 : index; i <= (completed ? index : tiers.size() - 1); i++) {
+            Quest quest = book.quests().get(achievement.questId(tiers.get(i)));
+            if (quest != null) {
+                ProgressService.setCompleted(player, quest, completed);
+                changed++;
+            }
+        }
+        int tiersChanged = changed;
+        context.getSource().sendSuccess(() -> Component.translatable(completed ? "rysquests.achievement.completed" : "rysquests.achievement.reset", id.toString(), tiersChanged), true);
+        return changed;
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> admin(String name) {

@@ -110,6 +110,24 @@
 
 Достижение это файл `data/<ns>/rysquests/achievements/<id>.json` с задачей и уровнями, формат в `02-data-format.md`, примеры в `examples/example_pack`. Раздел включается строкой `achievements` в `sections`. Подходят задачи `kill`, `stat`, `item` и `advancement`. Награды выдаются сами, тип `rysquests:title` даёт титул перед именем.
 
+## Монеты из скриптов (KubeJS)
+
+В серверных скриптах есть объект `RYSQuestsWallet`. Методы, и все принимают игрока первым:
+
+| Метод | Что делает |
+|---|---|
+| `balance(player, currency)` | баланс игрока |
+| `treasury(player, currency)` | баланс казны команды, `0` без команды |
+| `deposit(player, currency, amount)` | зачислить игроку |
+| `depositTreasury(player, currency, amount)` | зачислить в казну, `false` без команды |
+| `withdraw(player, currency, amount)` | списать, `false` и без списания, если не хватает |
+| `exchange(player, item, currency, items, coins)` | обменять предметы со всего инвентаря, кроме брони |
+| `exchangeHeld(player, item, currency, items, coins)` | то же только из главной руки |
+
+`item` это id предмета или тег `#c:coins`. За каждые `items` предметов игрок получает `coins` монет, остаток меньше одной партии остаётся у него, метод возвращает зачисленные монеты. Обмен идёт на сервере и попадает в историю магазина как «обмен». Валюта это та же строка, что в сделках и награде `rysquests:currency`.
+
+Готовый блок-обменник: `examples/kubejs/server_scripts/rysquests_coin_exchange.js`. Скопируй файл в `kubejs/server_scripts`, поменяй `EXCHANGER`, `CURRENCY` и таблицу `RATES`, выполни `/reload`. Блок может быть любым, в том числе созданным в KubeJS.
+
 ## Команды
 
 Уровень прав 2, кроме `team`.
@@ -122,6 +140,13 @@
 | `/rysquests dev registry` | все id пака | `logs/rysquests-registry.json` |
 | `/rysquests import ftbq [ns]` | книга из FTB Quests, по умолчанию `ns` = `ftbq` | `config/rysquests/import/` |
 | `/rysquests import ftbq progress` | прогресс из `world/ftbquests/` | чат |
+| `/rysquests wallet get <игрок> <валюта>` | баланс; результат команды равен балансу, для `/execute` | чат |
+| `/rysquests wallet add\|take\|set <игроки> <валюта> <сумма>` | зачислить, списать (не больше, чем есть), поставить | чат, история игрока |
+| `/rysquests wallet treasury get\|add\|take\|set ...` | то же для казны команды игрока | чат |
+| `/rysquests shop reset <игроки> [сделка]` | сбросить лимиты магазина, личные и команды | чат |
+| `/rysquests title give\|take <игроки> <ключ>` | выдать или снять титул | чат |
+| `/rysquests achievement complete <игрок> <id> [уровень]` | засчитать, вместе с нижними уровнями; награды выдаются | чат |
+| `/rysquests achievement reset <игрок> <id> [уровень]` | сбросить, вместе с верхними уровнями; выданное не забирается | чат |
 | `/rysquests migrate --dry-run` | что изменят миграции | чат, `logs/rysquests-migrate.txt` |
 | `/rysquests migrate --apply` | применить, сначала бэкап | бэкап в `world/data/` |
 | `/rysquests progress <игрок> reset\|complete <квест>` | правка прогресса | |

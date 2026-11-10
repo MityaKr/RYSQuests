@@ -503,5 +503,20 @@
   "rysquests.achievements.left.bronze": "до бронзы %s",
   "rysquests.validate.issue.duplicate_achievement": "Повтор id достижения %s",
   "rysquests.validate.issue.achievement_tiers_order": "Достижение %s: пороги уровней должны расти",
-  "rysquests.validate.issue.achievement_task": "Достижение %s: задача %s не считается сама"
+  "rysquests.validate.issue.achievement_task": "Достижение %s: задача %s не считается сама",
+  "rysquests.shop.exchange": "обмен",
+  "rysquests.shop.transfer_in": "зачисление",
+  "rysquests.shop.transfer_out": "списание",
+  "rysquests.wallet.balance": "%s: %s %s",
+  "rysquests.wallet.treasury": "Казна команды, %s: %s %s",
+  "rysquests.wallet.no_team": "%s не в команде",
+  "rysquests.wallet.not_enough": "Не хватает: у %s только %s %s",
+  "rysquests.shop.unknown_offer": "Неизвестная сделка %s",
+  "rysquests.shop.limits_reset": "Лимиты магазина сброшены, игроков: %s",
+  "rysquests.title.given": "Титул «%s» выдан, игроков: %s",
+  "rysquests.title.taken": "Титул «%s» снят, игроков: %s",
+  "rysquests.achievement.unknown": "Неизвестное достижение %s",
+  "rysquests.achievement.unknown_tier": "Нет такого уровня: %s",
+  "rysquests.achievement.completed": "Достижение %s: засчитано уровней: %s",
+  "rysquests.achievement.reset": "Достижение %s: сброшено уровней: %s"
 }

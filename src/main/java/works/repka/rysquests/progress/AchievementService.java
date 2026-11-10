@@ -76,6 +76,13 @@ public final class AchievementService {
         send(player);
     }
 
+    public static void takeTitle(ServerPlayer player, String title) {
+        ProgressStore.get(player.server).removeTitle(player.getUUID(), title);
+        player.refreshDisplayName();
+        player.refreshTabListName();
+        send(player);
+    }
+
     /** Only a title the player owns can be worn. */
     public static void select(ServerPlayer player, String title) {
         ProgressStore store = ProgressStore.get(player.server);

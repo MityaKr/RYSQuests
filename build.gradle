@@ -112,6 +112,10 @@ dependencies {
     autotestCompileOnly "works.repka.ryscore:ryscore-neoforge:${ryscore_version}"
     compileOnly("dev.latvian.mods:kubejs-neoforge:${kubejs_version}") { transitive = false }
     compileOnly("dev.latvian.mods:rhino:${rhino_version}") { transitive = false }
+    if (project.findProperty('autotest') == 'kubejs') {
+        runtimeOnly("dev.latvian.mods:kubejs-neoforge:${kubejs_version}") { transitive = false }
+        runtimeOnly("dev.latvian.mods:rhino:${rhino_version}") { transitive = false }
+    }
     implementation "works.repka.ryscore:ryscore-neoforge:${ryscore_version}"
     jarJar("works.repka.ryscore:ryscore-neoforge:[${ryscore_version},2.0.0)") {
         version { prefer ryscore_version }

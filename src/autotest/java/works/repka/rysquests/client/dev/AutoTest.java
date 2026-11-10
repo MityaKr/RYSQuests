@@ -144,6 +144,8 @@ public final class AutoTest {
             buildEditorScenario();
         } else if ("shop".equals(scenario)) {
             buildShopScenario();
+        } else if ("kubejs".equals(scenario)) {
+            buildKubeJsScenario();
         } else if ("achievements".equals(scenario)) {
             buildAchievementsScenario();
         } else if ("constructor".equals(scenario)) {
@@ -707,7 +709,7 @@ public final class AutoTest {
         step("reach the middle stage", () -> command("advancement grant @s only minecraft:story/mine_stone"), 120);
         step("have the coins of the mockup", () -> {
             if (ClientShop.balance("coin") == 0) {
-                command("rysquests wallet @s coin 248");
+                command("rysquests wallet add @s coin 248");
             }
         }, 20);
         step("have the items of the achievements mockup", () -> {
@@ -773,8 +775,8 @@ public final class AutoTest {
     /** The first player buys and sells, and the report catches the pair of trades that prints money. */
     private static void addShopOnServerSteps() {
         step("give both players coins", () -> {
-            command("rysquests wallet TestA coin 100");
-            command("rysquests wallet TestB coin 100");
+            command("rysquests wallet add TestA coin 100");
+            command("rysquests wallet add TestB coin 100");
             command("give TestA minecraft:wheat 16");
         }, 20);
         expect("coins arrived", () -> ClientShop.balance("coin") == 100);
@@ -840,7 +842,7 @@ public final class AutoTest {
             mc().resizeDisplay();
         }, 10);
         step("get coins and wheat", () -> {
-            command("rysquests wallet @s coin 100");
+            command("rysquests wallet add @s coin 100");
             command("give @s minecraft:wheat 16");
             command("clear @s minecraft:iron_ingot");
         }, 20);
@@ -880,6 +882,63 @@ public final class AutoTest {
             trade(SHOP_IRON);
         }, 10);
         expect("the server still refuses", () -> "rysquests.shop.error.limit".equals(BookScreen.lastShopResultForTest()));
+    }
+
+    /** Commands of the wallet, and a real click on the exchanger of examples/kubejs with KubeJS running. */
+    private static void buildKubeJsScenario() {
+        long[] coins = new long[1];
+        step("put the example script where KubeJS looks", () -> {
+            try {
+                Path game = mc().gameDirectory.toPath();
+                Path target = game.resolve("kubejs/server_scripts/rysquests_coin_exchange.js");
+                Files.createDirectories(target.getParent());
+                Files.copy(game.resolve("../examples/kubejs/server_scripts/rysquests_coin_exchange.js"), target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.io.IOException e) {
+                fail("could not copy the script: " + e);
+            }
+        }, 1);
+        openWorld();
+        step("set the balance", () -> command("rysquests wallet set @s coin 50"), 20);
+        expect("set works", () -> ClientShop.balance("coin") == 50);
+        step("add", () -> command("rysquests wallet add @s coin 7"), 20);
+        expect("add works", () -> ClientShop.balance("coin") == 57);
+        step("take", () -> command("rysquests wallet take @s coin 40"), 20);
+        expect("take works", () -> ClientShop.balance("coin") == 17);
+        step("take too much", () -> command("rysquests wallet take @s coin 40"), 20);
+        expect("taking too much changes nothing", () -> ClientShop.balance("coin") == 17);
+        step("give a title", () -> command("rysquests title give @s test.title"), 20);
+        expect("the title is owned", () -> ClientAchievements.owns("test.title"));
+        step("take the title", () -> command("rysquests title take @s test.title"), 20);
+        expect("the title is gone", () -> !ClientAchievements.owns("test.title"));
+        step("use a limit", () -> {
+            command("give @s minecraft:wheat 16");
+            command("rysquests wallet add @s coin 100");
+            command("rysquests shop reset @s");
+        }, 20);
+        step("buy", () -> trade(SHOP_IRON), 20);
+        expect("the limit is used", () -> ClientShop.used(SHOP_IRON) == 1);
+        step("reset the limits", () -> command("rysquests shop reset @s example:iron"), 20);
+        expect("the limit is free", () -> ClientShop.used(SHOP_IRON) == 0);
+        step("reset the achievement", () -> command("rysquests achievement reset @s example:chicken_hunter"), 20);
+        expect("it is open", () -> !ClientProgress.get(ACH_CHICKEN).completed());
+        step("complete the achievement", () -> command("rysquests achievement complete @s example:chicken_hunter"), 20);
+        expect("it is complete and paid", () -> claimed(ACH_CHICKEN, 1));
+        step("get old coins and stand on the exchanger", () -> {
+            command("clear @s");
+            command("setblock ~ ~-1 ~ minecraft:lodestone");
+            command("give @s minecraft:gold_nugget 10");
+            mc().player.getInventory().selected = 0;
+        }, 30);
+        expect("the coins are in the hand", () -> mc().player.getMainHandItem().is(net.minecraft.world.item.Items.GOLD_NUGGET));
+        step("right click the exchanger", () -> {
+            coins[0] = ClientShop.balance("coin");
+            var pos = mc().player.blockPosition().below();
+            mc().gameMode.useItemOn(mc().player, net.minecraft.world.InteractionHand.MAIN_HAND,
+                    new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(pos).add(0, 0.5, 0), net.minecraft.core.Direction.UP, pos, false));
+        }, 30);
+        expect("three batches were paid", () -> ClientShop.balance("coin") == coins[0] + 3);
+        expect("what makes no batch stayed", () -> mc().player.getInventory().countItem(net.minecraft.world.item.Items.GOLD_NUGGET) == 1);
+        expect("the history says exchange", () -> "rysquests:exchange".equals(ClientShop.history().getFirst().ref()));
     }
 
     private static final ResourceLocation ACH_IRON_BRONZE = ResourceLocation.parse("example:_achievements/iron_hoard/bronze");

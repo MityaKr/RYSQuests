@@ -131,6 +131,15 @@ RYSQuestsEvents.reward('mypack:unlock', e => { e.player.give('minecraft:diamond'
 
 `task` вызывается примерно раз в секунду, пока квест открыт: держите обработчик дешёвым.
 
+Кошелёк в серверных скриптах это `RYSQuestsWallet`, в Java это `works.repka.rysquests.api.WalletApi`. Методы описаны в `for-pack-authors.md`, пример блока-обменника в `examples/kubejs/`:
+
+```js
+BlockEvents.rightClicked('mypack:exchanger', e => {
+  const coins = RYSQuestsWallet.exchangeHeld(e.player, 'oldmod:silver_coin', 'coin', 10, 1);
+  if (coins > 0) e.cancel();
+});
+```
+
 ## Совместимость и стабильность
 
 - Пакет `api` следует семантическому версионированию отдельно от мода: `api_version` в `neoforge.mods.toml` как свойство.

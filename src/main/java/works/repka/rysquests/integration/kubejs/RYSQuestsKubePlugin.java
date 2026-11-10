@@ -5,12 +5,14 @@ import dev.latvian.mods.kubejs.event.EventGroupRegistry;
 import dev.latvian.mods.kubejs.event.EventTargetType;
 import dev.latvian.mods.kubejs.event.TargetedEventHandler;
 import dev.latvian.mods.kubejs.plugin.KubeJSPlugin;
+import dev.latvian.mods.kubejs.script.BindingRegistry;
 import dev.latvian.mods.kubejs.script.ScriptType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.common.NeoForge;
 import works.repka.rysquests.api.QuestCompletedEvent;
 import works.repka.rysquests.api.ScriptHooks;
+import works.repka.rysquests.api.WalletApi;
 
 /** {@code RYSQuestsEvents} for server scripts. Named in {@code kubejs.plugins.txt}, so it loads only with KubeJS. */
 public final class RYSQuestsKubePlugin implements KubeJSPlugin {
@@ -52,5 +54,12 @@ public final class RYSQuestsKubePlugin implements KubeJSPlugin {
     @Override
     public void registerEvents(EventGroupRegistry registry) {
         registry.register(GROUP);
+    }
+
+    @Override
+    public void registerBindings(BindingRegistry bindings) {
+        if (bindings.type().isServer()) {
+            bindings.add("RYSQuestsWallet", WalletApi.class);
+        }
     }
 }

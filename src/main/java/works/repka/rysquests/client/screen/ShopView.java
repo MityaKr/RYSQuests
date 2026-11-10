@@ -397,6 +397,12 @@ final class ShopView implements BookView {
 
     private static String lineText(ProgressStore.ShopLine line) {
         String amount = (line.delta() > 0 ? "+" : "−") + Numbers.compact(Math.abs(line.delta()));
+        if (ProgressStore.ShopLine.EXCHANGE.equals(line.ref())) {
+            return amount + " · " + tr("rysquests.shop.exchange");
+        }
+        if (ProgressStore.ShopLine.TRANSFER.equals(line.ref())) {
+            return amount + " · " + tr(line.delta() > 0 ? "rysquests.shop.transfer_in" : "rysquests.shop.transfer_out");
+        }
         ResourceLocation ref = ResourceLocation.tryParse(line.ref());
         ShopOffer offer = ref == null ? null : ClientBook.current().offers().get(ref);
         if (offer != null) {

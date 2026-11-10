@@ -14,6 +14,7 @@ import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 import works.repka.ryscore.team.TeamsApi;
@@ -65,6 +66,9 @@ public final class ProgressStore extends SavedData {
 
     /** One operation with money. @param ref the offer or the quest behind it @param times how many trades, 0 for a reward */
     public record ShopLine(long time, long delta, String currency, String ref, int times) {
+        public static final String TRANSFER = "rysquests:transfer";
+        public static final String EXCHANGE = "rysquests:exchange";
+
         public static final Codec<ShopLine> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 Codec.LONG.fieldOf("time").forGetter(ShopLine::time),
                 Codec.LONG.fieldOf("delta").forGetter(ShopLine::delta),
@@ -177,6 +181,17 @@ public final class ProgressStore extends SavedData {
         setDirty();
     }
 
+    /** A title taken away stops being worn. */
+    public void removeTitle(UUID player, String title) {
+        Set<String> owned = titles.get(player);
+        if (owned != null && owned.remove(title)) {
+            if (title.equals(activeTitles.get(player))) {
+                activeTitles.remove(player);
+            }
+            setDirty();
+        }
+    }
+
     public String activeTitle(UUID player) {
         return activeTitles.getOrDefault(player, "");
     }
@@ -211,6 +226,19 @@ public final class ProgressStore extends SavedData {
 
     public Map<String, ShopLimits.Usage> shopUsage(UUID owner) {
         return shopUsage.getOrDefault(owner, Map.of());
+    }
+
+    /** @param offer one trade, or null for all of them */
+    public void clearShopUsage(UUID owner, @Nullable String offer) {
+        Map<String, ShopLimits.Usage> used = shopUsage.get(owner);
+        if (used != null) {
+            if (offer == null) {
+                used.clear();
+            } else {
+                used.remove(offer);
+            }
+            setDirty();
+        }
     }
 
     public void setShopUsage(UUID owner, String offer, ShopLimits.Usage usage) {

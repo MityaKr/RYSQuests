@@ -498,5 +498,20 @@
   "rysquests.achievements.left.bronze": "%s left until bronze",
   "rysquests.validate.issue.duplicate_achievement": "Duplicate achievement id %s",
   "rysquests.validate.issue.achievement_tiers_order": "Achievement %s: tier amounts must grow",
-  "rysquests.validate.issue.achievement_task": "Achievement %s: task %s does not count by itself"
+  "rysquests.validate.issue.achievement_task": "Achievement %s: task %s does not count by itself",
+  "rysquests.shop.exchange": "exchange",
+  "rysquests.shop.transfer_in": "deposit",
+  "rysquests.shop.transfer_out": "withdrawal",
+  "rysquests.wallet.balance": "%s: %s %s",
+  "rysquests.wallet.treasury": "Team treasury, %s: %s %s",
+  "rysquests.wallet.no_team": "%s is not in a team",
+  "rysquests.wallet.not_enough": "Not enough: %s only has %s %s",
+  "rysquests.shop.unknown_offer": "Unknown trade %s",
+  "rysquests.shop.limits_reset": "Shop limits reset for %s player(s)",
+  "rysquests.title.given": "Title “%s” given to %s player(s)",
+  "rysquests.title.taken": "Title “%s” taken from %s player(s)",
+  "rysquests.achievement.unknown": "Unknown achievement %s",
+  "rysquests.achievement.unknown_tier": "No such tier: %s",
+  "rysquests.achievement.completed": "Achievement %s: %s tier(s) completed",
+  "rysquests.achievement.reset": "Achievement %s: %s tier(s) reset"
 }
