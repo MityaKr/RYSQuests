@@ -371,30 +371,29 @@ final class QuestCard {
 
     private static float header(Ui ui, Quest quest, QuestStatus status, float x, float y, float w) {
         float textW = w - 46 - 12 - 12 - 34;
-        String sub = subtitle(quest, status);
-        List<String> subLines = ui.wrap(sub, textW, 11.5f, Ui.REGULAR, 3);
-        float blockH = 23 + 2 + subLines.size() * 14;
+        String sub = subtitle(quest);
+        TextBlock.Look look = new TextBlock.Look(11.5f, 14, ui.c("text.muted"));
+        float subH = ui.measure(() -> Math.round(TextBlock.render(ui, sub, 0, 0, textW, look, Recipes::showRecipes)));
+        float blockH = 23 + 2 + subH;
         float h = Math.max(46, blockH);
         float cy = y + h / 2f;
         ItemStack icon = quest.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
         ui.cell(icon, x, cy - 23, 46, 46, 10, 28, ui.c("slot.bg"), ui.c("card.border"));
         float textX = x + 46 + 12;
         ui.labelFit(Component.translatable(quest.title()).getString(), textX, y + 11.5f, textW, 18, Ui.DISPLAY, ui.c("text.primary"));
-        for (int i = 0; i < subLines.size(); i++) {
-            ui.label(subLines.get(i), textX, y + 25 + 7 + i * 14, 11.5f, Ui.REGULAR, ui.c("text.muted"));
-        }
+        TextBlock.render(ui, sub, textX, y + 25, textW, look, Recipes::showRecipes);
         pinButton(ui, quest, x + w - 34, cy - 17, 34, 9);
         return y + h;
     }
 
-    private static String subtitle(Quest quest, QuestStatus status) {
+    /** The line under the title, in markup: the quests it requires are links that open them. */
+    private static String subtitle(Quest quest) {
         List<String> parts = new ArrayList<>();
         parts.add(Component.translatable("rysquests.card.chapter", Ui.roman(BookScreen.chapterNumber(quest.chapter().orElse(null)))).getString());
         List<String> needs = new ArrayList<>();
         for (ResourceLocation id : quest.requires()) {
-            Quest required = ClientBook.current().quests().get(id);
-            if (required != null) {
-                needs.add(Component.translatable(required.title()).getString());
+            if (ClientBook.current().quests().containsKey(id)) {
+                needs.add("[[quest:" + id + "]]");
             }
         }
         if (!needs.isEmpty()) {
