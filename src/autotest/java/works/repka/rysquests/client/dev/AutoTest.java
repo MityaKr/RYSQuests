@@ -160,6 +160,8 @@ public final class AutoTest {
             buildSectionsDesignScenario();
         } else if ("guides_design".equals(scenario)) {
             buildGuidesDesignScenario();
+        } else if ("layout".equals(scenario)) {
+            buildLayoutScenario();
         } else if ("team_a".equals(scenario)) {
             buildTeamLeaderScenario();
         } else if ("team_b".equals(scenario)) {
@@ -710,6 +712,70 @@ public final class AutoTest {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /** Chapters of the RepYS book on the map, whole and at full size, to judge the automatic layout. */
+    private static void buildLayoutScenario() {
+        String tag = System.getProperty("rysquests.autotest.tag", "");
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        expect("the RepYS book is loaded", () -> ClientBook.current().chapters().containsKey(ResourceLocation.parse("repys:b00_e1_andesite")));
+        List<String> chapters = List.of("a01_map", "a2_chronicle", "b09_e4_logistics", "b01_e1_brass", "b00_e1_andesite");
+        // Hidden quests show once their dependencies are done: everything is done, and unfolded below, so that all of it is laid out.
+        step("finish every quest of the chapters", () -> {
+            command("gamerule sendCommandFeedback false");
+            ClientBook.current().quests().values().stream()
+                    .filter(quest -> quest.chapter().filter(id -> chapters.contains(id.getPath())).isPresent())
+                    .forEach(quest -> command("rysquests progress @s complete " + quest.id()));
+        }, 80);
+        step("open the book on the map", () -> {
+            BookScreen.showStoryForTest();
+            BookScreen.showForTest(ViewMode.MAP);
+            pressKey(GLFW.GLFW_KEY_K);
+        }, 30);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("unfold everything", () -> BookScreen.mapUnfoldForTest(true), 5);
+        for (String mode : List.of("before", "after")) {
+            step("lay out as " + mode, () -> BookScreen.mapLegacyLayoutForTest(mode.equals("before")), 1);
+            for (String chapter : chapters) {
+                ResourceLocation id = ResourceLocation.parse("repys:" + chapter);
+                step("open " + chapter + " " + mode, () -> {
+                    BookScreen.selectForTest(id, null);
+                    BookScreen.mapZoomForTest(1f);
+                }, 40);
+                step("log " + chapter + " " + mode, () -> LOGGER.info("[autotest] layout {} {}: {}", mode, chapter, BookScreen.mapStatsForTest()), 1);
+                screenshot("layout_" + chapter + "_full_" + mode + tag);
+                step("fit " + chapter + " " + mode, BookScreen::mapFitForTest, 10);
+                screenshot("layout_" + chapter + "_whole_" + mode + tag);
+            }
+        }
+        step("back to the new layout", () -> BookScreen.mapLegacyLayoutForTest(false), 1);
+        // The epoch quest of the author's picture: experience, coins, a choice of four and one more item.
+        step("open the epoch quest", () -> BookScreen.selectForTest(ResourceLocation.parse("repys:a01_map"), ResourceLocation.parse("repys:a01_map/iii_machines")), 30);
+        screenshot("layout_rewards" + tag);
+        step("open andesite again", () -> BookScreen.selectForTest(ResourceLocation.parse("repys:b00_e1_andesite"), null), 20);
+        ResourceLocation open = ResourceLocation.parse("repys:b00_e1_andesite");
+        step("hold the chapter list and pull it up", () -> {
+            mc().screen.mouseClicked(120, 250, GLFW.GLFW_MOUSE_BUTTON_LEFT);
+            mc().screen.mouseDragged(120, 200, GLFW.GLFW_MOUSE_BUTTON_LEFT, 0, -50);
+            mc().screen.mouseDragged(120, 150, GLFW.GLFW_MOUSE_BUTTON_LEFT, 0, -50);
+            mc().screen.mouseReleased(120, 150, GLFW.GLFW_MOUSE_BUTTON_LEFT);
+        }, 10);
+        expect("the list scrolled and no chapter opened", () -> BookScreen.chapterScrollForTest() > 0 && open.equals(BookScreen.chapterForTest()));
+        step("click a chapter", () -> {
+            mc().screen.mouseClicked(120, 250, GLFW.GLFW_MOUSE_BUTTON_LEFT);
+            mc().screen.mouseReleased(120, 250, GLFW.GLFW_MOUSE_BUTTON_LEFT);
+        }, 10);
+        step("log the click", () -> LOGGER.info("[autotest] after the click: chapter {}, list at {}", BookScreen.chapterForTest(), BookScreen.chapterScrollForTest()), 1);
+        expect("the click opened another chapter", () -> !open.equals(BookScreen.chapterForTest()));
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
     }
 
     /** The custom sections with the contents of their mockups. */

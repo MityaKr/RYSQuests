@@ -17,6 +17,16 @@ final class Scroll {
         scroller.by((float) (-notches * step) / PER_GUI);
     }
 
+    /** Follows the mouse while the list is held: moving it down by some GUI units shows what is above, at once. */
+    void drag(double guiDelta) {
+        scroller.jump(Math.clamp(scroller.position() - (float) guiDelta, 0, limit / PER_GUI));
+    }
+
+    /** Where the list stands, without moving it on. */
+    int position() {
+        return Math.round(scroller.position() * PER_GUI);
+    }
+
     /** Call once per frame. Near an edge the result can go slightly past it. */
     int offset() {
         return Math.round(scroller.update(limit / PER_GUI) * PER_GUI);

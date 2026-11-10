@@ -41,9 +41,7 @@ import works.repka.ryscore.ui.Kit;
 import works.repka.ryscore.ui.Numbers;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
-import works.repka.rysquests.client.layout.LayeredLayout;
-import works.repka.rysquests.client.layout.LayeredLayout.Metrics;
-import works.repka.rysquests.client.layout.LayeredLayout.Node;
+import works.repka.rysquests.client.layout.ChapterLayout;
 import works.repka.rysquests.client.layout.LayeredLayout.Placed;
 import works.repka.rysquests.data.Chapter;
 import works.repka.rysquests.data.Quest;
@@ -69,7 +67,7 @@ final class QuestEditorView {
     private static final int NODE_H = 40;
     private static final int ACTIVE_W = 200;
     private static final int ACTIVE_H = 52;
-    private static final Metrics METRICS = new Metrics(NODE_W, NODE_H, 48, 48, QuestEdits.GRID);
+    private static final ChapterLayout.Metrics METRICS = new ChapterLayout.Metrics(NODE_W, NODE_H, 48, 48, 12, 24, 12, 10, 20, 0, 0);
     private static final int ROW_H = 33;
     private static final int ROW_STEP = 39;
     private static final int UNDO_LIMIT = 100;
@@ -755,19 +753,21 @@ final class QuestEditorView {
 
     // --- the map ---
 
+    /** The same layout the player's map uses (ADR-44), at the editor's own sizes. */
     private void requestLayout() {
-        List<Node> nodes = new ArrayList<>();
+        List<ChapterLayout.Node> nodes = new ArrayList<>();
         for (Quest quest : state.quests.values()) {
             var at = quest.options().layout();
-            nodes.add(new Node(quest.id().toString(), quest.requires().stream().map(ResourceLocation::toString).toList(),
-                    at.x().map(OptionalInt::of).orElse(OptionalInt.empty()), at.y().map(OptionalInt::of).orElse(OptionalInt.empty())));
+            nodes.add(new ChapterLayout.Node(quest.id().toString(), quest.requires().stream().map(ResourceLocation::toString).toList(), quest.group(),
+                    quest.options().optional(), at.x().map(OptionalInt::of).orElse(OptionalInt.empty()), at.y().map(OptionalInt::of).orElse(OptionalInt.empty())));
         }
-        String key = nodes.toString();
+        List<String> groupOrder = state.chapter.groups().stream().map(Chapter.Group::id).toList();
+        String key = nodes.toString() + groupOrder;
         if (key.equals(layoutKey)) {
             return;
         }
         layoutKey = key;
-        CompletableFuture.supplyAsync(() -> LayeredLayout.compute(nodes, METRICS), Util.backgroundExecutor())
+        CompletableFuture.supplyAsync(() -> ChapterLayout.compute(nodes, groupOrder, METRICS), Util.backgroundExecutor())
                 .thenAcceptAsync(result -> {
                     if (key.equals(layoutKey)) {
                         layout = result;

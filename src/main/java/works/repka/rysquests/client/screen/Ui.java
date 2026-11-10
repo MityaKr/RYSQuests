@@ -270,17 +270,28 @@ public final class Ui {
         }
     }
 
+    /** A dashed frame. Its line is never thinner than a screen pixel, or a zoomed out map loses dashes where they fall between pixels. */
     void dashed(float x, float y, float w, float h, int color) {
         final int on = 4;
         final int step = 8;
+        float t = Math.max(1f, PER_GUI / (float) Draw.scale(g));
         for (int i = 0; i < w; i += step) {
-            rect(x + i, y, Math.min(on, w - i), 1, color);
-            rect(x + i, y + h - 1, Math.min(on, w - i), 1, color);
+            dash(x + i, y, Math.min(on, w - i), t, color);
+            dash(x + i, y + h - t, Math.min(on, w - i), t, color);
         }
         for (int i = 0; i < h; i += step) {
-            rect(x, y + i, 1, Math.min(on, h - i), color);
-            rect(x + w - 1, y + i, 1, Math.min(on, h - i), color);
+            dash(x, y + i, t, Math.min(on, h - i), color);
+            dash(x + w - t, y + i, t, Math.min(on, h - i), color);
         }
+    }
+
+    /** A filled rectangle at exact coordinates, without the rounding to whole GUI units that {@link #rect} does. */
+    private void dash(float x, float y, float w, float h, int color) {
+        g.pose().pushPose();
+        g.pose().translate(x / PER_GUI, y / PER_GUI, 0);
+        g.pose().scale(w / PER_GUI, h / PER_GUI, 1f);
+        g.fill(0, 0, 1, 1, color);
+        g.pose().popPose();
     }
 
     void iconRotated(Icons.Shape shape, float x, float y, float size, float degrees, int color) {

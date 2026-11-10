@@ -185,6 +185,19 @@ public final class BookScreen extends ScaledScreen {
     private int claimCount;
     private List<ItemStack> claimStacks = List.of();
     private boolean plainClaim;
+    /** The chapter list on screen, in mockup pixels: x, y, width, height; null while no list is shown. */
+    @Nullable
+    private int[] chapterList;
+    @Nullable
+    private Scroll chapterListScroll;
+    /** A press on the chapter list waits for the release: a click opens the chapter, a drag scrolls the list. */
+    @Nullable
+    private Ui.Hit pressedChapter;
+    private boolean pressedOnList;
+    private double pressX;
+    private double pressY;
+    private boolean draggingList;
+    private static final double DRAG_START = 3;
     @Nullable
     private Quest pickQuest;
     private final Scroll chapterScroll = new Scroll();
@@ -410,6 +423,7 @@ public final class BookScreen extends ScaledScreen {
         hits.clear();
         rightHits.clear();
         kitHits.clear();
+        chapterList = null;
         Ui ui = new Ui(g, mouseX, mouseY, hits, rightHits, kitHits);
         int screenW = width * 2;
         int screenH = height * 2;
@@ -694,6 +708,8 @@ public final class BookScreen extends ScaledScreen {
         List<Chapter> chapters = chapters();
         railScroll.content(chapters.size() * RAIL_STEP, listH);
         int railOffset = railScroll.offset();
+        chapterList = new int[] {x, listTop, w, listH};
+        chapterListScroll = railScroll;
         ui.clip(x, listTop, w, listH);
         for (int i = 0; i < chapters.size(); i++) {
             int rowY = listTop + i * RAIL_STEP - railOffset;
@@ -854,6 +870,8 @@ public final class BookScreen extends ScaledScreen {
         List<Chapter> chapters = chapters();
         chapterScroll.content(chapters.size() * CHAPTER_STEP, listH);
         int chapterOffset = chapterScroll.offset();
+        chapterList = new int[] {x, listTop, w, listH};
+        chapterListScroll = chapterScroll;
         ui.clip(x, listTop, w, listH);
         int first = Math.max(0, chapterOffset / CHAPTER_STEP);
         int last = Math.min(chapters.size(), first + listH / CHAPTER_STEP + 2);
@@ -940,6 +958,20 @@ public final class BookScreen extends ScaledScreen {
         if (button == GLFW.GLFW_MOUSE_BUTTON_4 && editor == null && sectionEditor == null && questEditor == null && BookState.back()) {
             return true;
         }
+        if (button == 0 && editor == null && sectionEditor == null && questEditor == null && onChapterList(x, y)) {
+            pressedOnList = true;
+            draggingList = false;
+            pressX = mouseX;
+            pressY = mouseY;
+            pressedChapter = null;
+            for (int i = hits.size() - 1; i >= 0 && pressedChapter == null; i--) {
+                Ui.Hit hit = hits.get(i);
+                if (x >= hit.x() && x < hit.x() + hit.w() && y >= hit.y() && y < hit.y() + hit.h()) {
+                    pressedChapter = hit;
+                }
+            }
+            return true;
+        }
         List<Ui.Hit> list = button == 0 ? hits : button == 1 ? rightHits : List.of();
         for (int i = list.size() - 1; i >= 0; i--) {
             Ui.Hit hit = list.get(i);
@@ -969,8 +1001,22 @@ public final class BookScreen extends ScaledScreen {
         super.removed();
     }
 
+    private boolean onChapterList(int x, int y) {
+        int[] list = chapterList;
+        return list != null && x >= list[0] && x < list[0] + list[2] && y >= list[1] && y < list[1] + list[3];
+    }
+
     @Override
     protected boolean onRelease(double mouseX, double mouseY, int button) {
+        if (pressedOnList && button == 0) {
+            pressedOnList = false;
+            if (!draggingList && pressedChapter != null) {
+                pressedChapter.action().run();
+            }
+            pressedChapter = null;
+            draggingList = false;
+            return true;
+        }
         guidePage.releaseStructure();
         if (questEditor != null) {
             questEditor.release(mouseX * 2, mouseY * 2);
@@ -981,6 +1027,15 @@ public final class BookScreen extends ScaledScreen {
 
     @Override
     protected boolean onDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (pressedOnList) {
+            if (!draggingList && Math.hypot(mouseX - pressX, mouseY - pressY) > DRAG_START) {
+                draggingList = true;
+            }
+            if (draggingList && chapterListScroll != null) {
+                chapterListScroll.drag(dragY);
+            }
+            return true;
+        }
         if (questEditor != null) {
             questEditor.drag(mouseX * 2, mouseY * 2);
             return true;
@@ -1446,5 +1501,37 @@ public final class BookScreen extends ScaledScreen {
         if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(ViewMode.MAP) instanceof MapView map) {
             map.zoomForTest(zoom);
         }
+    }
+
+    public static int chapterScrollForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.chapterScroll.position() : -1;
+    }
+
+    @Nullable
+    public static ResourceLocation chapterForTest() {
+        return BookState.chapter;
+    }
+
+    public static void mapLegacyLayoutForTest(boolean legacy) {
+        MapView.legacyLayoutForTest = legacy;
+    }
+
+    public static void mapUnfoldForTest(boolean unfold) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(ViewMode.MAP) instanceof MapView map) {
+            map.unfoldForTest(unfold);
+        }
+    }
+
+    public static void mapFitForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(ViewMode.MAP) instanceof MapView map) {
+            map.fitForTest();
+        }
+    }
+
+    public static String mapStatsForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(ViewMode.MAP) instanceof MapView map) {
+            return map.statsForTest();
+        }
+        return "no map";
     }
 }

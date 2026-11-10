@@ -20,9 +20,8 @@ import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
+import works.repka.rysquests.client.layout.ChapterLayout;
 import works.repka.rysquests.client.layout.CollapsedBranches;
-import works.repka.rysquests.client.layout.LayeredLayout;
-import works.repka.rysquests.client.layout.LayeredLayout.Metrics;
 import works.repka.rysquests.client.layout.LayeredLayout.Node;
 import works.repka.rysquests.client.layout.LayeredLayout.Placed;
 import works.repka.rysquests.data.Chapter;
@@ -41,7 +40,14 @@ final class MapView implements BookView {
     private static final int GAP_X = 48;
     private static final int GAP_Y = 24;
     private static final int DOT_STEP = 24;
-    private static final Metrics METRICS = new Metrics(NODE_W, NODE_H, GAP_X, GAP_Y, 1);
+    /** A group's dashed frame around its quests; its label sits on the top edge and reaches LABEL_ABOVE above it. */
+    private static final int FRAME_PAD_X = 12;
+    private static final int FRAME_PAD_TOP = 24;
+    private static final int FRAME_PAD_BOTTOM = 12;
+    private static final int LABEL_ABOVE = 10;
+    private static final int BLOCK_GAP = 20;
+    private static final ChapterLayout.Metrics METRICS = new ChapterLayout.Metrics(NODE_W, NODE_H, GAP_X, GAP_Y, FRAME_PAD_X, FRAME_PAD_TOP,
+            FRAME_PAD_BOTTOM, LABEL_ABOVE, BLOCK_GAP, (ACTIVE_W - NODE_W) / 2, (ACTIVE_H - NODE_H + 1) / 2);
     private static final float MIN_ZOOM = 0.35f;
     private static final float MAX_ZOOM = 1.6f;
     private static final float DOTS_MIN_ZOOM = 0.6f;
@@ -55,6 +61,9 @@ final class MapView implements BookView {
 
     private record Layout(String key, Map<String, Placed> placed, CollapsedBranches.Result collapsed, int width, int height) {
     }
+
+    /** The layout scenario's before and after: the layered layout this map used before ADR-44. Never set outside tests. */
+    static volatile boolean legacyLayoutForTest;
 
     private final BookScreen screen;
     @Nullable
@@ -83,7 +92,7 @@ final class MapView implements BookView {
                 done.add(quest.id().toString());
             }
         }
-        String key = ClientBook.current().hash() + BookState.chapter + done.hashCode() + expandAll;
+        String key = ClientBook.current().hash() + BookState.chapter + done.hashCode() + expandAll + legacyLayoutForTest;
         if (key.equals(requested)) {
             return;
         }
@@ -117,10 +126,22 @@ final class MapView implements BookView {
         CollapsedBranches.Result collapsed = foldDone
                 ? CollapsedBranches.compute(nodes, done::contains)
                 : new CollapsedBranches.Result(Set.of(), Map.of());
-        List<Node> visible = nodes.stream().filter(node -> !collapsed.hidden().contains(node.id())).toList();
-        Map<String, Placed> placed = LayeredLayout.compute(visible, METRICS);
-        int width = placed.values().stream().mapToInt(Placed::x).max().orElse(0) + NODE_W;
-        int height = placed.values().stream().mapToInt(Placed::y).max().orElse(0) + NODE_H;
+        List<ChapterLayout.Node> visible = new ArrayList<>();
+        for (int i = 0; i < quests.size(); i++) {
+            Quest quest = quests.get(i);
+            Node node = nodes.get(i);
+            if (!collapsed.hidden().contains(node.id())) {
+                visible.add(new ChapterLayout.Node(node.id(), node.requires(), quest.group(), quest.options().optional(), node.fixedX(), node.fixedY()));
+            }
+        }
+        Chapter chapter = quests.isEmpty() ? null : quests.getFirst().chapter().map(id -> ClientBook.current().chapters().get(id)).orElse(null);
+        List<String> groupOrder = chapter == null ? List.of() : chapter.groups().stream().map(Chapter.Group::id).toList();
+        Map<String, Placed> placed = legacyLayoutForTest
+                ? works.repka.rysquests.client.layout.LayeredLayout.compute(nodes.stream().filter(node -> !collapsed.hidden().contains(node.id())).toList(),
+                        new works.repka.rysquests.client.layout.LayeredLayout.Metrics(NODE_W, NODE_H, GAP_X, GAP_Y, 1))
+                : ChapterLayout.compute(visible, groupOrder, METRICS);
+        int width = placed.values().stream().mapToInt(Placed::x).max().orElse(0) + NODE_W + FRAME_PAD_X;
+        int height = placed.values().stream().mapToInt(Placed::y).max().orElse(0) + NODE_H + FRAME_PAD_BOTTOM;
         return new Layout(key, placed, collapsed, width, height);
     }
 
@@ -151,8 +172,9 @@ final class MapView implements BookView {
         ui.g.pose().scale(zoom, zoom, 1f);
         Map<ResourceLocation, Quest> byId = new HashMap<>();
         quests.forEach(quest -> byId.put(quest.id(), quest));
-        renderGroups(ui, current, quests);
-        renderEdges(ui, current, quests, byId);
+        Map<String, int[]> frames = groupFrames(current, quests);
+        renderGroups(ui, frames);
+        renderEdges(ui, current, quests, byId, frames);
         Quest selected = null;
         for (Quest quest : quests) {
             Placed placed = current.placed.get(quest.id().toString());
@@ -178,13 +200,14 @@ final class MapView implements BookView {
         if (selected != null && current.placed.containsKey(selected.id().toString())) {
             return selected;
         }
-        return quests.stream()
-                .filter(quest -> current.placed.containsKey(quest.id().toString()))
+        List<Quest> placed = quests.stream().filter(quest -> current.placed.containsKey(quest.id().toString())).toList();
+        // With nothing left to do, the chapter opens at its first quest, where its main path starts.
+        return placed.stream()
                 .filter(quest -> {
                     QuestStatus status = BookState.status(quest);
                     return status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS || status == QuestStatus.COMPLETED;
                 })
-                .findFirst().orElse(null);
+                .findFirst().orElse(placed.isEmpty() ? null : placed.getFirst());
     }
 
     private void centerOn(Layout current, @Nullable Quest quest) {
@@ -194,8 +217,9 @@ final class MapView implements BookView {
             panY = -MARGIN_TOP;
             return;
         }
+        // Across, the chapter reads from its start; up and down, the quest stands in the middle, with blocks on both sides of it.
         panX = fits(placed.x() + (NODE_W + ACTIVE_W) / 2, viewW, MARGIN_LEFT) ? -MARGIN_LEFT : placed.x() + NODE_W / 2f - viewW / (2 * zoom);
-        panY = fits(placed.y() + (NODE_H + ACTIVE_H) / 2, viewH, MARGIN_TOP) ? -MARGIN_TOP : placed.y() + NODE_H / 2f - viewH / (2 * zoom);
+        panY = placed.y() + NODE_H / 2f - (viewH / zoom + MARGIN_TOP - MARGIN_END) / 2f;
     }
 
     /** Whether a position is on screen with the graph at its start, where the mockup has it. */
@@ -208,11 +232,14 @@ final class MapView implements BookView {
         panY = clampAxis(panY, current.height, viewH / zoom, MARGIN_TOP);
     }
 
-    /** A graph that fits stays where the mockup puts it, at the top left. */
+    /** A graph that fits stands in the middle of the room between the margins, as the author asked (ADR-44). */
     private static float clampAxis(float pan, int content, float visible, int startMargin) {
         float low = -startMargin;
         float high = content + MARGIN_END - visible;
-        return high < low ? low : Mth.clamp(pan, low, high);
+        if (high < low) {
+            return -(startMargin + (visible - startMargin - MARGIN_END - content) / 2f);
+        }
+        return Mth.clamp(pan, low, high);
     }
 
     private boolean isOnScreen(Placed placed) {
@@ -236,10 +263,12 @@ final class MapView implements BookView {
         }
     }
 
-    private void renderGroups(Ui ui, Layout current, List<Quest> quests) {
+    /** The frame of each group that has quests on the map: x, y, width and height, the label above y. */
+    private static Map<String, int[]> groupFrames(Layout current, List<Quest> quests) {
         Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
+        Map<String, int[]> frames = new java.util.LinkedHashMap<>();
         if (chapter == null) {
-            return;
+            return frames;
         }
         for (Chapter.Group group : chapter.groups()) {
             int minX = Integer.MAX_VALUE;
@@ -256,30 +285,88 @@ final class MapView implements BookView {
                 }
             }
             if (minX != Integer.MAX_VALUE) {
-                int x = minX - 12;
-                int y = minY - 24;
-                ui.dashed(x, y, maxX - minX + 24, maxY - minY + 36, ui.c("card.border"));
+                frames.put(group.id(), new int[] {minX - FRAME_PAD_X, minY - FRAME_PAD_TOP, maxX - minX + FRAME_PAD_X * 2, maxY - minY + FRAME_PAD_TOP + FRAME_PAD_BOTTOM});
+            }
+        }
+        return frames;
+    }
+
+    private void renderGroups(Ui ui, Map<String, int[]> frames) {
+        Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
+        if (chapter == null) {
+            return;
+        }
+        for (Chapter.Group group : chapter.groups()) {
+            int[] frame = frames.get(group.id());
+            if (frame != null) {
+                int x = frame[0];
+                int y = frame[1];
+                ui.dashed(x, y, frame[2], frame[3], ui.c("card.border"));
                 String title = Component.translatable(group.title()).getString();
                 float titleW = ui.width(title, 11, Ui.REGULAR);
-                ui.rect(x + 8, y - 10, titleW + 12, 14, ui.mapBg());
+                ui.rect(x + 8, y - LABEL_ABOVE, titleW + 12, 14, ui.mapBg());
                 ui.label(title, x + 14, y - 3, 11, Ui.REGULAR, ui.c("text.dim"));
             }
         }
     }
 
-    private void renderEdges(Ui ui, Layout current, List<Quest> quests, Map<ResourceLocation, Quest> byId) {
+    private void renderEdges(Ui ui, Layout current, List<Quest> quests, Map<ResourceLocation, Quest> byId, Map<String, int[]> frames) {
+        Set<String> bundled = new HashSet<>();
         for (Quest quest : quests) {
             Placed to = current.placed.get(quest.id().toString());
             if (to == null) {
                 continue;
             }
+            String group = quest.group().filter(frames::containsKey).orElse(null);
             for (ResourceLocation dependency : quest.requires()) {
                 Placed from = current.placed.get(dependency.toString());
-                if (from != null && byId.containsKey(dependency)) {
+                Quest source = byId.get(dependency);
+                if (from == null || source == null) {
+                    continue;
+                }
+                int[] frame = group == null || source.group().filter(group::equals).isPresent() ? null : frames.get(group);
+                // A dependency from outside a group meets its frame once, instead of crossing the grid to every quest.
+                if (frame != null && frame[0] > from.x() + NODE_W) {
+                    if (bundled.add(dependency + ">" + group)) {
+                        renderBundle(ui, from, frame, bundleColor(ui, quests, group, dependency));
+                    }
+                } else {
                     renderEdge(ui, from, to, edgeColor(ui, quest, dependency));
                 }
             }
         }
+    }
+
+    private int bundleColor(Ui ui, List<Quest> quests, String group, ResourceLocation dependency) {
+        List<Quest> members = quests.stream().filter(quest -> quest.group().filter(group::equals).isPresent()).toList();
+        if (!focusPath.isEmpty() && !(focusPath.contains(dependency) && members.stream().anyMatch(quest -> focusPath.contains(quest.id())))) {
+            return ui.c("panel.border");
+        }
+        boolean dependencyDone = ClientProgress.get(dependency).completed();
+        boolean allDone = members.stream().allMatch(quest -> ClientProgress.get(quest.id()).completed());
+        if (dependencyDone && allDone) {
+            return ui.c("slot.have.border");
+        }
+        return dependencyDone ? ui.c("accent") : ui.idleLine();
+    }
+
+    /**
+     * Out of the dependency, straight up or down in the gap right after it, then along to the side of the frame at its
+     * nearest height: the line leaves the main path at once instead of running through its quests.
+     */
+    private void renderBundle(Ui ui, Placed from, int[] frame, int color) {
+        int x1 = from.x() + NODE_W;
+        int y1 = from.y() + NODE_H / 2;
+        int x2 = frame[0];
+        int inset = FRAME_PAD_TOP;
+        int y2 = Mth.clamp(y1, frame[1] + inset, frame[1] + frame[3] - inset);
+        if (Math.max(x1, x2) < panX || Math.min(x1, x2) > panX + viewW / zoom) {
+            return;
+        }
+        int mid = Math.min(x1 + GAP_X / 2, x2 - 4);
+        ui.rect(x1, y1 - 1, Math.max(2, mid - x1), 2, color);
+        ui.rect(mid, Math.min(y1, y2) - 1, 2, Math.abs(y2 - y1) + 2, color);
+        ui.rect(mid, y2 - 1, Math.max(2, x2 - mid), 2, color);
     }
 
     private int edgeColor(Ui ui, Quest target, ResourceLocation dependency) {
@@ -457,8 +544,9 @@ final class MapView implements BookView {
         float x = viewX + viewW - MINIMAP_W - 14;
         float y = viewY + viewH - MINIMAP_H - 14;
         ui.box(x, y, MINIMAP_W, MINIMAP_H, 8, Draw.alpha(ui.c("panel.bg"), 0.9f), ui.c("card.border"));
-        float inner = MINIMAP_W - MINIMAP_PAD * 2f;
-        float innerH = MINIMAP_H - MINIMAP_PAD * 2f;
+        // A dot is 6 wide: the last one has to end inside the box, not start at its edge.
+        float inner = MINIMAP_W - MINIMAP_PAD * 2f - 6;
+        float innerH = MINIMAP_H - MINIMAP_PAD * 2f - 6;
         float scale = Math.min(inner / Math.max(1, current.width), innerH / Math.max(1, current.height));
         for (Quest quest : quests) {
             Placed placed = current.placed.get(quest.id().toString());
@@ -532,6 +620,35 @@ final class MapView implements BookView {
 
     void zoomForTest(float value) {
         zoom = Mth.clamp(value, MIN_ZOOM, MAX_ZOOM);
+    }
+
+    void unfoldForTest(boolean unfold) {
+        expandAll = unfold;
+    }
+
+    /** Zooms out until the whole chapter is on screen, as far as the zoom goes. */
+    void fitForTest() {
+        Layout current = layout;
+        if (current == null || viewW == 0) {
+            return;
+        }
+        float fit = Math.min((viewW - 60f) / (current.width + MARGIN_LEFT + MARGIN_END), (viewH - 60f) / (current.height + MARGIN_TOP + MARGIN_END));
+        // Further out than a player can zoom: the picture is for judging the shape of the whole chapter.
+        zoom = Mth.clamp(fit, 0.08f, 1f);
+        panX = -MARGIN_LEFT;
+        panY = -MARGIN_TOP;
+    }
+
+    /** The tallest column of the laid out chapter and the number of quests in it, for the layout scenario's log. */
+    String statsForTest() {
+        Layout current = layout;
+        if (current == null) {
+            return "no layout";
+        }
+        Map<Integer, Integer> columns = new HashMap<>();
+        current.placed.values().forEach(placed -> columns.merge(placed.x(), 1, Integer::sum));
+        return "quests " + current.placed.size() + ", tallest column " + columns.values().stream().mapToInt(Integer::intValue).max().orElse(0)
+                + ", size " + current.width + "x" + current.height;
     }
 
     @Override

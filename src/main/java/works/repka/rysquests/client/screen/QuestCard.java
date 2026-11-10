@@ -448,8 +448,19 @@ final class QuestCard {
         return short_ > 0 ? Component.translatable("rysquests.card.short", count, short_).getString() : Component.translatable("rysquests.card.ready", count).getString();
     }
 
+    private static final int REWARD_CELL = 46;
+    private static final int REWARD_STEP = REWARD_CELL + 8;
+    private static final int REWARD_ROW = 48;
+    private static final int REWARD_ROW_GAP = 8;
+    private static final float REWARD_WORDS_MIN = 90;
+
+    /**
+     * The rewards as cells that wrap onto more rows, experience as a cell of its own, other rewards in words after the
+     * cells, and the claim button at the end of the last row, or on a row of its own when that row is full (ADR-45).
+     */
     private static float rewards(Ui ui, Quest quest, QuestStatus status, float x, float y, float w) {
         List<Slot> slots = new ArrayList<>();
+        List<XpReward> experience = new ArrayList<>();
         List<String> words = new ArrayList<>();
         int choice = -1;
         int options = 0;
@@ -457,7 +468,7 @@ final class QuestCard {
             RewardDef reward = quest.rewards().get(index);
             switch (reward) {
                 case ItemReward item -> slots.add(new Slot(stack(item), item.count(), -1, -1));
-                case XpReward xp -> words.add("+ " + xpText(xp));
+                case XpReward xp -> experience.add(xp);
                 case CurrencyReward currency -> words.add("+ " + currencyText(currency));
                 case TitleReward title -> words.add("+ " + Component.translatable("rysquests.achievements.title_reward", Component.translatable(title.id())).getString());
                 case StageReward stage -> words.add("+ " + Component.translatable("rysquests.reward.stage", stage.stage()).getString());
@@ -481,7 +492,7 @@ final class QuestCard {
                 }
             }
         }
-        if (slots.isEmpty() && words.isEmpty()) {
+        if (slots.isEmpty() && experience.isEmpty() && words.isEmpty()) {
             return y;
         }
         ui.caps(Component.translatable("rysquests.card.rewards").getString(), x, y + 7, ui.c("text.dim"));
@@ -489,37 +500,79 @@ final class QuestCard {
             ui.capsRight(Component.translatable("rysquests.card.pick", 1, options).getString(), x + w, y + 7, ui.c("text.dim"));
         }
         float rowY = y + 14 + 6;
-        float h = 48;
-        float cy = rowY + h / 2f;
         float pen = x;
-        int perRow = Math.max(1, Math.min(slots.size(), (int) ((w + 8) / 54f)));
-        String claimText = claimLabel(quest, status);
-        float claimW = claimText.isEmpty() ? 0 : ui.buttonWidth(claimText, 11.5f, Ui.SEMIBOLD, 10);
-        int limit = Math.min(MAX_SLOTS + 1, perRow);
-        for (int i = 0; i < Math.min(limit, slots.size()); i++) {
-            Slot slot = slots.get(i);
-            boolean picked = slot.pickReward >= 0 && BookState.PICKS.getOrDefault(slot.pickReward, -1) == slot.pickOption;
-            float size = picked ? 48 : 46;
-            float sy = cy - size / 2f;
-            ui.cell(slot.stack, pen, sy, size, size, 9, 24, ui.c("slot.bg"), picked ? 0 : optionBorder(ui, quest, status, slot, false));
-            if (picked) {
-                ui.strokeBold(pen, sy, size, size, 9, ui.c("accent"));
+        int perRow = Math.max(1, (int) ((w + 8) / REWARD_STEP));
+        int inRow = 0;
+        int cells = slots.size() + experience.size();
+        for (int i = 0; i < cells; i++) {
+            if (inRow == perRow) {
+                rowY += REWARD_ROW + REWARD_ROW_GAP;
+                pen = x;
+                inRow = 0;
             }
-            ui.count(slot.count, pen + size - 5, sy + size - 3);
-            if (slot.pickReward >= 0) {
-                ui.hit(pen, sy, size, size, () -> BookState.PICKS.put(slot.pickReward, slot.pickOption));
+            float cy = rowY + REWARD_ROW / 2f;
+            if (i < slots.size()) {
+                rewardSlot(ui, quest, status, slots.get(i), pen, cy);
+            } else {
+                experienceCell(ui, experience.get(i - slots.size()), pen, cy);
             }
-            pen += size + 8;
-        }
-        if (!claimText.isEmpty()) {
-            ui.button(claimText, x + w - claimW, cy - 14, claimW, 28, 7, 11.5f, Ui.SEMIBOLD, 10, awaitsPick(quest) ? Ui.Style.PLAIN : Ui.Style.ACCENT, claimAction(quest));
+            pen += REWARD_STEP;
+            inRow++;
         }
         if (!words.isEmpty()) {
-            float textX = pen + 4;
-            float textW = x + w - (claimText.isEmpty() ? 0 : claimW + 8) - textX;
-            ui.lines(ui.wrap(String.join(" · ", words), textW, 11.5f, Ui.REGULAR, 3), textX, cy, 14, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+            float room = x + w - (pen + (cells > 0 ? 4 : 0));
+            if (cells > 0 && room < REWARD_WORDS_MIN) {
+                rowY += REWARD_ROW + REWARD_ROW_GAP;
+                pen = x;
+                room = w;
+            }
+            float textX = cells > 0 && pen > x ? pen + 4 : x;
+            List<String> lines = ui.wrap(String.join(" · ", words), room, 11.5f, Ui.REGULAR, 3);
+            ui.lines(lines, textX, rowY + REWARD_ROW / 2f, 14, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+            float widest = 0;
+            for (String line : lines) {
+                widest = Math.max(widest, ui.width(line, 11.5f, Ui.REGULAR));
+            }
+            pen = textX + widest + 8;
         }
-        return rowY + h + 14;
+        float bottom = rowY + REWARD_ROW;
+        String claimText = claimLabel(quest, status);
+        if (!claimText.isEmpty()) {
+            float claimW = ui.buttonWidth(claimText, 11.5f, Ui.SEMIBOLD, 10);
+            float buttonY = rowY + REWARD_ROW / 2f - 14;
+            if (x + w - pen < claimW + 8) {
+                buttonY = bottom + REWARD_ROW_GAP;
+                bottom = buttonY + 28;
+            }
+            ui.button(claimText, x + w - claimW, buttonY, claimW, 28, 7, 11.5f, Ui.SEMIBOLD, 10, awaitsPick(quest) ? Ui.Style.PLAIN : Ui.Style.ACCENT, claimAction(quest));
+        }
+        return bottom + 14;
+    }
+
+    private static void rewardSlot(Ui ui, Quest quest, QuestStatus status, Slot slot, float x, float cy) {
+        boolean picked = slot.pickReward >= 0 && BookState.PICKS.getOrDefault(slot.pickReward, -1) == slot.pickOption;
+        float size = picked ? REWARD_CELL + 2 : REWARD_CELL;
+        float sx = x - (size - REWARD_CELL) / 2f;
+        float sy = cy - size / 2f;
+        ui.cell(slot.stack, sx, sy, size, size, 9, 24, ui.c("slot.bg"), picked ? 0 : optionBorder(ui, quest, status, slot, false));
+        if (picked) {
+            ui.strokeBold(sx, sy, size, size, 9, ui.c("accent"));
+        }
+        ui.count(slot.count, sx + size - 5, sy + size - 3);
+        if (slot.pickReward >= 0) {
+            ui.hit(sx, sy, size, size, () -> BookState.PICKS.put(slot.pickReward, slot.pickOption));
+        }
+    }
+
+    /** Experience as the game's own bottle with the amount on it; the words, levels or points, show on hover. */
+    private static void experienceCell(Ui ui, XpReward xp, float x, float cy) {
+        float sy = cy - REWARD_CELL / 2f;
+        ui.box(x, sy, REWARD_CELL, REWARD_CELL, 9, ui.c("slot.bg"), ui.c("card.border"));
+        ui.item(new ItemStack(net.minecraft.world.item.Items.EXPERIENCE_BOTTLE), x + (REWARD_CELL - 24) / 2f, sy + (REWARD_CELL - 24) / 2f, 24);
+        int amount = xp.levels().orElse(xp.points().orElse(0));
+        String label = Numbers.compact(amount);
+        ui.aboveItems(() -> ui.labelRight(label, x + REWARD_CELL - 5, sy + REWARD_CELL - 3 - 7, 11, Ui.REGULAR, 0xFFFFFFFF));
+        ui.tooltipIfOver(x, sy, REWARD_CELL, REWARD_CELL, Component.literal("+ " + xpText(xp)));
     }
 
     private static float textBlock(Ui ui, Quest quest, float x, float y, float w) {
