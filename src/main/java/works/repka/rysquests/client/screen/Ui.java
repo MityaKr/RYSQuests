@@ -34,6 +34,7 @@ public final class Ui {
     private static final float CAPS_TRACKING = 0.88f;
     private static final int ITEM_PX = 32;
     private static final int ABOVE_ITEMS = 250;
+    private static final float TAB_PAD = 12f;
 
     record Hit(int x, int y, int w, int h, Runnable action) {
     }
@@ -477,6 +478,18 @@ public final class Ui {
             labelCentered(lines.get(i), x + w / 2f, first + i * lineHeight, px, weight, color);
         }
         hit(x, y, w, h, action);
+    }
+
+    /** A tab of a window's sections: text with a line under the active one. @return its width */
+    float tab(String label, float x, float cy, float height, float px, boolean active, Runnable action) {
+        Type.Weight weight = active ? MEDIUM : REGULAR;
+        float w = width(label, px, weight) + TAB_PAD * 2;
+        float y = cy - height / 2f;
+        boolean over = over(x, y, w, height);
+        theme.tabLine(g, Math.round(x / PER_GUI), Math.round(y / PER_GUI), Math.round(w / PER_GUI), Math.round(height / PER_GUI), active, over);
+        label(label, x + TAB_PAD, cy, px, weight, theme.tabLineFg(active, over));
+        hit(x, y, w, height, action);
+        return w;
     }
 
     /** A rounded label such as "почти готово". @return its width */

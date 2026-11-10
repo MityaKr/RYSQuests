@@ -411,16 +411,7 @@ public final class BookScreen extends Screen {
         }
         for (ViewMode tab : tabs) {
             String label = Component.translatable("rysquests.view." + tab.getSerializedName()).getString();
-            boolean active = tab == mode;
-            var weight = active ? Ui.MEDIUM : Ui.REGULAR;
-            float tabW = ui.width(label, 12.5f, weight) + 24;
-            boolean over = ui.over(cursor, cy - 13.5f, tabW, 27);
-            if (active || over) {
-                ui.fill(cursor, cy - 13.5f, tabW, 27, 8, ui.c("button.bg"));
-            }
-            ui.label(label, cursor + 12, cy, 12.5f, weight, ui.c(active ? "text.primary" : "tab.inactive.fg"));
-            ui.hit(cursor, cy - 13.5f, tabW, 27, () -> BookState.view = tab);
-            cursor += tabW + 4;
+            cursor += ui.tab(label, cursor, cy, 27, 12.5f, tab == mode, () -> BookState.view = tab) + 4;
         }
         float right = x + w - 18;
         renderClose(ui, right - 34, cy - 17);

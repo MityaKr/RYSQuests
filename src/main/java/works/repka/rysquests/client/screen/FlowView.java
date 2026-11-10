@@ -134,14 +134,8 @@ final class FlowView implements BookView {
             pen += widths[i] + 6;
         }
         float tabX = x + w - tabsW;
-        ui.fill(tabX, cy - 15, flowW, 30, 9, ui.c("slot.hover"));
-        ui.label(flow, tabX + 12, cy, 13, Ui.MEDIUM, ui.c("text.primary"));
-        float mapX = tabX + flowW + 4;
-        if (ui.over(mapX, cy - 15, mapW, 30)) {
-            ui.fill(mapX, cy - 15, mapW, 30, 9, ui.c("slot.hover"));
-        }
-        ui.label(map, mapX + 12, cy, 13, Ui.REGULAR, ui.c("text.muted"));
-        ui.hit(mapX, cy - 15, mapW, 30, () -> BookState.view = ViewMode.MAP);
+        ui.tab(flow, tabX, cy, 30, 13, true, () -> BookState.view = ViewMode.FLOW);
+        ui.tab(map, tabX + flowW + 4, cy, 30, 13, false, () -> BookState.view = ViewMode.MAP);
         return rowH;
     }
 
