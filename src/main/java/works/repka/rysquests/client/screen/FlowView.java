@@ -19,6 +19,7 @@ import works.repka.rysquests.progress.QuestStatus;
 import works.repka.rysquests.task.CheckboxTask;
 import works.repka.rysquests.task.ItemTask;
 import works.repka.ryscore.ui.Draw;
+import works.repka.ryscore.ui.Kit;
 
 /**
  * The chapter as a ribbon, from {@code design/Comfort.dc.html}: finished quests folded into one line, the current quest
@@ -84,9 +85,9 @@ final class FlowView implements BookView {
         }
         String flow = Component.translatable("rysquests.view.flow").getString();
         String map = Component.translatable("rysquests.view.map").getString();
-        float flowW = ui.width(flow, 13, Ui.MEDIUM) + 24;
-        float mapW = ui.width(map, 13, Ui.REGULAR) + 24;
-        float tabsW = flowW + 4 + mapW;
+        List<Kit.Tab> tabs = List.of(new Kit.Tab(flow, -1, true, () -> BookState.view = ViewMode.FLOW),
+                new Kit.Tab(map, -1, false, () -> BookState.view = ViewMode.MAP));
+        float tabsW = ui.tabsWidth(tabs);
 
         Quest quest = BookState.quest == null ? null : ClientBook.current().quests().get(BookState.quest);
         List<String> parts = new ArrayList<>();
@@ -126,7 +127,7 @@ final class FlowView implements BookView {
         float pen = x;
         for (int i = 0; i < count; i++) {
             if (i % 2 == 1) {
-                ui.label("›", pen, cy, 13, Ui.REGULAR, ui.c("text.muted"));
+                ui.chevron(false, pen - 2, cy, 9, ui.c("text.muted"));
             } else {
                 boolean last = i == count - 1;
                 ui.lines(wrapped.get(i / 2), pen, cy, 16, 13, last ? Ui.MEDIUM : Ui.REGULAR, ui.c(last ? "text.primary" : "text.muted"));
@@ -134,8 +135,7 @@ final class FlowView implements BookView {
             pen += widths[i] + 6;
         }
         float tabX = x + w - tabsW;
-        ui.tab(flow, tabX, cy, 30, 13, true, () -> BookState.view = ViewMode.FLOW);
-        ui.tab(map, tabX + flowW + 4, cy, 30, 13, false, () -> BookState.view = ViewMode.MAP);
+        ui.tabs(tabs, tabX, cy - 15, 30, tabsW);
         return rowH;
     }
 
@@ -370,7 +370,7 @@ final class FlowView implements BookView {
         ItemStack icon = TaskText.icon(task);
         String name = QuestCard.taskName(task);
         String right = done ? Component.translatable(task instanceof ItemTask item && item.mode() == ItemTask.Mode.CONSUME ? "rysquests.flow.submitted" : "rysquests.flow.received").getString()
-                : value + " / " + task.target();
+                : Ui.ratio(value, task.target());
         int submit = open && !done && task instanceof ItemTask item && item.mode() == ItemTask.Mode.CONSUME ? Math.min(BookScreen.held(item), task.target() - value) : 0;
         String buttonText = submit > 0 ? Component.translatable("rysquests.flow.submit_n", submit).getString() : "";
 

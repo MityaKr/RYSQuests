@@ -234,7 +234,7 @@ final class DevView implements BookView {
             ui.box(x + 15, rowY, rowW, 32, 8, ui.c("status.bg"), ui.c("panel.border"));
             badge(ui, section, x + 25, cy);
             ui.labelFit(sectionTitle(section), x + 73, cy, rowW - 58 - 30, 12, Ui.REGULAR, ui.c("text.body"));
-            ui.labelRight("›", x + 15 + rowW - 10, cy, 11, Ui.REGULAR, ui.c("chip.mod.fg"));
+            ui.chevron(false, x + 15 + rowW - 18, cy, 9, ui.c("chip.mod.fg"));
             ui.hit(x + 15, rowY, rowW, 32, () -> {
                 tab = Tab.REPORTS;
                 openSection = section.id();
@@ -319,7 +319,7 @@ final class DevView implements BookView {
             ui.box(left, cursor, inner, 32, 8, ui.c("status.bg"), ui.c("panel.border"));
             badge(ui, section, left + 10, cy);
             ui.labelFit(sectionTitle(section), left + 58, cy, inner - 88, 12, Ui.REGULAR, ui.c("text.body"));
-            ui.labelRight(open ? "⌄" : "›", left + inner - 10, cy, 11, Ui.REGULAR, ui.c("chip.mod.fg"));
+            ui.chevron(open, left + inner - 18, cy, 9, ui.c("chip.mod.fg"));
             ui.hit(left, cursor, inner, 32, () -> openSection = open ? "" : section.id());
             cursor += 40;
             if (open) {

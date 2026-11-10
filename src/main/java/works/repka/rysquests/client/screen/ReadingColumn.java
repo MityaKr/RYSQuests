@@ -11,6 +11,7 @@ import works.repka.rysquests.client.integration.Recipes;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.progress.QuestStatus;
 import works.repka.ryscore.ui.Icons;
+import works.repka.ryscore.ui.Numbers;
 
 /** The right side of the flow: how to do the quest, its recipe, and why what comes next is closed. */
 final class ReadingColumn {
@@ -65,7 +66,7 @@ final class ReadingColumn {
         ui.label(Component.translatable("rysquests.reading.recipe", RecipePreview.viewerName()).getString(), x + 15, cy, 12, Ui.REGULAR, ui.c("text.muted"));
         ItemStack missing = RecipePreview.firstMissing(recipe);
         if (!missing.isEmpty()) {
-            String need = missing.getHoverName().getString() + " ×" + missing.getCount();
+            String need = missing.getHoverName().getString() + " ×" + Numbers.compact(missing.getCount());
             float needW = ui.width(need, 12, Ui.REGULAR);
             ui.labelRight(need, x + w - 15, cy, 12, Ui.REGULAR, ui.c("text.primary"));
             ui.labelRight(Component.translatable("rysquests.reading.missing").getString(), x + w - 15 - needW - 4, cy, 12, Ui.REGULAR, ui.c("text.muted"));

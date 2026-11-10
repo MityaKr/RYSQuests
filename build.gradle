@@ -61,7 +61,7 @@ neoForge {
         autotest {
             client()
             gameDirectory = project.file('run')
-            systemProperty 'rysquests.dev.examplePack', project.file(project.findProperty('autotest') == 'design' ? 'src/autotest/design_pack' : 'examples/example_pack').absolutePath
+            systemProperty 'rysquests.dev.examplePack', project.file((project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : 'examples/example_pack').absolutePath
             systemProperty 'rysquests.dev.brokenPack', project.file('examples/broken').absolutePath
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
             // The size of the mockups in design/, so that screenshots can be laid over them.
@@ -109,6 +109,7 @@ neoForge.addModdingDependenciesTo(sourceSets.autotest)
 dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+    autotestCompileOnly "works.repka.ryscore:ryscore-neoforge:${ryscore_version}"
     compileOnly("dev.latvian.mods:kubejs-neoforge:${kubejs_version}") { transitive = false }
     compileOnly("dev.latvian.mods:rhino:${rhino_version}") { transitive = false }
     implementation "works.repka.ryscore:ryscore-neoforge:${ryscore_version}"

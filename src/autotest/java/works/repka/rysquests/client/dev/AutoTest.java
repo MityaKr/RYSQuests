@@ -27,6 +27,7 @@ import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.tutorial.TutorialSteps;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
@@ -62,6 +63,8 @@ import works.repka.rysquests.dev.DevExamplePack;
 import works.repka.rysquests.network.QuestActionPayload;
 import works.repka.rysquests.progress.ProgressService;
 import works.repka.rysquests.progress.ProgressStore;
+import works.repka.ryscore.theme.ThemeManager;
+import works.repka.ryscore.ui.Type;
 
 /**
  * Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
@@ -81,6 +84,9 @@ public final class AutoTest {
     private static final long STARTED_AT = System.currentTimeMillis();
     private static final int EXAMPLE_QUESTS = 6;
     private static final int SWITCHED_CHAPTERS = 4;
+    private static final boolean USE_RYSTEAMS = Boolean.getBoolean("rysquests.autotest.rysteams");
+    private static final int TEAM_COLOR = 0x2E8B57;
+    private static final String DRAWN_AS_ICONS = "\u2713\u2714\u2715\u2716\u2717\u2605\u2192\u2198\u2193\u2199\u2190\u2196\u2191\u2197";
     private static final String TEST_SERVER = "localhost:25577";
     private static final ResourceLocation TEAM_QUEST = ResourceLocation.parse("teamtest:shared");
     private static final ResourceLocation SCRIPT_QUEST = ResourceLocation.parse("repys:autotest/script");
@@ -118,7 +124,7 @@ public final class AutoTest {
             buildBookScenario();
         } else if ("repys".equals(scenario)) {
             buildRepysScenario();
-        } else if ("design".equals(scenario)) {
+        } else if ("design".equals(scenario) || "design_sizes".equals(scenario)) {
             buildDesignScenario();
         } else if ("team_a".equals(scenario)) {
             buildTeamLeaderScenario();
@@ -335,6 +341,44 @@ public final class AutoTest {
         }
     }
 
+    /** Every window size, GUI scale and theme the family checks, on the main screens. */
+    private static void addSizeSteps() {
+        for (ViewMode view : List.of(ViewMode.FLOW, ViewMode.MAP, ViewMode.HOME)) {
+            for (int[] size : new int[][] {{2560, 1440}, {1920, 1080}}) {
+                for (int gui : new int[] {2, 3, 4, 0}) {
+                    for (String theme : List.of("slate", "glass")) {
+                        step("show " + view + " " + size[0] + " gui " + gui + " " + theme, () -> {
+                            mc().getWindow().setWindowed(size[0], size[1]);
+                            mc().options.guiScale().set(gui);
+                            mc().resizeDisplay();
+                            ThemeManager.select("ryscore:" + theme);
+                            BookScreen.showForTest(view);
+                        }, 12);
+                        screenshot("sizes_" + view.getSerializedName() + "_" + size[0] + "_gui" + gui + "_" + theme);
+                    }
+                }
+            }
+        }
+        step("back to the size of the mockups", () -> {
+            mc().getWindow().setWindowed(1280, 800);
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+            ThemeManager.select("ryscore:slate");
+        }, 10);
+    }
+
+    private static void checkSymbols() {
+        for (String language : List.of("ru_ru", "en_us")) {
+            try (var in = AutoTest.class.getResourceAsStream("/assets/rysquests/lang/" + language + ".json")) {
+                String text = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                text.codePoints().filter(point -> point > 126 && !Type.supports(point) && DRAWN_AS_ICONS.indexOf(point) < 0).distinct().forEach(point ->
+                        fail("symbol outside the font in " + language + ": U+" + Integer.toHexString(point)));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+    }
+
     private static void joinServer() {
         STEPS.add(new Step("connect to the test server", () -> mc().screen != null && mc().level == null && mc().getOverlay() == null && total > 40, () -> {
             mc().options.pauseOnLostFocus = false;
@@ -345,6 +389,24 @@ public final class AutoTest {
             ConnectScreen.startConnecting(mc().screen, mc(), ServerAddress.parseString(TEST_SERVER), new ServerData("test", TEST_SERVER, ServerData.Type.OTHER), false, null);
         }, 20));
         STEPS.add(new Step("joined the server", () -> mc().player != null && mc().level != null && mc().screen == null, () -> {}, 40));
+    }
+
+    /** RYSTeams is only there in the run that installs it, so it is reached by name. */
+    private static void rysTeamsAction(String action, CompoundTag args) {
+        try {
+            Class.forName("works.repka.rysteams.network.ModNetwork").getMethod("action", String.class, CompoundTag.class).invoke(null, action, args);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("RYSTeams is not reachable", e);
+        }
+    }
+
+    private static UUID rysTeamsInvite() {
+        try {
+            List<?> invites = (List<?>) Class.forName("works.repka.rysteams.client.TeamClient").getField("invites").get(null);
+            return invites.isEmpty() ? null : (UUID) invites.getFirst().getClass().getMethod("id").invoke(invites.getFirst());
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("RYSTeams is not reachable", e);
+        }
     }
 
     private static int players() {
@@ -360,8 +422,23 @@ public final class AutoTest {
         joinServer();
         expect("the book came over the network", () -> ClientBook.current().quests().containsKey(TEAM_QUEST));
         expect("the other player is here", () -> players() == 2);
-        step("create a team", () -> command("rysquests team create"), 20);
-        step("invite the other player", () -> command("rysquests team invite TestB"), 10);
+        if (USE_RYSTEAMS) {
+            step("create a team in RYSTeams", () -> {
+                CompoundTag args = new CompoundTag();
+                args.putString("name", "Repka");
+                args.putInt("color", TEAM_COLOR);
+                args.putString("icon", "minecraft:emerald");
+                rysTeamsAction("create", args);
+            }, 20);
+            step("invite through RYSTeams", () -> {
+                CompoundTag args = new CompoundTag();
+                args.putUUID("player", mc().getConnection().getPlayerInfo("TestB").getProfile().getId());
+                rysTeamsAction("invite", args);
+            }, 10);
+        } else {
+            step("create a team", () -> command("rysquests team create"), 20);
+            step("invite the other player", () -> command("rysquests team invite TestB"), 10);
+        }
         expect("the other player joined", () -> ClientProgress.teamSize() == 2);
         step("open the book on the server", () -> {
             BookScreen.selectForTest(ResourceLocation.parse("teamtest:main"), TEAM_QUEST);
@@ -382,8 +459,18 @@ public final class AutoTest {
     /** Joins the team by invitation and shows what the second member gets. */
     private static void buildTeamMemberScenario() {
         joinServer();
-        expect("invited", () -> CHAT.stream().anyMatch(line -> line.contains("/rysquests team join")));
-        step("join the team", () -> command("rysquests team join"), 20);
+        if (USE_RYSTEAMS) {
+            expect("invited in RYSTeams", () -> rysTeamsInvite() != null);
+            step("accept in RYSTeams", () -> {
+                CompoundTag args = new CompoundTag();
+                args.putUUID("team", rysTeamsInvite());
+                args.putString("answer", "accept");
+                rysTeamsAction("invite_reply", args);
+            }, 20);
+        } else {
+            expect("invited", () -> CHAT.stream().anyMatch(line -> line.contains("/rysquests team join")));
+            step("join the team", () -> command("rysquests team join"), 20);
+        }
         expect("team of two on this client", () -> ClientProgress.teamSize() == 2);
         expect("progress is shared", () -> ClientProgress.get(TEAM_QUEST).completed());
         expect("the single reward is taken by the first", () -> ClientProgress.get(TEAM_QUEST).claimed().contains(1) && !ClientProgress.get(TEAM_QUEST).claimed().contains(0));
@@ -398,6 +485,7 @@ public final class AutoTest {
         ResourceLocation chapter = ResourceLocation.parse("design:02");
         ResourceLocation quest = ResourceLocation.parse(mechanism);
         openWorld();
+        step("every symbol of the interface is in the font", AutoTest::checkSymbols, 1);
         step("match the window of the mockups", () -> {
             mc().options.guiScale().set(2);
             mc().options.languageCode = "ru_ru";
@@ -434,6 +522,8 @@ public final class AutoTest {
         screenshot("design_flow");
         step("switch to the map", () -> BookScreen.showForTest(ViewMode.MAP), 40);
         screenshot("design_map");
+        step("click the list tab", () -> mc().screen.mouseClicked(150, 33.5, GLFW.GLFW_MOUSE_BUTTON_LEFT), 5);
+        expect("the tab switched the view", () -> BookScreen.viewForTest() == ViewMode.LIST);
         step("switch to the list", () -> BookScreen.showForTest(ViewMode.LIST), 10);
         screenshot("design_list");
         step("search the whole book", () -> BookScreen.searchForTest("глава:II мех"), 25);
@@ -447,6 +537,9 @@ public final class AutoTest {
         expect("dev report arrived", () -> ClientDev.report() != null);
         step("wait for the report on screen", () -> {}, 10);
         screenshot("design_dev");
+        if ("design_sizes".equals(scenario)) {
+            addSizeSteps();
+        }
         step("back to the flow", () -> BookScreen.showForTest(ViewMode.FLOW), 5);
         step("pin the quest", () -> {
             if (!ClientProgress.pinned().contains(quest)) {

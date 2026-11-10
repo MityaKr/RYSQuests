@@ -15,6 +15,8 @@ import works.repka.ryscore.theme.Theme;
 import works.repka.ryscore.theme.ThemeManager;
 import works.repka.ryscore.ui.Draw;
 import works.repka.ryscore.ui.Icons;
+import works.repka.ryscore.ui.Kit;
+import works.repka.ryscore.ui.Numbers;
 import works.repka.ryscore.ui.Type;
 
 /**
@@ -34,7 +36,9 @@ public final class Ui {
     private static final float CAPS_TRACKING = 0.88f;
     private static final int ITEM_PX = 32;
     private static final int ABOVE_ITEMS = 250;
-    private static final float TAB_PAD = 12f;
+    private static final float TAB_PX = 12f;
+    private static final float TAB_PAD_UNITS = 8f;
+    private static final float TAB_GAP_UNITS = 2f;
 
     record Hit(int x, int y, int w, int h, Runnable action) {
     }
@@ -50,6 +54,7 @@ public final class Ui {
     final int mouseY;
     final List<Hit> hits;
     final List<Hit> rightHits;
+    final Kit.Hits kitHits;
     @Nullable
     ItemStack hoveredStack;
     @Nullable
@@ -58,12 +63,13 @@ public final class Ui {
     private int clipTop = Integer.MIN_VALUE;
     private int clipBottom = Integer.MAX_VALUE;
 
-    public Ui(GuiGraphics g, int guiMouseX, int guiMouseY, List<Hit> hits, List<Hit> rightHits) {
+    public Ui(GuiGraphics g, int guiMouseX, int guiMouseY, List<Hit> hits, List<Hit> rightHits, Kit.Hits kitHits) {
         this.g = g;
         this.mouseX = Math.round(guiMouseX * PER_GUI);
         this.mouseY = Math.round(guiMouseY * PER_GUI);
         this.hits = hits;
         this.rightHits = rightHits;
+        this.kitHits = kitHits;
     }
 
     // --- colors ---
@@ -134,7 +140,7 @@ public final class Ui {
     // --- clipping and input ---
 
     void clip(int x, int y, int w, int h) {
-        g.enableScissor(Math.floorDiv(x, 2), Math.floorDiv(y, 2), Math.floorDiv(x + w + 1, 2), Math.floorDiv(y + h + 1, 2));
+        Draw.scissor(g, Math.floorDiv(x, 2), Math.floorDiv(y, 2), Math.floorDiv(x + w + 1, 2), Math.floorDiv(y + h + 1, 2));
         clipStack.push(new int[] {clipTop, clipBottom});
         clipTop = y;
         clipBottom = y + h;
@@ -437,7 +443,7 @@ public final class Ui {
     /** A stack size in the corner of a slot. */
     void count(int count, float right, float bottom) {
         if (count > 1) {
-            aboveItems(() -> labelRight(String.valueOf(count), right, bottom - 7, 11, REGULAR, 0xFFFFFFFF));
+            aboveItems(() -> labelRight(Numbers.compact(count), right, bottom - 7, 11, REGULAR, 0xFFFFFFFF));
         }
     }
 
@@ -480,16 +486,28 @@ public final class Ui {
         hit(x, y, w, h, action);
     }
 
-    /** A tab of a window's sections: text with a line under the active one. @return its width */
-    float tab(String label, float x, float cy, float height, float px, boolean active, Runnable action) {
-        Type.Weight weight = active ? MEDIUM : REGULAR;
-        float w = width(label, px, weight) + TAB_PAD * 2;
-        float y = cy - height / 2f;
-        boolean over = over(x, y, w, height);
-        theme.tabLine(g, Math.round(x / PER_GUI), Math.round(y / PER_GUI), Math.round(w / PER_GUI), Math.round(height / PER_GUI), active, over);
-        label(label, x + TAB_PAD, cy, px, weight, theme.tabLineFg(active, over));
-        hit(x, y, w, height, action);
-        return w;
+    /** The width of a group of view tabs at full spacing. */
+    float tabsWidth(List<Kit.Tab> tabs) {
+        float units = TAB_GAP_UNITS * Math.max(0, tabs.size() - 1);
+        for (Kit.Tab tab : tabs) {
+            units += Draw.labelWidth(tab.label(), TAB_PX, SEMIBOLD) + TAB_PAD_UNITS * 2;
+        }
+        return (float) Math.ceil(units) * PER_GUI;
+    }
+
+    /** View tabs: text with a line under the active one, in one row within {@code room}. */
+    void tabs(List<Kit.Tab> tabs, float x, float y, float height, float room) {
+        Kit.tabs(g, theme, kitHits, Math.round(x / PER_GUI), Math.round(y / PER_GUI), Math.round(height / PER_GUI), Math.round(room / PER_GUI),
+                tabs, Math.round(mouseX / PER_GUI), Math.round(mouseY / PER_GUI));
+    }
+
+    void chevron(boolean open, float x, float cy, float size, int color) {
+        icon(open ? Icons.Shape.CHEVRON_DOWN : Icons.Shape.CHEVRON_RIGHT, x, cy - size / 2f, size, color);
+    }
+
+    /** Progress of a task, large numbers in short form. */
+    public static String ratio(int value, int target) {
+        return Numbers.compact(value) + " / " + Numbers.compact(target);
     }
 
     /** A rounded label such as "почти готово". @return its width */

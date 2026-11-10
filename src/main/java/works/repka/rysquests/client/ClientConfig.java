@@ -10,10 +10,6 @@ public final class ClientConfig {
             .comment("Keep pinned quests on screen while fighting.")
             .define("hudInCombat", true);
 
-    public static final ModConfigSpec.IntValue BOARD_TOP = BUILDER
-            .comment("Distance of the sticker board from the top of the screen, in mockup pixels. Raise it if a minimap sits in that corner.")
-            .defineInRange("boardTop", 20, 0, 2000);
-
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private ClientConfig() {

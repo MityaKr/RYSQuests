@@ -26,6 +26,7 @@ import works.repka.rysquests.reward.XpReward;
 import works.repka.rysquests.task.CheckboxTask;
 import works.repka.rysquests.task.ItemTask;
 import works.repka.ryscore.ui.Icons;
+import works.repka.ryscore.ui.Numbers;
 
 /** The quest card beside the map, from {@code design/Main.dc.html}, and what the flow shares with it. */
 final class QuestCard {
@@ -39,7 +40,7 @@ final class QuestCard {
 
     static String taskName(TaskDef task) {
         String name = TaskText.describe(task).getString();
-        return task instanceof ItemTask && task.target() > 1 ? name + " ×" + task.target() : name;
+        return task instanceof ItemTask && task.target() > 1 ? name + " ×" + Numbers.compact(task.target()) : name;
     }
 
     static int tasksDone(Quest quest, QuestProgress own) {
@@ -355,9 +356,9 @@ final class QuestCard {
 
     private static String taskLine(TaskDef task, int value, boolean done) {
         if (!(task instanceof ItemTask item)) {
-            return done ? Component.translatable("rysquests.flow.received").getString() : value + " / " + task.target();
+            return done ? Component.translatable("rysquests.flow.received").getString() : Ui.ratio(value, task.target());
         }
-        String count = value + " / " + task.target();
+        String count = Ui.ratio(value, task.target());
         if (done) {
             return item.mode() == ItemTask.Mode.CONSUME ? count + " · " + Component.translatable("rysquests.flow.submitted").getString() : count;
         }

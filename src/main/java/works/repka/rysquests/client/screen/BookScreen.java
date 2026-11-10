@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.function.Function;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -35,12 +34,14 @@ import works.repka.rysquests.task.ItemTask;
 import works.repka.ryscore.ui.Draw;
 import works.repka.ryscore.ui.Field;
 import works.repka.ryscore.ui.Icons;
+import works.repka.ryscore.ui.Kit;
+import works.repka.ryscore.ui.ScaledScreen;
 
 /**
  * The quest book window. Two frames, both from the mockups: the flow has a rail of chapters and a reading column
  * ({@code design/Comfort.dc.html}), every other view a top bar ({@code design/Main.dc.html}).
  */
-public final class BookScreen extends Screen {
+public final class BookScreen extends ScaledScreen {
     private static final float DIM = 0.6f;
     private static final float WINDOW_W = 0.9375f;
     private static final float WINDOW_H = 0.91f;
@@ -48,6 +49,7 @@ public final class BookScreen extends Screen {
     private static final int WINDOW_MAX_H = 1040;
     private static final int CARD_MIN_WINDOW = 1000;
     private static final int[] NO_COLORS = new int[0];
+    private static final int NO_COUNT = -1;
     private static final int RAIL_MIN = 64;
     private static final int RAIL_MAX = 76;
     private static final int SEARCH_MIN = 150;
@@ -66,6 +68,7 @@ public final class BookScreen extends Screen {
 
     private final List<Ui.Hit> hits = new ArrayList<>();
     private final List<Ui.Hit> rightHits = new ArrayList<>();
+    private final Kit.Hits kitHits = new Kit.Hits();
     private final Map<ResourceLocation, List<Quest>> orderCache = new HashMap<>();
     private final EnumMap<ViewMode, BookView> views = new EnumMap<>(ViewMode.class);
     private final ReadingColumn reading = new ReadingColumn(this);
@@ -100,6 +103,7 @@ public final class BookScreen extends Screen {
 
     @Override
     protected void init() {
+        super.init();
         searchBox = new Field(80, 10);
         searchBox.setHint(Component.translatable("rysquests.book.search"));
         searchBox.setValue(BookState.search);
@@ -252,11 +256,12 @@ public final class BookScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void draw(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         renderBackground(g, mouseX, mouseY, partialTick);
         hits.clear();
         rightHits.clear();
-        Ui ui = new Ui(g, mouseX, mouseY, hits, rightHits);
+        kitHits.clear();
+        Ui ui = new Ui(g, mouseX, mouseY, hits, rightHits, kitHits);
         int screenW = width * 2;
         int screenH = height * 2;
         int w = Math.min(WINDOW_MAX_W, Math.round(screenW * WINDOW_W));
@@ -404,15 +409,16 @@ public final class BookScreen extends Screen {
         ui.rect(x, y + barH - 1, w, 1, ui.c("panel.border"));
         float cy = y + (barH - 1) / 2f;
         renderBrand(ui, x + 18, cy);
-        float cursor = x + 161;
-        List<ViewMode> tabs = new ArrayList<>(TABS);
+        float tabsX = x + 161;
+        List<ViewMode> modes = new ArrayList<>(TABS);
         if (Minecraft.getInstance().player.hasPermissions(2)) {
-            tabs.add(ViewMode.DEV);
+            modes.add(ViewMode.DEV);
         }
-        for (ViewMode tab : tabs) {
-            String label = Component.translatable("rysquests.view." + tab.getSerializedName()).getString();
-            cursor += ui.tab(label, cursor, cy, 27, 12.5f, tab == mode, () -> BookState.view = tab) + 4;
+        List<Kit.Tab> tabs = new ArrayList<>();
+        for (ViewMode tab : modes) {
+            tabs.add(new Kit.Tab(Component.translatable("rysquests.view." + tab.getSerializedName()).getString(), NO_COUNT, tab == mode, () -> BookState.view = tab));
         }
+        float cursor = tabsX + Math.min(ui.tabsWidth(tabs), x + w - 18 - 34 - 14 - tabsX);
         float right = x + w - 18;
         renderClose(ui, right - 34, cy - 17);
         right -= 34 + 14;
@@ -427,6 +433,7 @@ public final class BookScreen extends Screen {
                 right -= chipW + 14;
             }
         }
+        ui.tabs(tabs, tabsX, cy - 14, 28, cursor - tabsX);
         float room = right - 14 - cursor;
         if (mode == ViewMode.MAP || mode == ViewMode.LIST) {
             if (room >= SEARCH_MIN) {
@@ -546,7 +553,10 @@ public final class BookScreen extends Screen {
     // --- input ---
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    protected boolean onClick(double mouseX, double mouseY, int button) {
+        if (button == 0 && kitHits.click(mouseX, mouseY, button)) {
+            return true;
+        }
         int x = (int) Math.round(mouseX * 2);
         int y = (int) Math.round(mouseY * 2);
         List<Ui.Hit> list = button == 0 ? hits : button == 1 ? rightHits : List.of();
@@ -565,16 +575,16 @@ public final class BookScreen extends Screen {
             Recipes.showUsages(lastHovered);
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.onClick(mouseX, mouseY, button);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        return activeView().drag(dragX * 2, dragY * 2) || super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    protected boolean onDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        return activeView().drag(dragX * 2, dragY * 2) || super.onDrag(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    protected boolean onScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
         double x = mouseX * 2;
         if (x >= chaptersLeft && x < chaptersRight) {
             if (BookState.currentView() == ViewMode.FLOW) {
@@ -650,6 +660,10 @@ public final class BookScreen extends Screen {
 
     public static void searchForTest(String query) {
         BookState.search = query;
+    }
+
+    public static ViewMode viewForTest() {
+        return BookState.currentView();
     }
 
     public static void showForTest(ViewMode view) {

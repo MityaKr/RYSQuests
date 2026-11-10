@@ -82,10 +82,10 @@ final class QuestSticker implements Sticker {
             if (done) {
                 ui.fill(left, cy - 7, 14, 14, 4, ui.c("state.ok"));
                 ui.check(left + 2, cy - 5, 10, ui.c("accent.text"));
-                ui.labelFit(task.target() > 1 ? name + " " + value + " / " + task.target() : name, left + 22, cy, inner - 22, 12, Ui.REGULAR, muted(ui));
+                ui.labelFit(task.target() > 1 ? name + " " + Ui.ratio(value, task.target()) : name, left + 22, cy, inner - 22, 12, Ui.REGULAR, muted(ui));
             } else {
                 ui.box(left, cy - 8, 16, 16, 4, ui.c("slot.bg"), ui.c("card.border"));
-                String progress = value + " / " + task.target();
+                String progress = Ui.ratio(value, task.target());
                 float progressW = ui.width(progress, 12, Ui.SEMIBOLD);
                 ui.labelRight(progress, left + inner, cy, 12, Ui.SEMIBOLD, ui.c("accent"));
                 ui.labelFit(name, left + 24, cy, inner - 24 - progressW - 6, 12, Ui.REGULAR, ui.nameFg());
