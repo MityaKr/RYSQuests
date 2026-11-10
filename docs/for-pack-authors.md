@@ -149,6 +149,7 @@
 | `/rysquests title give\|take <игроки> <ключ>` | выдать или снять титул | чат |
 | `/rysquests achievement complete <игрок> <id> [уровень]` | засчитать, вместе с нижними уровнями; награды выдаются | чат |
 | `/rysquests achievement reset <игрок> <id> [уровень]` | сбросить, вместе с верхними уровнями; выданное не забирается | чат |
+| `/rysquests import patchouli <книга> [ns]` | гайды и 3D-структуры из `patchouli_books/<книга>`, запись в папку редактора | чат |
 | `/rysquests migrate --dry-run` | что изменят миграции | чат, `logs/rysquests-migrate.txt` |
 | `/rysquests migrate --apply` | применить, сначала бэкап | бэкап в `world/data/` |
 | `/rysquests progress <игрок> reset\|complete <квест>` | правка прогресса | |

@@ -593,5 +593,15 @@
   "rysquests.plural.task.one": "%s task",
   "rysquests.plural.task.many": "%s tasks",
   "rysquests.plural.reward.one": "%s reward",
-  "rysquests.plural.reward.many": "%s rewards"
+  "rysquests.plural.reward.many": "%s rewards",
+  "rysquests.structure.title": "How it is built",
+  "rysquests.structure.layer": "layer %s of %s",
+  "rysquests.structure.all_layers": "all layers",
+  "rysquests.structure.hint": "drag to turn · Ctrl+wheel to zoom",
+  "rysquests.structure.show": "Show in the world",
+  "rysquests.structure.list": "Block list · %s",
+  "rysquests.import.patchouli": "Imported from Patchouli: %s guides, %s pages, %s structures, %s skipped",
+  "rysquests.validate.issue.structure_shape": "Structure %s: layers differ in size",
+  "rysquests.validate.issue.structure_symbol": "Structure %s: symbol %s is not in the mapping",
+  "rysquests.validate.issue.unknown_block": "Structure %s: unknown block %s"
 }

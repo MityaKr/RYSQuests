@@ -16,7 +16,7 @@ final class BookHash {
     private BookHash() {
     }
 
-    static String compute(List<Chapter> chapters, List<Quest> quests, List<Guide> guides, List<SectionDef> sections, List<ShopOffer> offers, List<Achievement> achievements, DynamicOps<JsonElement> ops) {
+    static String compute(List<Chapter> chapters, List<Quest> quests, List<Guide> guides, List<SectionDef> sections, List<ShopOffer> offers, List<Achievement> achievements, List<StructureDef> structures, DynamicOps<JsonElement> ops) {
         JsonArray root = new JsonArray();
         chapters.stream().sorted(Comparator.comparing(Chapter::id)).forEach(chapter -> root.add(canonical(Chapter.CODEC, chapter, ops)));
         quests.stream().sorted(Comparator.comparing(Quest::id)).forEach(quest -> root.add(canonical(Quest.CODEC, quest, ops)));
@@ -24,6 +24,7 @@ final class BookHash {
         sections.stream().sorted(Comparator.comparing(SectionDef::id)).forEach(section -> root.add(canonical(SectionDef.CODEC, section, ops)));
         offers.stream().sorted(Comparator.comparing(ShopOffer::id)).forEach(offer -> root.add(canonical(ShopOffer.CODEC, offer, ops)));
         achievements.stream().sorted(Comparator.comparing(Achievement::id)).forEach(achievement -> root.add(canonical(Achievement.CODEC, achievement, ops)));
+        structures.stream().sorted(Comparator.comparing(StructureDef::id)).forEach(structure -> root.add(canonical(StructureDef.CODEC, structure, ops)));
         return Hashing.sha256().hashString(root.toString(), StandardCharsets.UTF_8).toString();
     }
 

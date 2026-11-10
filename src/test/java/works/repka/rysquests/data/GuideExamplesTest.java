@@ -47,6 +47,11 @@ class GuideExamplesTest {
                 case "guide" -> read(Guide.CODEC, json, text);
                 case "offer" -> read(ShopOffer.CODEC, json, text);
                 case "migrations" -> read(Migration.FILE_CODEC, json, text);
+                case "structure" -> {
+                    JsonObject withId = json.getAsJsonObject().deepCopy();
+                    withId.addProperty("id", "t:structure");
+                    read(StructureDef.CODEC, withId, text);
+                }
                 case "section" -> {
                     JsonObject withId = json.getAsJsonObject().deepCopy();
                     withId.addProperty("id", "t:section");
@@ -59,7 +64,7 @@ class GuideExamplesTest {
                 default -> throw new AssertionError("Unknown kind of example: " + kind);
             }
         }
-        for (String kind : List.of("book", "chapter", "quest", "task", "reward", "guide", "offer", "migrations", "achievement")) {
+        for (String kind : List.of("book", "chapter", "quest", "task", "reward", "guide", "offer", "migrations", "achievement", "structure")) {
             assertTrue(seen.containsKey(kind), () -> "The guide lost its example of " + kind);
         }
         assertEquals(4, seen.get("section"), "Mining atlas, build atlas, cards and pages are expected");

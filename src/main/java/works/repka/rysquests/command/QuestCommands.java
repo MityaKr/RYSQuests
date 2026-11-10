@@ -52,6 +52,9 @@ import works.repka.rysquests.integration.ftbq.FtbqFiles;
 import works.repka.rysquests.integration.ftbq.FtbqImporter;
 import works.repka.rysquests.integration.ftbq.FtbqProgress;
 import works.repka.rysquests.integration.ftbq.ImportedPack;
+import works.repka.rysquests.integration.patchouli.PatchouliImporter;
+import works.repka.rysquests.editor.EditorFiles;
+import works.repka.rysquests.editor.EditorFolder;
 import works.repka.rysquests.migrate.MigrationEngine;
 import works.repka.rysquests.migrate.MigrationRunner;
 import works.repka.rysquests.progress.AchievementService;
@@ -69,6 +72,8 @@ public final class QuestCommands {
     private static final String REPORT_FILE = "rysquests-validate.txt";
     private static final int ISSUES_IN_CHAT = 10;
     private static final String DEFAULT_IMPORT_NAMESPACE = "ftbq";
+    private static final String DEFAULT_PATCHOULI_NAMESPACE = "patchouli";
+    private static final java.util.regex.Pattern PLAIN_NAME = java.util.regex.Pattern.compile("[a-z0-9_]+");
     private static final Map<UUID, UUID> INVITES = new HashMap<>();
     private static final SuggestionProvider<CommandSourceStack> OFFERS = (context, builder) -> SharedSuggestionProvider.suggestResource(BookHolder.current().book().offers().keySet(), builder);
     private static final SuggestionProvider<CommandSourceStack> ACHIEVEMENTS = (context, builder) -> SharedSuggestionProvider.suggestResource(BookHolder.current().book().achievements().keySet(), builder);
@@ -116,7 +121,11 @@ public final class QuestCommands {
                                 .executes(context -> shopReset(context, ResourceLocationArgument.getId(context, "offer")))))))
                 .then(admin("title").then(titleAction("give", true)).then(titleAction("take", false)))
                 .then(admin("achievement").then(achievementAction("complete", true)).then(achievementAction("reset", false)))
-                .then(admin("import").then(Commands.literal("ftbq")
+                .then(admin("import").then(Commands.literal("patchouli").then(Commands.argument("book", StringArgumentType.word())
+                                .executes(context -> importPatchouli(context, DEFAULT_PATCHOULI_NAMESPACE))
+                                .then(Commands.argument("namespace", StringArgumentType.word())
+                                        .executes(context -> importPatchouli(context, StringArgumentType.getString(context, "namespace"))))))
+                        .then(Commands.literal("ftbq")
                         .executes(context -> importFtbq(context, DEFAULT_IMPORT_NAMESPACE))
                         .then(Commands.literal("progress").executes(QuestCommands::importFtbqProgress))
                         .then(Commands.argument("namespace", StringArgumentType.word())
@@ -387,6 +396,35 @@ public final class QuestCommands {
                 });
             } catch (IOException | RuntimeException e) {
                 LOGGER.warn("FTB Quests import failed", e);
+                server.execute(() -> source.sendFailure(Component.translatable("rysquests.import.failed", String.valueOf(e.getMessage()))));
+            }
+        });
+        return 1;
+    }
+
+    /** Reads a book from {@code patchouli_books/} into the editor's folder, then reloads so that the guides appear. */
+    private static int importPatchouli(CommandContext<CommandSourceStack> context, String namespace) {
+        CommandSourceStack source = context.getSource();
+        MinecraftServer server = source.getServer();
+        String book = StringArgumentType.getString(context, "book");
+        if (!PLAIN_NAME.matcher(book).matches() || !PLAIN_NAME.matcher(namespace).matches()) {
+            source.sendFailure(Component.translatable("rysquests.import.failed", book));
+            return 0;
+        }
+        Path folder = server.getServerDirectory().resolve("patchouli_books").resolve(book);
+        Path root = EditorFolder.root();
+        boolean createPack = !EditorFolder.servedByKubeJs();
+        Util.backgroundExecutor().execute(() -> {
+            try {
+                PatchouliImporter.Result result = PatchouliImporter.convert(folder, book, namespace);
+                EditorFiles.writeImported(root, namespace, result.files(), result.lang(), createPack);
+                result.notes().forEach(note -> LOGGER.debug("Patchouli import: {}", note));
+                server.execute(() -> {
+                    source.sendSuccess(() -> Component.translatable("rysquests.import.patchouli", result.guides(), result.pages(), result.structures(), result.notes().size()), false);
+                    server.getCommands().performPrefixedCommand(source, "reload");
+                });
+            } catch (IOException | RuntimeException e) {
+                LOGGER.warn("Patchouli import failed", e);
                 server.execute(() -> source.sendFailure(Component.translatable("rysquests.import.failed", String.valueOf(e.getMessage()))));
             }
         });

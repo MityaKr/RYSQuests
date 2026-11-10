@@ -6,7 +6,7 @@
     {
       "id": "recipes",
       "title": "Recipes",
-      "text": "A crafting recipe from the viewer:\n[[recipe:minecraft:furnace]]\nA machine, with its category chosen:\n[[recipe:create:brass_ingot#create:mixing]]\nHow it works: [[ponder:create:gearbox|the gearbox]]"
+      "text": "A crafting recipe from the viewer:\n[[recipe:minecraft:furnace]]\nA machine, with its category chosen:\n[[recipe:create:brass_ingot#create:mixing]]\nHow it works: [[ponder:create:gearbox|the gearbox]]\n[[structure:inttest:hall|The hall]]"
     }
   ]
 }

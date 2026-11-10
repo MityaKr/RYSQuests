@@ -8,6 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
+import works.repka.rysquests.data.StructureDef;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.integration.Recipes;
@@ -45,6 +46,9 @@ final class GuidePageView implements BookView {
     private static final int RECIPE_COLUMNS = 3;
     private static final int ROW_H = 32;
     private static final int WHEEL = 48;
+    private final java.util.Map<ResourceLocation, StructureBlock> structures = new java.util.HashMap<>();
+    private StructureBlock dragging;
+    private StructureBlock hoveredStructure;
 
     private record Topics(QuestBook book, ResourceLocation guide, int page, List<Quest> quests, List<ItemStack> items) {
     }
@@ -91,6 +95,7 @@ final class GuidePageView implements BookView {
 
     @Override
     public void render(Ui ui, int x, int y, int w, int h) {
+        hoveredStructure = null;
         Guide guide = source.guide();
         if (guide == null) {
             source.back();
@@ -234,7 +239,11 @@ final class GuidePageView implements BookView {
                 continue;
             }
             y = flush(ui, run, x, y, w, look);
-            y = block.kind().equals("image") ? renderImage(ui, ResourceLocation.parse(block.target()), block.text(), x, y, w) : renderRecipe(ui, block.target(), x, y, w);
+            y = switch (block.kind()) {
+                case "image" -> renderImage(ui, ResourceLocation.parse(block.target()), block.text(), x, y, w);
+                case "structure" -> renderStructure(ui, ResourceLocation.parse(block.target()), block.text(), x, y, w);
+                default -> renderRecipe(ui, block.target(), x, y, w);
+            };
         }
         return flush(ui, run, x, y, w, look);
     }
@@ -259,8 +268,53 @@ final class GuidePageView implements BookView {
             int[] size = guides.imageSize(target);
             return size != null && size[0] > 0 && size[1] > 0;
         }
+        if (block.kind().equals("structure")) {
+            return works.repka.rysquests.client.ClientBook.current().structures().containsKey(target);
+        }
         ItemStack stack = TaskText.stackOf(target);
         return Recipes.layout(stack, Markup.recipeCategory(block.target())) != null || RecipePreview.of(stack) != null;
+    }
+
+    /** A structure is kept while the book is open, so that it stays turned as the reader left it. */
+    private float renderStructure(Ui ui, ResourceLocation id, String caption, float x, float y, float w) {
+        StructureDef definition = works.repka.rysquests.client.ClientBook.current().structures().get(id);
+        StructureBlock block = structures.get(id);
+        if (block == null || !block.definition.equals(definition)) {
+            if (block != null) {
+                block.close();
+            }
+            block = new StructureBlock(definition);
+            structures.put(id, block);
+        }
+        StructureBlock shown = block;
+        float bottom = shown.render(ui, caption, x, y, w, () -> dragging = shown);
+        if (ui.over(x, y, w, bottom - y)) {
+            hoveredStructure = shown;
+        }
+        return bottom + GAP;
+    }
+
+    boolean dragStructure(double deltaX, double deltaY) {
+        if (dragging == null) {
+            return false;
+        }
+        dragging.drag(deltaX, deltaY);
+        return true;
+    }
+
+    void releaseStructure() {
+        dragging = null;
+    }
+
+    void closeStructures() {
+        structures.values().forEach(StructureBlock::close);
+        structures.clear();
+        dragging = null;
+        hoveredStructure = null;
+    }
+
+    StructureBlock structureForTest(ResourceLocation id) {
+        return structures.get(id);
     }
 
     private float renderImage(Ui ui, ResourceLocation texture, String caption, float x, float y, float w) {
@@ -420,6 +474,10 @@ final class GuidePageView implements BookView {
 
     @Override
     public void scroll(double mouseX, double mouseY, double amount) {
+        if (net.minecraft.client.gui.screens.Screen.hasControlDown() && hoveredStructure != null) {
+            hoveredStructure.zoom(amount);
+            return;
+        }
         (mouseX >= panelLeft ? panelScroll : mouseX < tocRight ? tocScroll : textScroll).wheel(amount, WHEEL);
     }
 

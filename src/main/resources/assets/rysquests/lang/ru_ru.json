@@ -600,5 +600,15 @@
   "rysquests.plural.task.many": "%s задач",
   "rysquests.plural.reward.one": "%s награда",
   "rysquests.plural.reward.few": "%s награды",
-  "rysquests.plural.reward.many": "%s наград"
+  "rysquests.plural.reward.many": "%s наград",
+  "rysquests.structure.title": "Как это собрано",
+  "rysquests.structure.layer": "слой %s из %s",
+  "rysquests.structure.all_layers": "все слои",
+  "rysquests.structure.hint": "тяни, чтобы повернуть · Ctrl+колесо меняет масштаб",
+  "rysquests.structure.show": "Показать в мире",
+  "rysquests.structure.list": "Список блоков · %s",
+  "rysquests.import.patchouli": "Импортировано из Patchouli: гайдов %s, страниц %s, структур %s, пропущено %s",
+  "rysquests.validate.issue.structure_shape": "Структура %s: слои разного размера",
+  "rysquests.validate.issue.structure_symbol": "Структура %s: символа %s нет в mapping",
+  "rysquests.validate.issue.unknown_block": "Структура %s: неизвестный блок %s"
 }

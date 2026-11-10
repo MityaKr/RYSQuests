@@ -66,7 +66,7 @@ public final class Markup {
                 only = span;
             }
         }
-        boolean block = only != null && !paragraph.warning() && (only.kind().equals("image") || only.kind().equals("recipe"));
+        boolean block = only != null && !paragraph.warning() && (only.kind().equals("image") || only.kind().equals("recipe") || only.kind().equals("structure"));
         return block ? only : null;
     }
 

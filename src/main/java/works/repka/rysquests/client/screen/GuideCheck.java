@@ -128,6 +128,7 @@ final class GuideCheck {
         return switch (span.kind()) {
             case "item", "recipe" -> BuiltInRegistries.ITEM.containsKey(id);
             case "ponder" -> !Ponders.installed() || Ponders.exists(id);
+            case "structure" -> book.structures().containsKey(id);
             case "quest" -> book.quests().containsKey(id);
             case "image" -> ClientAssets.imageSize(id) != null || Minecraft.getInstance().getResourceManager().getResource(id).isPresent();
             default -> true;

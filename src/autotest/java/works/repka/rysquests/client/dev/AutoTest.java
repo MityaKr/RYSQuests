@@ -1075,6 +1075,20 @@ public final class AutoTest {
         expect("the example is back to its own quests", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
     }
 
+    /** Laid out and formatted as the book of a real pack. Only the test folder is touched. */
+    private static void writePatchouliBook() {
+        try {
+            Path book = mc().gameDirectory.toPath().resolve("patchouli_books/testbook/en_us");
+            Files.createDirectories(book.resolve("categories"));
+            Files.createDirectories(book.resolve("entries"));
+            Files.writeString(book.resolveSibling("book.json"), "{ \"name\": \"Test book\", \"landing_text\": \"Test\" }");
+            Files.writeString(book.resolve("categories/machines.json"), "{ \"name\": \"Machines\", \"description\": \"All of them\", \"icon\": \"minecraft:clock\" }");
+            Files.writeString(book.resolve("entries/tower.json"), "{ \"name\": \"Tower\", \"icon\": \"minecraft:stone\", \"category\": \"patchouli:machines\", \"pages\": [ { \"type\": \"patchouli:text\", \"text\": \"$(l)Tower$()$(br)Tall.\" }, { \"type\": \"patchouli:multiblock\", \"name\": \"Tower\", \"multiblock\": { \"mapping\": { \"S\": \"minecraft:stone\", \"0\": \"minecraft:iron_block\" }, \"pattern\": [ [ \"S\" ], [ \"0\" ] ] } } ] }");
+        } catch (IOException e) {
+            fail("could not write the book: " + e);
+        }
+    }
+
     private static net.minecraft.world.item.ItemStack integrationBrass() {
         return new net.minecraft.world.item.ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(ResourceLocation.parse("create:brass_ingot")));
     }
@@ -1099,7 +1113,33 @@ public final class AutoTest {
             BookScreen.openGuideForTest(guide, 0);
         }, 40);
         expect("the page is open", () -> BookScreen.guidePageForTest() == 0);
+        expect("the structure is ready", () -> BookScreen.structureReadyForTest(ResourceLocation.parse("inttest:hall")));
+        step("look at the structure", () -> {
+            for (int i = 0; i < 3; i++) {
+                mc().screen.mouseScrolled(380, 200, 0, -3);
+            }
+        }, 30);
         screenshot("integrations_page");
+        step("show the bottom layer", () -> BookScreen.structureLayerForTest(ResourceLocation.parse("inttest:hall")), 30);
+        screenshot("integrations_layer");
+        step("turn it with the mouse", () -> {
+            mc().screen.mouseClicked(312, 270, GLFW.GLFW_MOUSE_BUTTON_LEFT);
+            mc().screen.mouseDragged(352, 270, GLFW.GLFW_MOUSE_BUTTON_LEFT, 40, 0);
+            mc().screen.mouseReleased(352, 270, GLFW.GLFW_MOUSE_BUTTON_LEFT);
+        }, 10);
+        step("open the block list", () -> mc().screen.mouseClicked(384, 356, GLFW.GLFW_MOUSE_BUTTON_LEFT), 10);
+        screenshot("integrations_turned");
+        step("show the hologram", () -> works.repka.rysquests.client.integration.Multiblocks.show(ClientBook.current().structures().get(ResourceLocation.parse("inttest:hall")), Component.literal("Hall")), 10);
+        expect("Patchouli holds the hologram", () -> vazkii.patchouli.api.PatchouliAPI.get().getCurrentMultiblock() != null);
+        step("take the hologram away", () -> vazkii.patchouli.api.PatchouliAPI.get().clearMultiblock(), 5);
+        step("write a book of Patchouli", AutoTest::writePatchouliBook, 2);
+        step("import it", () -> command("rysquests import patchouli testbook inttest"), 100);
+        expect("the structure of the book arrived", () -> ClientBook.current().structures().containsKey(ResourceLocation.parse("inttest:testbook/tower")));
+        expect("its guide arrived", () -> ClientBook.current().guides().containsKey(ResourceLocation.parse("inttest:testbook/machines")));
+        step("back on the page", () -> {
+            mc().setScreen(new BookScreen());
+            BookScreen.openGuideForTest(guide, 0);
+        }, 40);
         step("open the scene", () -> works.repka.rysquests.client.integration.Ponders.open(gearbox), 40);
         expect("Ponder is on screen", () -> mc().screen != null && mc().screen.getClass().getSimpleName().equals("PonderUI"));
         screenshot("integrations_ponder");

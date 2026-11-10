@@ -52,7 +52,7 @@ public final class BookLoader extends SimplePreparableReloadListener<BookHolder.
         RawBook parsed = BookParser.parse(files, ops);
         List<Issue> issues = new ArrayList<>(readErrors);
         issues.addAll(parsed.issues());
-        RawBook raw = new RawBook(parsed.meta(), parsed.chapters(), parsed.quests(), parsed.guides(), parsed.sections(), parsed.offers(), parsed.achievements(), issues, parsed.migrations());
+        RawBook raw = new RawBook(parsed.meta(), parsed.chapters(), parsed.quests(), parsed.guides(), parsed.sections(), parsed.offers(), parsed.achievements(), parsed.structures(), issues, parsed.migrations());
         BookValidator.Result result = BookValidator.validate(raw, BuiltInRegistries.ITEM::containsKey, ops);
         QuestBook book = result.book().withAssets(BookAssets.read(EditorFolder.root(), result.book()));
         byte[] data = BookSerializer.encode(book, registries);

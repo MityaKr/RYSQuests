@@ -1,6 +1,7 @@
 package works.repka.rysquests.client.screen;
 
 import net.minecraft.world.item.ItemStack;
+import works.repka.ryscore.ui.Draw;
 import works.repka.rysquests.client.integration.Recipes;
 
 /** A recipe as the viewer itself draws it, machines and their animations included, fitted to a width of the book. */
@@ -31,7 +32,7 @@ final class RecipeLayoutView {
         ui.g.pose().pushPose();
         ui.g.pose().translate(left / PIXELS_PER_UNIT, y / PIXELS_PER_UNIT, 0);
         ui.g.pose().scale(scale, scale, 1f);
-        layout.draw(ui.g, mouseX, mouseY);
+        Draw.isolated(ui.g, () -> layout.draw(ui.g, mouseX, mouseY));
         ui.g.pose().popPose();
         if (ui.over(left, y, shownW, shownH)) {
             ItemStack stack = layout.under(mouseX, mouseY);

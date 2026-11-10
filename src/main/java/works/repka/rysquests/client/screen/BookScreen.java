@@ -919,7 +919,14 @@ public final class BookScreen extends ScaledScreen {
     }
 
     @Override
+    public void removed() {
+        guidePage.closeStructures();
+        super.removed();
+    }
+
+    @Override
     protected boolean onRelease(double mouseX, double mouseY, int button) {
+        guidePage.releaseStructure();
         if (questEditor != null) {
             questEditor.release(mouseX * 2, mouseY * 2);
             return true;
@@ -939,6 +946,9 @@ public final class BookScreen extends ScaledScreen {
         }
         if (sectionEditor != null) {
             sectionEditor.drag(mouseX * 2, mouseY * 2);
+            return true;
+        }
+        if (guidePage.dragStructure(dragX, dragY)) {
             return true;
         }
         return BookState.inStory() && activeView().drag(dragX * 2, dragY * 2) || super.onDrag(mouseX, mouseY, button, dragX, dragY);
@@ -1256,6 +1266,16 @@ public final class BookScreen extends ScaledScreen {
 
     public static boolean questLayoutReadyForTest() {
         return questEditorForTest().layoutReadyForTest();
+    }
+
+    public static boolean structureReadyForTest(ResourceLocation id) {
+        return Minecraft.getInstance().screen instanceof BookScreen screen && screen.guidePage.structureForTest(id) != null && screen.guidePage.structureForTest(id).readyForTest();
+    }
+
+    public static void structureLayerForTest(ResourceLocation id) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.guidePage.structureForTest(id).stepLayerForTest();
+        }
     }
 
     public static void newGuideForTest() {

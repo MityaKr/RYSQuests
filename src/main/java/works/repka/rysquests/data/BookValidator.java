@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import works.repka.rysquests.data.BookReport.Issue;
 import works.repka.rysquests.data.BookReport.Severity;
@@ -51,7 +52,8 @@ public final class BookValidator {
         List<SectionDef> sectionList = List.copyOf(sections.values());
         List<ShopOffer> offers = checkOffers(raw, quests, itemExists, issues);
         List<Achievement> achievementList = checkAchievements(raw, itemExists, issues);
-        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, guideList, sectionList, BookHash.compute(ordered, valid, guideList, sectionList, offers, achievementList, ops)).withOffers(offers).withAchievements(achievementList);
+        List<StructureDef> structureList = checkStructures(raw, issues);
+        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, guideList, sectionList, BookHash.compute(ordered, valid, guideList, sectionList, offers, achievementList, structureList, ops)).withOffers(offers).withAchievements(achievementList).withStructures(structureList);
         return new Result(book, new BookReport(List.copyOf(issues)));
     }
 
@@ -122,6 +124,30 @@ public final class BookValidator {
                 issues.add(new Issue(Severity.WARNING, "unknown_section", "book", section));
             }
         }
+    }
+
+    /** A structure that cannot be laid out is left out; a block of a mod that is absent is only warned about, the rest still shows. */
+    private static List<StructureDef> checkStructures(RawBook raw, List<Issue> issues) {
+        List<StructureDef> valid = new ArrayList<>();
+        for (StructureDef structure : raw.structures()) {
+            if (!structure.isRectangular()) {
+                issues.add(error("structure_shape", structure.id(), ""));
+                continue;
+            }
+            if (structure.unknownSymbol().isPresent()) {
+                issues.add(error("structure_symbol", structure.id(), structure.unknownSymbol().get()));
+                continue;
+            }
+            structure.mapping().values().stream().filter(spec -> !spec.startsWith("#")).forEach(spec -> {
+                int properties = spec.indexOf('[');
+                ResourceLocation block = ResourceLocation.tryParse(properties < 0 ? spec : spec.substring(0, properties));
+                if (block == null || !BuiltInRegistries.BLOCK.containsKey(block)) {
+                    issues.add(warning("unknown_block", structure.id(), spec));
+                }
+            });
+            valid.add(structure);
+        }
+        return List.copyOf(valid);
     }
 
     /** Tiers have to grow: the next tier is what a player is told to reach. */

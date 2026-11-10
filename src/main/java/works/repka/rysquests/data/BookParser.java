@@ -24,6 +24,7 @@ public final class BookParser {
     private static final String SECTIONS = "sections/";
     private static final String SHOP = "shop/";
     private static final String ACHIEVEMENTS = "achievements/";
+    private static final String STRUCTURES = "structures/";
     private static final String CHAPTER_FILE = "_chapter";
     private static final String QUESTS_FILE = "_quests";
     private static final String BOOK_FILE = "book";
@@ -92,13 +93,21 @@ public final class BookParser {
                 });
             }
         });
+        List<StructureDef> structures = new ArrayList<>();
+        sorted.forEach((id, json) -> {
+            if (id.getPath().startsWith(STRUCTURES) && json.isJsonObject()) {
+                JsonObject withId = json.getAsJsonObject().deepCopy();
+                withId.addProperty("id", id.withPath(id.getPath().substring(STRUCTURES.length())).toString());
+                decode(StructureDef.CODEC, withId, ops, id, issues).ifPresent(structures::add);
+            }
+        });
         List<Migration> migrations = new ArrayList<>();
         sorted.forEach((id, json) -> {
             if (MIGRATIONS_FILE.equals(id.getPath())) {
                 decode(Migration.FILE_CODEC, json, ops, id, issues).ifPresent(migrations::addAll);
             }
         });
-        return new RawBook(meta, chapters, quests, guides, sections, offers, achievements, issues, migrations);
+        return new RawBook(meta, chapters, quests, guides, sections, offers, achievements, structures, issues, migrations);
     }
 
     /** Each card with a condition becomes a hidden quest in a chapter of its own section, out of sight of the story. */

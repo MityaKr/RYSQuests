@@ -25,7 +25,10 @@ repositories {
     maven {
         name = 'BlameJared (JEI)'
         url = 'https://maven.blamejared.com'
-        content { includeGroup 'mezz.jei' }
+        content {
+            includeGroup 'mezz.jei'
+            includeGroup 'vazkii.patchouli'
+        }
     }
     maven {
         name = 'Create (Ponder)'
@@ -116,7 +119,9 @@ dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
     autotestCompileOnly "works.repka.ryscore:ryscore-neoforge:${ryscore_version}"
+    autotestCompileOnly("vazkii.patchouli:Patchouli:${patchouli_version}") { transitive = false }
     compileOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}") { transitive = false }
+    compileOnly("vazkii.patchouli:Patchouli:${patchouli_version}") { transitive = false }
     compileOnly("dev.latvian.mods:kubejs-neoforge:${kubejs_version}") { transitive = false }
     compileOnly("dev.latvian.mods:rhino:${rhino_version}") { transitive = false }
     if (project.findProperty('autotest') == 'kubejs') {

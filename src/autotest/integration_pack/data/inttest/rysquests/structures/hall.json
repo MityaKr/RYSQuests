@@ -1,0 +1,14 @@
+{
+  "title": "Hall",
+  "mapping": {
+    "S": "minecraft:stone_bricks",
+    "G": "minecraft:glass",
+    "0": "minecraft:iron_block",
+    "T": "minecraft:oak_stairs[facing=north]"
+  },
+  "pattern": [
+    [ "TTT", "T T", "TTT" ],
+    [ "GGG", "G G", "GGG" ],
+    [ "SSS", "S0S", "SSS" ]
+  ]
+}

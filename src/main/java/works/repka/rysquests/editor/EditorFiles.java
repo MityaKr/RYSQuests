@@ -197,6 +197,19 @@ public final class EditorFiles {
         }
     }
 
+    /** Writes what an import made: files by path inside the pack, and strings added to the lang files of each language. */
+    public static void writeImported(Path root, String namespace, Map<String, JsonElement> files, Map<String, Map<String, String>> lang, boolean createPackFile) throws IOException {
+        if (createPackFile) {
+            writePackFile(root);
+        }
+        for (Map.Entry<String, JsonElement> file : files.entrySet()) {
+            writeText(root.resolve(file.getKey()), GSON.toJson(file.getValue()) + "\n");
+        }
+        for (Map.Entry<String, Map<String, String>> language : lang.entrySet()) {
+            mergeLang(root.resolve("assets").resolve(namespace).resolve("lang").resolve(language.getKey() + ".json"), language.getValue());
+        }
+    }
+
     /** Puts the order of the rail into the book's settings, leaving the rest of them as they are. */
     public static void saveBook(Path root, String namespace, BookMeta meta, List<String> rail, boolean createPackFile) throws Rejected, IOException {
         if (rail.isEmpty() || rail.stream().anyMatch(id -> ResourceLocation.tryParse(id) == null)) {
