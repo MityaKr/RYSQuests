@@ -25,6 +25,7 @@ import net.minecraft.stats.StatType;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.storage.loot.LootParams;
@@ -410,7 +411,17 @@ public final class ProgressService {
         if (task.dimension().isPresent() && !task.dimension().get().equals(player.level().dimension().location())) {
             return false;
         }
-        if (task.pos().isPresent()) {
+        if (task.pos().isPresent() && task.size().isPresent()) {
+            List<Integer> pos = task.pos().get();
+            List<Integer> size = task.size().get();
+            long[] at = {player.getBlockX(), player.getBlockY(), player.getBlockZ()};
+            for (int i = 0; i < 3; i++) {
+                // Half open, in longs: a box FTB Quests stretches over the whole world does not overflow.
+                if (at[i] < pos.get(i) || at[i] >= (long) pos.get(i) + size.get(i)) {
+                    return false;
+                }
+            }
+        } else if (task.pos().isPresent()) {
             List<Integer> pos = task.pos().get();
             double dx = player.getX() - pos.get(0);
             double dy = player.getY() - pos.get(1);
@@ -721,7 +732,7 @@ public final class ProgressService {
         }
         List<Integer> claimed = new ArrayList<>(before.claimed());
         for (int i = 0; i < quest.rewards().size(); i++) {
-            if (!claimed.contains(i) && grant(player, quest.rewards().get(i), i < choices.size() ? choices.get(i) : -1)) {
+            if (!claimed.contains(i) && grant(player, quest, quest.rewards().get(i), i < choices.size() ? choices.get(i) : -1)) {
                 claimed.add(i);
             }
         }
@@ -758,14 +769,14 @@ public final class ProgressService {
     }
 
     /** @return false when the reward stays unclaimed, which only happens to a choice with no valid pick */
-    private static boolean grant(ServerPlayer player, RewardDef reward, int choice) {
+    private static boolean grant(ServerPlayer player, Quest quest, RewardDef reward, int choice) {
         switch (reward) {
             case ItemReward item -> giveItem(player, item);
             case XpReward xp -> {
                 xp.levels().ifPresent(player::giveExperienceLevels);
                 xp.points().ifPresent(player::giveExperiencePoints);
             }
-            case CommandReward command -> runCommand(player, command);
+            case CommandReward command -> runCommand(player, quest, command);
             case StageReward stage -> Stages.grant(player, stage.stage());
             case TitleReward title -> AchievementService.grantTitle(player, title.id());
             case CurrencyReward currency -> ShopService.deposit(player, currency.id(), currency.amount(), currency.teamMode() == TeamMode.ONCE, ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "reward"));
@@ -775,9 +786,9 @@ public final class ProgressService {
                 if (choice < 0 || choice >= options.of().size()) {
                     return false;
                 }
-                grant(player, options.of().get(choice), -1);
+                grant(player, quest, options.of().get(choice), -1);
             }
-            case RandomReward random -> grant(player, pick(player, random), -1);
+            case RandomReward random -> grant(player, quest, pick(player, random), -1);
             default -> {
             }
         }
@@ -821,9 +832,38 @@ public final class ProgressService {
         }
     }
 
-    private static void runCommand(ServerPlayer player, CommandReward reward) {
+    private static void runCommand(ServerPlayer player, Quest quest, CommandReward reward) {
         CommandSourceStack source = player.createCommandSourceStack().withSuppressedOutput();
-        player.server.getCommands().performPrefixedCommand(reward.asServer() ? source.withPermission(4) : source, reward.command());
+        String command = CommandPlaceholders.fill(reward.command(), name -> placeholder(player, quest, name));
+        player.server.getCommands().performPrefixedCommand(reward.asServer() ? source.withPermission(reward.level()) : source, command);
+    }
+
+    /** Players sharing the progress: a team mod's members, our own team's, everyone known in server mode, or one. */
+    private static int memberCount(ServerPlayer player, UUID team) {
+        ProgressStore store = ProgressStore.get(player.server);
+        if (book().meta().progressMode() == works.repka.rysquests.data.ProgressMode.SERVER) {
+            return Math.max(1, player.server.getPlayerList().getPlayerCount());
+        }
+        // A team mod's members, or our own team's members map, which holds the owner too.
+        return Math.max(1, Math.max(TeamsApi.get().members(team).size(), store.memberCount(team)));
+    }
+
+    /** The values of FTB Quests' command placeholders, so that imported commands keep working; null leaves a name as it is. */
+    @Nullable
+    private static String placeholder(ServerPlayer player, Quest quest, String name) {
+        UUID team = team(player);
+        return switch (name) {
+            case "p" -> player.getGameProfile().getName();
+            case "x" -> String.valueOf(player.getBlockX());
+            case "y" -> String.valueOf(player.getBlockY());
+            case "z" -> String.valueOf(player.getBlockZ());
+            case "quest" -> quest.id().toString();
+            case "chapter" -> quest.chapter().map(ResourceLocation::toString).orElse("");
+            case "team", "team_id", "long_team_id" -> team.toString();
+            case "member_count" -> String.valueOf(memberCount(player, team));
+            case "online_member_count" -> String.valueOf(player.server.getPlayerList().getPlayers().stream().filter(member -> team(member).equals(team)).count());
+            default -> null;
+        };
     }
 
     // --- sync and admin ---

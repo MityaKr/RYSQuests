@@ -140,6 +140,26 @@ class BookDataTest {
     }
 
     @Test
+    void accumulateIsReportedAndAChapterReachingOutsideItsRequiresToo() {
+        Map<ResourceLocation, JsonElement> files = new HashMap<>();
+        files.put(ResourceLocation.fromNamespaceAndPath("t", "chapters/a/_chapter"), quest("{\"id\":\"t:a\",\"title\":\"A\"}"));
+        files.put(ResourceLocation.fromNamespaceAndPath("t", "chapters/b/_chapter"), quest("{\"id\":\"t:b\",\"title\":\"B\",\"requires\":[\"t:a\"]}"));
+        files.put(ResourceLocation.fromNamespaceAndPath("t", "chapters/c/_chapter"), quest("{\"id\":\"t:c\",\"title\":\"C\",\"requires\":[\"t:b\"]}"));
+        files.put(ResourceLocation.fromNamespaceAndPath("t", "chapters/d/_chapter"), quest("{\"id\":\"t:d\",\"title\":\"D\"}"));
+        files.put(ResourceLocation.fromNamespaceAndPath("t", "chapters/a/qa"), quest("{\"id\":\"t:qa\",\"title\":\"QA\"}"));
+        files.put(ResourceLocation.fromNamespaceAndPath("t", "chapters/d/qd"), quest("{\"id\":\"t:qd\",\"title\":\"QD\"}"));
+        // C reaches A through B: fine. C reaching D is outside its chain.
+        files.put(ResourceLocation.fromNamespaceAndPath("t", "chapters/c/qc"), quest("{\"id\":\"t:qc\",\"title\":\"QC\",\"requires\":[\"t:qa\",\"t:qd\"],"
+                + "\"tasks\":[{\"type\":\"rysquests:item\",\"item\":\"minecraft:stone\",\"mode\":\"accumulate\"}]}"));
+
+        BookValidator.Result result = validate(files);
+
+        assertEquals(1, result.report().issues().stream().filter(issue -> issue.code().equals("chapter_order")).count());
+        assertTrue(codes(result).contains("accumulate_as_observe"));
+        assertEquals(3, result.book().quests().size());
+    }
+
+    @Test
     void oneBadFileDoesNotStopTheOthers() {
         Map<ResourceLocation, JsonElement> files = singleChapter();
         files.put(questFile("good"), quest("{\"id\":\"t:good\",\"title\":\"G\"}"));

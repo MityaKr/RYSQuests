@@ -44,7 +44,7 @@ public final class EditorFiles {
             "layout", "size", "optional", "hidden", "repeatable", "page", "tags");
     private static final List<String> CHAPTER_ORDER = List.of("id", "title", "subtitle", "icon", "epoch", "default_view", "section", "hidden", "requires", "groups", "links");
     /** Tasks and rewards start with their type, as the files written by hand do. */
-    private static final List<String> RULE_ORDER = List.of("type", "id", "item", "any_of", "entity", "stat", "target", "advancement", "dimension", "biome", "structure", "pos", "radius", "fluid", "script", "table", "stage", "command",
+    private static final List<String> RULE_ORDER = List.of("type", "id", "item", "any_of", "entity", "stat", "target", "advancement", "dimension", "biome", "structure", "pos", "size", "radius", "fluid", "script", "table", "stage", "command",
             "levels", "points", "count", "amount", "rolls", "mode", "nbt", "of", "weights", "title", "pin", "x", "y");
     private static final String CHAPTER_FILE = "_chapter.json";
     private static final Pattern FILE_NAME = Pattern.compile("[a-z0-9_-]+");

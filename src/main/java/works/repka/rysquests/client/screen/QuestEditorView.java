@@ -1694,7 +1694,7 @@ final class QuestEditorView {
             }
             case MODE -> {
                 ui.label(label, x, y + 7, 11, Ui.REGULAR, ui.c("text.muted"));
-                List<Chips.Chip> chips = List.of("consume", "observe", "accumulate", "craft").stream().filter(mode -> task && (!type(json).endsWith("fluid") || mode.equals("consume") || mode.equals("observe")))
+                List<Chips.Chip> chips = List.of("consume", "observe", "craft").stream().filter(mode -> task && (!type(json).endsWith("fluid") || !mode.equals("craft")))
                         .map(mode -> new Chips.Chip(mode, tr("rysquests.quest_editor.mode." + mode), -1)).toList();
                 float[] end = Chips.render(ui, chips, current.isEmpty() ? "consume" : current, mode -> edit(() -> set.accept(mode)), x, y + 18, w);
                 yield end[1] + Chips.HEIGHT;

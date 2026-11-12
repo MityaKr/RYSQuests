@@ -120,6 +120,8 @@
   "rysquests.validate.issue.unknown_group": "Квест %s: неизвестная группа %s",
   "rysquests.validate.issue.repeatable_passive": "Квест %s: повторяемый с задачей, которая выполнится сразу после сброса (статистика, достижение, посещение, опыт без сдачи, предмет или жидкость без сдачи, или без задач), награды можно получать снова и снова",
   "rysquests.validate.issue.craft_fluid": "Квест %s: у задачи на жидкость нет режима craft",
+  "rysquests.validate.issue.accumulate_as_observe": "Квест %s: режим accumulate работает так же, как observe, лучше написать observe",
+  "rysquests.validate.issue.chapter_order": "Квест %s зависит от квеста главы %s, которой нет в requires его главы",
   "rysquests.validate.issue.unknown_link": "Глава %s: ссылка на неизвестный квест %s",
   "rysquests.validate.issue.unknown_chapter_dependency": "Глава %s: неизвестная требуемая глава %s",
   "rysquests.validate.issue.unknown_chapter_order": "В chapter_order неизвестная глава %s",

@@ -60,6 +60,23 @@ public final class FtbqImporter {
     private final Map<String, JsonObject> files = new LinkedHashMap<>();
     private final Map<String, Map<String, String>> lang = new HashMap<>();
     private final List<String> notes = new ArrayList<>();
+    /** Per kind of task or reward ("task item", "reward command"): how many were carried over and how many skipped. */
+    private final java.util.TreeMap<String, int[]> counts = new java.util.TreeMap<>();
+
+    /** Inside a reward table: its entries are not counted as rewards of their own. */
+    private int nested;
+    private final java.util.Set<Long> notedTables = new java.util.HashSet<>();
+
+    private void count(String kind, boolean carried) {
+        counts.computeIfAbsent(kind, key -> new int[2])[carried ? 0 : 1]++;
+    }
+
+    /** One line per kind at the head of the report, before the notes on single quests. */
+    private List<String> summary() {
+        List<String> lines = new ArrayList<>();
+        counts.forEach((kind, n) -> lines.add("Summary: " + kind + ": " + n[0] + " carried over" + (n[1] > 0 ? ", " + n[1] + " skipped" : "")));
+        return lines;
+    }
     private final Set<String> usedIds = new HashSet<>();
     private int questCount;
 
@@ -86,6 +103,7 @@ public final class FtbqImporter {
             writeChapter(chapter, dir);
         }
         writeBook(order);
+        notes.addAll(0, summary());
         Map<String, Map<String, String>> sortedLang = new HashMap<>(lang);
         return new Result(files, sortedLang, ids, notes, chapters.size(), questCount);
     }
@@ -207,13 +225,37 @@ public final class FtbqImporter {
         out.addProperty("requires_mode", "one_completed".equals(string(quest, "dependency_requirement").orElse("")) ? "any" : "all");
 
         JsonArray tasks = new JsonArray();
+        int stageTasks = 0;
         for (JsonElement task : array(quest, "tasks")) {
-            convertTask(task.getAsJsonObject(), id).ifPresent(converted -> {
-                ids.tasks().put(string(task.getAsJsonObject(), "id").orElseThrow(), new Ref(id, tasks.size()));
+            JsonObject source = task.getAsJsonObject();
+            if ("gamestage".equals(string(source, "type").orElse(""))) {
+                // A stage task waits for a stage: in this book that is the quest's own stage_required, and a quest whose
+                // only task it was completes as soon as the stage opens it.
+                String stage = string(source, "stage").orElse("");
+                if (stage.isEmpty()) {
+                    count("task gamestage", false);
+                    notes.add("Quest " + id + ": stage task without a stage, skipped");
+                    continue;
+                }
+                stageTasks++;
+                if (bool(source, "team_stage")) {
+                    notes.add("Quest " + id + ": stage " + stage + " was a team stage in FTB Quests, here each player's own stage is checked");
+                }
+                if (!out.has("stage_required")) {
+                    out.addProperty("stage_required", stage);
+                    count("task gamestage", true);
+                } else {
+                    count("task gamestage", false);
+                    notes.add("Quest " + id + ": a second stage task " + stage + " was left out, the quest waits for one stage only");
+                }
+                continue;
+            }
+            convertTask(source, id).ifPresent(converted -> {
+                ids.tasks().put(string(source, "id").orElseThrow(), new Ref(id, tasks.size()));
                 tasks.add(converted);
             });
         }
-        if (tasks.isEmpty() && !array(quest, "tasks").isEmpty()) {
+        if (tasks.isEmpty() && array(quest, "tasks").size() > stageTasks) {
             // Every task was skipped: without one the quest would complete by itself and hand out its rewards for nothing.
             // A script nobody registers never finishes, so the quest waits for the author instead of paying out for a click.
             JsonObject placeholder = new JsonObject();
@@ -249,7 +291,7 @@ public final class FtbqImporter {
             repeatable.addProperty("cooldown_minutes", 0);
             out.add("repeatable", repeatable);
         }
-        if (tasks.isEmpty()) {
+        if (tasks.isEmpty() && stageTasks == 0) {
             out.addProperty("page", true);
         }
         String file = path.substring(path.lastIndexOf('/') + 1);
@@ -262,11 +304,18 @@ public final class FtbqImporter {
         JsonObject out = new JsonObject();
         switch (type) {
             case "item" -> {
+                // An empty stack is written as {} or left out, and books from 1.20 may still hold a plain string.
+                Optional<String> itemId = itemId(task.get("item"));
+                if (itemId.isEmpty()) {
+                    count("task item", false);
+                    notes.add("Quest " + questId + ": item task without an item, skipped");
+                    return Optional.empty();
+                }
                 out.addProperty("type", "rysquests:item");
-                JsonObject item = task.getAsJsonObject("item");
-                out.addProperty("item", string(item, "id").orElseThrow());
+                out.addProperty("item", itemId.get());
                 out.addProperty("count", Math.max(1, number(task, "count", 1)));
                 out.addProperty("mode", bool(task, "only_from_crafting") ? "craft" : bool(task, "consume_items") ? "consume" : "observe");
+                JsonObject item = task.get("item") instanceof JsonObject object ? object : new JsonObject();
                 if (item.has("components")) {
                     JsonObject match = new JsonObject();
                     match.addProperty("strict", !"fuzzy".equals(string(task, "match_components").orElse("")));
@@ -288,6 +337,15 @@ public final class FtbqImporter {
                 out.addProperty("count", Math.max(1, number(task, "value", 1)));
             }
             case "kill" -> {
+                // FTB Quests checks the tag instead of the entity when there is one: our task knows single entities only.
+                if (!string(task, "entityTypeTag").orElse("").isEmpty()) {
+                    count("task kill", false);
+                    notes.add("Quest " + questId + ": kill task for the tag " + string(task, "entityTypeTag").orElse("") + ", which the book cannot count, skipped");
+                    return Optional.empty();
+                }
+                if (!string(task, "custom_name").orElse("").isEmpty() || task.has("nbt_filter")) {
+                    notes.add("Quest " + questId + ": kill task filters by name or data, any " + string(task, "entity").orElse("") + " counts here");
+                }
                 out.addProperty("type", "rysquests:kill");
                 out.addProperty("entity", string(task, "entity").orElseThrow());
                 out.addProperty("count", Math.max(1, number(task, "value", 1)));
@@ -300,38 +358,130 @@ public final class FtbqImporter {
                 out.addProperty("type", "rysquests:visit");
                 out.addProperty("dimension", string(task, "dimension").orElseThrow());
             }
+            case "advancement" -> {
+                out.addProperty("type", "rysquests:advancement");
+                out.addProperty("advancement", string(task, "advancement").orElseThrow());
+                if (!string(task, "criterion").orElse("").isEmpty()) {
+                    notes.add("Quest " + questId + ": advancement task asks for criterion " + string(task, "criterion").orElse("") + ", the whole advancement is checked instead");
+                }
+            }
+            case "fluid" -> {
+                // 2101 writes {id, amount}; older books a string and amount beside it. FTB Quests hands fluids in.
+                JsonElement fluid = task.get("fluid");
+                String id = fluid != null && fluid.isJsonObject() ? string(fluid.getAsJsonObject(), "id").orElse("") : string(task, "fluid").orElse("");
+                long amount = fluid != null && fluid.isJsonObject() ? number(fluid.getAsJsonObject(), "amount", 1000) : number(task, "amount", 1000);
+                if (id.isEmpty()) {
+                    count("task fluid", false);
+                    notes.add("Quest " + questId + ": fluid task without a fluid, skipped");
+                    return Optional.empty();
+                }
+                out.addProperty("type", "rysquests:fluid");
+                out.addProperty("fluid", id);
+                out.addProperty("amount", amount > 0 ? amount : 1000);
+                out.addProperty("mode", "consume");
+            }
+            case "biome" -> {
+                out.addProperty("type", "rysquests:visit");
+                out.addProperty("biome", string(task, "biome").orElseThrow());
+            }
+            case "location" -> {
+                // The same box of blocks as FTB Quests checks: [position, position + size).
+                JsonArray position = task.getAsJsonArray("position");
+                JsonArray size = task.getAsJsonArray("size");
+                if (position == null || position.size() < 3) {
+                    count("task location", false);
+                    notes.add("Quest " + questId + ": location task without a position, skipped");
+                    return Optional.empty();
+                }
+                JsonArray corner = new JsonArray();
+                JsonArray box = new JsonArray();
+                for (int i = 0; i < 3; i++) {
+                    corner.add(position.get(i).getAsInt());
+                    box.add(size != null && size.size() > i ? Math.max(1, size.get(i).getAsInt()) : 1);
+                }
+                out.addProperty("type", "rysquests:visit");
+                out.add("pos", corner);
+                out.add("size", box);
+                if (!bool(task, "ignore_dimension")) {
+                    out.addProperty("dimension", string(task, "dimension").orElse("minecraft:overworld"));
+                }
+            }
             default -> {
+                count("task " + type, false);
                 notes.add("Quest " + questId + ": task type " + type + " has no equivalent, skipped");
                 return Optional.empty();
             }
         }
+        count("task " + type, true);
         return Optional.of(out);
     }
 
     private Optional<JsonObject> convertReward(JsonObject reward, String questId) {
         String type = string(reward, "type").orElse("item");
-        return switch (type) {
-            case "item" -> Optional.of(itemReward(reward));
+        Optional<JsonObject> converted = switch (type) {
+            case "item" -> itemReward(reward, questId);
             case "xp" -> Optional.of(amount("points", number(reward, "xp", 1)));
             case "xp_levels" -> Optional.of(amount("levels", number(reward, "xp_levels", 1)));
             case "random", "choice" -> tableReward(reward, type, questId);
+            // A loot reward rolls its table once, as a random reward does.
+            case "loot" -> tableReward(reward, "random", questId);
+            case "command" -> {
+                // Kept as written: the book fills FTB Quests' placeholders when the reward is claimed (see CommandPlaceholders).
+                // The rights stay as FTB Quests had them: permission_level, or 2 for the old elevate_perms.
+                JsonObject out = new JsonObject();
+                out.addProperty("type", "rysquests:command");
+                out.addProperty("command", string(reward, "command").orElse(""));
+                int level = bool(reward, "elevate_perms") ? 2 : (int) Math.max(0, Math.min(4, number(reward, "permission_level", 0)));
+                if (level > 0) {
+                    out.addProperty("as_server", true);
+                    out.addProperty("level", level);
+                }
+                yield Optional.of(out);
+            }
+            case "gamestage" -> {
+                if (bool(reward, "remove")) {
+                    notes.add("Quest " + questId + ": reward takes stage " + string(reward, "stage").orElse("") + " away, which the book cannot do, skipped");
+                    yield Optional.empty();
+                }
+                JsonObject out = new JsonObject();
+                out.addProperty("type", "rysquests:stage");
+                out.addProperty("stage", string(reward, "stage").orElse(""));
+                yield Optional.of(out);
+            }
+            case "advancement" -> {
+                JsonObject out = new JsonObject();
+                out.addProperty("type", "rysquests:command");
+                String criterion = string(reward, "criterion").orElse("");
+                out.addProperty("command", "advancement grant @s only " + string(reward, "advancement").orElse("") + (criterion.isEmpty() ? "" : " " + criterion));
+                out.addProperty("as_server", true);
+                yield Optional.of(out);
+            }
             default -> {
                 notes.add("Quest " + questId + ": reward type " + type + " has no equivalent, skipped");
                 yield Optional.empty();
             }
         };
+        if (nested == 0) {
+            count("reward " + type, converted.isPresent());
+        }
+        return converted;
     }
 
-    private JsonObject itemReward(JsonObject reward) {
+    private Optional<JsonObject> itemReward(JsonObject reward, String questId) {
+        Optional<String> itemId = itemId(reward.get("item"));
+        if (itemId.isEmpty()) {
+            notes.add("Quest " + questId + ": item reward without an item, skipped");
+            return Optional.empty();
+        }
+        JsonObject item = reward.get("item") instanceof JsonObject object ? object : new JsonObject();
         JsonObject out = new JsonObject();
         out.addProperty("type", "rysquests:item");
-        JsonObject item = reward.getAsJsonObject("item");
-        out.addProperty("item", string(item, "id").orElseThrow());
+        out.addProperty("item", itemId.get());
         out.addProperty("count", Math.max(1, number(reward, "count", 1) * Math.max(1, number(item, "count", 1))));
         if (item.has("components")) {
             out.add("components", item.get("components"));
         }
-        return out;
+        return Optional.of(out);
     }
 
     private static JsonObject amount(String field, long value) {
@@ -349,6 +499,11 @@ public final class FtbqImporter {
         }
         JsonArray of = new JsonArray();
         JsonArray weights = new JsonArray();
+        if ("loot".equals(string(reward, "type").orElse("")) && decimal(table, "empty_weight") > 0 && notedTables.add(number(reward, "table_id", 0))) {
+            // A loot roll in FTB Quests may give nothing; here one of the table's rewards always comes.
+            notes.add("Reward table " + number(reward, "table_id", 0) + " has an empty weight, which is left out: a roll always gives something");
+        }
+        nested++;
         for (JsonElement entry : array(table, "rewards")) {
             JsonObject item = entry.getAsJsonObject();
             convertReward(item, questId).ifPresent(converted -> {
@@ -356,6 +511,7 @@ public final class FtbqImporter {
                 weights.add(Math.max(1, number(item, "weight", 1)));
             });
         }
+        nested--;
         JsonObject out = new JsonObject();
         out.addProperty("type", "rysquests:" + type);
         out.add("of", of);

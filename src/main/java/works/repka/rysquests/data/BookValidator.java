@@ -45,6 +45,7 @@ public final class BookValidator {
         findCycles(quests, broken, issues);
         spreadBrokenDependencies(quests, broken, issues);
         chapters.values().forEach(chapter -> checkChapter(chapter, chapters, quests, issues));
+        checkChapterOrder(chapters, quests, issues);
 
         List<Quest> valid = quests.values().stream().filter(quest -> !broken.contains(quest.id())).toList();
         List<Chapter> ordered = orderChapters(raw.meta(), chapters, issues);
@@ -212,6 +213,11 @@ public final class BookValidator {
         } else if (quest.group().isPresent() && chapter.groups().stream().noneMatch(group -> group.id().equals(quest.group().get()))) {
             issues.add(warning("unknown_group", id, quest.group().get()));
         }
+        if (quest.tasks().stream().anyMatch(task -> task instanceof works.repka.rysquests.task.ItemTask item && item.mode() == works.repka.rysquests.task.ItemTask.Mode.ACCUMULATE
+                || task instanceof works.repka.rysquests.task.FluidTask fluid && fluid.mode() == works.repka.rysquests.task.ItemTask.Mode.ACCUMULATE)) {
+            // Kept so that old files still load, but it does exactly what observe does (ADR-48).
+            issues.add(warning("accumulate_as_observe", id, ""));
+        }
         if (quest.tasks().stream().anyMatch(task -> task instanceof works.repka.rysquests.task.FluidTask fluid && fluid.mode() == works.repka.rysquests.task.ItemTask.Mode.CRAFT)) {
             // Nothing counts a crafted fluid: the task could never finish.
             issues.add(error("craft_fluid", id, ""));
@@ -307,6 +313,39 @@ public final class BookValidator {
                 if (broken.add(dependent)) {
                     issues.add(warning("broken_dependency", dependent, failed.toString()));
                     queue.add(dependent);
+                }
+            }
+        }
+    }
+
+    /**
+     * A chapter that names the chapters before it promises that its quests build on those only: a dependency on a quest
+     * of a chapter outside that chain is reported. It locks nothing (ADR-48); chapters without requires are not checked.
+     */
+    private static void checkChapterOrder(Map<ResourceLocation, Chapter> chapters, Map<ResourceLocation, Quest> quests, List<Issue> issues) {
+        for (Chapter chapter : chapters.values()) {
+            if (chapter.requires().isEmpty()) {
+                continue;
+            }
+            Set<ResourceLocation> before = new java.util.HashSet<>();
+            java.util.ArrayDeque<ResourceLocation> open = new java.util.ArrayDeque<>(chapter.requires());
+            while (!open.isEmpty()) {
+                ResourceLocation id = open.poll();
+                Chapter earlier = chapters.get(id);
+                if (before.add(id) && earlier != null) {
+                    open.addAll(earlier.requires());
+                }
+            }
+            for (Quest quest : quests.values()) {
+                if (quest.chapter().filter(chapter.id()::equals).isEmpty()) {
+                    continue;
+                }
+                for (ResourceLocation dependency : quest.requires()) {
+                    Quest required = quests.get(dependency);
+                    ResourceLocation from = required == null ? null : required.chapter().orElse(null);
+                    if (from != null && !from.equals(chapter.id()) && !before.contains(from)) {
+                        issues.add(warning("chapter_order", quest.id(), from.toString()));
+                    }
                 }
             }
         }

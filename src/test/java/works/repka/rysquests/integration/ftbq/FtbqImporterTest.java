@@ -236,6 +236,81 @@ class FtbqImporterTest {
         assertEquals(List.of(), load(result).report().issues());
     }
 
+    /** Every kind the book can hold comes across, field names as FTB Quests 2101.1.36 reads them. */
+    @Test
+    void theKindsTheBookCanHoldComeAcross() {
+        String chapter = """
+                {
+                \tfilename: "b04_fourth"
+                \tgroup: ""
+                \tid: "8D4F8E0A29BDC611"
+                \torder_index: 3
+                \tquests: [
+                \t\t{
+                \t\t\tid: "6E5F7A8B9C0D1E40"
+                \t\t\thide_until_deps_visible: true
+                \t\t\trewards: [
+                \t\t\t\t{ id: "47AD93D250742580", type: "command", command: "/give {p} minecraft:diamond", permission_level: 3 }
+                \t\t\t\t{ id: "47AD93D250742585", type: "command", command: "/say {p}", permission_level: 0 }
+                \t\t\t\t{ id: "47AD93D250742581", type: "loot", table_id: 1433225472L }
+                \t\t\t\t{ id: "47AD93D250742582", type: "gamestage", stage: "iron_age" }
+                \t\t\t\t{ id: "47AD93D250742583", type: "advancement", advancement: "minecraft:story/mine_stone" }
+                \t\t\t\t{ id: "47AD93D250742584", type: "toast", description: "hi" }
+                \t\t\t]
+                \t\t\ttasks: [
+                \t\t\t\t{ id: "7BA02683DFEFB050", type: "advancement", advancement: "minecraft:story/root", criterion: "" }
+                \t\t\t\t{ id: "7BA02683DFEFB051", type: "fluid", fluid: { id: "minecraft:lava", amount: 2000L } }
+                \t\t\t\t{ id: "7BA02683DFEFB052", type: "biome", biome: "#minecraft:is_forest" }
+                \t\t\t\t{ id: "7BA02683DFEFB053", type: "location", dimension: "minecraft:the_nether", position: [I; 10, 64, 20], size: [I; 4, 4, 8] }
+                \t\t\t]
+                \t\t\tx: 0.0d
+                \t\t}
+                \t\t{ id: "6E5F7A8B9C0D1E41", tasks: [{ id: "7BA02683DFEFB054", type: "gamestage", stage: "steel_age", team_stage: true }], x: 1.0d }
+                \t\t{ id: "6E5F7A8B9C0D1E42", tasks: [{ id: "7BA02683DFEFB055", type: "fluid", fluid: "minecraft:water" }], x: 2.0d }
+                \t\t{ id: "6E5F7A8B9C0D1E43", rewards: [{ id: "47AD93D250742590", type: "item" }], tasks: [{ id: "7BA02683DFEFB056", type: "item", item: {} }, { id: "7BA02683DFEFB057", type: "item", item: "minecraft:stone", count: 4L }, { id: "7BA02683DFEFB058", type: "kill", entity: "minecraft:zombie", entityTypeTag: "minecraft:skeletons", value: 3L }], x: 3.0d }
+                \t]
+                }
+                """;
+        Source source = fixture();
+        Result result = FtbqImporter.convert(new Source(source.data(), source.groups(), List.of(parse(chapter)), source.tables(), source.lang()), "pack", Ids.empty());
+
+        List<JsonObject> quests = result.files().entrySet().stream().filter(entry -> entry.getKey().contains("b04_fourth/") && !entry.getKey().endsWith("_chapter.json"))
+                .sorted(java.util.Map.Entry.comparingByKey()).map(java.util.Map.Entry::getValue).toList();
+        JsonObject full = quests.stream().filter(q -> q.getAsJsonArray("tasks").size() == 4).findFirst().orElseThrow();
+        JsonObject staged = quests.stream().filter(q -> q.has("stage_required")).findFirst().orElseThrow();
+        JsonObject legacyFluid = quests.stream().filter(q -> q.getAsJsonArray("tasks").size() == 1
+                && q.getAsJsonArray("tasks").get(0).getAsJsonObject().get("type").getAsString().equals("rysquests:fluid")).findFirst().orElseThrow();
+        // FTB Quests shows such a quest once its dependencies are visible; hidden here means until they are done.
+        assertTrue(!full.has("hidden"));
+        assertEquals(5, full.getAsJsonArray("rewards").size(), "the toast is left out");
+        JsonObject command = full.getAsJsonArray("rewards").get(0).getAsJsonObject();
+        assertEquals("/give {p} minecraft:diamond", command.get("command").getAsString());
+        assertTrue(command.get("as_server").getAsBoolean());
+        assertEquals(3, command.get("level").getAsInt(), "the rights FTB Quests had, not more");
+        assertTrue(!full.getAsJsonArray("rewards").get(1).getAsJsonObject().has("as_server"), "level 0 runs as the player");
+        assertEquals("rysquests:random", full.getAsJsonArray("rewards").get(2).getAsJsonObject().get("type").getAsString());
+        assertEquals("iron_age", full.getAsJsonArray("rewards").get(3).getAsJsonObject().get("stage").getAsString());
+        assertEquals("minecraft:lava", full.getAsJsonArray("tasks").get(1).getAsJsonObject().get("fluid").getAsString());
+        assertEquals(2000, full.getAsJsonArray("tasks").get(1).getAsJsonObject().get("amount").getAsInt());
+        assertEquals(1000, legacyFluid.getAsJsonArray("tasks").get(0).getAsJsonObject().get("amount").getAsInt(), "an old book without an amount");
+        JsonObject place = full.getAsJsonArray("tasks").get(3).getAsJsonObject();
+        assertEquals(List.of(10, 64, 20), place.getAsJsonArray("pos").asList().stream().map(JsonElement::getAsInt).toList());
+        assertEquals(List.of(4, 4, 8), place.getAsJsonArray("size").asList().stream().map(JsonElement::getAsInt).toList());
+        assertEquals("steel_age", staged.get("stage_required").getAsString());
+        assertEquals(0, staged.getAsJsonArray("tasks").size(), "a quest that only waited for a stage opens and completes with it");
+        assertTrue(!staged.has("page"));
+        assertTrue(result.notes().stream().anyMatch(note -> note.contains("team stage")));
+        // An empty stack, a 1.20 string item and a kill task for a tag: the import goes on and keeps what it can.
+        JsonObject legacy = quests.stream().filter(q -> q.getAsJsonArray("tasks").size() == 1
+                && q.getAsJsonArray("tasks").get(0).getAsJsonObject().get("type").getAsString().equals("rysquests:item")).findFirst().orElseThrow();
+        assertEquals("minecraft:stone", legacy.getAsJsonArray("tasks").get(0).getAsJsonObject().get("item").getAsString());
+        assertEquals(0, legacy.getAsJsonArray("rewards").size());
+        assertTrue(result.notes().stream().anyMatch(note -> note.contains("minecraft:skeletons")));
+        assertTrue(result.notes().getFirst().startsWith("Summary: "));
+        assertTrue(result.notes().stream().anyMatch(note -> note.equals("Summary: reward toast: 0 carried over, 1 skipped")));
+        assertEquals(List.of(), load(result).report().issues());
+    }
+
     private static void stripComponents(JsonElement element) {
         if (element.isJsonObject()) {
             element.getAsJsonObject().remove("components");

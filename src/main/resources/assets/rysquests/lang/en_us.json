@@ -120,6 +120,8 @@
   "rysquests.validate.issue.unknown_group": "Quest %s: unknown group %s",
   "rysquests.validate.issue.repeatable_passive": "Quest %s: repeatable with a task that is done again right after the reset (statistic, advancement, visit, experience or items or fluid that are not handed in, or no tasks), so its rewards can be farmed",
   "rysquests.validate.issue.craft_fluid": "Quest %s: a fluid task has no craft mode",
+  "rysquests.validate.issue.accumulate_as_observe": "Quest %s: accumulate mode works exactly like observe, write observe instead",
+  "rysquests.validate.issue.chapter_order": "Quest %s depends on a quest of chapter %s, which is not in its chapter's requires",
   "rysquests.validate.issue.unknown_link": "Chapter %s: link to an unknown quest %s",
   "rysquests.validate.issue.unknown_chapter_dependency": "Chapter %s: unknown required chapter %s",
   "rysquests.validate.issue.unknown_chapter_order": "chapter_order names unknown chapter %s",

@@ -391,7 +391,7 @@ public final class QuestCommands {
                 FtbqImporter.Result result = FtbqImporter.convert(FtbqFiles.read(quests), namespace, FtbqFiles.readIds(root));
                 FtbqFiles.write(root, result);
                 server.execute(() -> {
-                    source.sendSuccess(() -> Component.translatable("rysquests.import.done", result.chapters(), result.quests(), result.notes().size()), false);
+                    source.sendSuccess(() -> Component.translatable("rysquests.import.done", result.chapters(), result.quests(), result.notes().stream().filter(note -> !note.startsWith("Summary: ")).count()), false);
                     server.getCommands().performPrefixedCommand(source, "reload");
                 });
             } catch (IOException | RuntimeException e) {
