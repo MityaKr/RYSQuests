@@ -56,6 +56,8 @@ public final class RYSQuests {
         NeoForge.EVENT_BUS.addListener(AchievementService::onNameFormat);
         NeoForge.EVENT_BUS.addListener(AchievementService::onTabListName);
         NeoForge.EVENT_BUS.addListener(RYSQuests::onLivingDeath);
+        NeoForge.EVENT_BUS.addListener(RYSQuests::onCrafted);
+        NeoForge.EVENT_BUS.addListener(RYSQuests::onSmelted);
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {
                 ProgressService.forget(player);
@@ -80,8 +82,21 @@ public final class RYSQuests {
         }
     }
 
+    private static void onCrafted(net.neoforged.neoforge.event.entity.player.PlayerEvent.ItemCraftedEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player && !(player instanceof net.neoforged.neoforge.common.util.FakePlayer)) {
+            ProgressService.onCrafted(player, event.getCrafting());
+        }
+    }
+
+    private static void onSmelted(net.neoforged.neoforge.event.entity.player.PlayerEvent.ItemSmeltedEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player && !(player instanceof net.neoforged.neoforge.common.util.FakePlayer)) {
+            ProgressService.onCrafted(player, event.getSmelting());
+        }
+    }
+
     private static void onLivingDeath(LivingDeathEvent event) {
-        if (event.getSource().getEntity() instanceof ServerPlayer player) {
+        // Mob grinders and deployers kill as fake players: their kills belong to no one's quests.
+        if (event.getSource().getEntity() instanceof ServerPlayer player && !(player instanceof net.neoforged.neoforge.common.util.FakePlayer)) {
             ProgressService.onKill(player, BuiltInRegistries.ENTITY_TYPE.getKey(event.getEntity().getType()));
         }
     }

@@ -155,12 +155,21 @@ public final class FtbqImporter {
         if (epoch > 0) {
             out.addProperty("epoch", epoch);
         }
-        files.put("data/" + namespace + "/rysquests/chapters/" + dir + "/_chapter.json", out);
-
-        int links = array(chapter, "quest_links").size();
-        if (links > 0) {
-            notes.add("Chapter " + dir + ": " + links + " quest links not imported (a link only repeats a quest on another page)");
+        // A quest link repeats a quest of another chapter on this chapter's page; its place is laid out anew.
+        JsonArray links = new JsonArray();
+        for (JsonElement link : array(chapter, "quest_links")) {
+            String linked = string(link.getAsJsonObject(), "linked_quest").orElse("");
+            String target = ids.quests().get(linked);
+            if (target == null) {
+                notes.add("Chapter " + dir + ": quest link to " + linked + " points at no quest, skipped");
+            } else if (!links.contains(new JsonPrimitive(target))) {
+                links.add(target);
+            }
         }
+        if (!links.isEmpty()) {
+            out.add("links", links);
+        }
+        files.put("data/" + namespace + "/rysquests/chapters/" + dir + "/_chapter.json", out);
         for (JsonElement quest : array(chapter, "quests")) {
             writeQuest(quest.getAsJsonObject(), chapterId, dir);
         }
@@ -203,6 +212,16 @@ public final class FtbqImporter {
                 ids.tasks().put(string(task.getAsJsonObject(), "id").orElseThrow(), new Ref(id, tasks.size()));
                 tasks.add(converted);
             });
+        }
+        if (tasks.isEmpty() && !array(quest, "tasks").isEmpty()) {
+            // Every task was skipped: without one the quest would complete by itself and hand out its rewards for nothing.
+            // A script nobody registers never finishes, so the quest waits for the author instead of paying out for a click.
+            JsonObject placeholder = new JsonObject();
+            placeholder.addProperty("type", "rysquests:script");
+            placeholder.addProperty("script", "rysquests:unconverted");
+            placeholder.addProperty("title", "rysquests.import.unconverted_task");
+            tasks.add(placeholder);
+            notes.add("Quest " + id + ": no task could be converted, a task that cannot finish stands in until it is fixed by hand");
         }
         out.add("tasks", tasks);
 
@@ -247,7 +266,7 @@ public final class FtbqImporter {
                 JsonObject item = task.getAsJsonObject("item");
                 out.addProperty("item", string(item, "id").orElseThrow());
                 out.addProperty("count", Math.max(1, number(task, "count", 1)));
-                out.addProperty("mode", bool(task, "consume_items") ? "consume" : "observe");
+                out.addProperty("mode", bool(task, "only_from_crafting") ? "craft" : bool(task, "consume_items") ? "consume" : "observe");
                 if (item.has("components")) {
                     JsonObject match = new JsonObject();
                     match.addProperty("strict", !"fuzzy".equals(string(task, "match_components").orElse("")));
@@ -256,6 +275,12 @@ public final class FtbqImporter {
                 }
             }
             case "checkmark" -> out.addProperty("type", "rysquests:checkbox");
+            case "xp" -> {
+                // FTB Quests hands experience in with the submit button.
+                out.addProperty("type", "rysquests:xp");
+                out.addProperty(bool(task, "points") ? "points" : "levels", Math.max(1, number(task, "value", 1)));
+                out.addProperty("consume", true);
+            }
             case "stat" -> {
                 out.addProperty("type", "rysquests:stat");
                 out.addProperty("stat", "minecraft:custom");

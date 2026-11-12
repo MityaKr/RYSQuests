@@ -113,7 +113,7 @@ final class ShopView implements BookView {
 
     private static boolean locked(ShopOffer offer) {
         boolean stage = offer.stage().filter(required -> !ClientProgress.hasStage(required)).isPresent();
-        return stage || offer.quest().filter(quest -> !ClientProgress.get(quest).completed()).isPresent();
+        return stage || offer.quest().filter(quest -> !ClientProgress.get(quest).everDone()).isPresent();
     }
 
     private static int left(ShopOffer offer) {
@@ -124,7 +124,7 @@ final class ShopView implements BookView {
     private static boolean canPay(ShopOffer offer, int count, boolean treasury) {
         for (ShopOffer.Entry cost : offer.cost()) {
             long needed = (long) cost.amount() * count;
-            long have = cost.isCurrency() ? treasury ? ClientShop.treasury(cost.id()) : ClientShop.balance(cost.id()) : RecipePreview.held(stackOf(cost));
+            long have = cost.isCurrency() ? treasury ? ClientShop.treasury(cost.id()) : ClientShop.balance(cost.id()) : paying(stackOf(cost));
             if (have < needed) {
                 return false;
             }
@@ -599,5 +599,16 @@ final class ShopView implements BookView {
     void tradeForTest(ResourceLocation offer, boolean treasury) {
         times = 1;
         trade(ClientBook.current().offers().get(offer), treasury);
+    }
+
+    /** What the server would take as payment: the main inventory only, and plain stacks without data of their own. */
+    private static long paying(ItemStack cost) {
+        long have = 0;
+        for (ItemStack stack : net.minecraft.client.Minecraft.getInstance().player.getInventory().items) {
+            if (stack.is(cost.getItem()) && stack.getComponentsPatch().isEmpty()) {
+                have += stack.getCount();
+            }
+        }
+        return have;
     }
 }

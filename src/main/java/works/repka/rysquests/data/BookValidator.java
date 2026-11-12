@@ -44,7 +44,7 @@ public final class BookValidator {
         checkSections(raw.meta(), sections, issues);
         findCycles(quests, broken, issues);
         spreadBrokenDependencies(quests, broken, issues);
-        chapters.values().forEach(chapter -> checkChapter(chapter, chapters, issues));
+        chapters.values().forEach(chapter -> checkChapter(chapter, chapters, quests, issues));
 
         List<Quest> valid = quests.values().stream().filter(quest -> !broken.contains(quest.id())).toList();
         List<Chapter> ordered = orderChapters(raw.meta(), chapters, issues);
@@ -212,6 +212,15 @@ public final class BookValidator {
         } else if (quest.group().isPresent() && chapter.groups().stream().noneMatch(group -> group.id().equals(quest.group().get()))) {
             issues.add(warning("unknown_group", id, quest.group().get()));
         }
+        if (quest.tasks().stream().anyMatch(task -> task instanceof works.repka.rysquests.task.FluidTask fluid && fluid.mode() == works.repka.rysquests.task.ItemTask.Mode.CRAFT)) {
+            // Nothing counts a crafted fluid: the task could never finish.
+            issues.add(error("craft_fluid", id, ""));
+            broken.add(id);
+        }
+        if (quest.options().repeatable().isPresent() && (quest.tasks().isEmpty() || quest.tasks().stream().anyMatch(BookValidator::passive))) {
+            // Such a task reads what the player already has, so a new round completes at once and hands out its rewards again.
+            issues.add(warning("repeatable_passive", id, ""));
+        }
         for (ResourceLocation dependency : quest.requires()) {
             if (!quests.containsKey(dependency)) {
                 issues.add(error("missing_dependency", id, dependency.toString()));
@@ -303,10 +312,26 @@ public final class BookValidator {
         }
     }
 
-    private static void checkChapter(Chapter chapter, Map<ResourceLocation, Chapter> chapters, List<Issue> issues) {
+    /** A task that is done by what the player already has or has done: lifetime statistics, advancements, standing in a place. */
+    private static boolean passive(TaskDef task) {
+        return task instanceof works.repka.rysquests.task.StatTask || task instanceof works.repka.rysquests.task.AdvancementTask
+                || task instanceof works.repka.rysquests.task.VisitTask
+                || task instanceof works.repka.rysquests.task.XpTask xp && !xp.consume()
+                || task instanceof works.repka.rysquests.task.FluidTask fluid && fluid.mode() != works.repka.rysquests.task.ItemTask.Mode.CONSUME
+                        && fluid.mode() != works.repka.rysquests.task.ItemTask.Mode.CRAFT
+                || task instanceof works.repka.rysquests.task.ItemTask item && item.mode() != works.repka.rysquests.task.ItemTask.Mode.CONSUME
+                        && item.mode() != works.repka.rysquests.task.ItemTask.Mode.CRAFT;
+    }
+
+    private static void checkChapter(Chapter chapter, Map<ResourceLocation, Chapter> chapters, Map<ResourceLocation, Quest> quests, List<Issue> issues) {
         for (ResourceLocation dependency : chapter.requires()) {
             if (!chapters.containsKey(dependency)) {
                 issues.add(warning("unknown_chapter_dependency", chapter.id(), dependency.toString()));
+            }
+        }
+        for (ResourceLocation link : chapter.links()) {
+            if (!quests.containsKey(link)) {
+                issues.add(warning("unknown_link", chapter.id(), link.toString()));
             }
         }
     }

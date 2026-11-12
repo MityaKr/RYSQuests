@@ -18,6 +18,20 @@ public record FluidTask(ResourceLocation fluid, int amount, ItemTask.Mode mode, 
             Codec.STRING.optionalFieldOf("title").forGetter(FluidTask::title)
     ).apply(instance, FluidTask::new));
 
+    /** How much of this fluid the inventory's containers hold, by the same capability on the server and in the book. */
+    public int amountIn(net.minecraft.world.entity.player.Inventory inventory) {
+        net.minecraft.world.level.material.Fluid kind = net.minecraft.core.registries.BuiltInRegistries.FLUID.get(fluid);
+        int total = 0;
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            var handler = inventory.getItem(i).getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.ITEM);
+            if (handler != null) {
+                total += handler.drain(new net.neoforged.neoforge.fluids.FluidStack(kind, Integer.MAX_VALUE),
+                        net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.SIMULATE).getAmount();
+            }
+        }
+        return total;
+    }
+
     @Override
     public int target() {
         return amount;

@@ -1571,6 +1571,10 @@ public final class AutoTest {
         step("zoom the map back", () -> BookScreen.mapZoomForTest(1f), 5);
         step("pick the second option and claim", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, quest, 0, List.of(1))), 20);
         expect("the choice was claimed", () -> ClientProgress.get(quest).claimed().contains(0) && !BookScreen.onlyPicksLeftForTest());
+        // Chapter III links the mechanism of chapter II: it stands on III's map too, and a click opens it in II.
+        step("open chapter III on the map", () -> BookScreen.selectForTest(ResourceLocation.parse("design:03"), null), 30);
+        expect("the linked quest is on the map", () -> BookScreen.mapStatsForTest().startsWith("quests 2"));
+        screenshot("design_link");
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
     }
 

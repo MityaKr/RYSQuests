@@ -78,7 +78,7 @@ final class Epochs {
             number++;
             List<Quest> quests = new ArrayList<>();
             chapters.forEach(chapter -> quests.addAll(ORDERED.computeIfAbsent(chapter.id(), id -> ChapterOrder.of(orderedFor, id))));
-            int done = (int) quests.stream().filter(quest -> ClientProgress.get(quest.id()).completed()).count();
+            int done = (int) quests.stream().filter(quest -> ClientProgress.get(quest.id()).everDone()).count();
             List<Quest> milestones = milestones(quests);
             Quest key = quests.stream().filter(quest -> quest.options().tags().contains(KEY_ITEM_TAG)).findFirst()
                     .orElse(milestones.isEmpty() ? null : milestones.getLast());

@@ -127,6 +127,7 @@ final class QuestEditorView {
         TASK_FIELDS.put("rysquests:visit", List.of(new Field("dimension", Kind.TEXT), new Field("biome", Kind.TEXT), new Field("structure", Kind.TEXT), new Field("radius", Kind.NUMBER)));
         TASK_FIELDS.put("rysquests:fluid", List.of(new Field("fluid", Kind.TEXT), new Field("amount", Kind.NUMBER), MODE));
         TASK_FIELDS.put("rysquests:script", List.of(new Field("script", Kind.TEXT), COUNT));
+        // An experience task has levels or points, never both, and consume: it is edited on the JSON tab.
         REWARD_FIELDS.put("rysquests:item", List.of(new Field("item", Kind.ITEM), COUNT));
         REWARD_FIELDS.put("rysquests:xp", List.of(new Field("levels", Kind.NUMBER), new Field("points", Kind.NUMBER)));
         REWARD_FIELDS.put("rysquests:currency", List.of(new Field("id", Kind.TEXT), new Field("amount", Kind.NUMBER)));
@@ -441,7 +442,7 @@ final class QuestEditorView {
             String key = QuestEdits.groupKey(state.chapter.id(), id);
             groups.add(new Chapter.Group(id, key));
             Chapter c = state.chapter;
-            setChapter(new Chapter(c.id(), c.title(), c.subtitle(), c.icon(), c.epoch(), c.defaultView(), groups, c.requires(), c.hidden(), c.section()));
+            setChapter(new Chapter(c.id(), c.title(), c.subtitle(), c.icon(), c.epoch(), c.defaultView(), groups, c.requires(), c.hidden(), c.section(), c.links()));
             putText(key, text("rysquests.quest_editor.group_name", number));
             selected.forEach(each -> putQuest(QuestEdits.withGroup(state.quests.get(each), Optional.of(id))));
         });
@@ -1245,13 +1246,13 @@ final class QuestEditorView {
         }
         Map<ResourceLocation, Quest> quests = new LinkedHashMap<>();
         state.quests.values().forEach(quest -> quests.put(quest.id(), quest.withChapter(id)));
-        state = new State(new Chapter(id, key, c.subtitle(), c.icon(), c.epoch(), c.defaultView(), c.groups(), c.requires(), c.hidden(), c.section()), quests, texts);
+        state = new State(new Chapter(id, key, c.subtitle(), c.icon(), c.epoch(), c.defaultView(), c.groups(), c.requires(), c.hidden(), c.section(), c.links()), quests, texts);
     }
 
     private void setEpoch(String value) {
         Chapter c = state.chapter;
         Optional<Integer> epoch = value.matches("[0-9]{1,3}") ? Optional.of(Integer.parseInt(value)) : Optional.empty();
-        setChapter(new Chapter(c.id(), c.title(), c.subtitle(), c.icon(), epoch, c.defaultView(), c.groups(), c.requires(), c.hidden(), c.section()));
+        setChapter(new Chapter(c.id(), c.title(), c.subtitle(), c.icon(), epoch, c.defaultView(), c.groups(), c.requires(), c.hidden(), c.section(), c.links()));
     }
 
     private float readOnly(Ui ui, String label, String value, float x, float y, float w) {
@@ -1693,7 +1694,7 @@ final class QuestEditorView {
             }
             case MODE -> {
                 ui.label(label, x, y + 7, 11, Ui.REGULAR, ui.c("text.muted"));
-                List<Chips.Chip> chips = List.of("consume", "observe", "accumulate").stream().filter(mode -> task && (!type(json).endsWith("fluid") || !mode.equals("accumulate")))
+                List<Chips.Chip> chips = List.of("consume", "observe", "accumulate", "craft").stream().filter(mode -> task && (!type(json).endsWith("fluid") || mode.equals("consume") || mode.equals("observe")))
                         .map(mode -> new Chips.Chip(mode, tr("rysquests.quest_editor.mode." + mode), -1)).toList();
                 float[] end = Chips.render(ui, chips, current.isEmpty() ? "consume" : current, mode -> edit(() -> set.accept(mode)), x, y + 18, w);
                 yield end[1] + Chips.HEIGHT;

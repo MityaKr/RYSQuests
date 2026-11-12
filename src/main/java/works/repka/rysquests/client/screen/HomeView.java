@@ -146,14 +146,9 @@ final class HomeView implements BookView {
         ui.label(Component.translatable("rysquests.home.title").getString(), x, cy, 20, Ui.DISPLAY, ui.c("text.primary"));
         Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
         if (chapter != null) {
-            int done = 0;
-            int total = 0;
-            for (Quest quest : ClientBook.current().quests().values()) {
-                if (quest.chapter().filter(chapter.id()::equals).isPresent()) {
-                    total++;
-                    done += ClientProgress.get(quest.id()).completed() ? 1 : 0;
-                }
-            }
+            int[] counts = BookScreen.countsOf(chapter.id());
+            int done = counts[0];
+            int total = counts[1];
             String status = Component.translatable("rysquests.home.chapter_status", Ui.roman(BookScreen.chapterNumber(chapter.id())), done, total).getString();
             ui.labelRight(status, x + w, y + 15.5f, 12, Ui.REGULAR, ui.c("text.muted"));
         }
@@ -295,17 +290,9 @@ final class HomeView implements BookView {
         float boxH = 30 + rows * 46 - 8;
         ui.box(x, boxY, w, boxH, 12, ui.c("card.bg"), ui.c("panel.border"));
         float cursor = boxY + 15;
-        int[] counts = new int[2];
         for (int i = firstRow; i < firstRow + rows; i++) {
             Chapter chapter = chapters.get(i);
-            counts[0] = 0;
-            counts[1] = 0;
-            for (Quest quest : ClientBook.current().quests().values()) {
-                if (quest.chapter().filter(chapter.id()::equals).isPresent()) {
-                    counts[1]++;
-                    counts[0] += ClientProgress.get(quest.id()).completed() ? 1 : 0;
-                }
-            }
+            int[] counts = BookScreen.countsOf(chapter.id());
             String count = counts[0] + " / " + counts[1];
             float cy = cursor + 13.5f;
             ui.labelFit(Ui.roman(i + 1) + " · " + Component.translatable(chapter.title()).getString(), x + 17, cy, w - 34 - ui.width(count, 12.5f, Ui.REGULAR) - 8, 12.5f, Ui.REGULAR, ui.nameFg());

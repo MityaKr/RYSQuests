@@ -42,7 +42,7 @@ public final class EditorFiles {
             "links", "columns", "rows", "cells", "cards", "pages");
     private static final List<String> QUEST_ORDER = List.of("id", "chapter", "group", "title", "subtitle", "text", "icon", "requires", "requires_mode", "stage_required", "guide", "tasks", "rewards",
             "layout", "size", "optional", "hidden", "repeatable", "page", "tags");
-    private static final List<String> CHAPTER_ORDER = List.of("id", "title", "subtitle", "icon", "epoch", "default_view", "section", "hidden", "requires", "groups");
+    private static final List<String> CHAPTER_ORDER = List.of("id", "title", "subtitle", "icon", "epoch", "default_view", "section", "hidden", "requires", "groups", "links");
     /** Tasks and rewards start with their type, as the files written by hand do. */
     private static final List<String> RULE_ORDER = List.of("type", "id", "item", "any_of", "entity", "stat", "target", "advancement", "dimension", "biome", "structure", "pos", "radius", "fluid", "script", "table", "stage", "command",
             "levels", "points", "count", "amount", "rolls", "mode", "nbt", "of", "weights", "title", "pin", "x", "y");

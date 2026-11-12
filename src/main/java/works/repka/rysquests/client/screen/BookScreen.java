@@ -185,6 +185,11 @@ public final class BookScreen extends ScaledScreen {
     private int claimCount;
     private List<ItemStack> claimStacks = List.of();
     private boolean plainClaim;
+    private final Map<ResourceLocation, int[]> CHAPTER_COUNTS = new HashMap<>();
+    private int countsVersion = -1;
+    @Nullable
+    private Object countsBook;
+    private int submitCount;
     /** The chapter list on screen, in mockup pixels: x, y, width, height; null while no list is shown. */
     @Nullable
     private int[] chapterList;
@@ -286,25 +291,10 @@ public final class BookScreen extends ScaledScreen {
         return 0;
     }
 
+    /** Quests across the whole book that handing in all that is ready takes, as the server counts them; refreshed with the other counts. */
     int readyToSubmit() {
-        var inventory = Minecraft.getInstance().player.getInventory();
-        return (int) visibleQuests().stream().filter(quest -> {
-            QuestStatus status = BookState.status(quest);
-            if (status != QuestStatus.AVAILABLE && status != QuestStatus.IN_PROGRESS) {
-                return false;
-            }
-            QuestProgress own = ClientProgress.get(quest.id());
-            boolean any = false;
-            for (int i = 0; i < quest.tasks().size(); i++) {
-                if (quest.tasks().get(i) instanceof ItemTask task && task.mode() == ItemTask.Mode.CONSUME && own.task(i) < task.count()) {
-                    if (countInInventory(task, inventory) < task.count() - own.task(i)) {
-                        return false;
-                    }
-                    any = true;
-                }
-            }
-            return any;
-        }).count();
+        refreshCounts();
+        return submitCount;
     }
 
     /** How many fitting items the player holds. */
@@ -323,10 +313,9 @@ public final class BookScreen extends ScaledScreen {
         return have;
     }
 
+    /** The server's own test, components included: what the book calls ready the server takes. */
     private static boolean matches(ItemTask task, ItemStack stack) {
-        return task.itemRefs().stream().anyMatch(ref -> ref.tag()
-                ? stack.is(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM, ref.id()))
-                : net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).equals(ref.id()));
+        return task.matches(stack);
     }
 
     int readyToClaim() {
@@ -358,6 +347,17 @@ public final class BookScreen extends ScaledScreen {
         }
         claimCount = count;
         claimStacks = stacks;
+        int submit = 0;
+        for (Quest quest : book().quests().values()) {
+            if (quest.options().hidden() && !works.repka.rysquests.progress.QuestLogic.isUnlocked(quest, ClientProgress::get)) {
+                continue;
+            }
+            QuestStatus status = BookState.status(quest);
+            if ((status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS) && QuestCard.readyToSubmit(quest, ClientProgress.get(quest.id()))) {
+                submit++;
+            }
+        }
+        submitCount = submit;
         plainClaim = plain;
         pickQuest = pick;
     }
@@ -392,8 +392,13 @@ public final class BookScreen extends ScaledScreen {
 
     /** What a locked quest still needs, in words. */
     static Component waitingFor(Quest quest) {
+        QuestProgress own = ClientProgress.get(quest.id());
+        if (own.coolingDown()) {
+            long minutes = Math.max(1, (own.nextAt() - System.currentTimeMillis() + 59_999) / 60_000);
+            return Component.translatable("rysquests.flow.cooldown", minutes);
+        }
         List<Quest> missing = quest.requires().stream()
-                .filter(id -> !ClientProgress.get(id).completed())
+                .filter(id -> !ClientProgress.get(id).everDone())
                 .map(id -> book().quests().get(id))
                 .filter(java.util.Objects::nonNull)
                 .toList();
@@ -403,7 +408,13 @@ public final class BookScreen extends ScaledScreen {
             }
             return Component.translatable("rysquests.flow.opens_after");
         }
-        return Component.translatable("rysquests.flow.waiting", Component.translatable(missing.getFirst().title()));
+        Quest first = missing.getFirst();
+        return Component.translatable("rysquests.flow.waiting", shown(first) ? Component.translatable(first.title()) : Component.literal("???"));
+    }
+
+    /** Whether the player may know the quest: a hidden one stays a secret until its dependencies are done. */
+    static boolean shown(Quest quest) {
+        return !quest.options().hidden() || QuestLogic.isUnlocked(quest, ClientProgress::get);
     }
 
     private BookView activeView() {
@@ -926,15 +937,28 @@ public final class BookScreen extends ScaledScreen {
         cardScroll.content(content, h);
     }
 
+    /** Done and total quests of a chapter as the book shows it; worked out once per progress version, not per row and frame. */
     int[] chapterCounts(ResourceLocation chapter) {
-        int[] counts = new int[2];
-        for (Quest quest : questsOf(chapter)) {
-            counts[1]++;
-            if (ClientProgress.get(quest.id()).completed()) {
-                counts[0]++;
-            }
+        if (countsVersion != ClientProgress.version() || countsBook != book()) {
+            CHAPTER_COUNTS.clear();
+            countsVersion = ClientProgress.version();
+            countsBook = book();
         }
-        return counts;
+        return CHAPTER_COUNTS.computeIfAbsent(chapter, id -> {
+            int[] counts = new int[2];
+            for (Quest quest : questsOf(id)) {
+                counts[1]++;
+                if (ClientProgress.get(quest.id()).everDone()) {
+                    counts[0]++;
+                }
+            }
+            return counts;
+        });
+    }
+
+    /** The counts of the open book screen, for views that have no screen of their own. */
+    static int[] countsOf(ResourceLocation chapter) {
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.chapterCounts(chapter) : new int[2];
     }
 
     // --- input ---

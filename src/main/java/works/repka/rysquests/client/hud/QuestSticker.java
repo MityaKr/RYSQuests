@@ -78,7 +78,7 @@ final class QuestSticker implements Sticker {
             boolean done = value >= task.target();
             float rowH = done ? ROW_DONE : ROW_OPEN;
             float cy = cursor + rowH / 2f;
-            String name = TaskText.describe(task).getString();
+            String name = TaskText.name(task);
             if (done) {
                 ui.fill(left, cy - 7, 14, 14, 4, ui.c("state.ok"));
                 ui.check(left + 2, cy - 5, 10, ui.c("accent.text"));

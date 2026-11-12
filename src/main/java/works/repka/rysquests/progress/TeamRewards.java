@@ -10,6 +10,12 @@ final class TeamRewards {
     private TeamRewards() {
     }
 
+    /** The players' own rows that a new round of a repeatable quest clears: everyone of the team, never the team row itself. */
+    static java.util.List<java.util.UUID> rowsToReset(java.util.Collection<java.util.UUID> rows, java.util.UUID team,
+            java.util.function.Function<java.util.UUID, java.util.UUID> teamOf) {
+        return rows.stream().filter(row -> !row.equals(team) && team.equals(teamOf.apply(row))).toList();
+    }
+
     static boolean once(Quest quest, int reward) {
         return reward < quest.rewards().size() && quest.rewards().get(reward).teamMode() == TeamMode.ONCE;
     }

@@ -3,5 +3,6 @@
   "title": "Машины",
   "icon": "minecraft:piston",
   "default_view": "flow",
-  "epoch": 3
+  "epoch": 3,
+  "links": ["design:02/mechanism"]
 }

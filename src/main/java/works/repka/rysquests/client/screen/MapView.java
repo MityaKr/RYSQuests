@@ -92,13 +92,15 @@ final class MapView implements BookView {
                 done.add(quest.id().toString());
             }
         }
-        String key = ClientBook.current().hash() + BookState.chapter + done.hashCode() + expandAll + legacyLayoutForTest;
+        // Which quests are shown is part of it: a linked or hidden quest opening elsewhere changes no done quest of this chapter.
+        String key = ClientBook.current().hash() + BookState.chapter + done.hashCode() + quests.stream().map(Quest::id).toList().hashCode() + expandAll + legacyLayoutForTest;
         if (key.equals(requested)) {
             return;
         }
         requested = key;
         boolean foldDone = !expandAll;
-        CompletableFuture.supplyAsync(() -> compute(key, quests, done, foldDone), Util.backgroundExecutor())
+        ResourceLocation chapterId = BookState.chapter;
+        CompletableFuture.supplyAsync(() -> compute(key, quests, done, foldDone, chapterId), Util.backgroundExecutor())
                 .thenAcceptAsync(result -> {
                     if (key.equals(requested)) {
                         boolean chapterChanged = layout == null || !sameChapter(layout.key, key);
@@ -110,12 +112,41 @@ final class MapView implements BookView {
                 }, Minecraft.getInstance());
     }
 
+    /**
+     * The chapter's quests and, after them, the quests of other chapters it links (ADR-46). A linked quest follows the
+     * same rule as the chapter's own hidden quests.
+     */
+    private List<Quest> withLinks(List<Quest> own) {
+        Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
+        if (chapter == null || chapter.links().isEmpty()) {
+            return own;
+        }
+        List<Quest> all = new ArrayList<>(own);
+        for (ResourceLocation id : chapter.links()) {
+            Quest linked = ClientBook.current().quests().get(id);
+            if (linked != null && !all.contains(linked) && BookScreen.inStory(linked)
+                    && (!linked.options().hidden() || works.repka.rysquests.progress.QuestLogic.isUnlocked(linked, ClientProgress::get))) {
+                all.add(linked);
+            }
+        }
+        return all;
+    }
+
+    /** A quest linked from another chapter is not part of this chapter's groups. */
+    private static java.util.Optional<String> groupOf(Quest quest, @Nullable ResourceLocation chapter) {
+        return quest.chapter().filter(id -> id.equals(chapter)).isPresent() ? quest.group() : java.util.Optional.empty();
+    }
+
+    private static boolean linked(Quest quest) {
+        return BookState.chapter != null && quest.chapter().filter(BookState.chapter::equals).isEmpty();
+    }
+
     private static boolean sameChapter(String a, String b) {
         int prefix = ClientBook.current().hash().length() + String.valueOf(BookState.chapter).length();
         return a.length() >= prefix && b.length() >= prefix && a.substring(0, prefix).equals(b.substring(0, prefix));
     }
 
-    private static Layout compute(String key, List<Quest> quests, Set<String> done, boolean foldDone) {
+    private static Layout compute(String key, List<Quest> quests, Set<String> done, boolean foldDone, @Nullable ResourceLocation chapterId) {
         List<Node> nodes = new ArrayList<>();
         for (Quest quest : quests) {
             var layout = quest.options().layout();
@@ -131,10 +162,10 @@ final class MapView implements BookView {
             Quest quest = quests.get(i);
             Node node = nodes.get(i);
             if (!collapsed.hidden().contains(node.id())) {
-                visible.add(new ChapterLayout.Node(node.id(), node.requires(), quest.group(), quest.options().optional(), node.fixedX(), node.fixedY()));
+                visible.add(new ChapterLayout.Node(node.id(), node.requires(), groupOf(quest, chapterId), quest.options().optional(), node.fixedX(), node.fixedY()));
             }
         }
-        Chapter chapter = quests.isEmpty() ? null : quests.getFirst().chapter().map(id -> ClientBook.current().chapters().get(id)).orElse(null);
+        Chapter chapter = chapterId == null ? null : ClientBook.current().chapters().get(chapterId);
         List<String> groupOrder = chapter == null ? List.of() : chapter.groups().stream().map(Chapter.Group::id).toList();
         Map<String, Placed> placed = legacyLayoutForTest
                 ? works.repka.rysquests.client.layout.LayeredLayout.compute(nodes.stream().filter(node -> !collapsed.hidden().contains(node.id())).toList(),
@@ -151,7 +182,7 @@ final class MapView implements BookView {
         viewY = y;
         viewW = w;
         viewH = h;
-        List<Quest> quests = screen.visibleQuests();
+        List<Quest> quests = withLinks(screen.visibleQuests());
         requestLayout(quests);
         ui.rect(x, y, w, h, ui.mapBg());
         ui.clip(x, y, w, h);
@@ -200,7 +231,7 @@ final class MapView implements BookView {
         if (selected != null && current.placed.containsKey(selected.id().toString())) {
             return selected;
         }
-        List<Quest> placed = quests.stream().filter(quest -> current.placed.containsKey(quest.id().toString())).toList();
+        List<Quest> placed = quests.stream().filter(quest -> current.placed.containsKey(quest.id().toString()) && !linked(quest)).toList();
         // With nothing left to do, the chapter opens at its first quest, where its main path starts.
         return placed.stream()
                 .filter(quest -> {
@@ -277,7 +308,7 @@ final class MapView implements BookView {
             int maxY = Integer.MIN_VALUE;
             for (Quest quest : quests) {
                 Placed placed = current.placed.get(quest.id().toString());
-                if (placed != null && quest.group().filter(group.id()::equals).isPresent()) {
+                if (placed != null && groupOf(quest, chapter.id()).filter(group.id()::equals).isPresent()) {
                     minX = Math.min(minX, placed.x());
                     minY = Math.min(minY, placed.y());
                     maxX = Math.max(maxX, placed.x() + NODE_W);
@@ -317,14 +348,14 @@ final class MapView implements BookView {
             if (to == null) {
                 continue;
             }
-            String group = quest.group().filter(frames::containsKey).orElse(null);
+            String group = groupOf(quest, BookState.chapter).filter(frames::containsKey).orElse(null);
             for (ResourceLocation dependency : quest.requires()) {
                 Placed from = current.placed.get(dependency.toString());
                 Quest source = byId.get(dependency);
                 if (from == null || source == null) {
                     continue;
                 }
-                int[] frame = group == null || source.group().filter(group::equals).isPresent() ? null : frames.get(group);
+                int[] frame = group == null || groupOf(source, BookState.chapter).filter(group::equals).isPresent() ? null : frames.get(group);
                 // A dependency from outside a group meets its frame once, instead of crossing the grid to every quest.
                 if (frame != null && frame[0] > from.x() + NODE_W) {
                     if (bundled.add(dependency + ">" + group)) {
@@ -338,11 +369,11 @@ final class MapView implements BookView {
     }
 
     private int bundleColor(Ui ui, List<Quest> quests, String group, ResourceLocation dependency) {
-        List<Quest> members = quests.stream().filter(quest -> quest.group().filter(group::equals).isPresent()).toList();
+        List<Quest> members = quests.stream().filter(quest -> groupOf(quest, BookState.chapter).filter(group::equals).isPresent()).toList();
         if (!focusPath.isEmpty() && !(focusPath.contains(dependency) && members.stream().anyMatch(quest -> focusPath.contains(quest.id())))) {
             return ui.c("panel.border");
         }
-        boolean dependencyDone = ClientProgress.get(dependency).completed();
+        boolean dependencyDone = ClientProgress.get(dependency).everDone();
         boolean allDone = members.stream().allMatch(quest -> ClientProgress.get(quest.id()).completed());
         if (dependencyDone && allDone) {
             return ui.c("slot.have.border");
@@ -373,7 +404,7 @@ final class MapView implements BookView {
         if (!focusPath.isEmpty() && !(focusPath.contains(target.id()) && focusPath.contains(dependency))) {
             return ui.c("panel.border");
         }
-        boolean dependencyDone = ClientProgress.get(dependency).completed();
+        boolean dependencyDone = ClientProgress.get(dependency).everDone();
         boolean targetDone = ClientProgress.get(target.id()).completed();
         if (dependencyDone && targetDone) {
             return ui.c("slot.have.border");
@@ -459,6 +490,13 @@ final class MapView implements BookView {
     private static void subline(Ui ui, Quest quest, QuestStatus status, Layout current, float x, float cy, float maxW, float opacity) {
         int folded = current.collapsed.foldedInto().getOrDefault(quest.id().toString(), 0);
         float px = 10.5f;
+        if (linked(quest)) {
+            // A link names the chapter the quest lives in; a click opens it there, and Backspace comes back.
+            String chapter = Ui.roman(BookScreen.chapterNumber(quest.chapter().orElse(null)));
+            String token = status == QuestStatus.CLAIMED ? "state.ok" : status == QuestStatus.LOCKED ? "text.muted" : "accent";
+            ui.labelFit(Component.translatable("rysquests.map.linked", chapter).getString(), x, cy, maxW, px, Ui.REGULAR, Draw.alpha(ui.c(token), opacity));
+            return;
+        }
         if (status == QuestStatus.CLAIMED || folded > 0) {
             int color = Draw.alpha(ui.c("state.ok"), opacity);
             ui.check(x, cy - 5, 10, color);
@@ -469,8 +507,7 @@ final class MapView implements BookView {
         if (status == QuestStatus.LOCKED) {
             int color = Draw.alpha(ui.c("text.muted"), opacity);
             ui.lock(x, cy - 5, 10, Draw.alpha(ui.mix("accent", "text.dim", 0.35f), opacity));
-            long missing = quest.requires().stream().filter(id -> !ClientProgress.get(id).completed()).count();
-            ui.labelFit(Component.translatable("rysquests.map.requires", missing).getString(), x + 13, cy, maxW - 13, px, Ui.REGULAR, color);
+            ui.labelFit(lockReason(quest), x + 13, cy, maxW - 13, px, Ui.REGULAR, color);
             return;
         }
         if (status == QuestStatus.COMPLETED) {
@@ -481,6 +518,24 @@ final class MapView implements BookView {
                 ? Component.translatable("rysquests.map.page").getString()
                 : Component.translatable("rysquests.map.available", tasksDone(quest), quest.tasks().size()).getString();
         ui.labelFit(text, x, cy, maxW, px, Ui.REGULAR, Draw.alpha(ui.c("text.muted"), opacity));
+    }
+
+    /** Why a quest on the map is closed, in words: what is still missing, a cooldown, or a stage. */
+    private static String lockReason(Quest quest) {
+        QuestProgress own = ClientProgress.get(quest.id());
+        if (own.coolingDown()) {
+            long minutes = Math.max(1, (own.nextAt() - System.currentTimeMillis() + 59_999) / 60_000);
+            return Component.translatable("rysquests.map.cooldown", minutes).getString();
+        }
+        long done = quest.requires().stream().filter(id -> ClientProgress.get(id).everDone()).count();
+        long needed = switch (quest.requiresMode()) {
+            case works.repka.rysquests.data.RequiresMode.AtLeast atLeast -> Math.min(atLeast.n(), quest.requires().size()) - done;
+            case works.repka.rysquests.data.RequiresMode.Named named -> named == works.repka.rysquests.data.RequiresMode.ANY ? (done > 0 ? 0 : 1) : quest.requires().size() - done;
+        };
+        if (needed <= 0) {
+            return Component.translatable("rysquests.map.needs_stage").getString();
+        }
+        return Component.translatable("rysquests.map.requires", needed).getString();
     }
 
     private static int tasksDone(Quest quest) {

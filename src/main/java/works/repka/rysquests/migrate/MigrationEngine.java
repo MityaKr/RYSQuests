@@ -88,6 +88,6 @@ public final class MigrationEngine {
         }
         Set<Integer> claimed = new TreeSet<>(a.claimed());
         claimed.addAll(b.claimed());
-        return new QuestProgress(tasks, Math.max(a.completedAt(), b.completedAt()), List.copyOf(claimed), Math.max(a.nextAt(), b.nextAt()));
+        return new QuestProgress(tasks, Math.max(a.completedAt(), b.completedAt()), List.copyOf(claimed), Math.max(a.nextAt(), b.nextAt()), Math.max(a.times(), b.times()));
     }
 }

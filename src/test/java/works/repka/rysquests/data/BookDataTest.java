@@ -114,6 +114,32 @@ class BookDataTest {
     }
 
     @Test
+    void repeatableQuestsThatFinishByThemselvesAreReported() {
+        Map<ResourceLocation, JsonElement> files = singleChapter();
+        files.put(questFile("stat"), quest("{\"id\":\"t:stat\",\"title\":\"S\",\"repeatable\":{\"cooldown_minutes\":0},"
+                + "\"tasks\":[{\"type\":\"rysquests:stat\",\"stat\":\"minecraft:custom\",\"target\":\"minecraft:jump\"}]}"));
+        files.put(questFile("pay"), quest("{\"id\":\"t:pay\",\"title\":\"P\",\"repeatable\":{\"cooldown_minutes\":0},"
+                + "\"tasks\":[{\"type\":\"rysquests:xp\",\"levels\":2,\"consume\":true}]}"));
+
+        BookValidator.Result result = validate(files);
+
+        assertEquals(1, result.report().issues().stream().filter(issue -> issue.code().equals("repeatable_passive")).count());
+        assertEquals(2, result.book().quests().size());
+    }
+
+    @Test
+    void aCraftedFluidAndALinkToNothingAreReported() {
+        Map<ResourceLocation, JsonElement> files = new HashMap<>();
+        files.put(questFile("_chapter"), quest("{\"id\":\"t:c\",\"title\":\"C\",\"links\":[\"t:gone\"]}"));
+        files.put(questFile("fluid"), quest("{\"id\":\"t:fluid\",\"title\":\"F\",\"tasks\":[{\"type\":\"rysquests:fluid\",\"fluid\":\"minecraft:water\",\"amount\":1000,\"mode\":\"craft\"}]}"));
+
+        BookValidator.Result result = validate(files);
+
+        assertTrue(codes(result).containsAll(Set.of("craft_fluid", "unknown_link")));
+        assertTrue(result.book().quests().isEmpty());
+    }
+
+    @Test
     void oneBadFileDoesNotStopTheOthers() {
         Map<ResourceLocation, JsonElement> files = singleChapter();
         files.put(questFile("good"), quest("{\"id\":\"t:good\",\"title\":\"G\"}"));

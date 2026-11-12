@@ -17,9 +17,16 @@ public record Chapter(
         List<Group> groups,
         List<ResourceLocation> requires,
         boolean hidden,
-        String section) {
+        String section,
+        List<ResourceLocation> links) {
     /** The section of the book that holds the progression chapters, and the only one shown so far. */
     public static final String STORY = "story";
+
+    /** A chapter without quests of other chapters shown on its map. */
+    public Chapter(ResourceLocation id, String title, Optional<String> subtitle, Optional<ResourceLocation> icon, Optional<Integer> epoch,
+            Optional<ViewMode> defaultView, List<Group> groups, List<ResourceLocation> requires, boolean hidden, String section) {
+        this(id, title, subtitle, icon, epoch, defaultView, groups, requires, hidden, section, List.of());
+    }
 
     public record Group(String id, String title) {
         static final Codec<Group> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -38,7 +45,9 @@ public record Chapter(
             Group.CODEC.listOf().optionalFieldOf("groups", List.of()).forGetter(Chapter::groups),
             ResourceLocation.CODEC.listOf().optionalFieldOf("requires", List.of()).forGetter(Chapter::requires),
             Codec.BOOL.optionalFieldOf("hidden", false).forGetter(Chapter::hidden),
-            Codec.STRING.optionalFieldOf("section", STORY).forGetter(Chapter::section)
+            Codec.STRING.optionalFieldOf("section", STORY).forGetter(Chapter::section),
+            // Quests of other chapters shown on this chapter's map, as FTB Quests' quest links (ADR-46).
+            ResourceLocation.CODEC.listOf().optionalFieldOf("links", List.of()).forGetter(Chapter::links)
     ).apply(instance, Chapter::new));
 
     public boolean isStory() {

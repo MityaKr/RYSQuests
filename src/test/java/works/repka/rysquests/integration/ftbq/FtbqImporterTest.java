@@ -174,6 +174,68 @@ class FtbqImporterTest {
         assertEquals("Привет", result.lang().get("ru_ru").get("quest.pack.b01_first.hello_world.title"));
     }
 
+    /** A quest link repeats a quest of another chapter: it becomes the chapter's list of links, and the book still loads. */
+    @Test
+    void questLinksBecomeChapterLinks() {
+        String linking = """
+                {
+                \tfilename: "b02_second"
+                \tgroup: ""
+                \tid: "5D4F8E0A29BDC611"
+                \torder_index: 1
+                \tquest_links: [
+                \t\t{ id: "1A2B3C4D5E6F7081", linked_quest: "73F8F7A274272D6D", x: 1.0d, y: 0.0d }
+                \t\t{ id: "1A2B3C4D5E6F7082", linked_quest: "73F8F7A274272D6D", x: 3.0d, y: 0.0d }
+                \t\t{ id: "1A2B3C4D5E6F7083", linked_quest: "0000000000000000", x: 2.0d, y: 0.0d }
+                \t]
+                \tquests: [ { id: "6E5F7A8B9C0D1E2F", tasks: [{ id: "7BA02683DFEFB03B", type: "checkmark" }], x: 0.0d } ]
+                }
+                """;
+        Source source = fixture();
+        Source withLinks = new Source(source.data(), source.groups(), List.of(parse(CHAPTER), parse(linking)), source.tables(), source.lang());
+
+        Result result = FtbqImporter.convert(withLinks, "pack", Ids.empty());
+
+        JsonObject chapter = result.files().get("data/pack/rysquests/chapters/b02_second/_chapter.json");
+        assertEquals(1, chapter.getAsJsonArray("links").size(), "the same quest linked twice counts once, a link to nothing is skipped");
+        assertEquals("pack:b01_first/hello_world", chapter.getAsJsonArray("links").get(0).getAsString());
+        assertTrue(result.notes().stream().anyMatch(note -> note.contains("0000000000000000")));
+        BookValidator.Result loaded = load(result);
+        assertEquals(List.of(), loaded.report().issues());
+        assertEquals(List.of(ResourceLocation.parse("pack:b01_first/hello_world")), loaded.book().chapters().get(ResourceLocation.parse("pack:b02_second")).links());
+    }
+
+    @Test
+    void experienceCraftingAndUnconvertibleQuests() {
+        String chapter = """
+                {
+                \tfilename: "b03_third"
+                \tgroup: ""
+                \tid: "7D4F8E0A29BDC611"
+                \torder_index: 2
+                \tquests: [
+                \t\t{ id: "6E5F7A8B9C0D1E30", tasks: [{ id: "7BA02683DFEFB040", type: "xp", value: 30L, points: true }], x: 0.0d }
+                \t\t{ id: "6E5F7A8B9C0D1E31", tasks: [{ id: "7BA02683DFEFB041", type: "item", only_from_crafting: true, item: { count: 1, id: "minecraft:torch" }, count: 8L }], x: 1.0d }
+                \t\t{ id: "6E5F7A8B9C0D1E32", rewards: [{ id: "47AD93D250742570", type: "xp", xp: 10 }], tasks: [{ id: "7BA02683DFEFB042", type: "observation" }], x: 2.0d }
+                \t]
+                }
+                """;
+        Source source = fixture();
+        Result result = FtbqImporter.convert(new Source(source.data(), source.groups(), List.of(parse(chapter)), source.tables(), source.lang()), "pack", Ids.empty());
+
+        List<JsonObject> quests = result.files().entrySet().stream().filter(entry -> entry.getKey().contains("b03_third/") && !entry.getKey().endsWith("_chapter.json"))
+                .sorted(java.util.Map.Entry.comparingByKey()).map(java.util.Map.Entry::getValue).toList();
+        JsonObject xp = quests.stream().map(q -> q.getAsJsonArray("tasks").get(0).getAsJsonObject()).filter(t -> t.get("type").getAsString().equals("rysquests:xp")).findFirst().orElseThrow();
+        assertEquals(30, xp.get("points").getAsInt());
+        assertTrue(xp.get("consume").getAsBoolean());
+        assertTrue(quests.stream().map(q -> q.getAsJsonArray("tasks").get(0).getAsJsonObject())
+                .anyMatch(t -> t.has("mode") && t.get("mode").getAsString().equals("craft")));
+        JsonObject placeholder = quests.stream().map(q -> q.getAsJsonArray("tasks").get(0).getAsJsonObject())
+                .filter(t -> t.get("type").getAsString().equals("rysquests:script")).findFirst().orElseThrow();
+        assertEquals("rysquests:unconverted", placeholder.get("script").getAsString());
+        assertEquals(List.of(), load(result).report().issues());
+    }
+
     private static void stripComponents(JsonElement element) {
         if (element.isJsonObject()) {
             element.getAsJsonObject().remove("components");

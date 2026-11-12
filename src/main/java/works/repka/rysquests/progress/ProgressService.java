@@ -78,6 +78,7 @@ import works.repka.rysquests.task.ItemRef;
 import works.repka.rysquests.task.ItemTask;
 import works.repka.rysquests.task.KillTask;
 import works.repka.rysquests.task.StatTask;
+import works.repka.rysquests.task.XpTask;
 import works.repka.rysquests.task.VisitTask;
 
 /** Server-side quest rules. Runs on the main thread only. */
@@ -88,7 +89,11 @@ public final class ProgressService {
     private static final ResourceLocation FEED_SOURCE = ResourceLocation.fromNamespaceAndPath("rysquests", "quests");
 
     /** Open, unlocked quests per team, so that polling does not walk the whole book. */
-    private static final Map<UUID, List<Quest>> ACTIVE = new HashMap<>();
+    /** The open quests of each team, and when the first cooldown among the rest runs out and the list is due again. */
+    private static final Map<UUID, Active> ACTIVE = new HashMap<>();
+
+    private record Active(List<Quest> quests, long expires) {
+    }
     private static final Map<UUID, Integer> INVENTORY_HASH = new HashMap<>();
     private static final Map<UUID, Set<ResourceLocation>> STAGE_LOCKS = new HashMap<>();
     private static final Map<UUID, Set<ResourceLocation>> GUIDE_LOCKS = new HashMap<>();
@@ -137,7 +142,7 @@ public final class ProgressService {
         if (phase % POLL_INTERVAL != 0) {
             return;
         }
-        List<Quest> active = active(player);
+        List<Quest> active = openFor(player);
         int hash = inventoryHash(player.getInventory());
         boolean inventoryChanged = !Objects.equals(INVENTORY_HASH.put(player.getUUID(), hash), hash);
         Map<ResourceLocation, QuestProgress> changes = new HashMap<>();
@@ -191,20 +196,50 @@ public final class ProgressService {
         return stages;
     }
 
+    /** The team's open quests that this player's own stages allow. */
+    private static List<Quest> openFor(ServerPlayer player) {
+        List<Quest> open = active(player);
+        List<Quest> allowed = new ArrayList<>(open.size());
+        for (Quest quest : open) {
+            if (stageAllows(player, quest)) {
+                allowed.add(quest);
+            }
+        }
+        return allowed;
+    }
+
     private static List<Quest> active(ServerPlayer player) {
         if (activeBook != book()) {
             activeBook = book();
             invalidateAll();
         }
-        return ACTIVE.computeIfAbsent(team(player), key -> {
-            Function<ResourceLocation, QuestProgress> progress = lookup(player);
-            return activeBook.quests().values().stream()
-                    .filter(quest -> {
-                        QuestProgress own = progress.apply(quest.id());
-                        return !own.completed() && !own.coolingDown() && QuestLogic.isUnlocked(quest, progress) && stageAllows(player, quest);
-                    })
-                    .toList();
-        });
+        UUID team = team(player);
+        long now = System.currentTimeMillis();
+        Active cached = ACTIVE.get(team);
+        if (cached != null && now < cached.expires()) {
+            return cached.quests();
+        }
+        Function<ResourceLocation, QuestProgress> progress = lookup(player);
+        List<Quest> open = new ArrayList<>();
+        long expires = Long.MAX_VALUE;
+        for (Quest quest : activeBook.quests().values()) {
+            QuestProgress own = progress.apply(quest.id());
+            if (own.completed()) {
+                continue;
+            }
+            if (own.coolingDown()) {
+                // A repeatable quest comes back by itself: the list is rebuilt when its cooldown runs out.
+                expires = Math.min(expires, own.nextAt());
+            } else if (QuestLogic.isUnlocked(quest, progress)) {
+                // Stages are each player's own: the shared list leaves them out, openFor applies the asking player's.
+                open.add(quest);
+            }
+        }
+        List<Quest> quests = List.copyOf(open);
+        ACTIVE.put(team, new Active(quests, expires));
+        // A quest that has just opened or come back reads the inventory at once, not after the next change in it.
+        player.server.getPlayerList().getPlayers().stream().filter(member -> team(member).equals(team)).forEach(member -> INVENTORY_HASH.remove(member.getUUID()));
+        return quests;
     }
 
     private static Optional<QuestProgress> poll(ServerPlayer player, Quest quest, boolean inventoryChanged) {
@@ -227,8 +262,9 @@ public final class ProgressService {
 
     private static int pollTask(ServerPlayer player, TaskDef task, int current, boolean inventoryChanged) {
         return switch (task) {
-            case ItemTask item when item.mode() != ItemTask.Mode.CONSUME && inventoryChanged -> Math.max(current, countIn(player.getInventory(), item));
-            case FluidTask fluid when fluid.mode() != ItemTask.Mode.CONSUME && inventoryChanged -> Math.max(current, fluidIn(player.getInventory(), fluid));
+            case ItemTask item when item.mode() != ItemTask.Mode.CONSUME && item.mode() != ItemTask.Mode.CRAFT && inventoryChanged -> Math.max(current, countIn(player.getInventory(), item));
+            case FluidTask fluid when fluid.mode() != ItemTask.Mode.CONSUME && fluid.mode() != ItemTask.Mode.CRAFT && inventoryChanged -> Math.max(current, fluidIn(player.getInventory(), fluid));
+            case XpTask xp when !xp.consume() -> Math.max(current, xp.have(player));
             case StatTask stat -> Math.max(current, readStat(player, stat));
             case AdvancementTask advancement -> isEarned(player, advancement) ? 1 : current;
             case VisitTask visit -> isVisiting(player, visit) ? 1 : current;
@@ -243,7 +279,7 @@ public final class ProgressService {
             done &= values.get(i) >= quest.tasks().get(i).target();
         }
         long completedAt = done ? System.currentTimeMillis() : before.completedAt();
-        return new QuestProgress(List.copyOf(values), completedAt, before.claimed(), before.nextAt());
+        return new QuestProgress(List.copyOf(values), completedAt, before.claimed(), before.nextAt(), before.times());
     }
 
     private static void apply(ServerPlayer player, Map<ResourceLocation, QuestProgress> changes) {
@@ -256,19 +292,29 @@ public final class ProgressService {
                 .filter(entry -> entry.getValue().completed() && !store.get(team, entry.getKey()).completed())
                 .map(Map.Entry::getKey)
                 .toList();
+        // Task values move every poll; only a quest that finishes or starts a new round changes which quests are open.
+        boolean reopens = changes.entrySet().stream().anyMatch(entry -> {
+            QuestProgress old = store.get(team, entry.getKey());
+            return old.completed() != entry.getValue().completed() || old.nextAt() != entry.getValue().nextAt();
+        });
         store.put(team, changes);
-        ACTIVE.remove(team);
+        if (reopens) {
+            ACTIVE.remove(team);
+        }
         newlyCompleted.forEach(id -> {
             NeoForge.EVENT_BUS.post(new QuestCompletedEvent(team, id, player));
             postToTeam(team, id, player);
         });
+        boolean tierReached = newlyCompleted.stream().anyMatch(Achievement::isTierQuest);
+        if (tierReached) {
+            AchievementService.invalidateRarity();
+        }
         for (ServerPlayer member : player.server.getPlayerList().getPlayers()) {
             if (team(member).equals(team)) {
                 Map<ResourceLocation, QuestProgress> view = new HashMap<>();
                 changes.forEach((id, progress) -> view.put(id, viewFor(member, id, progress)));
                 PacketDistributor.sendToPlayer(member, new ProgressPayload(false, view));
-                if (newlyCompleted.stream().anyMatch(Achievement::isTierQuest)) {
-                    AchievementService.invalidateRarity();
+                if (tierReached) {
                     claimAchievements(member);
                     AchievementService.send(member);
                 }
@@ -313,25 +359,7 @@ public final class ProgressService {
     }
 
     private static boolean matches(ItemTask task, ItemStack stack) {
-        if (stack.isEmpty() || task.itemRefs().stream().noneMatch(ref -> matchesRef(ref, stack))) {
-            return false;
-        }
-        return task.nbt().flatMap(ItemTask.ComponentMatch::components).map(patch -> hasComponents(stack, patch)).orElse(true);
-    }
-
-    private static boolean matchesRef(ItemRef ref, ItemStack stack) {
-        return ref.tag()
-                ? stack.is(TagKey.create(Registries.ITEM, ref.id()))
-                : BuiltInRegistries.ITEM.getKey(stack.getItem()).equals(ref.id());
-    }
-
-    private static boolean hasComponents(ItemStack stack, DataComponentPatch patch) {
-        for (Map.Entry<DataComponentType<?>, Optional<?>> entry : patch.entrySet()) {
-            if (entry.getValue().isPresent() && !entry.getValue().get().equals(stack.get(entry.getKey()))) {
-                return false;
-            }
-        }
-        return true;
+        return task.matches(stack);
     }
 
     private static int countIn(Inventory inventory, ItemTask task) {
@@ -346,16 +374,7 @@ public final class ProgressService {
     }
 
     private static int fluidIn(Inventory inventory, FluidTask task) {
-        Fluid fluid = BuiltInRegistries.FLUID.get(task.fluid());
-        int total = 0;
-        for (int i = 0; i < inventory.getContainerSize(); i++) {
-            IFluidHandlerItem handler = inventory.getItem(i).getCapability(Capabilities.FluidHandler.ITEM);
-            if (handler != null) {
-                FluidStack contained = handler.drain(new FluidStack(fluid, Integer.MAX_VALUE), IFluidHandler.FluidAction.SIMULATE);
-                total += contained.getAmount();
-            }
-        }
-        return total;
+        return task.amountIn(inventory);
     }
 
     private static int takeFluid(Inventory inventory, FluidTask task, int wanted) {
@@ -420,10 +439,34 @@ public final class ProgressService {
         return target != null && level.structureManager().getStructureWithPieceAt(player.blockPosition(), target).isValid();
     }
 
+    /** Crafted or smelted items count towards open tasks in craft mode. */
+    public static void onCrafted(ServerPlayer player, ItemStack stack) {
+        if (stack.isEmpty()) {
+            return;
+        }
+        ProgressStore store = ProgressStore.get(player.server);
+        Map<ResourceLocation, QuestProgress> changes = new HashMap<>();
+        for (Quest quest : openFor(player)) {
+            QuestProgress before = store.get(team(player), quest.id());
+            List<Integer> values = before.taskValues(quest.tasks().size());
+            boolean changed = false;
+            for (int i = 0; i < quest.tasks().size(); i++) {
+                if (quest.tasks().get(i) instanceof ItemTask task && task.mode() == ItemTask.Mode.CRAFT && values.get(i) < task.count() && matches(task, stack)) {
+                    values.set(i, Math.min(task.count(), values.get(i) + stack.getCount()));
+                    changed = true;
+                }
+            }
+            if (changed) {
+                changes.put(quest.id(), finish(quest, before, values));
+            }
+        }
+        apply(player, changes);
+    }
+
     public static void onKill(ServerPlayer player, ResourceLocation entity) {
         ProgressStore store = ProgressStore.get(player.server);
         Map<ResourceLocation, QuestProgress> changes = new HashMap<>();
-        for (Quest quest : active(player)) {
+        for (Quest quest : openFor(player)) {
             QuestProgress before = store.get(team(player), quest.id());
             List<Integer> values = before.taskValues(quest.tasks().size());
             boolean changed = false;
@@ -444,7 +487,23 @@ public final class ProgressService {
 
     public static void handle(ServerPlayer player, QuestActionPayload payload) {
         if (payload.action() == QuestActionPayload.SUBMIT_ALL) {
-            List.copyOf(active(player)).stream().filter(open -> canSubmitFully(player, open)).forEach(open -> submit(player, open));
+            if (!TeamsApi.get().can(player.getUUID(), "submit_tasks")) {
+                player.displayClientMessage(Component.translatable("rysquests.submit.no_right"), true);
+                return;
+            }
+            // Each quest is checked right before it is paid, against what the ones before it left: none is paid by half.
+            int handed = 0;
+            for (Quest open : openFor(player)) {
+                if (canSubmitFully(player, open) && submit(player, open)) {
+                    handed++;
+                }
+            }
+            // The key works anywhere in the world, so it says what it did, or that there was nothing to hand in.
+            player.displayClientMessage(handed == 0 ? Component.translatable("rysquests.submit.nothing")
+                    : Component.translatable("rysquests.submit.done", handed), true);
+            if (handed > 0) {
+                Feedback.submit(player);
+            }
             return;
         }
         if (payload.action() == QuestActionPayload.CLAIM_ALL) {
@@ -514,6 +573,11 @@ public final class ProgressService {
                     return false;
                 }
                 any = true;
+            } else if (quest.tasks().get(i) instanceof XpTask xp && xp.consume()) {
+                if (xp.have(player) < missing) {
+                    return false;
+                }
+                any = true;
             }
         }
         return any;
@@ -537,11 +601,28 @@ public final class ProgressService {
     private static void togglePin(ServerPlayer player, Quest quest) {
         ProgressStore store = ProgressStore.get(player.server);
         List<ResourceLocation> pinned = new ArrayList<>(store.pinned(player.getUUID()));
-        if (!pinned.remove(quest.id()) && pinned.size() + store.pinnedWays(player.getUUID()).size() < book().meta().hud().maxPinned()) {
-            pinned.add(quest.id());
+        // A finished quest that is not repeatable never shows on the board again: it gives its place back for good.
+        pinned.removeIf(id -> !id.equals(quest.id()) && (book().quests().get(id) == null
+                || store.get(team(player), id).completed() && book().quests().get(id).options().repeatable().isEmpty()));
+        if (!pinned.remove(quest.id())) {
+            if (openPinned(player, pinned) + store.pinnedWays(player.getUUID()).size() < book().meta().hud().maxPinned()) {
+                pinned.add(quest.id());
+            } else {
+                player.displayClientMessage(Component.translatable("rysquests.pin.limit", book().meta().hud().maxPinned()), true);
+            }
         }
         store.setPinned(player.getUUID(), pinned);
         PacketDistributor.sendToPlayer(player, new PinnedPayload(List.copyOf(pinned), store.pinnedWays(player.getUUID())));
+    }
+
+    /** Pinned quests that still show on the board: a finished one leaves the board and frees its place. */
+    private static int openPinned(ServerPlayer player, List<ResourceLocation> pinned) {
+        ProgressStore store = ProgressStore.get(player.server);
+        return (int) pinned.stream().filter(id -> {
+            Quest quest = book().quests().get(id);
+            // A repeatable quest comes back to the board after its round, so it keeps its place; a removed one never does.
+            return quest != null && (quest.options().repeatable().isPresent() || !store.get(team(player), id).completed());
+        }).count();
     }
 
     /** Quests and ways share the player's limit of pinned cards. */
@@ -551,8 +632,12 @@ public final class ProgressService {
         }
         ProgressStore store = ProgressStore.get(player.server);
         List<String> ways = new ArrayList<>(store.pinnedWays(player.getUUID()));
-        if (!ways.remove(key) && ways.size() + store.pinned(player.getUUID()).size() < book().meta().hud().maxPinned()) {
-            ways.add(key);
+        if (!ways.remove(key)) {
+            if (ways.size() + openPinned(player, store.pinned(player.getUUID())) < book().meta().hud().maxPinned()) {
+                ways.add(key);
+            } else {
+                player.displayClientMessage(Component.translatable("rysquests.pin.limit", book().meta().hud().maxPinned()), true);
+            }
         }
         store.setPinnedWays(player.getUUID(), ways);
         PacketDistributor.sendToPlayer(player, new PinnedPayload(store.pinned(player.getUUID()), List.copyOf(ways)));
@@ -563,9 +648,10 @@ public final class ProgressService {
         return (status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS) && stageAllows(player, quest);
     }
 
-    private static void submit(ServerPlayer player, Quest quest) {
+    /** @return whether anything was handed in */
+    private static boolean submit(ServerPlayer player, Quest quest) {
         if (!isOpen(player, quest) || !TeamsApi.get().can(player.getUUID(), "submit_tasks")) {
-            return;
+            return false;
         }
         QuestProgress before = ProgressStore.get(player.server).get(team(player), quest.id());
         List<Integer> values = before.taskValues(quest.tasks().size());
@@ -577,6 +663,16 @@ public final class ProgressService {
                 taken = take(player.getInventory(), task, missing);
             } else if (missing > 0 && quest.tasks().get(i) instanceof FluidTask task && task.mode() == ItemTask.Mode.CONSUME) {
                 taken = takeFluid(player.getInventory(), task, missing);
+            } else if (missing > 0 && quest.tasks().get(i) instanceof XpTask xp && xp.consume()) {
+                int wanted = Math.min(missing, xp.have(player));
+                int had = xp.have(player);
+                if (wanted > 0 && xp.points()) {
+                    player.giveExperiencePoints(-wanted);
+                } else if (wanted > 0) {
+                    player.giveExperienceLevels(-wanted);
+                }
+                // Other mods may cancel or scale the change: the task gets what actually left the player.
+                taken = Math.max(0, Math.min(wanted, had - xp.have(player)));
             }
             if (taken > 0) {
                 values.set(i, values.get(i) + taken);
@@ -586,6 +682,7 @@ public final class ProgressService {
         if (changed) {
             apply(player, Map.of(quest.id(), finish(quest, before, values)));
         }
+        return changed;
     }
 
     private static int take(Inventory inventory, ItemTask task, int wanted) {
@@ -632,8 +729,17 @@ public final class ProgressService {
         boolean allClaimed = claimed.size() >= quest.rewards().size();
         if (allClaimed && quest.options().repeatable().isPresent()) {
             long cooldown = quest.options().repeatable().get().cooldownMinutes() * MINUTE_MS;
-            store.put(player.getUUID(), team.equals(player.getUUID()) ? Map.of() : Map.of(quest.id(), QuestProgress.EMPTY));
-            apply(player, Map.of(quest.id(), new QuestProgress(List.of(), 0, List.of(), cooldown > 0 ? System.currentTimeMillis() + cooldown : 0)));
+            int times = store.get(team, quest.id()).times() + 1;
+            // A new round starts clean for everyone in the team, so that no one carries this round's claims into the next.
+            // The rows are the store's own, so this holds for a team mod, our own teams (whose id is the owner's) and
+            // server-wide progress alike, whoever of them claims.
+            for (UUID member : TeamRewards.rowsToReset(store.allProgress().keySet(), team, row -> store.teamOf(row, book().meta().progressMode()))) {
+                store.put(member, Map.of(quest.id(), QuestProgress.EMPTY));
+            }
+            if (!team.equals(player.getUUID())) {
+                store.put(player.getUUID(), Map.of(quest.id(), QuestProgress.EMPTY));
+            }
+            apply(player, Map.of(quest.id(), new QuestProgress(List.of(), 0, List.of(), cooldown > 0 ? System.currentTimeMillis() + cooldown : 0, times)));
             return given;
         }
         if (team.equals(player.getUUID())) {

@@ -80,9 +80,25 @@ final class Guides {
         return referencing(guide.id()).stream().anyMatch(Guides::active) ? State.NEEDED : State.OPEN;
     }
 
+    /** The badge on the rail; it walks every guide and page, so it is kept until progress or the book changes. */
     int neededCount() {
-        return (int) all().stream().filter(guide -> state(guide) == State.NEEDED).count();
+        long now = System.currentTimeMillis();
+        // A cooldown that runs out changes a quest's state with no packet, so the count also ages out.
+        if (neededVersion != works.repka.rysquests.client.ClientProgress.version() || neededBook != ClientBook.current() || now - neededAt > NEEDED_REFRESH_MS) {
+            neededAt = now;
+            neededVersion = works.repka.rysquests.client.ClientProgress.version();
+            neededBook = ClientBook.current();
+            needed = (int) all().stream().filter(guide -> state(guide) == State.NEEDED).count();
+        }
+        return needed;
     }
+
+    private int needed;
+    private long neededAt;
+    private static final long NEEDED_REFRESH_MS = 1000;
+    private int neededVersion = -1;
+    @Nullable
+    private Object neededBook;
 
     /** The page for the player's quest: a pinned quest first, then any open one. */
     @Nullable

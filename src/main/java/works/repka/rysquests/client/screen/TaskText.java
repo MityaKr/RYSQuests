@@ -25,6 +25,9 @@ public final class TaskText {
     }
 
     public static ItemStack icon(TaskDef task) {
+        if (task instanceof works.repka.rysquests.task.XpTask) {
+            return new ItemStack(net.minecraft.world.item.Items.EXPERIENCE_BOTTLE);
+        }
         if (!(task instanceof ItemTask item) || item.itemRefs().isEmpty()) {
             return ItemStack.EMPTY;
         }
@@ -38,12 +41,30 @@ public final class TaskText {
                 .orElse(ItemStack.EMPTY);
     }
 
+    private static final java.util.Map<TaskDef, String> NAMES = new java.util.concurrent.ConcurrentHashMap<>();
+    private static Object namesBook;
+    private static String namesLanguage;
+
+    /** {@link #describe} as a string, kept per book and language: the board and the card ask for it every frame. */
+    public static String name(TaskDef task) {
+        Object book = works.repka.rysquests.client.ClientBook.current();
+        String language = net.minecraft.client.Minecraft.getInstance().getLanguageManager().getSelected();
+        if (book != namesBook || !language.equals(namesLanguage)) {
+            NAMES.clear();
+            namesBook = book;
+            namesLanguage = language;
+        }
+        return NAMES.computeIfAbsent(task, key -> describe(key).getString());
+    }
+
     public static Component describe(TaskDef task) {
         if (task.title().isPresent()) {
             return Component.translatable(task.title().get());
         }
         return switch (task) {
-            case ItemTask item -> icon(item).isEmpty() ? Component.literal(item.itemRefs().getFirst().toString()) : icon(item).getHoverName();
+            case ItemTask item when item.mode() == ItemTask.Mode.CRAFT -> Component.translatable("rysquests.task.craft", itemName(item));
+            case ItemTask item -> itemName(item);
+            case works.repka.rysquests.task.XpTask xp -> Component.translatable(xp.points() ? "rysquests.task.xp_points" : "rysquests.task.xp_levels", xp.amount());
             case KillTask kill -> Component.translatable("rysquests.task.kill", BuiltInRegistries.ENTITY_TYPE.get(kill.entity()).getDescription());
             case StatTask stat -> Component.translatable("rysquests.task.stat", statName(stat));
             case VisitTask visit -> Component.translatable("rysquests.task.visit", visit.structure().map(ItemRef::toString)
@@ -55,6 +76,10 @@ public final class TaskText {
             case AdvancementTask advancement -> Component.translatable("rysquests.task.advancement", advancement.advancement().toString());
             default -> Component.translatable("rysquests.task.checkbox");
         };
+    }
+
+    private static Component itemName(ItemTask item) {
+        return icon(item).isEmpty() ? Component.literal(item.itemRefs().getFirst().toString()) : icon(item).getHoverName();
     }
 
     private static Component statName(StatTask stat) {

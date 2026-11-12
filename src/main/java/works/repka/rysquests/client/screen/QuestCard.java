@@ -41,7 +41,7 @@ final class QuestCard {
     // --- shared with the flow ---
 
     static String taskName(TaskDef task) {
-        String name = TaskText.describe(task).getString();
+        String name = TaskText.name(task);
         return task instanceof ItemTask && task.target() > 1 ? name + " ×" + Numbers.compact(task.target()) : name;
     }
 
@@ -260,6 +260,41 @@ final class QuestCard {
         return stack;
     }
 
+    /** Whether the task takes something with the submit button: items, fluid or experience. */
+    static boolean takes(TaskDef task) {
+        return task instanceof ItemTask item && item.mode() == ItemTask.Mode.CONSUME
+                || task instanceof works.repka.rysquests.task.FluidTask fluid && fluid.mode() == ItemTask.Mode.CONSUME
+                || task instanceof works.repka.rysquests.task.XpTask xp && xp.consume();
+    }
+
+    /** How much of what the task takes the player has now; 0 for a task that takes nothing. */
+    static int canGive(TaskDef task) {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        return switch (task) {
+            case ItemTask item when item.mode() == ItemTask.Mode.CONSUME -> BookScreen.held(item);
+            case works.repka.rysquests.task.FluidTask fluid when fluid.mode() == ItemTask.Mode.CONSUME -> fluid.amountIn(player.getInventory());
+            case works.repka.rysquests.task.XpTask xp when xp.consume() -> xp.have(player);
+            default -> 0;
+        };
+    }
+
+    /** Everything the quest takes is at hand in full: the server's own rule for handing in all that is ready. */
+    static boolean readyToSubmit(Quest quest, QuestProgress own) {
+        boolean any = false;
+        for (int i = 0; i < quest.tasks().size(); i++) {
+            TaskDef task = quest.tasks().get(i);
+            int missing = task.target() - own.task(i);
+            if (!takes(task) || missing <= 0) {
+                continue;
+            }
+            if (canGive(task) < missing) {
+                return false;
+            }
+            any = true;
+        }
+        return any;
+    }
+
     static void claim(Quest quest) {
         List<Integer> picks = new ArrayList<>();
         for (int i = 0; i < quest.rewards().size(); i++) {
@@ -389,8 +424,10 @@ final class QuestCard {
         parts.add(Component.translatable("rysquests.card.chapter", Ui.roman(BookScreen.chapterNumber(quest.chapter().orElse(null)))).getString());
         List<String> needs = new ArrayList<>();
         for (ResourceLocation id : quest.requires()) {
-            if (ClientBook.current().quests().containsKey(id)) {
-                needs.add("[[quest:" + id + "]]");
+            Quest required = ClientBook.current().quests().get(id);
+            if (required != null) {
+                // A hidden quest is not named before it opens, the same rule as on the map.
+                needs.add(BookScreen.shown(required) ? "[[quest:" + id + "]]" : "???");
             }
         }
         if (!needs.isEmpty()) {
@@ -421,7 +458,7 @@ final class QuestCard {
             ui.interactive(icon, x + 41, cy - 10, 20, 20);
             textX += 30;
         }
-        boolean submit = open && !done && task instanceof ItemTask item && item.mode() == ItemTask.Mode.CONSUME && BookScreen.held(item) > 0;
+        boolean submit = open && !done && takes(task) && canGive(task) > 0;
         String submitText = Component.translatable("rysquests.book.submit").getString();
         float buttonW = submit ? ui.buttonWidth(submitText, 11.5f, Ui.SEMIBOLD, 10) : 0;
         float textW = x + w - 11 - (submit ? buttonW + 8 : 0) - textX;
@@ -443,6 +480,9 @@ final class QuestCard {
         String count = Ui.ratio(value, task.target());
         if (done) {
             return item.mode() == ItemTask.Mode.CONSUME ? count + " · " + Component.translatable("rysquests.flow.submitted").getString() : count;
+        }
+        if (item.mode() == ItemTask.Mode.CRAFT) {
+            return Component.translatable("rysquests.card.crafted", count).getString();
         }
         int short_ = task.target() - value - BookScreen.held(item);
         return short_ > 0 ? Component.translatable("rysquests.card.short", count, short_).getString() : Component.translatable("rysquests.card.ready", count).getString();
@@ -483,16 +523,24 @@ final class QuestCard {
                         option++;
                     }
                 }
-                case RandomReward random -> random.of().forEach(candidate -> {
-                    if (candidate instanceof ItemReward item) {
-                        slots.add(new Slot(stack(item), item.count(), -1, -1));
+                case RandomReward random -> {
+                    boolean anyItem = false;
+                    for (RewardDef candidate : random.of()) {
+                        if (candidate instanceof ItemReward item) {
+                            slots.add(new Slot(stack(item), item.count(), -1, -1));
+                            anyItem = true;
+                        }
                     }
-                });
-                default -> {
+                    if (!anyItem) {
+                        words.add("+ " + Component.translatable("rysquests.reward.random_word").getString());
+                    }
                 }
+                case works.repka.rysquests.reward.LootTableReward loot -> words.add("+ " + Component.translatable("rysquests.reward.loot").getString());
+                // Commands and scripts say nothing about themselves; the player still sees that there is something to take.
+                default -> words.add("+ " + Component.translatable("rysquests.reward.special").getString());
             }
         }
-        if (slots.isEmpty() && experience.isEmpty() && words.isEmpty()) {
+        if (slots.isEmpty() && experience.isEmpty() && words.isEmpty() && status != QuestStatus.COMPLETED) {
             return y;
         }
         ui.caps(Component.translatable("rysquests.card.rewards").getString(), x, y + 7, ui.c("text.dim"));

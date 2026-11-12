@@ -270,16 +270,7 @@ final class ListView implements BookView {
     }
 
     private static boolean readyToSubmit(Quest quest, QuestProgress own) {
-        boolean any = false;
-        for (int i = 0; i < quest.tasks().size(); i++) {
-            if (quest.tasks().get(i) instanceof ItemTask item && item.mode() == ItemTask.Mode.CONSUME && own.task(i) < item.count()) {
-                if (BookScreen.held(item) < item.count() - own.task(i)) {
-                    return false;
-                }
-                any = true;
-            }
-        }
-        return any;
+        return QuestCard.readyToSubmit(quest, own);
     }
 
     private static void action(Ui ui, Quest quest, QuestStatus status, float right, float y) {
@@ -293,7 +284,16 @@ final class ListView implements BookView {
         if (status == QuestStatus.COMPLETED) {
             key = "rysquests.book.claim_short";
             style = Ui.Style.ACCENT;
-            click = () -> QuestCard.claim(quest);
+            // A choice is made on the quest itself: the list opens it instead of claiming an option nobody saw.
+            click = () -> {
+                if (QuestCard.hasUnclaimedChoice(quest)) {
+                    BookState.select(quest);
+                    BookState.view = ViewMode.FLOW;
+                    BookState.pickNudge = System.currentTimeMillis();
+                } else {
+                    QuestCard.claim(quest);
+                }
+            };
         } else if (status != QuestStatus.LOCKED && readyToSubmit(quest, own)) {
             key = "rysquests.book.submit";
             style = Ui.Style.ACCENT;

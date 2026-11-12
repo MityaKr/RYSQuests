@@ -76,7 +76,7 @@ public final class ShopService {
         if (offer.stage().filter(stage -> !Stages.has(player, stage)).isPresent()) {
             return "rysquests.shop.error.locked";
         }
-        if (offer.quest().filter(quest -> !store.get(store.teamOf(player.getUUID(), mode()), quest).completed()).isPresent()) {
+        if (offer.quest().filter(quest -> !store.get(store.teamOf(player.getUUID(), mode()), quest).everDone()).isPresent()) {
             return "rysquests.shop.error.locked";
         }
         LocalDate today = LocalDate.now();
@@ -128,11 +128,19 @@ public final class ShopService {
         return BuiltInRegistries.ITEM.get(ResourceLocation.parse(entry.id()));
     }
 
+    /**
+     * Whether a stack can pay: from the main inventory only, never armour or the offhand, and plain, so that a worn,
+     * damaged, enchanted or renamed piece is never sold as an ordinary one.
+     */
+    private static boolean pays(ItemStack stack, Item item) {
+        return stack.is(item) && stack.getComponentsPatch().isEmpty();
+    }
+
     private static int count(Inventory inventory, Item item) {
         int have = 0;
-        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            if (inventory.getItem(slot).is(item)) {
-                have += inventory.getItem(slot).getCount();
+        for (ItemStack stack : inventory.items) {
+            if (pays(stack, item)) {
+                have += stack.getCount();
             }
         }
         return have;
@@ -140,9 +148,9 @@ public final class ShopService {
 
     private static void remove(Inventory inventory, Item item, int amount) {
         int left = amount;
-        for (int slot = 0; slot < inventory.getContainerSize() && left > 0; slot++) {
-            ItemStack stack = inventory.getItem(slot);
-            if (stack.is(item)) {
+        for (int slot = 0; slot < inventory.items.size() && left > 0; slot++) {
+            ItemStack stack = inventory.items.get(slot);
+            if (pays(stack, item)) {
                 int taken = Math.min(left, stack.getCount());
                 stack.shrink(taken);
                 left -= taken;

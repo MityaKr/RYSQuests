@@ -14,7 +14,8 @@ public final class QuestLogic {
         if (quest.requires().isEmpty()) {
             return true;
         }
-        long done = quest.requires().stream().filter(id -> progress.apply(id).completed()).count();
+        // A repeatable quest between rounds has been done: what it opened stays open (no new round locks it again).
+        long done = quest.requires().stream().filter(id -> progress.apply(id).everDone()).count();
         return switch (quest.requiresMode()) {
             case RequiresMode.AtLeast atLeast -> done >= Math.min(atLeast.n(), quest.requires().size());
             case RequiresMode.Named named -> named == RequiresMode.ANY ? done > 0 : done == quest.requires().size();

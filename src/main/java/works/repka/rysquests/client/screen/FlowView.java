@@ -369,9 +369,9 @@ final class FlowView implements BookView {
         boolean done = own.completed() || value >= task.target();
         ItemStack icon = TaskText.icon(task);
         String name = QuestCard.taskName(task);
-        String right = done ? Component.translatable(task instanceof ItemTask item && item.mode() == ItemTask.Mode.CONSUME ? "rysquests.flow.submitted" : "rysquests.flow.received").getString()
+        String right = done ? Component.translatable(QuestCard.takes(task) ? "rysquests.flow.submitted" : "rysquests.flow.received").getString()
                 : Ui.ratio(value, task.target());
-        int submit = open && !done && task instanceof ItemTask item && item.mode() == ItemTask.Mode.CONSUME ? Math.min(BookScreen.held(item), task.target() - value) : 0;
+        int submit = open && !done && QuestCard.takes(task) ? Math.min(QuestCard.canGive(task), task.target() - value) : 0;
         String buttonText = submit > 0 ? Component.translatable("rysquests.flow.submit_n", submit).getString() : "";
 
         float room = w - 26 - 24 - 12 - (icon.isEmpty() ? 0 : 34);

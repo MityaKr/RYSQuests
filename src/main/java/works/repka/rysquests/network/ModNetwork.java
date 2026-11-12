@@ -13,7 +13,7 @@ import works.repka.rysquests.progress.ProgressService;
 
 /** Registers payloads. Client handlers are injected, so that this class never refers to client code. */
 public final class ModNetwork {
-    private static final String VERSION = "8";
+    private static final String VERSION = "9";
 
     private static BiConsumer<BookSyncPayload, RegistryAccess> clientBookHandler = (payload, registries) -> {
     };

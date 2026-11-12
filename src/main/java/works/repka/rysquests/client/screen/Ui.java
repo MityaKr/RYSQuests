@@ -177,6 +177,11 @@ public final class Ui {
                 && mouseX >= clipLeft && mouseX < clipRight && mouseY >= clipTop && mouseY < clipBottom;
     }
 
+    /** Whether a row reaches into the current clip at all: long texts skip what is scrolled away. */
+    boolean rowVisible(float y, float h) {
+        return y + h > clipTop && y < clipBottom;
+    }
+
     void hit(float x, float y, float w, float h, Runnable action) {
         add(hits, x, y, w, h, action);
     }
@@ -467,20 +472,13 @@ public final class Ui {
         }
     }
 
-    /** A section heading: small capitals with wide spacing. */
+    /** A section heading in capitals with letter spacing, drawn as one string (RYSCore 1.7.5 tracking) rather than letter by letter. */
     void caps(String text, float x, float cy, int color) {
-        float pen = x;
-        for (int i = 0; i < text.length(); ) {
-            int codepoint = Character.toUpperCase(text.codePointAt(i));
-            i += Character.charCount(text.codePointAt(i));
-            String glyph = Character.toString(codepoint);
-            label(glyph, pen, cy, CAPS_PX, MEDIUM, color);
-            pen += width(glyph, CAPS_PX, MEDIUM) + CAPS_TRACKING;
-        }
+        Draw.label(g, text.toUpperCase(java.util.Locale.ROOT), x / PER_GUI, cy / PER_GUI, CAPS_PX, MEDIUM, color, CAPS_TRACKING / PER_GUI);
     }
 
     float capsWidth(String text) {
-        return width(text.toUpperCase(java.util.Locale.ROOT), CAPS_PX, MEDIUM) + CAPS_TRACKING * text.length();
+        return Draw.labelWidth(text.toUpperCase(java.util.Locale.ROOT), CAPS_PX, MEDIUM, CAPS_TRACKING / PER_GUI) * PER_GUI;
     }
 
     void capsRight(String text, float right, float cy, int color) {

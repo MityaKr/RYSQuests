@@ -25,7 +25,9 @@ public record ItemTask(
     public enum Mode implements StringRepresentable {
         CONSUME("consume"),
         OBSERVE("observe"),
-        ACCUMULATE("accumulate");
+        ACCUMULATE("accumulate"),
+        /** Counts what the player crafts or smelts from the moment the quest opens, as FTB Quests' "only from crafting". */
+        CRAFT("craft");
 
         public static final Codec<Mode> CODEC = StringRepresentable.fromValues(Mode::values);
 
@@ -71,6 +73,27 @@ public record ItemTask(
     @Override
     public int target() {
         return count;
+    }
+
+    /** The one test of a stack against this task, shared by the server and the book, components included. */
+    public boolean matches(net.minecraft.world.item.ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        boolean found = item.isPresent() && item.get().test(stack);
+        for (int i = 0; !found && i < anyOf.size(); i++) {
+            found = anyOf.get(i).test(stack);
+        }
+        return found && nbt.flatMap(ComponentMatch::components).map(patch -> hasComponents(stack, patch)).orElse(true);
+    }
+
+    private static boolean hasComponents(net.minecraft.world.item.ItemStack stack, DataComponentPatch patch) {
+        for (var entry : patch.entrySet()) {
+            if (entry.getValue().isPresent() && !entry.getValue().get().equals(stack.get(entry.getKey()))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
