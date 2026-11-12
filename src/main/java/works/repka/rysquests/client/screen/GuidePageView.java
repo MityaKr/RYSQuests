@@ -136,6 +136,8 @@ final class GuidePageView implements BookView {
             topics = new Topics(book, guide.id(), index, GuideTopics.quests(book, guide, page, body).stream().filter(BookScreen::inStory).toList(), items);
             textScroll.reset();
             panelScroll.reset();
+            // Meshes of the page left behind go now, not when the book closes: leafing through would pile them up.
+            closeStructures();
         }
         return topics;
     }

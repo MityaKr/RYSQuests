@@ -1025,6 +1025,7 @@ public final class BookScreen extends ScaledScreen {
     @Override
     public void removed() {
         guidePage.closeStructures();
+        pagesSection.closeStructures();
         super.removed();
     }
 
@@ -1045,6 +1046,7 @@ public final class BookScreen extends ScaledScreen {
             return true;
         }
         guidePage.releaseStructure();
+        pagesSection.releaseStructure();
         if (questEditor != null) {
             questEditor.release(mouseX * 2, mouseY * 2);
             return true;
@@ -1075,7 +1077,7 @@ public final class BookScreen extends ScaledScreen {
             sectionEditor.drag(mouseX * 2, mouseY * 2);
             return true;
         }
-        if (guidePage.dragStructure(dragX, dragY)) {
+        if (guidePage.dragStructure(dragX, dragY) || pagesSection.dragStructure(dragX, dragY)) {
             return true;
         }
         return BookState.inStory() && activeView().drag(dragX * 2, dragY * 2) || super.onDrag(mouseX, mouseY, button, dragX, dragY);
