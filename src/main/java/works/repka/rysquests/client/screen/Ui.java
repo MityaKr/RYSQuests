@@ -69,8 +69,12 @@ public final class Ui {
     private int clipRight = Integer.MAX_VALUE;
     private int clipBottom = Integer.MAX_VALUE;
 
+    /** The pose at the start of the frame, inverted: what is drawn under a later transform, as the zoomed map, is mapped back with it. */
+    private final org.joml.Matrix4f frameInverse;
+
     public Ui(GuiGraphics g, int guiMouseX, int guiMouseY, List<Hit> hits, List<Hit> rightHits, Kit.Hits kitHits) {
         this.g = g;
+        this.frameInverse = new org.joml.Matrix4f(g.pose().last().pose()).invert();
         this.mouseX = Math.round(guiMouseX * PER_GUI);
         this.mouseY = Math.round(guiMouseY * PER_GUI);
         this.hits = hits;
@@ -200,10 +204,22 @@ public final class Ui {
         }
     }
 
+    /** A tooltip for a rectangle given where it is drawn, under any transform since the frame began (the map's zoom). */
     void tooltipIfOver(float x, float y, float w, float h, Component text) {
-        if (over(x, y, w, h)) {
+        if (overDrawn(x, y, w, h)) {
             hoveredText = text;
         }
+    }
+
+    /** {@link #over} for a rectangle in the coordinates of the current pose rather than the frame's. */
+    boolean overDrawn(float x, float y, float w, float h) {
+        org.joml.Matrix4f toFrame = new org.joml.Matrix4f(frameInverse).mul(g.pose().last().pose());
+        if ((toFrame.properties() & org.joml.Matrix4fc.PROPERTY_IDENTITY) != 0 || toFrame.equals(new org.joml.Matrix4f(), 1e-5f)) {
+            return over(x, y, w, h);
+        }
+        org.joml.Vector3f a = toFrame.transformPosition(x / PER_GUI, y / PER_GUI, 0, new org.joml.Vector3f());
+        org.joml.Vector3f b = toFrame.transformPosition((x + w) / PER_GUI, (y + h) / PER_GUI, 0, new org.joml.Vector3f());
+        return over(Math.min(a.x, b.x) * PER_GUI, Math.min(a.y, b.y) * PER_GUI, Math.abs(b.x - a.x) * PER_GUI, Math.abs(b.y - a.y) * PER_GUI);
     }
 
     // --- shapes ---
@@ -431,20 +447,38 @@ public final class Ui {
     }
 
     /** A line of text clipped with an ellipsis to the given width. */
+    /**
+     * A label cut to fit. A cut label shows its whole text in a tooltip under the cursor: the family's rule, so that no
+     * name is ever lost to an ellipsis. A tooltip from an item under the cursor still wins over it.
+     */
     public void labelFit(String text, float x, float cy, float maxWidth, float px, Type.Weight weight, int color) {
+        String shown = fit(text, maxWidth, px, weight);
+        label(shown, x, cy, px, weight, color);
+        if (!shown.equals(text)) {
+            tooltipIfOver(x, cy - px * 0.7f, Math.min(maxWidth, width(shown, px, weight)), px * 1.4f, Component.literal(ChatFormattingStrip.strip(text)));
+        }
+    }
+
+    /** A label cut to fit with no tooltip of its own: for text on something that already explains itself on hover. */
+    void labelFitPlain(String text, float x, float cy, float maxWidth, float px, Type.Weight weight, int color) {
         label(fit(text, maxWidth, px, weight), x, cy, px, weight, color);
+    }
+
+    /** Formatting codes of imported texts stay out of the tooltip. */
+    private static final class ChatFormattingStrip {
+        static String strip(String text) {
+            String plain = net.minecraft.ChatFormatting.stripFormatting(text);
+            return plain == null ? text : plain;
+        }
     }
 
     public float width(String text, float px, Type.Weight weight) {
         return Draw.labelWidth(text, px, weight) * PER_GUI;
     }
 
-    /** A label cut to fit, which shows all of itself under the cursor when it was cut. */
+    /** The same as {@link #labelFit}, which now always shows a cut text in full; kept for the places that asked for it by name. */
     void labelFitTip(String text, float x, float cy, float maxWidth, float px, Type.Weight weight, int color) {
         labelFit(text, x, cy, maxWidth, px, weight, color);
-        if (width(text, px, weight) > maxWidth) {
-            tooltipIfOver(x, cy - px, maxWidth, px * 2, Component.literal(text));
-        }
     }
 
     String fit(String text, float maxWidth, float px, Type.Weight weight) {

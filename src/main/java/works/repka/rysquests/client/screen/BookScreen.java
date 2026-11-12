@@ -76,6 +76,8 @@ public final class BookScreen extends ScaledScreen {
     @Nullable
     private static ItemStack lastHovered;
     @Nullable
+    private static String lastHoveredText;
+    @Nullable
     private static String lastEditorResult;
     @Nullable
     private static String lastShopResult;
@@ -506,6 +508,7 @@ public final class BookScreen extends ScaledScreen {
             BookState.track();
         }
         lastHovered = ui.hoveredStack;
+        lastHoveredText = ui.hoveredText == null ? null : ui.hoveredText.getString();
         if (ui.hoveredStack != null) {
             g.renderTooltip(font, ui.hoveredStack, mouseX, mouseY);
         } else if (ui.hoveredText != null) {
@@ -1534,6 +1537,21 @@ public final class BookScreen extends ScaledScreen {
     @Nullable
     public static ResourceLocation chapterForTest() {
         return BookState.chapter;
+    }
+
+    /** The text tooltip of the last frame, or null. */
+    @Nullable
+    public static String hoveredTextForTest() {
+        return lastHoveredText;
+    }
+
+    /** A quest's node on the map in interface units (x, y, width, height), or null when it is not laid out. */
+    @Nullable
+    public static double[] mapNodeForTest(ResourceLocation quest) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(ViewMode.MAP) instanceof MapView map) {
+            return map.nodeForTest(quest);
+        }
+        return null;
     }
 
     public static void mapLegacyLayoutForTest(boolean legacy) {

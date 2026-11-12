@@ -1507,6 +1507,23 @@ public final class AutoTest {
         screenshot("design_flow");
         step("switch to the map", () -> BookScreen.showForTest(ViewMode.MAP), 40);
         screenshot("design_map");
+        // A title cut to fit the node shows in full under the cursor, the map's zoom included (verdict item 6).
+        ResourceLocation solar = ResourceLocation.parse("design:02/solar");
+        step("zoom out a little and point at a cut title", () -> {
+            BookScreen.mapZoomForTest(0.85f);
+        }, 5);
+        step("move the cursor onto the title", () -> {
+            double[] node = BookScreen.mapNodeForTest(solar);
+            if (node != null) {
+                moveMouse(works.repka.ryscore.ui.UiScale.toGui(node[0] + node[2] * 0.4), works.repka.ryscore.ui.UiScale.toGui(node[1] + node[3] * 0.33));
+            }
+        }, 5);
+        expect("the whole title shows in a tooltip", () -> "Солнечные панели".equals(BookScreen.hoveredTextForTest()));
+        screenshot("design_map_tooltip");
+        step("move the cursor away and zoom back", () -> {
+            moveMouse(2, 2);
+            BookScreen.mapZoomForTest(1f);
+        }, 5);
         step("zoom the map all the way out", () -> BookScreen.mapZoomForTest(0.35f), 10);
         screenshot("design_map_far");
         step("zoom the map back", () -> BookScreen.mapZoomForTest(1f), 5);

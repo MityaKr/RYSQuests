@@ -677,6 +677,19 @@ final class MapView implements BookView {
         zoom = Mth.clamp(value, MIN_ZOOM, MAX_ZOOM);
     }
 
+    /** Where a node is on screen, in interface units, with the pan and zoom applied. */
+    @Nullable
+    double[] nodeForTest(ResourceLocation quest) {
+        Layout current = layout;
+        Placed placed = current == null ? null : current.placed.get(quest.toString());
+        if (placed == null) {
+            return null;
+        }
+        double x = viewX + (placed.x() - panX) * zoom;
+        double y = viewY + (placed.y() - panY) * zoom;
+        return new double[] {x / 2, y / 2, NODE_W * zoom / 2, NODE_H * zoom / 2};
+    }
+
     void unfoldForTest(boolean unfold) {
         expandAll = unfold;
     }
