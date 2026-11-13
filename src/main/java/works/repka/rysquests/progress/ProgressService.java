@@ -273,7 +273,7 @@ public final class ProgressService {
                 }
             }
         }
-        return changed || quest.tasks().isEmpty() ? Optional.of(finish(quest, before, values)) : Optional.empty();
+        return QuestLogic.afterPoll(quest, before, values, changed, System.currentTimeMillis());
     }
 
     private static int pollTask(ServerPlayer player, TaskDef task, int current, boolean inventoryChanged) {
@@ -290,12 +290,7 @@ public final class ProgressService {
     }
 
     private static QuestProgress finish(Quest quest, QuestProgress before, List<Integer> values) {
-        boolean done = true;
-        for (int i = 0; i < quest.tasks().size(); i++) {
-            done &= values.get(i) >= quest.tasks().get(i).target();
-        }
-        long completedAt = done ? System.currentTimeMillis() : before.completedAt();
-        return new QuestProgress(List.copyOf(values), completedAt, before.claimed(), before.nextAt(), before.times());
+        return QuestLogic.finish(quest, before, values, System.currentTimeMillis());
     }
 
     private static void apply(ServerPlayer player, Map<ResourceLocation, QuestProgress> changes) {

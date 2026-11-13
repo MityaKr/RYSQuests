@@ -41,6 +41,38 @@ public final class QuestLogic {
         return Math.max(0, missing - Math.max(0, held));
     }
 
+    /** Whether every task has reached its target in these values. */
+    public static boolean allTasksDone(Quest quest, java.util.List<Integer> values) {
+        for (int i = 0; i < quest.tasks().size(); i++) {
+            if ((i < values.size() ? values.get(i) : 0) < quest.tasks().get(i).target()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** The quest's progress with these task values: completed now when every task is done, open otherwise. */
+    public static QuestProgress finish(Quest quest, QuestProgress before, java.util.List<Integer> values, long now) {
+        long completedAt = allTasksDone(quest, values) ? now : before.completedAt();
+        return new QuestProgress(java.util.List.copyOf(values), completedAt, before.claimed(), before.nextAt(), before.times());
+    }
+
+    /**
+     * What a poll of an open quest writes: the new values when a task grew; and also the completion of a quest whose tasks were all
+     * done already but which never completed. Such a record comes from outside the poll: FTB Quests' progress taken over by the
+     * import (FTB counts the tasks of a quest whose dependencies are not done yet), a migration that merges two records, or an
+     * edit that lowered a task's target. Without this the quest would wait for a task to grow past its target, which never
+     * happens, while the book rightly says the task is done (RepYS, «Тертиевая эссенция»).
+     *
+     * @param before  the stored progress of the quest, open and not cooling down
+     * @param values  the task values after this poll
+     * @param changed whether this poll raised any value
+     */
+    public static java.util.Optional<QuestProgress> afterPoll(Quest quest, QuestProgress before, java.util.List<Integer> values, boolean changed, long now) {
+        boolean stuck = !before.completed() && allTasksDone(quest, values);
+        return changed || stuck || quest.tasks().isEmpty() ? java.util.Optional.of(finish(quest, before, values, now)) : java.util.Optional.empty();
+    }
+
     public static boolean allClaimed(Quest quest, QuestProgress progress) {
         return progress.claimed().size() >= quest.rewards().size();
     }
