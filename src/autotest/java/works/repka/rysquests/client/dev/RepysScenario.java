@@ -484,7 +484,8 @@ final class RepysScenario {
         step("reload the texts", () -> mc().reloadResourcePacks(), 60);
         expect("texts reloaded", () -> mc().getOverlay() == null);
         logReport("new book after /reload");
-        expect("all 73 milestones", () -> ClientBook.current().quests().values().stream().filter(quest -> quest.options().milestone()).count() == 73);
+        long milestones = milestonesInData();
+        expect("all " + milestones + " milestones of the new book", () -> ClientBook.current().quests().values().stream().filter(quest -> quest.options().milestone()).count() == milestones);
         expect("the baked layout came with it", () -> ClientBook.current().layout().isPresent()
                 && BookHolder.current().report().issues().stream().noneMatch(issue -> issue.code().equals("layout_stale")));
         step("let it settle", () -> {}, 40);
@@ -566,6 +567,24 @@ final class RepysScenario {
             throw new UncheckedIOException(e);
         }
         LOGGER.info("[autotest] the old book went to {}", stale);
+    }
+
+    /** The live milestones of the book that {@link #swapBook} copies in: the client must get every one of them. */
+    private static long milestonesInData() {
+        Path chapters = Path.of(System.getProperty("rysquests.autotest.repysData")).resolve("rysquests/chapters");
+        try (Stream<Path> files = Files.walk(chapters)) {
+            return files.filter(file -> file.toString().endsWith(".json")).filter(file -> {
+                try {
+                    com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+                    return json.has("milestone") && json.get("milestone").getAsBoolean()
+                            && !(json.has("archived") && json.get("archived").getAsBoolean());
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }).count();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static void copyTree(Path from, Path to) throws IOException {
