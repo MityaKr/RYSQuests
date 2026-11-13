@@ -158,6 +158,7 @@ final class EditorPages {
      */
     void startNewBook(String title, MapForm form, boolean epochs) {
         EditorBook book = EditorBook.get();
+        screen.closePage();
         EditorBook.active = true;
         current = MAP;
         String namespace = EditorBook.namespace(book.data());
