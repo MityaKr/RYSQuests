@@ -63,6 +63,7 @@ import works.repka.rysquests.client.screen.BookRole;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.screen.BookScreen;
+import works.repka.rysquests.client.screen.PanelShowcase;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.ViewMode;
@@ -139,6 +140,8 @@ public final class AutoTest {
             buildBookScenario();
         } else if ("frame".equals(scenario)) {
             buildFrameScenario();
+        } else if ("panel".equals(scenario)) {
+            buildPanelScenario();
         } else if ("repys".equals(scenario)) {
             buildRepysScenario();
         } else if ("design".equals(scenario) || "design_sizes".equals(scenario)) {
@@ -2040,6 +2043,171 @@ public final class AutoTest {
             mc().resizeDisplay();
         }, 20);
         expect("normal layout again", () -> !BookScreen.compactForTest());
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("book closed", () -> mc().screen == null);
+    }
+
+    /**
+     * The quest panel, "Now" and the list (plan steps 5 and 6) on a book shaped like the mockups (src/autotest/panel_pack): the first
+     * opening, the next step, every kind of task and reward, a closed quest with its way, "any one of", a repeatable quest, the map
+     * with the panel, the list of a chapter, of a chapter off the map, of an epoch and of the whole book, a filter left empty, the
+     * compact layout and a finished book. With -PftbqBook=<FTB Quests folder> the list is measured on that book too (ATM10).
+     */
+    private static void buildPanelScenario() {
+        String ns = "panel:";
+        java.util.function.Function<String, ResourceLocation> id = path -> ResourceLocation.parse(ns + path);
+        openWorld();
+        expect("the panel book reached the client", () -> ClientBook.current().quests().containsKey(id.apply("current/electric_mechanism")));
+        step("mouse out of the way, slate, every quest reset", () -> {
+            moveMouse(1, 1);
+            ClientMessages.dismiss();
+            ThemeManager.select("ryscore:slate");
+            command("gamerule sendCommandFeedback false");
+            command("clear @s");
+            command("xp set @s 0 levels");
+            for (ResourceLocation quest : ClientBook.current().quests().keySet()) {
+                command("rysquests progress @s reset " + quest);
+            }
+            // The mark of the last completed chapter outlives a reset: point it at the first chapter, as for a new player.
+            command("rysquests progress @s complete " + ns + "andesite/andesite_alloy");
+            command("rysquests progress @s reset " + ns + "andesite/andesite_alloy");
+            for (ResourceLocation quest : ClientProgress.pinned()) {
+                PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, quest, 0, List.of()));
+            }
+        }, 30);
+        expect("nothing is done", () -> ClientBook.current().quests().keySet().stream().noneMatch(quest -> ClientProgress.get(quest).everDone()));
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("Now at the first opening", () -> PanelShowcase.now(true), 10);
+        step("log the next step", () -> LOGGER.info("[autotest] next step {}, last chapter {}", PanelShowcase.nextStep(), ClientProgress.lastChapter()), 2);
+        expect("the first step is the first main quest", () -> id.apply("andesite/andesite_alloy").equals(PanelShowcase.nextStep()));
+        screenshot("panel_now_first");
+
+        step("progress as in the mockups", () -> {
+            for (String done : List.of("andesite/andesite_alloy", "andesite/water_wheel", "andesite/shaft", "andesite/andesite_2", "brass/brass_ingot",
+                    "brass/brass_casing", "current/tok", "current/copper_wire", "current/copper_wire_2", "current/copper_wire_3", "current/iron_rod",
+                    "current/copper_wire_coil", "current/ie_wires", "current/lv_wire_coil", "current/steel_wire_coil", "chronicle/old_mineshaft",
+                    "chronicle/villages", "chronicle/nether_expedition", "chronicle/explorer_the_nether", "start/welcome")) {
+                command("rysquests progress @s complete " + ns + done);
+            }
+        }, 30);
+        step("claim what needs no choice", BookScreen::claimAllForTest, 30);
+        step("two quests wait for their rewards, items in the inventory", () -> {
+            // The last completed quest marks the chapter of the next step: "Ток" last.
+            command("rysquests progress @s complete " + ns + "oil/plastic");
+            command("rysquests progress @s complete " + ns + "current/copper_coil");
+            command("give @s minecraft:polished_andesite 40");
+            command("give @s minecraft:clock 12");
+        }, 30);
+        step("hand in part of two tasks", () -> {
+            PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.SUBMIT, id.apply("andesite/automation_64"), 0, List.of()));
+            PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.SUBMIT, id.apply("chronicle/all_items"), 1, List.of()));
+        }, 20);
+        step("more in the inventory, pins", () -> {
+            command("give @s minecraft:polished_andesite 24");
+            command("give @s minecraft:clock 8");
+            command("give @s minecraft:oak_planks 16");
+            command("give @s minecraft:iron_ingot 6");
+            command("give @s minecraft:lava_bucket 1");
+            command("give @s minecraft:lava_bucket 1");
+            command("give @s minecraft:water_bucket 1");
+            command("give @s minecraft:gold_nugget 1");
+            command("xp add @s 12 levels");
+            PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, id.apply("andesite/automation_64"), 0, List.of()));
+            PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, id.apply("chronicle/all_items"), 0, List.of()));
+        }, 40);
+        expect("part of the andesite was handed in", () -> ClientProgress.get(id.apply("andesite/automation_64")).task(0) == 40);
+        step("Now with the next step", () -> PanelShowcase.now(false), 10);
+        step("log the next step", () -> LOGGER.info("[autotest] next step {}, last chapter {}", PanelShowcase.nextStep(), ClientProgress.lastChapter()), 2);
+        expect("the next step is the electric mechanism", () -> id.apply("current/electric_mechanism").equals(PanelShowcase.nextStep()));
+        screenshot("panel_now");
+        step("a quest in work chosen on Now", () -> PanelShowcase.nowChoose(id.apply("andesite/automation_64")), 10);
+        screenshot("panel_now_work");
+
+        step("every kind of task", () -> PanelShowcase.sheet(id.apply("chronicle/all_items"), id.apply("chronicle/all_counters"),
+                id.apply("chronicle/all_actions")), 10);
+        screenshot("panel_tasks");
+        step("every kind of reward, a choice picked", () -> {
+            PanelShowcase.sheet(id.apply("chronicle/all_rewards"), id.apply("oil/plastic"), id.apply("current/copper_coil"));
+            PanelShowcase.pick(0, 1);
+        }, 10);
+        screenshot("panel_rewards");
+        step("closed with its way, any one of, repeatable", () -> PanelShowcase.sheet(id.apply("current/heavy_engineering_block"),
+                id.apply("current/capacitor"), id.apply("chronicle/scheme")), 10);
+        screenshot("panel_locked");
+
+        step("the map with the panel", () -> PanelShowcase.map(id.apply("current"), id.apply("current/electric_mechanism")), 20);
+        screenshot("panel_map_quest");
+        step("the map with a closed quest", () -> PanelShowcase.map(id.apply("current"), id.apply("current/heavy_engineering_block")), 20);
+        screenshot("panel_map_route");
+
+        step("the list of a chapter", () -> PanelShowcase.list(id.apply("current"), 0, "ALL", id.apply("current/copper_coil"), true), 10);
+        screenshot("panel_list_chapter");
+        step("the list of a chapter off the map", () -> PanelShowcase.list(id.apply("chronicle"), 0, "ALL", id.apply("chronicle/wither"), false), 10);
+        screenshot("panel_list_off_map");
+        step("the whole book, what can be done", () -> PanelShowcase.list(null, 0, "CAN", id.apply("current/electric_mechanism"), false), 10);
+        screenshot("panel_list_book");
+        step("an epoch", () -> PanelShowcase.list(null, 2, "ALL", null, false), 10);
+        screenshot("panel_list_epoch");
+        step("a filter left nothing", () -> PanelShowcase.list(id.apply("machines"), 0, "DONE", null, false), 10);
+        screenshot("panel_list_empty");
+
+        step("a small window", () -> {
+            mc().getWindow().setWindowed(1100, 700);
+            mc().resizeDisplay();
+            PanelShowcase.now(false);
+        }, 20);
+        expect("compact layout", BookScreen::compactForTest);
+        screenshot("panel_compact_now");
+        step("compact list", () -> PanelShowcase.list(id.apply("current"), 0, "ALL", id.apply("current/copper_coil"), true), 10);
+        screenshot("panel_compact_list");
+        step("back to the size of the mockups", () -> {
+            mc().getWindow().setWindowed(1280, 800);
+            mc().resizeDisplay();
+        }, 20);
+
+        step("every main quest done", () -> {
+            for (var quest : ClientBook.current().quests().values()) {
+                if (!quest.options().optional()) {
+                    command("rysquests progress @s complete " + quest.id());
+                }
+            }
+        }, 40);
+        step("claim it all", BookScreen::claimAllForTest, 30);
+        step("Now in a finished book", () -> PanelShowcase.now(false), 10);
+        expect("no next step", () -> PanelShowcase.nextStep() == null);
+        screenshot("panel_now_done");
+
+        String ftbq = System.getProperty("rysquests.autotest.ftbqBook", "");
+        if (!ftbq.isBlank()) {
+            step("the ATM10 book in the client", () -> {
+                try {
+                    QuestBook atm = PanelShowcase.ftbqBook(Path.of(ftbq));
+                    LOGGER.info("[autotest] ftbq book: {} chapters, {} quests", atm.chapters().size(), atm.quests().size());
+                    ClientBook.overrideForTest(atm, true);
+                } catch (java.io.IOException e) {
+                    fail("could not read the FTB book: " + e);
+                }
+            }, 20);
+            step("Now on the large book", () -> PanelShowcase.now(false), 20);
+            screenshot("panel_atm_now");
+            step("the list of the whole book, every chapter open in full", () -> {
+                PanelShowcase.list(null, 0, "ALL", null, false);
+                PanelShowcase.listOpenAll();
+            }, 20);
+            step("log the size of the list", () -> LOGGER.info("[autotest] atm list: {}", PanelShowcase.listStats()), 2);
+            screenshot("panel_atm_list");
+            step("measure the frame while scrolling", () -> worstFrame = 0, 2);
+            for (int i = 0; i < 40; i++) {
+                step("scroll the large list " + i, () -> PanelShowcase.listScroll(-25), 2);
+            }
+            step("report the frame", () -> LOGGER.info("[autotest] worst frame while scrolling the whole ATM10 list: {} ms, {}", worstFrame / 1_000_000,
+                    PanelShowcase.listStats()), 2);
+            screenshot("panel_atm_list_scrolled");
+            step("what can be done in the large book", () -> PanelShowcase.list(null, 0, "CAN", null, false), 20);
+            screenshot("panel_atm_list_can");
+            step("back to the real book", () -> ClientBook.overrideForTest(null, null), 10);
+        }
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
         expect("book closed", () -> mc().screen == null);
     }

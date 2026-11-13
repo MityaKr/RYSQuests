@@ -1,0 +1,19 @@
+{
+  "id": "panel:chronicle/explorer_the_end",
+  "chapter": "panel:chronicle",
+  "title": "Первопроходец: Край",
+  "icon": "minecraft:end_stone",
+  "group": "dims",
+  "tasks": [
+    {
+      "type": "rysquests:visit",
+      "dimension": "minecraft:the_end"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

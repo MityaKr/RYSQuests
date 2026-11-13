@@ -1,0 +1,24 @@
+{
+  "id": "panel:current/accumulator",
+  "chapter": "panel:current",
+  "title": "Аккумулятор",
+  "icon": "minecraft:target",
+  "requires": [
+    "panel:current/copper_coil"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:target",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 10
+    }
+  ],
+  "optional": true
+}

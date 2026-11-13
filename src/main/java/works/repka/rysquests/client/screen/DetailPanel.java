@@ -144,15 +144,17 @@ final class DetailPanel {
         float textW = x + w - buttons - pen;
         java.util.List<String> lines = ui.wrap(title, textW, 18, Ui.DISPLAY, 2);
         float titleLine = Ui.headingHeight(18) - 2;
-        float subH = sub == null ? 0 : 3 + Ui.lineHeight(12);
+        // The line under the title wraps onto a second line rather than losing its end ("шаг 6 из 15 · выполнен", picture 19).
+        java.util.List<String> subLines = sub == null ? java.util.List.of() : ui.wrap(sub, textW, 12, Ui.REGULAR, 2);
+        float subH = sub == null ? 0 : 3 + Ui.lineHeight(12) * subLines.size();
         float textH = lines.size() * titleLine + subH;
         float blockH = Math.max(icon != null ? size : 0, textH);
         float ty = y + (blockH - textH) / 2f;
         for (int i = 0; i < lines.size(); i++) {
             ui.label(lines.get(i), pen, ty + titleLine * i + titleLine / 2f, 18, Ui.DISPLAY, ui.c("text.primary"));
         }
-        if (sub != null) {
-            ui.labelFit(sub, pen, ty + lines.size() * titleLine + 3 + Ui.lineHeight(12) / 2f, textW, 12, Ui.REGULAR, ui.c("text.muted"));
+        for (int i = 0; i < subLines.size(); i++) {
+            ui.labelFit(subLines.get(i), pen, ty + lines.size() * titleLine + 3 + Ui.lineHeight(12) * (i + 0.5f), textW, 12, Ui.REGULAR, ui.c("text.muted"));
         }
         return blockH;
     }

@@ -1,0 +1,21 @@
+{
+  "id": "panel:andesite/andesite_2",
+  "chapter": "panel:andesite",
+  "title": "Андезит",
+  "icon": "minecraft:andesite",
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:andesite",
+      "count": 8,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 10
+    }
+  ],
+  "optional": true
+}

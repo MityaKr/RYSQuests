@@ -1,0 +1,29 @@
+{
+  "id": "panel:current/electric_mechanism",
+  "chapter": "panel:current",
+  "title": "Электромеханизм",
+  "icon": "minecraft:recovery_compass",
+  "requires": [
+    "panel:current/copper_coil"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:recovery_compass",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 1
+    }
+  ],
+  "text": "Латунный механизм, медная катушка, проволока и стальной компонент. Ключ к эпохе III: с него начинаются машины. Стальной компонент берётся в ветке «Кокс и сталь»."
+}

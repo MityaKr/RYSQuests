@@ -1,0 +1,7 @@
+{
+  "id": "panel:current",
+  "title": "Ток",
+  "icon": "minecraft:redstone",
+  "subtitle": "Медная катушка, электромеханизм, первая энергия FE и конденсаторы.",
+  "epoch": 2
+}

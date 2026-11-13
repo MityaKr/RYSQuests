@@ -1,0 +1,6 @@
+{
+  "id": "panel:start",
+  "title": "Начало",
+  "icon": "minecraft:white_banner",
+  "off_map": true
+}

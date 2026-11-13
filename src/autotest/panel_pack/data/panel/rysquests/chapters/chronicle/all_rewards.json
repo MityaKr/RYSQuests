@@ -1,0 +1,141 @@
+{
+  "id": "panel:chronicle/all_rewards",
+  "chapter": "panel:chronicle",
+  "title": "Все виды наград",
+  "icon": "minecraft:chest",
+  "group": "showcase",
+  "tasks": [
+    {
+      "type": "rysquests:checkbox"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:iron_ingot",
+      "count": 12
+    },
+    {
+      "type": "rysquests:xp",
+      "points": 300
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 4
+    },
+    {
+      "type": "rysquests:title",
+      "id": "Шахтёр"
+    },
+    {
+      "type": "rysquests:loot_table",
+      "table": "minecraft:chests/simple_dungeon"
+    },
+    {
+      "type": "rysquests:command",
+      "command": "say hi"
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 20,
+      "team_mode": "once"
+    },
+    {
+      "type": "rysquests:stage",
+      "stage": "era3",
+      "team_mode": "once"
+    },
+    {
+      "type": "rysquests:choice",
+      "of": [
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:leather_chestplate",
+          "count": 1
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:iron_ingot",
+          "count": 32
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:blast_furnace",
+          "count": 2
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:netherite_pickaxe",
+          "count": 1
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:diamond_sword",
+          "count": 1
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:shield",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "type": "rysquests:random",
+      "of": [
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:iron_ingot",
+          "count": 12
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:coal",
+          "count": 32
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:iron_block",
+          "count": 4
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:copper_block",
+          "count": 4
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:gold_ingot",
+          "count": 8
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:diamond",
+          "count": 1
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:emerald",
+          "count": 2
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:lapis_lazuli",
+          "count": 4
+        }
+      ],
+      "weights": [
+        22,
+        17,
+        13,
+        11,
+        10,
+        9,
+        9,
+        9
+      ]
+    }
+  ]
+}

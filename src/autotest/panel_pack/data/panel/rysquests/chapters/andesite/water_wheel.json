@@ -1,0 +1,23 @@
+{
+  "id": "panel:andesite/water_wheel",
+  "chapter": "panel:andesite",
+  "title": "Водяное колесо",
+  "icon": "minecraft:oak_planks",
+  "requires": [
+    "panel:andesite/andesite_alloy"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:oak_planks",
+      "count": 4,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

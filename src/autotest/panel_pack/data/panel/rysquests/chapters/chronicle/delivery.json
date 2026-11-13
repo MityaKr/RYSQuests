@@ -1,0 +1,25 @@
+{
+  "id": "panel:chronicle/delivery",
+  "chapter": "panel:chronicle",
+  "title": "Поставка: 16 железных слитков",
+  "icon": "minecraft:gold_nugget",
+  "group": "repeat",
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:iron_ingot",
+      "count": 16,
+      "mode": "consume"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 2
+    }
+  ],
+  "repeatable": {
+    "cooldown_minutes": 160
+  }
+}

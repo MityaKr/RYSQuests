@@ -153,10 +153,11 @@ public final class Ui {
     void clip(int x, int y, int w, int h) {
         Draw.scissor(g, Math.floorDiv(x, 2), Math.floorDiv(y, 2), Math.floorDiv(x + w + 1, 2), Math.floorDiv(y + h + 1, 2));
         clipStack.push(new int[] {clipLeft, clipTop, clipRight, clipBottom});
-        clipLeft = x;
-        clipTop = y;
-        clipRight = x + w;
-        clipBottom = y + h;
+        // The game's scissor stack intersects a nested clip with the one around it; hits and hover follow the same rule.
+        clipLeft = Math.max(x, clipLeft);
+        clipTop = Math.max(y, clipTop);
+        clipRight = Math.max(clipLeft, Math.min(x + w, clipRight));
+        clipBottom = Math.max(clipTop, Math.min(y + h, clipBottom));
     }
 
     void unclip() {

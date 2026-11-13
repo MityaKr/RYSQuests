@@ -1,0 +1,23 @@
+{
+  "id": "panel:start/first_tools",
+  "chapter": "panel:start",
+  "title": "Первые инструменты",
+  "icon": "minecraft:stone_pickaxe",
+  "requires": [
+    "panel:start/welcome"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:stone_pickaxe",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 10
+    }
+  ]
+}

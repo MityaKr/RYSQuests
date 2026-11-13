@@ -1,0 +1,56 @@
+{
+  "id": "panel:chronicle/all_items",
+  "chapter": "panel:chronicle",
+  "title": "Задачи с предметами и жидкостями",
+  "icon": "minecraft:clock",
+  "group": "showcase",
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:clock",
+      "count": 1,
+      "mode": "observe"
+    },
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:clock",
+      "count": 32,
+      "mode": "consume"
+    },
+    {
+      "type": "rysquests:item",
+      "item": "#minecraft:planks",
+      "count": 16,
+      "mode": "observe"
+    },
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:iron_ingot",
+      "count": 8,
+      "mode": "observe"
+    },
+    {
+      "type": "rysquests:fluid",
+      "fluid": "minecraft:lava",
+      "amount": 4000,
+      "mode": "consume"
+    },
+    {
+      "type": "rysquests:fluid",
+      "fluid": "minecraft:water",
+      "amount": 1000,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 1
+    }
+  ]
+}

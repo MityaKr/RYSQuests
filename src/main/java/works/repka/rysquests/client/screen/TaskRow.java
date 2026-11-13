@@ -53,6 +53,11 @@ final class TaskRow {
     private Runnable needAction;
     @Nullable
     private Runnable click;
+    private int checkbox = -1;
+    @Nullable
+    private String button;
+    @Nullable
+    private Runnable buttonAction;
 
     private TaskRow(String title) {
         this.title = title;
@@ -109,6 +114,28 @@ final class TaskRow {
         return this;
     }
 
+    /** A checkbox on the slot plate instead of an item, for a task done by ticking it (picture 20, "Отметить: прочитал"). */
+    TaskRow checkbox(boolean checked) {
+        checkbox = checked ? 1 : 0;
+        return this;
+    }
+
+    /**
+     * A small grey button on the right of the row ("Сдать", "Отметить"), only where a quest has several such tasks: with one, the
+     * panel's main button does it (plan, section 3, "Quest").
+     */
+    TaskRow button(String label, Runnable action) {
+        button = label;
+        buttonAction = action;
+        return this;
+    }
+
+    /** The line under the title, as given. */
+    @Nullable
+    String lineForTest() {
+        return line;
+    }
+
     float height() {
         float text = Ui.lineHeight(TITLE_PX) + (line == null ? 0 : 1 + Ui.lineHeight(LINE_PX)) + (progress >= 0 ? 9 : 0);
         return 16 + Math.max(ICON, text) + (need == null ? 0 : 7 + 26);
@@ -140,11 +167,18 @@ final class TaskRow {
             if (count > 1) {
                 ui.count(count, iconX + ICON - 1, cy + ICON / 2f + 2);
             }
+        } else if (checkbox >= 0) {
+            works.repka.ryscore.ui.Kit.checkbox(ui.g, ui.theme, ui.kitHits, Math.round((iconX + 7) / 2f), Math.round((cy - 9) / 2f), 9, checkbox == 1, false,
+                    ui.mouseX / 2, ui.mouseY / 2, null);
         } else if (glyph != null) {
             ui.icon(glyph, iconX + 7.5f, cy - 8.5f, 17, ui.c("text.secondary"));
         }
         float textX = iconX + ICON + GAP;
-        float rightW = right == null ? 0 : ui.width(right, 12, Ui.REGULAR) + 8;
+        float buttonW = button == null ? 0 : ui.buttonWidth(button, 12, Ui.MEDIUM, 10);
+        if (button != null) {
+            ui.button(button, x + w - 10 - buttonW, cy - 14, buttonW, 28, 7, 12, Ui.MEDIUM, 10, Ui.Style.PLAIN, buttonAction);
+        }
+        float rightW = (right == null ? 0 : ui.width(right, 12, Ui.REGULAR) + 8) + (button == null ? 0 : buttonW + 8);
         float textW = x + w - 10 - rightW - textX;
         float textH = Ui.lineHeight(TITLE_PX) + (line == null ? 0 : 1 + Ui.lineHeight(LINE_PX)) + (progress >= 0 ? 9 : 0);
         float top = cy - textH / 2f;

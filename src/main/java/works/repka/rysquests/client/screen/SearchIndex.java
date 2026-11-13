@@ -83,7 +83,7 @@ final class SearchIndex {
             }
             for (RewardDef reward : quest.rewards()) {
                 if (reward instanceof works.repka.rysquests.reward.ItemReward item) {
-                    text.append('\n').append(QuestCard.stack(item).getHoverName().getString());
+                    text.append('\n').append(QuestFacts.stack(item).getHoverName().getString());
                 }
             }
         } catch (RuntimeException ignored) {

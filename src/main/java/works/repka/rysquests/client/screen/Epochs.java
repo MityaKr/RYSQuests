@@ -94,7 +94,7 @@ final class Epochs {
             return tagged;
         }
         List<Quest> opening = quests.stream()
-                .sorted(Comparator.comparingInt(QuestCard::opens).reversed())
+                .sorted(Comparator.comparingInt(QuestFacts::opens).reversed())
                 .limit(MILESTONES)
                 .toList();
         return quests.stream().filter(opening::contains).toList();

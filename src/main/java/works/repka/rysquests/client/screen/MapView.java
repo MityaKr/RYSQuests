@@ -2,12 +2,10 @@ package works.repka.rysquests.client.screen;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -22,6 +20,7 @@ import works.repka.rysquests.data.MapForm;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.ViewMode;
+import works.repka.rysquests.progress.QuestPath;
 import works.repka.rysquests.progress.QuestStatus;
 import works.repka.ryscore.ui.Icons;
 import works.repka.ryscore.ui.Kit;
@@ -49,6 +48,35 @@ final class MapView implements BookView {
     private final BookScreen screen;
     final MapCanvas canvas = new MapCanvas();
     private final DetailPanel panel = new DetailPanel();
+    /** The quest panel shared with the list and "Now": its cross goes back to the chapter card, its way is lit on the canvas. */
+    private final QuestPanel questView = new QuestPanel(new QuestPanel.Events() {
+        @Override
+        public void select(Quest quest) {
+            if (map != null && map.quest(quest.id()) >= 0) {
+                flyToQuest(quest.id());
+            } else {
+                BookState.select(quest);
+            }
+        }
+
+        @Override
+        public void showOnMap(Quest quest) {
+            flyToQuest(quest.id());
+        }
+
+        @Override
+        public void route(@Nullable QuestPath path) {
+            canvas.setRoute(path == null ? List.of() : path.steps().stream().map(Quest::id).toList());
+        }
+
+        @Override
+        public void close() {
+            BookState.quest = null;
+            canvas.select(null);
+        }
+    });
+    /** The quest panel was drawn this frame (the wheel goes to it, not to the chapter card). */
+    private boolean questShown;
     @Nullable
     private MapLayouts.State state;
     @Nullable
@@ -70,9 +98,6 @@ final class MapView implements BookView {
     private int hereVersion = Integer.MIN_VALUE;
     @Nullable
     private QuestBook hereBook;
-    @Nullable
-    private ResourceLocation routeFor;
-    private int routeVersion = Integer.MIN_VALUE;
 
     MapView(BookScreen screen) {
         this.screen = screen;
@@ -131,6 +156,15 @@ final class MapView implements BookView {
         canvas.flyToQuest(quest);
     }
 
+    /** A quest "Показать на карте" asked for from the list, "Now" or search: flown to when the map is next drawn and laid out. */
+    @Nullable
+    private static ResourceLocation focusNext;
+
+    /** "Показать на карте" from another page: the map flies to the quest when it shows. */
+    static void showNext(ResourceLocation quest) {
+        focusNext = quest;
+    }
+
     /** "Show on the map" from elsewhere: the selected quest in a close up. */
     void focusSelected() {
         if (BookState.quest != null) {
@@ -175,9 +209,13 @@ final class MapView implements BookView {
             loadingShown = false;
         }
         refreshHere(book);
+        if (focusNext != null && state.ready()) {
+            ResourceLocation target = focusNext;
+            focusNext = null;
+            flyToQuest(target);
+        }
         Quest selected = selectedQuest(book);
         canvas.select(selected == null ? null : selected.id());
-        refreshRoute(book, selected);
         boolean compact = screen.compact();
         MapCanvas.Level level = canvas.level();
         if (level == MapCanvas.Level.BOOK && !canvas.flying()) {
@@ -198,6 +236,7 @@ final class MapView implements BookView {
         }
         canvas.render(ui.g, x, y, canvasW, h, ui.mouseX, ui.mouseY);
         int toolsRight = showPanel && compact ? x + w - PANEL_W : x + canvasW;
+        middle = new int[] {x, y, toolsRight - x, h};
         drawTopLeft(ui, x, y, toolsRight - x, compact);
         if (state.ready()) {
             drawTopRight(ui, toolsRight, y);
@@ -207,6 +246,7 @@ final class MapView implements BookView {
                 drawLegend(ui, toolsRight, y);
             }
         }
+        questShown = showPanel && selected != null;
         if (showPanel) {
             int px = x + w - PANEL_W;
             tools.add(new float[] {px, y, PANEL_W, h});
@@ -216,9 +256,15 @@ final class MapView implements BookView {
                 chapterCard(ui, openChapter, px, y, PANEL_W, h);
             }
         }
+        if (selected == null) {
+            questView.clear();
+        }
     }
 
     private boolean loadingShown;
+    /** The canvas left of the panel, where the book's message line lies; null before the first frame. */
+    @Nullable
+    private int[] middle;
     /** The last flight asked for: flown again when the canvas changes its width under it, as the panel opens or closes. */
     @Nullable
     private Runnable lastFlight;
@@ -580,21 +626,12 @@ final class MapView implements BookView {
     // --- the panel on the right ---
 
     /**
-     * The one place the quest panel plugs in: the quest panel of the "Now" screen replaces the old card here when it is merged. It
-     * closes back to the chapter's card.
+     * The one place the quest panel plugs in: the {@link QuestPanel} of the list and "Now" in its map look. Its cross closes back to
+     * the chapter's card; the way to a closed quest it works out is the one the canvas lights.
      */
     private void questPanel(Ui ui, Quest quest, int x, int y, int w, int h) {
-        if (!quest.id().equals(panelFor)) {
-            panel.reset();
-            panelFor = quest.id();
-        }
-        panel.render(ui, x, y, w, h, (u, bx, by, bw) -> QuestCard.render(u, quest, Math.round(bx - DetailPanel.PAD_X), Math.round(by - DetailPanel.PAD_TOP), Math.round(bw + DetailPanel.PAD_X * 2 - 34)) - DetailPanel.PAD_TOP,
-                null);
-        closeCross(ui, x + w - 18 - 28, y + 12, () -> {
-            BookState.quest = null;
-            canvas.select(null);
-            canvas.setRoute(List.of());
-        });
+        panelFor = quest.id();
+        questView.render(ui, x, y, w, h, quest, QuestPanel.Look.MAP);
     }
 
     private void closeCross(Ui ui, float x, float y, Runnable action) {
@@ -732,7 +769,9 @@ final class MapView implements BookView {
 
     @Override
     public void scroll(double mouseX, double mouseY, double amount) {
-        if (panel.contains(mouseX, mouseY) && inTools(mouseX, mouseY)) {
+        if (questShown && questView.contains(mouseX, mouseY) && inTools(mouseX, mouseY)) {
+            questView.scroll(amount);
+        } else if (!questShown && panel.contains(mouseX, mouseY) && inTools(mouseX, mouseY)) {
             panel.scroll(amount);
         } else {
             canvas.mouseScrolled(mouseX, mouseY, amount);
@@ -797,7 +836,8 @@ final class MapView implements BookView {
     @Nullable
     @Override
     public int[] messageArea(int x, int y, int w, int h) {
-        return null;
+        // the middle column: left of the panel, over the canvas
+        return middle;
     }
 
     // ================= data =================
@@ -863,38 +903,6 @@ final class MapView implements BookView {
     private static Quest nextQuest(QuestBook book, ResourceLocation chapter) {
         ResourceLocation id = nextMain(book, chapter);
         return id == null ? null : book.quests().get(id);
-    }
-
-    /** A locked quest's path: its unfinished quests before it in an order that can be walked, the goal last (picture 22). */
-    private void refreshRoute(QuestBook book, @Nullable Quest selected) {
-        ResourceLocation goal = selected != null && status(selected.id()) == QuestStatus.LOCKED ? selected.id() : null;
-        int version = ClientProgress.version();
-        if (java.util.Objects.equals(goal, routeFor) && version == routeVersion) {
-            return;
-        }
-        routeFor = goal;
-        routeVersion = version;
-        canvas.setRoute(goal == null ? List.of() : route(book, goal));
-    }
-
-    static List<ResourceLocation> route(QuestBook book, ResourceLocation goal) {
-        List<ResourceLocation> out = new ArrayList<>();
-        walk(book, goal, new HashSet<>(), out);
-        return out;
-    }
-
-    private static void walk(QuestBook book, ResourceLocation id, Set<ResourceLocation> seen, List<ResourceLocation> out) {
-        if (!seen.add(id) || status(id) == QuestStatus.COMPLETED) {
-            return;
-        }
-        Quest quest = book.quests().get(id);
-        if (quest == null) {
-            return;
-        }
-        for (ResourceLocation r : quest.requires()) {
-            walk(book, r, seen, out);
-        }
-        out.add(id);
     }
 
     private static List<Quest> milestones(QuestBook book, ResourceLocation chapter) {

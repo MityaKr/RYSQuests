@@ -1,0 +1,19 @@
+{
+  "id": "panel:chronicle/nether_expedition",
+  "chapter": "panel:chronicle",
+  "title": "Экспедиция в Незер",
+  "icon": "minecraft:netherrack",
+  "group": "adventure",
+  "tasks": [
+    {
+      "type": "rysquests:visit",
+      "dimension": "minecraft:the_nether"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

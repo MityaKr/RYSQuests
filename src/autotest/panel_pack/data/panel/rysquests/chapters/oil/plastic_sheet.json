@@ -1,0 +1,23 @@
+{
+  "id": "panel:oil/plastic_sheet",
+  "chapter": "panel:oil",
+  "title": "Пластиковый лист",
+  "icon": "minecraft:white_concrete",
+  "requires": [
+    "panel:oil/plastic"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:white_concrete",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

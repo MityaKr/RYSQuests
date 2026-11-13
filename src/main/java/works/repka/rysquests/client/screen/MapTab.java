@@ -5,35 +5,28 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 import works.repka.rysquests.data.Chapter;
-import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.ViewMode;
 import works.repka.ryscore.ui.Icons;
 
 /**
- * The "Map" tab: the {@link Sidebar} on the left and, right of it, the map ({@link MapView}, the canvas with its tools and panel) or
- * the list. On the map the sidebar flies: a chapter to its area, an epoch to its part, "Вся книга" to the whole book. A chapter off
- * the map opens as a list. The list keeps the frame's toolbar and old quest card until its own screen takes over.
+ * The "Map" tab: the {@link Sidebar} on the left and, right of it, the map ({@link MapView}, the canvas with its tools and the
+ * {@link QuestPanel}) or the list ({@link QuestListView} with its own panel). On the map the sidebar flies: a chapter to its area, an
+ * epoch to its part, "Вся книга" to the whole book; the list shows the same level. A chapter off the map opens as a list.
  */
 final class MapTab implements BookView {
-    private static final int TOOLBAR_H = 46;
-    private static final int CARD_W = 392;
-    private static final int CARD_MIN_WINDOW = 1000;
-    private static final int WHEEL = 48;
-
     private final BookScreen screen;
     final MapView map;
-    final ListView list;
+    final QuestListView list;
     final Sidebar sidebar;
-    private final Scroll cardScroll = new Scroll();
-    private float cardLeft = Float.MAX_VALUE;
 
     MapTab(BookScreen screen) {
         this.screen = screen;
         this.map = new MapView(screen);
-        this.list = new ListView(screen);
+        this.list = new QuestListView(screen);
         this.sidebar = new Sidebar(new Sidebar.Listener() {
             @Override
             public void chapter(ResourceLocation id) {
+                QuestListView.showChapter();
                 Chapter chapter = BookData.book().chapters().get(id);
                 if (chapter != null && Sidebar.isOffMap(chapter)) {
                     BookState.openChapter(id);
@@ -47,26 +40,28 @@ final class MapTab implements BookView {
 
             @Override
             public void epoch(int number) {
-                if (listMode()) {
-                    Sidebar.model().groups().stream().filter(group -> group.number() == number).findFirst()
-                            .flatMap(group -> group.chapters().stream().findFirst())
-                            .ifPresent(entry -> BookState.openChapter(entry.chapter().id()));
-                } else {
+                QuestListView.showEpoch(number);
+                if (!listMode()) {
                     map.flyToEpoch(number);
                 }
             }
 
             @Override
             public void wholeBook() {
+                QuestListView.showBook();
                 if (!listMode()) {
                     map.flyToBook();
                 }
             }
-        }, () -> listMode() ? BookState.chapter : map.selectedChapter());
+        }, () -> listMode() ? QuestListView.chosenChapter() : map.selectedChapter());
     }
 
     private static boolean listMode() {
         return BookState.currentView() == ViewMode.LIST;
+    }
+
+    private BookView active() {
+        return listMode() ? list : map;
     }
 
     @Override
@@ -74,51 +69,29 @@ final class MapTab implements BookView {
         boolean compact = screen.compact();
         int sideW = sidebar.width(compact);
         sidebar.render(ui, x, y, h, compact);
-        int viewX = x + sideW;
-        int viewW = w - sideW;
-        cardLeft = Float.MAX_VALUE;
-        if (!listMode()) {
-            map.render(ui, viewX, y, viewW, h);
-            sidebar.renderOverlay(ui);
-            return;
-        }
-        ui.rect(viewX, y, viewW, TOOLBAR_H, ui.c("panel.bg"));
-        Segments.render(ui, viewX + 12, y + 12, List.of(Segments.item(Component.translatable("rysquests.tab.map").getString(), Icons.Shape.MAP),
-                Segments.item(Component.translatable("rysquests.view.list").getString(), Icons.Shape.LIST)), 1, index -> BookState.view = index == 0 ? ViewMode.MAP : ViewMode.LIST);
-        int bodyY = y + TOOLBAR_H;
-        int bodyH = h - TOOLBAR_H;
-        if (screen.windowWidth() >= CARD_MIN_WINDOW && !compact) {
-            viewW -= CARD_W;
-            cardLeft = viewX + viewW;
-            renderCard(ui, Math.round(cardLeft), y, CARD_W, h);
-        }
-        list.render(ui, viewX, bodyY, viewW, bodyH);
+        active().render(ui, x + sideW, y, w - sideW, h);
         sidebar.renderOverlay(ui);
     }
 
-    private void renderCard(Ui ui, int x, int y, int w, int h) {
-        ui.rect(x, y, w, h, ui.c("card.bg"));
-        ui.rect(x, y, 1, h, ui.c("panel.border"));
-        Quest quest = BookState.quest == null ? null : BookData.book().quests().get(BookState.quest);
-        if (quest == null || !quest.chapter().equals(java.util.Optional.ofNullable(BookState.chapter))) {
-            return;
-        }
-        ui.clip(x, y, w, h);
-        int content = QuestCard.render(ui, quest, x + 1, y - cardScroll.offset(), w - 1);
-        ui.unclip();
-        cardScroll.content(content, h);
+    /**
+     * "Карта | Список" (mockup {@code .seg}) of the list; "Карта" is grey for a chapter off the map, with the reason on hover (19b).
+     *
+     * @return its width
+     */
+    static float modeSwitch(Ui ui, float x, float y, boolean listMode, boolean offMap) {
+        Segments.Item mapItem = offMap
+                ? new Segments.Item(Component.translatable("rysquests.tab.map").getString(), Icons.Shape.MAP, true, Component.translatable("rysquests.qlist.off_map_tip"))
+                : Segments.item(Component.translatable("rysquests.tab.map").getString(), Icons.Shape.MAP);
+        return Segments.render(ui, x, y, List.of(mapItem, Segments.item(Component.translatable("rysquests.view.list").getString(), Icons.Shape.LIST)),
+                listMode ? 1 : 0, index -> BookState.view = index == 0 ? ViewMode.MAP : ViewMode.LIST);
     }
 
     @Override
     public void scroll(double mouseX, double mouseY, double amount) {
         if (sidebar.contains(mouseX, mouseY)) {
             sidebar.scroll(mouseX, mouseY, amount);
-        } else if (!listMode()) {
-            map.scroll(mouseX, mouseY, amount);
-        } else if (mouseX >= cardLeft) {
-            cardScroll.wheel(amount, WHEEL);
         } else {
-            list.scroll(mouseX, mouseY, amount);
+            active().scroll(mouseX, mouseY, amount);
         }
     }
 
@@ -136,20 +109,19 @@ final class MapTab implements BookView {
 
     @Override
     public boolean drag(double deltaX, double deltaY) {
-        return listMode() ? list.drag(deltaX, deltaY) : map.drag(deltaX, deltaY);
+        return active().drag(deltaX, deltaY);
     }
 
     @Override
     public boolean key(int key) {
-        return listMode() ? list.key(key) : map.key(key);
+        return active().key(key);
     }
 
     @Nullable
     @Override
     public int[] messageArea(int x, int y, int w, int h) {
         int sideW = sidebar.width(screen.compact());
-        int right = cardLeft == Float.MAX_VALUE ? x + w : Math.round(cardLeft);
-        return new int[] {x + sideW, y, right - x - sideW, h};
+        return active().messageArea(x + sideW, y, w - sideW, h);
     }
 
     int sidebarScrollForTest() {

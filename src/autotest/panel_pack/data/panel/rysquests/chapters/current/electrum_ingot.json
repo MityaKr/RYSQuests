@@ -1,0 +1,23 @@
+{
+  "id": "panel:current/electrum_ingot",
+  "chapter": "panel:current",
+  "title": "Электрумовый слиток",
+  "icon": "minecraft:gold_nugget",
+  "requires": [
+    "panel:current/lv_accumulator"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:gold_nugget",
+      "count": 16,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}
