@@ -539,7 +539,7 @@ final class MapView implements BookView {
     }
 
     private static int tasksDone(Quest quest) {
-        return QuestCard.tasksDone(quest, ClientProgress.get(quest.id()));
+        return QuestFacts.tasksDone(quest, ClientProgress.get(quest.id()));
     }
 
     private void renderActive(Ui ui, Quest quest, Placed placed) {
@@ -557,7 +557,7 @@ final class MapView implements BookView {
         List<String> lines = ui.wrap(title, textW, 12.5f, Ui.SEMIBOLD, 2);
         QuestProgress own = ClientProgress.get(quest.id());
         int total = quest.tasks().size();
-        int done = QuestCard.tasksDone(quest, own);
+        int done = QuestFacts.tasksDone(quest, own);
         float blockH = lines.size() * 15 + 13 + 4 + 3;
         float top = cy - blockH / 2f;
         for (int i = 0; i < lines.size(); i++) {

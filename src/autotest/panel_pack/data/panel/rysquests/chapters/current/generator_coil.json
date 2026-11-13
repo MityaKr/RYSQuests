@@ -1,0 +1,25 @@
+{
+  "id": "panel:current/generator_coil",
+  "chapter": "panel:current",
+  "title": "Катушка динамо-машины",
+  "icon": "minecraft:dispenser",
+  "requires": [
+    "panel:current/electric_mechanism",
+    "panel:current/gen_base"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:dispenser",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ],
+  "optional": true
+}

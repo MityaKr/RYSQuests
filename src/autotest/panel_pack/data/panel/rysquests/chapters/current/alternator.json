@@ -1,0 +1,25 @@
+{
+  "id": "panel:current/alternator",
+  "chapter": "panel:current",
+  "title": "Генератор переменного тока",
+  "icon": "minecraft:dropper",
+  "requires": [
+    "panel:current/electric_mechanism",
+    "panel:current/alt_base"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:dropper",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ],
+  "optional": true
+}

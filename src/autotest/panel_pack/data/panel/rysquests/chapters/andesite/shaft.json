@@ -1,0 +1,23 @@
+{
+  "id": "panel:andesite/shaft",
+  "chapter": "panel:andesite",
+  "title": "Вал",
+  "icon": "minecraft:stick",
+  "requires": [
+    "panel:andesite/andesite_alloy"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:stick",
+      "count": 2,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 10
+    }
+  ]
+}

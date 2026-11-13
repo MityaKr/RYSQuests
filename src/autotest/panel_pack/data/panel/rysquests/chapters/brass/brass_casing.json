@@ -1,0 +1,23 @@
+{
+  "id": "panel:brass/brass_casing",
+  "chapter": "panel:brass",
+  "title": "Латунный корпус",
+  "icon": "minecraft:gold_block",
+  "requires": [
+    "panel:brass/brass_ingot"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:gold_block",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

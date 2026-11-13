@@ -1,0 +1,19 @@
+{
+  "id": "panel:chronicle/old_mineshaft",
+  "chapter": "panel:chronicle",
+  "title": "Старая шахта",
+  "icon": "minecraft:rail",
+  "group": "adventure",
+  "tasks": [
+    {
+      "type": "rysquests:visit",
+      "structure": "minecraft:mineshaft"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

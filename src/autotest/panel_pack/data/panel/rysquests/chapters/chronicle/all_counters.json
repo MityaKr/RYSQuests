@@ -1,0 +1,48 @@
+{
+  "id": "panel:chronicle/all_counters",
+  "chapter": "panel:chronicle",
+  "title": "Счётчики, места и опыт",
+  "icon": "minecraft:compass",
+  "group": "showcase",
+  "tasks": [
+    {
+      "type": "rysquests:kill",
+      "entity": "minecraft:wither"
+    },
+    {
+      "type": "rysquests:kill",
+      "entity": "minecraft:enderman",
+      "count": 25
+    },
+    {
+      "type": "rysquests:stat",
+      "stat": "minecraft:custom",
+      "target": "minecraft:walk_one_cm",
+      "count": 1000000,
+      "title": "Пройти пешком 10 км"
+    },
+    {
+      "type": "rysquests:visit",
+      "dimension": "minecraft:the_end"
+    },
+    {
+      "type": "rysquests:visit",
+      "structure": "minecraft:monument"
+    },
+    {
+      "type": "rysquests:visit",
+      "dimension": "minecraft:overworld"
+    },
+    {
+      "type": "rysquests:xp",
+      "levels": 30,
+      "consume": true
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

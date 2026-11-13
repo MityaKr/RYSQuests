@@ -60,8 +60,9 @@ final class RewardChip {
         return new RewardChip(Kind.GLYPH, text, null, null, 0, shape);
     }
 
+    /** The chip's natural width; a pixel of slack so that a label measured exactly is never cut by rounding. */
     float width(Ui ui) {
-        return switch (kind) {
+        return 2 + switch (kind) {
             case ITEM -> 4 + 28 + 7 + ui.width(text, PX, Ui.REGULAR) + 10;
             case XP -> 10 + ui.width(number, PX, Ui.SEMIBOLD) + 7 + ui.width(text, PX, Ui.REGULAR) + 10;
             case COINS -> 10 + 11 + 7 + ui.width(number, PX, Ui.SEMIBOLD) + 7 + ui.width(text, PX, Ui.REGULAR) + 10;

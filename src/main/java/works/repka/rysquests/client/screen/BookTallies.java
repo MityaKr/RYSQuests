@@ -159,17 +159,17 @@ final class BookTallies {
             if (BookData.inStory(quest) && status == QuestStatus.COMPLETED) {
                 count++;
                 if (stacks.size() < 2) {
-                    stacks.addAll(QuestCard.rewardStacks(quest, 2 - stacks.size()));
+                    stacks.addAll(QuestFacts.rewardStacks(quest, 2 - stacks.size()));
                 }
-                plain |= QuestCard.hasUnclaimedPlain(quest);
-                if (pick == null && QuestCard.hasUnclaimedChoice(quest)) {
+                plain |= QuestFacts.hasUnclaimedPlain(quest);
+                if (pick == null && QuestFacts.hasUnclaimedChoice(quest)) {
                     pick = quest;
                 }
             }
             if (!BookData.shown(quest)) {
                 continue;
             }
-            if ((status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS) && QuestCard.readyToSubmit(quest, ClientProgress.get(quest.id()))) {
+            if ((status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS) && QuestFacts.readyToSubmit(quest, ClientProgress.get(quest.id()))) {
                 submit++;
             }
         }

@@ -1,0 +1,26 @@
+{
+  "id": "panel:andesite/andesite_alloy",
+  "chapter": "panel:andesite",
+  "title": "Андезитовый сплав",
+  "icon": "minecraft:polished_andesite",
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:polished_andesite",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 1
+    }
+  ],
+  "text": "Основа почти всего в Create. Скрафти его вручную из андезита и железных самородков, позже смешиватель сделает это быстрее."
+}

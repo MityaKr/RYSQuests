@@ -68,6 +68,18 @@ final class ListRow {
     private Runnable click;
     @Nullable
     private Runnable rightClick;
+    private int iconSize = ICON;
+    private float leadW;
+    @Nullable
+    private Lead lead;
+    private boolean rightLock;
+    private boolean dashed;
+
+    /** Something drawn before the icon: a chevron that folds the row's children, the number of a step. */
+    @FunctionalInterface
+    interface Lead {
+        void draw(Ui ui, float x, float cy);
+    }
 
     private ListRow(String title) {
         this.title = title;
@@ -155,6 +167,31 @@ final class ListRow {
         return this;
     }
 
+    /** The slot plate's size, 34 by default; the mockups use 32 in a chapter list, 30 in a tight row, 26 under a parent. */
+    ListRow iconSize(int size) {
+        iconSize = size;
+        return this;
+    }
+
+    /** Draws something {@code width} wide before the icon, centered on the row (a chevron, a step number); 11 apart from the icon. */
+    ListRow lead(float width, @Nullable Lead drawer) {
+        leadW = drawer == null ? 0 : width;
+        lead = drawer;
+        return this;
+    }
+
+    /** A padlock before the right words ("закрыт"). */
+    ListRow rightLock(boolean on) {
+        rightLock = on;
+        return this;
+    }
+
+    /** A dashed border without fill: a row that only unfolds more ("ещё 2"). */
+    ListRow dashed(boolean on) {
+        dashed = on;
+        return this;
+    }
+
     /** The row's height for a width, without drawing. */
     float height(Ui ui, float w) {
         return Math.max(look.minH, look.padY * 2 + contentHeight());
@@ -162,7 +199,7 @@ final class ListRow {
 
     private float contentHeight() {
         float text = Ui.lineHeight(TITLE_PX) + (sub == null ? 0 : 1 + Ui.lineHeight(SUB_PX)) + (progress >= 0 ? 9 : 0);
-        return Math.max(ICON, text);
+        return Math.max(icon != null || glyph != null ? iconSize : 0, text);
     }
 
     /** @return the height drawn */
@@ -174,7 +211,9 @@ final class ListRow {
         float h = height(ui, w);
         boolean over = ui.over(x, y, w, h);
         int fade = locked ? 0x8C : 0xFF;
-        switch (look) {
+        if (dashed) {
+            ui.dashed(x, y, w, h, ui.c("panel.border"));
+        } else switch (look) {
             case CARD, TIGHT -> ui.box(x, y, w, h, 10, ui.c(selected ? "tab.active.bg" : "card.bg"), ui.c(selected ? "text.secondary" : "panel.border"));
             case FLAT -> {
                 if (selected || over) {
@@ -191,21 +230,34 @@ final class ListRow {
         }
         float cy = y + h / 2f;
         float pen = x + look.padLeft;
+        if (lead != null) {
+            lead.draw(ui, pen, cy);
+            pen += leadW + GAP;
+        }
         if (icon != null || glyph != null) {
-            ui.box(pen, cy - ICON / 2f, ICON, ICON, 6, ui.c("slot.bg"), ui.c("slot.border"));
+            float s = iconSize;
+            ui.box(pen, cy - s / 2f, s, s, 6, ui.c("slot.bg"), ui.c("slot.border"));
             if (icon != null) {
-                ui.item(icon, pen + 5, cy - 12, 24);
+                float item = Math.round(s * 0.72f);
+                ui.item(icon, pen + (s - item) / 2f, cy - item / 2f, item);
+                if (locked) {
+                    ui.veil(pen + 1, cy - s / 2f + 1, s - 2, s - 2, 5, ui.c("slot.bg"), 0.55f);
+                }
             } else {
-                ui.icon(glyph, pen + 8.5f, cy - 8.5f, 17, faded(ui.c("text.secondary"), fade));
+                ui.icon(glyph, pen + (s - 17) / 2f, cy - 8.5f, 17, faded(ui.c("text.secondary"), fade));
             }
-            pen += ICON + GAP;
+            pen += s + GAP;
         }
         float right = x + w - look.padRight;
         float rightW = 0;
-        if (rightText != null || rightIcon != null) {
+        if (rightText != null || rightIcon != null || rightLock) {
             int color = faded(ui.c(linkAction != null && ui.over(right - rightWidth(ui), y, rightWidth(ui), h) ? "text.primary" : rightToken), fade);
             rightW = rightWidth(ui);
             float rx = right - rightW;
+            if (rightLock) {
+                ui.lock(rx, cy - 6, 12, color);
+                rx += 12 + 4;
+            }
             if (rightIcon != null) {
                 ui.icon(rightIcon, rx, cy - 7, 14, color);
                 rx += 14 + (rightText != null ? 6 : 0);
@@ -233,7 +285,7 @@ final class ListRow {
     }
 
     private float rightWidth(Ui ui) {
-        float w = 0;
+        float w = rightLock ? 16 : 0;
         if (rightIcon != null) {
             w += 14 + (rightText != null ? 6 : 0);
         }

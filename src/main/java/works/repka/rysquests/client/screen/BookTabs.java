@@ -45,7 +45,7 @@ final class BookTabs {
 
     static final List<Tab> ALL = List.of(
             new Tab(NOW, BookTabs::hasStory, BookTallies::readyToClaim,
-                    screen -> new HomeView(),
+                    NowView::new,
                     () -> BookState.inStory() && !BookTabs.mapView(BookState.currentView()), () -> BookTabs.openStory(ViewMode.HOME)),
             new Tab(MAP, BookTabs::hasStory, () -> 0,
                     MapTab::new,

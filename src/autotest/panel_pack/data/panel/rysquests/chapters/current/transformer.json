@@ -1,0 +1,24 @@
+{
+  "id": "panel:current/transformer",
+  "chapter": "panel:current",
+  "title": "Трансформатор",
+  "icon": "minecraft:amethyst_block",
+  "requires": [
+    "panel:current/copper_coil"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:amethyst_block",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 10
+    }
+  ],
+  "optional": true
+}

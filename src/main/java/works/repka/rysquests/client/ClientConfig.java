@@ -31,6 +31,11 @@ public final class ClientConfig {
             .comment("Play a sound when a reward is taken.")
             .define("rewardSound", false);
 
+    /** "Понятно" under the three lines about the book on "Now" at the first opening: they are not shown again (picture 12). */
+    public static final ModConfigSpec.BooleanValue NOW_INTRO_SEEN = BUILDER
+            .comment("The lines about the book on the first page were read and closed.")
+            .define("nowIntroSeen", false);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private ClientConfig() {

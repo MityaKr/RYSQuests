@@ -1,0 +1,23 @@
+{
+  "id": "panel:current/kinetic_dynamo",
+  "chapter": "panel:current",
+  "title": "Кинетический генератор",
+  "icon": "minecraft:observer",
+  "requires": [
+    "panel:current/electric_mechanism"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:observer",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

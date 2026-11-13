@@ -1,0 +1,54 @@
+{
+  "id": "panel:oil/plastic",
+  "chapter": "panel:oil",
+  "title": "Нефть и пластик",
+  "icon": "minecraft:orange_concrete",
+  "requires": [
+    "panel:current/tok"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:orange_concrete",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:choice",
+      "of": [
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:leather_chestplate",
+          "count": 1
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:iron_ingot",
+          "count": 32
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:blast_furnace",
+          "count": 2
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:netherite_pickaxe",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "type": "rysquests:xp",
+      "points": 150
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 3
+    }
+  ],
+  "milestone": true
+}

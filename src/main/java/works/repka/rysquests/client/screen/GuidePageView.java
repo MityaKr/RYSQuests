@@ -445,10 +445,10 @@ final class GuidePageView implements BookView {
         QuestProgress own = ClientProgress.get(quest.id());
         ui.labelFit(tr(quest.title()), left + 42, rowY + 8, inner - 42, 13, Ui.SEMIBOLD, ui.c("text.primary"));
         String chapter = Ui.roman(BookData.chapterNumber(quest.chapter().orElse(null)));
-        String line = Component.translatable("rysquests.guides.quest_line", chapter, QuestCard.tasksDone(quest, own), quest.tasks().size()).getString();
+        String line = Component.translatable("rysquests.guides.quest_line", chapter, QuestFacts.tasksDone(quest, own), quest.tasks().size()).getString();
         ui.labelFit(line, left + 42, rowY + 24, inner - 42, 11, Ui.REGULAR, ui.c("text.muted"));
         float barY = rowY + 32 + 8;
-        ui.bar(left, barY, inner, 5, 3, quest.tasks().isEmpty() ? 0 : (float) QuestCard.tasksDone(quest, own) / quest.tasks().size(), ui.c("accent"));
+        ui.bar(left, barY, inner, 5, 3, quest.tasks().isEmpty() ? 0 : (float) QuestFacts.tasksDone(quest, own) / quest.tasks().size(), ui.c("accent"));
         ui.button(tr("rysquests.guides.to_quest"), left, barY + 5 + 8, inner, 32, 8, 12, Ui.SEMIBOLD, 12, Ui.Style.ACCENT, () -> BookState.select(quest));
         return y + h;
     }

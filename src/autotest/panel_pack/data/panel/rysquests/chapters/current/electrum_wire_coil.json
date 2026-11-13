@@ -1,0 +1,24 @@
+{
+  "id": "panel:current/electrum_wire_coil",
+  "chapter": "panel:current",
+  "title": "Катушка электрумового провода",
+  "icon": "minecraft:gold_block",
+  "requires": [
+    "panel:current/copper_coil"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:gold_block",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 10
+    }
+  ],
+  "optional": true
+}

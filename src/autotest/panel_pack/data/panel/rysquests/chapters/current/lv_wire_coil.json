@@ -1,0 +1,24 @@
+{
+  "id": "panel:current/lv_wire_coil",
+  "chapter": "panel:current",
+  "title": "Моток низковольтного провода",
+  "icon": "minecraft:string",
+  "requires": [
+    "panel:current/copper_coil"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:string",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 10
+    }
+  ],
+  "optional": true
+}

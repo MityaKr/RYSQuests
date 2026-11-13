@@ -1,0 +1,97 @@
+{
+  "id": "panel:current/heavy_engineering_block",
+  "chapter": "panel:current",
+  "title": "Тяжёлый инженерный блок",
+  "icon": "minecraft:netherite_block",
+  "requires": [
+    "panel:current/mv_accumulator"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:netherite_block",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:choice",
+      "of": [
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:leather_chestplate",
+          "count": 1
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:iron_ingot",
+          "count": 32
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:blast_furnace",
+          "count": 2
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:netherite_pickaxe",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "type": "rysquests:xp",
+      "points": 150
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 3
+    },
+    {
+      "type": "rysquests:random",
+      "of": [
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:iron_ingot",
+          "count": 16
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:coal",
+          "count": 32
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:iron_block",
+          "count": 4
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:copper_block",
+          "count": 4
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:gold_ingot",
+          "count": 8
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:diamond",
+          "count": 1
+        }
+      ],
+      "weights": [
+        22,
+        17,
+        13,
+        11,
+        8,
+        3
+      ]
+    }
+  ],
+  "milestone": true
+}

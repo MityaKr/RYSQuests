@@ -71,12 +71,16 @@ neoForge {
             // JEI and Create are in run-int/mods, copied from a pack, so that nothing else has to load them.
             gameDirectory = project.file(project.findProperty('autotest') == 'integrations' ? 'run-int' : 'run')
             // 'layout' reads a copy of the RepYS book from run-layout/pack, made by tools/layout_pack.py.
-            systemProperty 'rysquests.dev.examplePack', project.file(project.findProperty('autotest') == 'layout' ? 'run-layout/pack' : project.findProperty('autotest') == 'integrations' ? 'src/autotest/integration_pack' : (project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : ((project.findProperty('autotest') ?: '').startsWith('guides_design') || (project.findProperty('autotest') ?: '').startsWith('sections_design')) ? 'src/autotest/guides_pack' : 'examples/example_pack').absolutePath
+            systemProperty 'rysquests.dev.examplePack', project.file(project.findProperty('autotest') == 'layout' ? 'run-layout/pack' : project.findProperty('autotest') == 'integrations' ? 'src/autotest/integration_pack' : (project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : (project.findProperty('autotest') ?: '').startsWith('panel') ? 'src/autotest/panel_pack' : ((project.findProperty('autotest') ?: '').startsWith('guides_design') || (project.findProperty('autotest') ?: '').startsWith('sections_design')) ? 'src/autotest/guides_pack' : 'examples/example_pack').absolutePath
             systemProperty 'rysquests.dev.brokenPack', project.file('examples/broken').absolutePath
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
             systemProperty 'rysquests.autotest.tag', project.findProperty('tag') ?: ''
             // The size of the mockups in design/, so that screenshots can be laid over them.
             programArguments.addAll '--width', '1280', '--height', '800'
+            // Several agents run games side by side: the heap stays small unless asked for (-Pheap=6G).
+            jvmArgument "-Xmx${project.findProperty('heap') ?: '3G'}"
+            // The ATM10 book the list is measured on (scenario panel): an FTB Quests folder, read and converted on the client.
+            systemProperty 'rysquests.autotest.ftbqBook', project.findProperty('ftbqBook') ?: ''
         }
         // A dedicated server and two clients, for what a single player cannot show. The server needs eula.txt in its folder.
         dedicatedServer {

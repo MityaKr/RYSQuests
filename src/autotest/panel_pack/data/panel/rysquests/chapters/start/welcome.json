@@ -1,0 +1,19 @@
+{
+  "id": "panel:start/welcome",
+  "chapter": "panel:start",
+  "title": "Добро пожаловать",
+  "icon": "minecraft:writable_book",
+  "tasks": [
+    {
+      "type": "rysquests:checkbox"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 10
+    }
+  ],
+  "text": "Эта книга ведёт по сборке шаг за шагом.",
+  "page": true
+}

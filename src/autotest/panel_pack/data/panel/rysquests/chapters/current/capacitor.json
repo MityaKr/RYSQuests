@@ -1,0 +1,31 @@
+{
+  "id": "panel:current/capacitor",
+  "chapter": "panel:current",
+  "title": "Конденсатор",
+  "icon": "minecraft:daylight_detector",
+  "requires": [
+    "panel:current/alternator",
+    "panel:current/kinetic_dynamo",
+    "panel:current/generator_coil"
+  ],
+  "requires_mode": "any",
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:daylight_detector",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 1
+    }
+  ]
+}
