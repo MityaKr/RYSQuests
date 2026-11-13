@@ -61,14 +61,19 @@ final class CanvasBooks {
             }
         }
         files.values().forEach(json -> prepare(json, names));
+        // the book made ready for the new book names its epochs and sets its service chapters off the map itself
+        JsonElement meta = files.get(ResourceLocation.fromNamespaceAndPath("repys", "book"));
+        boolean ready = meta != null && meta.isJsonObject() && meta.getAsJsonObject().has("epochs");
         files.forEach((id, json) -> {
-            if (id.getPath().endsWith("/_chapter") && json.isJsonObject() && json.getAsJsonObject().has("epoch") && json.getAsJsonObject().get("epoch").getAsInt() == 0) {
+            if (!ready && id.getPath().endsWith("/_chapter") && json.isJsonObject() && json.getAsJsonObject().has("epoch") && json.getAsJsonObject().get("epoch").getAsInt() == 0) {
                 json.getAsJsonObject().addProperty("off_map", true);
             }
             if (id.getPath().equals("book") && json.isJsonObject()) {
-                JsonArray epochs = new JsonArray();
-                REPYS_EPOCHS.forEach(epochs::add);
-                json.getAsJsonObject().add("epochs", epochs);
+                if (!ready) {
+                    JsonArray epochs = new JsonArray();
+                    REPYS_EPOCHS.forEach(epochs::add);
+                    json.getAsJsonObject().add("epochs", epochs);
+                }
                 if (form != null) {
                     json.getAsJsonObject().addProperty("map_form", form);
                 }

@@ -182,6 +182,8 @@ public final class AutoTest {
             buildCanvasScenario();
         } else if ("map".equals(scenario)) {
             buildMapScenario();
+        } else if ("repys_data".equals(scenario)) {
+            buildRepysDataScenario();
         } else if ("layout".equals(scenario)) {
             buildLayoutScenario();
         } else if ("book_editor".equals(scenario)) {
@@ -993,6 +995,64 @@ public final class AutoTest {
         }, 10);
         screenshot("map_49_map_loading");
         step("let the map go", () -> works.repka.rysquests.client.canvas.MapLayouts.pauseForTest(false), 10);
+        step("give the book back", () -> ClientBook.overrideForTest(null, null), 1);
+    }
+
+    /**
+     * The RepYS book made ready for the new book (plan step 13), from a copy given by {@code -PrepysBook} and {@code -PrepysLang}: it
+     * names its nine epochs, comes to the serpentine on its own and brings a fresh {@code layout.json}, so the map is there at once
+     * without laying anything out. Shoots the whole book with the sidebar of epoch names and the level of epoch V.
+     */
+    private static void buildRepysDataScenario() {
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("read the copy of the RepYS book", () -> {
+            try {
+                CANVAS_BOOKS[0] = CanvasBooks.repys(Path.of(System.getProperty("rysquests.autotest.repysBook")), Path.of(System.getProperty("rysquests.autotest.repysLang")));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            CANVAS_MAPS[0] = works.repka.rysquests.client.layout.MapBook.of(CANVAS_BOOKS[0]);
+            CANVAS_HERE[0] = CANVAS_MAPS[0].quests().stream().map(works.repka.rysquests.client.layout.MapBook.Q::id)
+                    .filter(id -> id.getPath().equals("b03_e2_current/electric_mechanism")).findFirst().orElseThrow();
+            CANVAS_DONE.set(0, CanvasBooks.repysProgress(CANVAS_BOOKS[0], CANVAS_MAPS[0], CANVAS_HERE[0]));
+            LOGGER.info("[autotest] repys data: epochs {}, form {}, {} chapters and {} quests on the map, layout {}", CANVAS_BOOKS[0].meta().epochs().stream()
+                    .map(works.repka.rysquests.data.BookMeta.Epoch::title).toList(), works.repka.rysquests.data.MapForms.choose(CANVAS_BOOKS[0]),
+                    CANVAS_MAPS[0].chapters().size(), CANVAS_MAPS[0].quests().size(), CANVAS_BOOKS[0].freshLayout().isPresent() ? "fresh" : "missing or stale");
+        }, 1);
+        expect("nine named epochs", () -> CANVAS_BOOKS[0].meta().epochs().size() == 9
+                && CANVAS_BOOKS[0].meta().epochs().stream().noneMatch(epoch -> epoch.title().startsWith("book.")));
+        expect("the serpentine by the rule", () -> works.repka.rysquests.data.MapForms.choose(CANVAS_BOOKS[0]).form() == works.repka.rysquests.data.MapForm.SERPENTINE);
+        expect("the baked layout fits the book", () -> CANVAS_BOOKS[0].freshLayout().isPresent());
+        boolean[] fromFile = new boolean[1];
+        // ready at the first asking: read from layout.json, since a layout worked out now would take a while
+        step("ask for the map once", () -> fromFile[0] = works.repka.rysquests.client.canvas.MapLayouts.get(CANVAS_BOOKS[0]).ready(), 1);
+        expect("the map comes from the file, nothing is laid out", () -> fromFile[0]);
+        mapBook(0, ResourceLocation.parse("repys:b03_e2_current"));
+        step("mouse out of the way, no messages", () -> {
+            moveMouse(1, 1);
+            ClientMessages.dismiss();
+            ThemeManager.select("ryscore:slate");
+        }, 2);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("open the map tab", () -> {
+            BookScreen.openTabForTest("map");
+            BookScreen.showForTest(ViewMode.MAP);
+        }, 10);
+        expect("the map is laid out", BookScreen::mapReadyForTest);
+        mapShot("repys_data_book", () -> {
+            moveMouse(1, 1);
+            BookScreen.mapFlyForTest(null, 0, null);
+        });
+        mapShot("repys_data_epoch_v", () -> BookScreen.mapFlyForTest(null, 5, null));
         step("give the book back", () -> ClientBook.overrideForTest(null, null), 1);
     }
 
