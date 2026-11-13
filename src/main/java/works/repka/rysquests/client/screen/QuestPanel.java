@@ -205,6 +205,142 @@ final class QuestPanel {
         float actionH = action == null ? 0 : 24 + (action.action() == null ? Ui.lineHeight(12.5f) + 10 : 42) + 1;
         float bodyBottom = y + h - actionH - GAP;
         panel.render(ui, x, y, w, h, (u, bx, by, bw) -> body(u, facts, look, bx, by, bw, bodyBottom - panelOffset(by, y)), action);
+        menu(ui, quest);
+    }
+
+    // --- the quest's menu "⋯" in the head ---
+
+    private static final float MENU_W = 196;
+    private static final float MENU_ROW = 30;
+    private boolean menuOpen;
+    /** The button "⋯" on screen in this frame, in mockup pixels, or null when it was not drawn. */
+    @Nullable
+    private float[] menuButton;
+    @Nullable
+    private ResourceLocation menuQuest;
+
+    private void moreButton(Ui ui, Quest quest, float x, float y) {
+        boolean over = ui.over(x, y, 28, 28);
+        if (over || menuOpen) {
+            ui.fill(x, y, 28, 28, 7, ui.c("slot.hover"));
+        }
+        int color = ui.c(over || menuOpen ? "text.primary" : "text.muted");
+        for (int i = -1; i <= 1; i++) {
+            ui.circle(x + 14 + i * 6 - 1.7f, y + 14 - 1.7f, 3.4f, color);
+        }
+        ui.tooltipIfOver(x, y, 28, 28, Component.translatable("rysquests.qmenu.tip"));
+        ui.hit(x, y, 28, 28, () -> menuOpen = !menuOpen);
+        menuButton = new float[] {x, y, 28, 28};
+        if (!quest.id().equals(menuQuest)) {
+            menuQuest = quest.id();
+            menuOpen = false;
+        }
+    }
+
+    /** One line of the menu: words, and what it does, or null when it cannot be done now. */
+    private record MenuItem(String label, @Nullable Runnable action) {
+    }
+
+    /** "Сбросить прогресс" for anyone in the team; "Завершить", "Скопировать id" and "Открыть в редакторе" for an operator. */
+    private List<MenuItem> menuItems(Quest quest) {
+        List<MenuItem> items = new ArrayList<>();
+        QuestProgress own = ClientProgress.get(quest.id());
+        boolean started = own.completed() || own.nextAt() > 0 || !own.claimed().isEmpty() || own.tasks().stream().anyMatch(value -> value > 0);
+        String title = QuestFacts.plain(Component.translatable(quest.title()).getString());
+        items.add(new MenuItem(t("rysquests.qmenu.reset"), started ? () -> ask("rysquests.qmenu.reset_title", t("rysquests.qmenu.reset_text", title),
+                "rysquests.qmenu.reset_yes", () -> QuestFacts.send(QuestActionPayload.RESET, quest, 0, List.of())) : null));
+        if (BookRole.operator()) {
+            items.add(new MenuItem(t("rysquests.qmenu.complete"), own.completed() ? null : () -> ask("rysquests.qmenu.complete_title",
+                    t("rysquests.qmenu.complete_text", title), "rysquests.qmenu.complete_yes", () -> QuestFacts.send(QuestActionPayload.COMPLETE, quest, 0, List.of()))));
+            items.add(new MenuItem(t("rysquests.qmenu.copy_id"), () -> {
+                Minecraft.getInstance().keyboardHandler.setClipboard(quest.id().toString());
+                works.repka.rysquests.client.ClientMessages.show("rysquests.qmenu.copied", List.of(quest.id().toString()), true);
+            }));
+            items.add(new MenuItem(t("rysquests.qmenu.editor"), () -> {
+                if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+                    screen.toggleEditor();
+                    EditorChecks.showOnMap(quest.id());
+                }
+            }));
+        }
+        return items;
+    }
+
+    private static void ask(String titleKey, String text, String yesKey, Runnable yes) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            Runnable answer = screen.answer(yes);
+            yesForTest = answer;
+            screen.ask(new Kit.Dialog(t(titleKey)).text(text)
+                    .no(t("rysquests.qmenu.cancel"), screen.answer(() -> { }))
+                    .yes(t(yesKey), answer));
+        }
+    }
+
+    /** The main answer of the last question the menu asked, for the autotest to press. */
+    @Nullable
+    static Runnable yesForTest;
+
+    /** The open menu under its button, over everything; a click elsewhere closes it. Drawn after the panel. */
+    private void menu(Ui ui, Quest quest) {
+        float[] button = menuButton;
+        menuButton = null;
+        if (!menuOpen || button == null) {
+            return;
+        }
+        List<MenuItem> items = menuItems(quest);
+        int pad = 4;
+        float h = items.size() * MENU_ROW + 2 * pad * 2;
+        int[] box = Kit.popover(ui.g, ui.theme, Math.round(button[0] / 2), Math.round(button[1] / 2), 14, 14, Math.round(MENU_W / 2), Math.round(h / 2),
+                Kit.Side.BELOW, null, (g, bx, by, bw, bh) -> {
+                });
+        float px = box[0] * 2f;
+        float py = box[1] * 2f + pad * 2;
+        ui.kitHits.unclip();
+        ui.kitHits.add(0, 0, ui.g.guiWidth(), ui.g.guiHeight(), b -> menuOpen = false);
+        ui.g.pose().pushPose();
+        ui.g.pose().translate(0, 0, 450);
+        for (int i = 0; i < items.size(); i++) {
+            MenuItem item = items.get(i);
+            float ry = py + i * MENU_ROW;
+            float rx = px + pad * 2;
+            float rw = MENU_W - pad * 4;
+            boolean hot = item.action() != null && ui.over(rx, ry, rw, MENU_ROW);
+            if (hot) {
+                ui.fill(rx, ry, rw, MENU_ROW, 7, Draw.alpha(ui.c("row.selected.bg"), 0.6f));
+            }
+            int fg = item.action() == null ? Draw.alpha(ui.c("text.body"), 0.45f) : ui.c(hot ? "text.primary" : "text.body");
+            ui.label(item.label(), rx + 10, ry + MENU_ROW / 2f, 12.5f, Ui.REGULAR, fg);
+            if (item.action() != null) {
+                Runnable action = item.action();
+                ui.kitHits.add(Math.round(rx / 2), Math.round(ry / 2), Math.round(rw / 2), Math.round(MENU_ROW / 2), b -> {
+                    if (b == 0) {
+                        menuOpen = false;
+                        action.run();
+                    }
+                });
+            }
+        }
+        ui.g.pose().popPose();
+    }
+
+    // --- for tests ---
+
+    void menuForTest(boolean open) {
+        menuOpen = open;
+    }
+
+    /** The menu's lines and whether each can be pressed, for the autotest. */
+    List<String> menuItemsForTest(Quest quest) {
+        return menuItems(quest).stream().map(item -> item.label() + (item.action() == null ? " (off)" : "")).toList();
+    }
+
+    /** Presses a line of the menu as a click would, for the autotest. */
+    void menuPressForTest(Quest quest, int index) {
+        Runnable action = menuItems(quest).get(index).action();
+        menuOpen = false;
+        if (action != null) {
+            action.run();
+        }
     }
 
     /** How far the body is scrolled: its top minus the panel's own top padding. */
@@ -312,7 +448,7 @@ final class QuestPanel {
         ItemStack icon = QuestFacts.icon(quest);
         Runnable close = look.closable() ? events::close : null;
         float headH = DetailPanel.header(ui, x, pen, w, icon.isEmpty() ? null : icon, QuestFacts.plain(Component.translatable(quest.title()).getString()),
-                subtitle(f), () -> BookData.togglePin(quest.id()), ClientProgress.pinned().contains(quest.id()), close);
+                subtitle(f), () -> BookData.togglePin(quest.id()), ClientProgress.pinned().contains(quest.id()), close, (bx, by) -> moreButton(ui, quest, bx, by));
         if (f.status == QuestStatus.LOCKED && !icon.isEmpty()) {
             ui.veil(x + 1, pen + 1, 44, 44, 6, ui.c("slot.bg"), 0.55f);
         }

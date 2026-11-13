@@ -184,6 +184,8 @@ public final class AutoTest {
             buildGuidesDesignScenario();
         } else if ("canvas".equals(scenario)) {
             buildCanvasScenario();
+        } else if ("quest_menu".equals(scenario)) {
+            QuestMenuScenario.build();
         } else if ("map".equals(scenario)) {
             buildMapScenario();
         } else if ("repys_data".equals(scenario)) {

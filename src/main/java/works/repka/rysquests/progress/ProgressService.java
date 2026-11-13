@@ -616,6 +616,19 @@ public final class ProgressService {
                 }
             }
             case QuestActionPayload.PIN -> togglePin(player, quest);
+            case QuestActionPayload.RESET -> {
+                setCompleted(player, quest, false);
+                Feedback.inform(player, "rysquests.qmenu.reset_done");
+            }
+            case QuestActionPayload.COMPLETE -> {
+                // checked here, whatever the client shows: only an operator completes a quest without its tasks
+                if (!player.hasPermissions(2)) {
+                    Feedback.refuse(player, "rysquests.qmenu.no_right");
+                } else if (!ProgressStore.get(player.server).get(team(player), quest.id()).completed()) {
+                    setCompleted(player, quest, true);
+                    Feedback.inform(player, "rysquests.qmenu.complete_done");
+                }
+            }
             default -> {
             }
         }
@@ -1052,14 +1065,31 @@ public final class ProgressService {
         OPEN_STAGES.remove(player.getUUID());
     }
 
+    /**
+     * Completes or resets a quest for the player's team: the operator's command and the quest's menu in the book. A reset starts the
+     * tasks and the rewards again for the whole team, the rewards each member claimed for themselves too, and mends a record stuck
+     * with its tasks done; the quests it opened stay as they are.
+     */
     public static void setCompleted(ServerPlayer player, Quest quest, boolean completed) {
+        UUID team = team(player);
+        ProgressStore store = ProgressStore.get(player.server);
         QuestProgress progress = QuestProgress.EMPTY;
         if (completed) {
             List<Integer> values = quest.tasks().stream().map(TaskDef::target).toList();
             progress = new QuestProgress(values, System.currentTimeMillis(), List.of());
+        } else {
+            for (UUID member : TeamRewards.rowsToReset(store.allProgress().keySet(), team, row -> store.teamOf(row, book().meta().progressMode()))) {
+                store.put(member, Map.of(quest.id(), QuestProgress.EMPTY));
+            }
+            if (!team.equals(player.getUUID())) {
+                store.put(player.getUUID(), Map.of(quest.id(), QuestProgress.EMPTY));
+            }
         }
         // An operator's command is not the player's own doing: their chapter of the last completion stays.
         apply(player, Map.of(quest.id(), progress), false);
+        // polled again from scratch: what lies in the inventory counts at once
+        ACTIVE.remove(team);
+        player.server.getPlayerList().getPlayers().stream().filter(member -> team(member).equals(team)).forEach(member -> INVENTORY_HASH.remove(member.getUUID()));
     }
 
     /** Forgets caches after progress was replaced from outside, such as an import or a migration. */

@@ -694,6 +694,36 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         EmptyBookView.ftbForTest = present;
     }
 
+    /** The quest menu "⋯" of the list's panel: opened or closed for a picture. */
+    public static void questMenuForTest(boolean open) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.mapTab().list.panelForTest().menuForTest(open);
+        }
+    }
+
+    /** The lines of the quest menu for the selected quest, "(off)" after one that cannot be pressed. */
+    public static List<String> questMenuItemsForTest() {
+        Quest quest = BookState.quest == null ? null : BookData.book().quests().get(BookState.quest);
+        return Minecraft.getInstance().screen instanceof BookScreen screen && quest != null ? screen.mapTab().list.panelForTest().menuItemsForTest(quest) : List.of();
+    }
+
+    /** Presses a line of the quest menu for the selected quest. */
+    public static void questMenuPressForTest(int index) {
+        Quest quest = BookState.quest == null ? null : BookData.book().quests().get(BookState.quest);
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && quest != null) {
+            screen.mapTab().list.panelForTest().menuPressForTest(quest, index);
+        }
+    }
+
+    /** Answers yes to the question the quest menu asked. */
+    public static void questMenuYesForTest() {
+        Runnable yes = QuestPanel.yesForTest;
+        QuestPanel.yesForTest = null;
+        if (yes != null) {
+            yes.run();
+        }
+    }
+
     public static boolean dialogOpenForTest() {
         return Minecraft.getInstance().screen instanceof BookScreen screen && screen.dialog != null;
     }

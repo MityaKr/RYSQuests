@@ -24,6 +24,10 @@ public record QuestActionPayload(int action, ResourceLocation quest, int value, 
     public static final int DEV_REPORT = 6;
     /** {@code quest} is the guide and {@code value} the page index. */
     public static final int READ_GUIDE_PAGE = 7;
+    /** The quest's menu, "Сбросить прогресс": the team's tasks and rewards of the quest start again. Any member may. */
+    public static final int RESET = 8;
+    /** The quest's menu, "Завершить": the quest is completed without its tasks. Operators only. */
+    public static final int COMPLETE = 9;
     /** Quest id for actions that apply to the whole book. */
     public static final ResourceLocation ALL = ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "all");
 

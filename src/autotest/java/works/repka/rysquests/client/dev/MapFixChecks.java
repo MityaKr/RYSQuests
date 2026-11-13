@@ -59,10 +59,11 @@ final class MapFixChecks {
             MapCanvas canvas = BookScreen.mapCanvasForTest();
             MISSES.clear();
             for (MapBook.Chap chapter : book.get().chapters()) {
-                for (float t : new float[] {0.03f, 0.5f, 0.97f}) {
+                for (float t : new float[] {0.02f, 0.5f, 0.98f}) {
                     float[] at = canvas.chapterPointForTest(chapter.id(), t);
                     MapCanvas.Target target = canvas.hit(at[0], at[1]);
-                    if (target.kind() != MapCanvas.Kind.EPOCH && !chapter.id().equals(target.chapter())) {
+                    // a node near the probe is taken first, as it should be: only the area of a wrong chapter is a miss
+                    if (target.kind() == MapCanvas.Kind.CHAPTER && !chapter.id().equals(target.chapter())) {
                         MISSES.add(chapter.id().getPath() + "@" + t + " -> " + target.chapter());
                     }
                 }
@@ -71,7 +72,16 @@ final class MapFixChecks {
         }, 2);
         expect("fb1 hover finds the chapter under the pointer", MISSES::isEmpty);
         step("fb1 point at the garden's end next to blood and souls", () -> {
-            float[] at = BookScreen.mapCanvasForTest().chapterPointForTest(GARDEN, 0.97f);
+            MapCanvas canvas = BookScreen.mapCanvasForTest();
+            float[] at = canvas.chapterPointForTest(GARDEN, 0.97f);
+            // near the end, where no node is under the pointer
+            for (float t = 0.98f; t > 0.8f; t -= 0.01f) {
+                float[] p = canvas.chapterPointForTest(GARDEN, t);
+                if (canvas.hit(p[0], p[1]).kind() == MapCanvas.Kind.CHAPTER) {
+                    at = p;
+                    break;
+                }
+            }
             moveMouse(at[0] / 2, at[1] / 2);
         }, 15);
         screenshot("map_fb1_hover_garden_end");

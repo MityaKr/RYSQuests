@@ -145,6 +145,17 @@ final class DetailPanel {
      */
     static float header(Ui ui, float x, float y, float w, @Nullable ItemStack icon, String title, @Nullable String sub,
             @Nullable Runnable pin, boolean pinned, @Nullable Runnable close) {
+        return header(ui, x, y, w, icon, title, sub, pin, pinned, close, null);
+    }
+
+    /** What draws a button of 28 by 28 at its top left corner: the quest's menu "⋯" between the pin and the cross. */
+    interface HeadButton {
+        void draw(float x, float y);
+    }
+
+    /** The head with one more button of the caller's, {@code more}, left of the cross. */
+    static float header(Ui ui, float x, float y, float w, @Nullable ItemStack icon, String title, @Nullable String sub,
+            @Nullable Runnable pin, boolean pinned, @Nullable Runnable close, @Nullable HeadButton more) {
         float size = 46;
         float pen = x;
         if (icon != null) {
@@ -161,8 +172,13 @@ final class DetailPanel {
             ui.hit(bx, y + 9, 28, 28, close);
             buttons += 28 + 8;
         }
+        if (more != null) {
+            bx -= 28 + (close != null ? 4 : 0);
+            more.draw(bx, y + 9);
+            buttons += 28 + 4;
+        }
         if (pin != null) {
-            bx -= 34 + (close != null ? 8 : 0);
+            bx -= 34 + (close != null || more != null ? 8 : 0);
             boolean over = ui.over(bx, y + 6, 34, 34);
             ui.box(bx, y + 6, 34, 34, 9, over ? ui.c("slot.hover") : ui.c("button.bg"), ui.c(pinned ? "text.secondary" : "button.border"));
             ui.icon(Icons.Shape.PIN, bx + 9, y + 15, 16, ui.c(pinned ? "text.primary" : "text.secondary"));

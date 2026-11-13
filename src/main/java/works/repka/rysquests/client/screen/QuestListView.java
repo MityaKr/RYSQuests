@@ -112,6 +112,10 @@ final class QuestListView implements BookView {
     private final BookScreen screen;
     private final Scroll scroll = new Scroll();
     private final QuestPanel panel;
+
+    QuestPanel panelForTest() {
+        return panel;
+    }
     private boolean overlay;
     private float listLeft;
     private float listTop;

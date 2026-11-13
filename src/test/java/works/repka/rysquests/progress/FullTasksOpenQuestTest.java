@@ -101,4 +101,14 @@ class FullTasksOpenQuestTest {
         assertFalse(QuestLogic.stuck(gate, world(Map.of(circuit, DONE, gateId, new QuestProgress(List.of(0), 0, List.of())))));
         assertFalse(QuestLogic.stuck(gate, world(Map.of(circuit, DONE, gateId, DONE))));
     }
+
+    /** "Сбросить прогресс" in the quest's menu writes an empty record: the quest is open again from nothing, not stuck. */
+    @Test
+    void aResetLeavesTheQuestOpenFromNothing() {
+        Quest quest = tertium();
+        Function<ResourceLocation, QuestProgress> reset = world(Map.of(CRYSTAL, DONE, PRUDENTIUM, DONE, TERTIUM, QuestProgress.EMPTY));
+        assertFalse(QuestLogic.stuck(quest, reset));
+        assertEquals(QuestStatus.AVAILABLE, QuestLogic.status(quest, reset));
+        assertTrue(QuestLogic.afterPoll(quest, QuestProgress.EMPTY, List.of(0), false, NOW).isEmpty());
+    }
 }
