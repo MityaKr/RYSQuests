@@ -24,6 +24,13 @@ foreach ($d in 'run-server', 'run-a', 'run-b') {
     }
 }
 
+# What the editor saved on the last run (a book left closed by a failed run among it) goes aside: every run starts on the pack alone.
+$editorPack = "$root\run-server\config\rysquests\pack"
+if (Test-Path $editorPack) {
+    New-Item -ItemType Directory -Force "$root\_stale" | Out-Null
+    Move-Item $editorPack "$root\_stale\server-editor-pack-$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+}
+
 [IO.File]::WriteAllText("$root\run-server\eula.txt", "eula=true`n", $utf)
 $level = 'autotest_' + (Get-Date -Format 'yyyyMMdd_HHmmss')
 [IO.File]::WriteAllText("$root\run-server\server.properties", "online-mode=false`nserver-port=25577`nlevel-name=$level`nspawn-protection=0`ndifficulty=peaceful`nenforce-secure-profile=false`n", $utf)

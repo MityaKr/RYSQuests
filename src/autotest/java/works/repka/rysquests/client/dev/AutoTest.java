@@ -153,6 +153,10 @@ public final class AutoTest {
         } else if ("dock".equals(scenario)) {
             buildDockScenario();
         } else if ("repys".equals(scenario)) {
+            RepysScenario.check();
+        } else if ("upgrade_new".equals(scenario)) {
+            RepysScenario.upgrade();
+        } else if ("repys_ftb".equals(scenario)) {
             buildRepysScenario();
         } else if ("design".equals(scenario) || "design_sizes".equals(scenario)) {
             buildDesignScenario();
@@ -274,6 +278,7 @@ public final class AutoTest {
     }
 
     /** The whole migration on a copy of the real pack: import the book, import the owner's progress, open the book. */
+    /** The RepYS book from before it was the pack's own: imported from FTB Quests with the progress of a real player. */
     private static void buildRepysScenario() {
         openWorld();
         step("import the FTB book", () -> command("rysquests import ftbq repys"), 40);
@@ -525,13 +530,45 @@ public final class AutoTest {
         expect("quest completed", () -> ClientProgress.get(TEAM_QUEST).completed());
         step("claim first", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
         expect("got the reward for each and the single one", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 1);
+        teamScreens("a");
         addShopOnServerSteps();
         addEditorOnServerSteps();
         step("import FTB progress where the other player took the reward", AutoTest::writeFtbqPartyFile, 5);
         step("run the import", () -> command("rysquests import ftbq progress"), 20);
         expect("the leader has not taken what the other player took", () -> ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().isEmpty());
+        // the publication lock: a closed book does not reach a player, an operator keeps it with the line "closed"
+        expect("the other player is ready for the lock", () -> ClientProgress.get(TEAM_READY).completed());
+        step("close the book to players", () -> PacketDistributor.sendToServer(new works.repka.rysquests.network.PublishPayload(false)), 40);
+        expect("the book is closed, the operator still has it", () -> !ClientBook.current().meta().published() && ClientBook.current().quests().containsKey(TEAM_QUEST));
+        step("open the closed book", () -> {
+            mc().setScreen(new BookScreen());
+            BookScreen.openTabForTest("map");
+        }, 20);
+        screenshot("team_a_closed_operator");
+        step("hold it closed while the other player looks", () -> mc().setScreen(null), 200);
+        step("open the book to players again", () -> PacketDistributor.sendToServer(new works.repka.rysquests.network.PublishPayload(true)), 40);
+        expect("the book is open again", () -> ClientBook.current().meta().published());
         expect("the other player has left", () -> players() == 1);
         step("stop the server", () -> command("stop"), 100);
+    }
+
+    /**
+     * The quest panel and "Now" in a team of two: "выполнен командой", "Каждый участник забирает сам" for the reward each takes,
+     * "Уже получена командой" for the one the first took, and the team's line on "Now".
+     */
+    private static void teamScreens(String who) {
+        step("open the shared quest (" + who + ")", () -> {
+            mc().setScreen(new BookScreen());
+            BookScreen.openTabForTest("map");
+            BookScreen.showForTest(ViewMode.MAP);
+            BookScreen.selectForTest(ResourceLocation.parse("teamtest:main"), TEAM_QUEST);
+            BookScreen.mapFlyForTest(null, 0, TEAM_QUEST);
+        }, 30);
+        step("mouse away (" + who + ")", () -> moveMouse(1, 1), 3);
+        screenshot("team_" + who + "_panel");
+        step("open now (" + who + ")", () -> BookScreen.openTabForTest("now"), 15);
+        screenshot("team_" + who + "_now");
+        step("close the book (" + who + ")", () -> mc().setScreen(null), 5);
     }
 
     /** Joins the team by invitation and shows what the second member gets. */
@@ -552,8 +589,10 @@ public final class AutoTest {
         expect("team of two on this client", () -> ClientProgress.teamSize() == 2);
         expect("progress is shared", () -> ClientProgress.get(TEAM_QUEST).completed());
         expect("the single reward is taken by the first", () -> ClientProgress.get(TEAM_QUEST).claimed().contains(1) && !ClientProgress.get(TEAM_QUEST).claimed().contains(0));
+        teamScreens("b_before_claim");
         step("claim second", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
         expect("got only the reward for each", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 0);
+        teamScreens("b");
         addShopMemberSteps();
         expect("the saved guide reached the other player", () -> ClientBook.current().guides().containsKey(SERVER_GUIDE));
         expect("its text came with the book", () -> Component.translatable(ClientBook.current().guides().get(SERVER_GUIDE).title()).getString().equals("Written on the server"));
@@ -563,6 +602,13 @@ public final class AutoTest {
         expect("the import knows this player took the reward", () -> ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().contains(0));
         step("try to save without rights", () -> PacketDistributor.sendToServer(new EditorSavePayload(Optional.of(ClientBook.current().guides().get(SERVER_GUIDE)), Optional.empty(), "en_us", Map.of(), Map.of(), List.of())), 20);
         expect("the server refused", () -> "rysquests.editor.error.denied".equals(BookScreen.lastEditorResultForTest()));
+        step("say ready for the lock", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CHECK, TEAM_READY, 0, List.of())), 20);
+        expect("the closed book left this player", () -> !ClientBook.current().meta().published() && ClientBook.current().quests().isEmpty());
+        step("open the book while it is closed", () -> pressKey(GLFW.GLFW_KEY_K), 20);
+        screenshot("team_b_closed_player");
+        step("close it", () -> mc().setScreen(null), 5);
+        expect("the book came back when it opened", () -> ClientBook.current().meta().published() && ClientBook.current().quests().containsKey(TEAM_QUEST));
+        expect("and the progress with it", () -> ClientProgress.get(TEAM_QUEST).completed());
         step("leave the server", () -> {}, 5);
     }
 
@@ -1217,6 +1263,7 @@ public final class AutoTest {
     }
 
     private static final ResourceLocation TEAM_IMPORTED = ResourceLocation.parse("teamtest:imported");
+    private static final ResourceLocation TEAM_READY = ResourceLocation.parse("teamtest:ready");
 
     /** The format FTB Quests writes, for a party whose second member took a reward. Only the dedicated server's folder is touched. */
     private static void writeFtbqPartyFile() {
@@ -2578,6 +2625,10 @@ public final class AutoTest {
 
     /** One world per mod set, reused between runs: opening a world with other mods stops on a game prompt. */
     static String worldName() {
+        String fixed = System.getProperty("rysquests.autotest.world", "");
+        if (!fixed.isBlank()) {
+            return fixed;
+        }
         int hash = ModList.get().getMods().stream().map(mod -> mod.getModId() + mod.getVersion()).sorted().toList().hashCode();
         return "rysquests_autotest_" + Integer.toHexString(hash);
     }

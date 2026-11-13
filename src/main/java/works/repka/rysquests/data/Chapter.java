@@ -23,6 +23,12 @@ public record Chapter(
     /** The section of the book that holds the progression chapters, and the only one shown so far. */
     public static final String STORY = "story";
 
+    public Chapter {
+        // Epochs count from 1. Books written before off_map put their intro and chronicle into epoch 0 (RepYS up to 0.1.0): that is
+        // no epoch, so in a book with epochs those chapters stay off the map, as off_map puts them now.
+        epoch = epoch.filter(number -> number > 0);
+    }
+
     /** A chapter on the map, without quests of other chapters shown on it. */
     public Chapter(ResourceLocation id, String title, Optional<String> subtitle, Optional<ResourceLocation> icon, Optional<Integer> epoch,
             Optional<ViewMode> defaultView, List<Group> groups, List<ResourceLocation> requires, boolean hidden, String section) {
