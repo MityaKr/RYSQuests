@@ -42,8 +42,9 @@ import works.repka.rysquests.editor.EditorFiles;
 /**
  * The RepYS book made ready for the new book (plan, step 13), read from a copy of its {@code rysquests} folder given by
  * {@code -PrepysData}: it reads without errors and without warnings the instance's book does not have, keeps every chapter and
- * quest, names its nine epochs, marks its milestones with the field of their own, sets its intro and chronicle off the map, comes to
- * the serpentine on its own and carries a baked {@code layout.json} that the server takes as fresh.
+ * quest (the content pass may add quests and send some to the archive, never drop one), names its nine epochs, marks every old
+ * milestone with the field of their own (and may add more), sets its intro and chronicle off the map, takes the spiral its author
+ * set and carries a baked {@code layout.json} that the server takes as fresh.
  *
  * <p>With {@code -PbakeLayout} it first lays the copy out with the engine the client uses and writes that {@code layout.json} beside
  * its {@code book.json}, as an operator's "Save layout" would: {@code gradlew test --tests '*RepysBookDataTest' -PrepysData=<folder>
@@ -122,17 +123,27 @@ class RepysBookDataTest {
         QuestBook before = read(instance()).book();
         QuestBook after = read(copy()).book();
         assertEquals(before.chapters().keySet(), after.chapters().keySet(), "the same chapters");
-        assertEquals(before.quests().keySet(), after.quests().keySet(), "the same quests");
-        assertEquals(before.quests().values().stream().filter(q -> q.options().live()).count(), after.quests().values().stream().filter(q -> q.options().live()).count());
+        // Players keep progress by id: no quest may go, a quest no longer needed goes to the archive instead.
+        Set<ResourceLocation> gone = before.quests().keySet().stream().filter(id -> !after.quests().containsKey(id)).collect(Collectors.toSet());
+        assertTrue(gone.isEmpty(), "quests that went: " + gone);
+        List<ResourceLocation> added = after.quests().keySet().stream().filter(id -> !before.quests().containsKey(id)).sorted().toList();
+        List<ResourceLocation> archived = after.quests().values().stream().filter(q -> q.options().archived() && !before.quests().get(q.id()).options().archived())
+                .map(Quest::id).sorted().toList();
+        assertEquals(before.quests().values().stream().filter(q -> q.options().live()).count() + added.size() - archived.size(),
+                after.quests().values().stream().filter(q -> q.options().live()).count(), "live quests: the old ones, plus the new, less the archived");
+        System.out.printf("quests added: %d %s; archived: %d %s%n", added.size(), added, archived.size(), archived);
         MapBook was = MapBook.of(before);
         MapBook now = MapBook.of(after);
+        Set<ResourceLocation> onMapNow = now.quests().stream().map(MapBook.Q::id).collect(Collectors.toSet());
+        List<ResourceLocation> leftTheMap = was.quests().stream().map(MapBook.Q::id).filter(id -> !onMapNow.contains(id) && !archived.contains(id)).toList();
+        assertTrue(leftTheMap.isEmpty(), "quests that left the map without going to the archive: " + leftTheMap);
         Set<ResourceLocation> off = after.chapters().values().stream().filter(Chapter::offMap).map(Chapter::id).collect(Collectors.toSet());
         assertEquals(Set.of(id("a01_map"), id("a2_chronicle")), off, "the intro and the chronicle are off the map");
         assertTrue(off.stream().allMatch(c -> after.chapters().get(c).epoch().orElse(0) == 0), "only chapters without an epoch leave the map");
         long offQuests = after.quests().values().stream().filter(q -> q.options().live() && q.chapter().filter(off::contains).isPresent()).count();
         // The instance's book keeps them in epoch 0, which already reads as no epoch (ADR-51): the same map either way.
         assertEquals(was.chapters().size(), now.chapters().size(), "chapters on the map");
-        assertEquals(was.quests().size(), now.quests().size(), "quests on the map");
+        assertEquals(was.quests().size() + added.size() - archived.size(), now.quests().size(), "quests on the map");
         assertTrue(now.chapters().stream().noneMatch(chapter -> off.contains(chapter.id())), "neither is on the map");
         System.out.printf("on the map: %d chapters, %d quests before; %d chapters, %d quests after (%d quests off the map); %d chapters, %d quests in all%n",
                 was.chapters().size(), was.quests().size(), now.chapters().size(), now.quests().size(), offQuests, after.chapters().size(), after.quests().size());
@@ -157,10 +168,11 @@ class RepysBookDataTest {
 
     @Test
     @Order(5)
-    void marksTheSameMilestonesWithTheirOwnField() throws IOException {
+    void marksEveryOldMilestoneWithItsOwnField() throws IOException {
         Set<ResourceLocation> before = milestones(read(instance()).book());
         Set<ResourceLocation> after = milestones(read(copy()).book());
-        assertEquals(before, after, "the old size 2 and the new field mark the same quests");
+        assertTrue(after.containsAll(before), "every old size 2 is a milestone now; lost: " + before.stream().filter(id -> !after.contains(id)).toList());
+        System.out.printf("milestones added: %s%n", after.stream().filter(id -> !before.contains(id)).sorted().toList());
         Set<String> sized = new HashSet<>();
         files(copy()).forEach((id, json) -> {
             if (json.isJsonObject() && json.getAsJsonObject().has("size") && json.getAsJsonObject().get("size").getAsInt() >= 2) {
