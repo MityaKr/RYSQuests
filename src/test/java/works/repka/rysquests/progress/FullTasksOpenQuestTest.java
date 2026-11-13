@@ -80,4 +80,25 @@ class FullTasksOpenQuestTest {
         Optional<QuestProgress> grown = QuestLogic.afterPoll(quest, open, List.of(1), true, NOW);
         assertTrue(grown.isPresent() && grown.get().completed(), "the item came: the task grows and the quest completes as before");
     }
+    /** The gate of Oritech: a checkbox the book shows ticked, whose quest the server never completed. */
+    @Test
+    void theStuckGateOfOritechIsFoundAndMendedAtLogin() {
+        ResourceLocation circuit = ResourceLocation.parse("repys:b13_e5_bio/elite_control_circuit");
+        ResourceLocation gateId = ResourceLocation.parse("repys:b14_e6_oritech/oritech");
+        Quest gate = new Quest(gateId, Optional.of(ResourceLocation.parse("repys:b14_e6_oritech")), Optional.empty(), "t", Optional.empty(), Optional.empty(), Optional.empty(),
+                List.of(circuit), RequiresMode.ALL, Optional.empty(), List.of(new works.repka.rysquests.task.CheckboxTask(Optional.empty())),
+                List.of(new works.repka.rysquests.reward.XpReward(Optional.empty(), Optional.of(25), works.repka.rysquests.data.TeamMode.EACH)), Optional.empty(),
+                new QuestOptions(Layout.DEFAULT, 1, false, false, Optional.empty(), false, List.of()));
+        // as the RepYS world kept it: tasks [1], no completion, the circuit done since
+        Function<ResourceLocation, QuestProgress> before = world(Map.of(gateId, IMPORTED));
+        assertFalse(QuestLogic.stuck(gate, before), "closed while the circuit is not done: nothing to mend, the book shows it closed");
+        Function<ResourceLocation, QuestProgress> now = world(Map.of(circuit, DONE, gateId, IMPORTED));
+        assertTrue(QuestLogic.stuck(gate, now));
+        QuestProgress mended = QuestLogic.finish(gate, IMPORTED, IMPORTED.taskValues(1), NOW);
+        assertEquals(QuestStatus.COMPLETED, QuestLogic.status(gate, world(Map.of(circuit, DONE, gateId, mended))));
+        assertFalse(QuestLogic.stuck(gate, world(Map.of(circuit, DONE, gateId, mended))), "mended once");
+        // a quest with an open task or already done is not stuck
+        assertFalse(QuestLogic.stuck(gate, world(Map.of(circuit, DONE, gateId, new QuestProgress(List.of(0), 0, List.of())))));
+        assertFalse(QuestLogic.stuck(gate, world(Map.of(circuit, DONE, gateId, DONE))));
+    }
 }

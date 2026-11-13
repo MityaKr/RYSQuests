@@ -73,6 +73,17 @@ public final class QuestLogic {
         return changed || stuck || quest.tasks().isEmpty() ? java.util.Optional.of(finish(quest, before, values, now)) : java.util.Optional.empty();
     }
 
+    /**
+     * A quest that is open, has every task done and yet is not completed: the state {@link #afterPoll} completes. Found at login
+     * too, so that records stuck before this rule are mended without a reset (RepYS: «Тертиевая эссенция», the gate of Oritech).
+     * Stages are the server's to add.
+     */
+    public static boolean stuck(Quest quest, Function<ResourceLocation, QuestProgress> progress) {
+        QuestProgress own = progress.apply(quest.id());
+        return isLive(quest) && !quest.tasks().isEmpty() && !own.completed() && !own.coolingDown() && isUnlocked(quest, progress)
+                && allTasksDone(quest, own.tasks());
+    }
+
     public static boolean allClaimed(Quest quest, QuestProgress progress) {
         return progress.claimed().size() >= quest.rewards().size();
     }

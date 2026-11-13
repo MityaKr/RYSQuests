@@ -87,6 +87,7 @@ public final class ProgressService {
     private static final int POLL_INTERVAL = 20;
     private static final int STAGE_INTERVAL = 100;
     private static final long MINUTE_MS = 60_000;
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ProgressService.class);
     private static final ResourceLocation FEED_SOURCE = ResourceLocation.fromNamespaceAndPath("rysquests", "quests");
 
     /** Open, unlocked quests per team, so that polling does not walk the whole book. */
@@ -1014,6 +1015,33 @@ public final class ProgressService {
         GUIDE_LOCKS.remove(player.getUUID());
         OPEN_STAGES.remove(player.getUUID());
         refreshStageLocks(player);
+        mendStuck(player);
+    }
+
+    /**
+     * Completes the team's quests that are open with every task done but were never completed, at login and after a reload: records
+     * from before {@link QuestLogic#afterPoll} completed them (taken over from FTB Quests, merged by a migration). The poll would
+     * get to them within a second as well; this does it at once and for quests the poll's list may not hold yet.
+     */
+    private static void mendStuck(ServerPlayer player) {
+        if (!counts(player)) {
+            return;
+        }
+        UUID team = team(player);
+        ProgressStore store = ProgressStore.get(player.server);
+        Function<ResourceLocation, QuestProgress> progress = lookup(player);
+        Map<ResourceLocation, QuestProgress> mended = new HashMap<>();
+        long now = System.currentTimeMillis();
+        for (Quest quest : book().quests().values()) {
+            if (QuestLogic.stuck(quest, progress) && stageAllows(player, quest)) {
+                QuestProgress before = store.get(team, quest.id());
+                mended.put(quest.id(), QuestLogic.finish(quest, before, before.taskValues(quest.tasks().size()), now));
+            }
+        }
+        if (!mended.isEmpty()) {
+            LOGGER.info("Completed {} quests whose tasks were all done for {}: {}", mended.size(), player.getGameProfile().getName(), mended.keySet());
+            apply(player, mended, false);
+        }
     }
 
     public static void forget(ServerPlayer player) {
