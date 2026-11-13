@@ -298,6 +298,55 @@ public final class MapCanvas {
         return q < 0 ? null : screenOf(layout.x[q], layout.y[q]);
     }
 
+    /** The width of the rectangle of the last frame, in mockup pixels. */
+    public float viewWidth() {
+        return vw;
+    }
+
+    /**
+     * For the autotest: where on screen a point of a chapter's area lies, {@code t} of the way along its band's centre line (or across
+     * its box), in mockup pixels; null when the chapter is not on the canvas.
+     */
+    @Nullable
+    public float[] chapterPointForTest(ResourceLocation chapter, float t) {
+        if (layout == null || map == null || map.chapter(chapter) < 0) {
+            return null;
+        }
+        CanvasLayout.Region region = layout.regions[map.chapter(chapter)];
+        float[] pts = region.pts();
+        if (region.kind() != CanvasLayout.RegionKind.BAND) {
+            return screenOf(region.minX() + (region.maxX() - region.minX()) * t, region.centerY());
+        }
+        double total = 0;
+        for (int i = 0; i + 3 < pts.length; i += 2) {
+            total += Math.hypot(pts[i + 2] - pts[i], pts[i + 3] - pts[i + 1]);
+        }
+        double want = total * t;
+        for (int i = 0; i + 3 < pts.length; i += 2) {
+            double len = Math.hypot(pts[i + 2] - pts[i], pts[i + 3] - pts[i + 1]);
+            if (want <= len || i + 4 >= pts.length) {
+                double k = len == 0 ? 0 : Math.min(1, want / len);
+                return screenOf(pts[i] + (pts[i + 2] - pts[i]) * k, pts[i + 1] + (pts[i + 3] - pts[i + 1]) * k);
+            }
+            want -= len;
+        }
+        return screenOf(pts[0], pts[1]);
+    }
+
+    /** For the autotest: half the side of the node as drawn now (a tile's, or a dot's radius), in mockup pixels; -1 when absent. */
+    public float nodeHalfForTest(ResourceLocation quest) {
+        int q = index(quest);
+        if (q < 0) {
+            return -1;
+        }
+        boolean hub = layout.hub(q);
+        boolean big = layout.milestone(q);
+        if (levelOf(camera.scale) != Level.BOOK && tilePx(hub || big, false) >= MIN_TILE) {
+            return Math.max(MIN_TILE, tilePx(hub || big, big)) / 2;
+        }
+        return nodeRadiusPx(hub, big);
+    }
+
     public void setMinimap(boolean show) {
         minimap = show;
     }

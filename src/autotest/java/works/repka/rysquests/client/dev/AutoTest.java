@@ -1046,6 +1046,7 @@ public final class AutoTest {
         }, 5);
         expect("the spiral is laid out", BookScreen::mapReadyForTest);
         mapShot("41_map_form_spiral", () -> BookScreen.mapFlyForTest(null, 0, null));
+        MapFixChecks.build(() -> works.repka.rysquests.client.layout.MapBook.of(CANVAS_BOOKS[0]));
         // ATM10 as a galaxy
         mapBook(1, null);
         step("open the map of ATM10", () -> {

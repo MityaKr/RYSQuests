@@ -927,6 +927,20 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         return Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map.canvas.layout() != null && !screen.mapTab().map.canvas.flying();
     }
 
+    /** The map's canvas itself, for the checks of hovering and clicking; null when the book is not open. */
+    @Nullable
+    public static works.repka.rysquests.client.canvas.MapCanvas mapCanvasForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.mapTab().map.canvas : null;
+    }
+
+    /** A click on the map as the screen takes it: press and release at one point, in mockup pixels. */
+    public static void mapClickForTest(double x, double y) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.mapTab().map.press(x, y, 0);
+            screen.mapTab().map.release(x, y, 0);
+        }
+    }
+
     public static works.repka.rysquests.client.canvas.MapCanvas.Stats mapCanvasStatsForTest() {
         return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.mapTab().map.canvas.stats() : null;
     }
