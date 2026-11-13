@@ -2,7 +2,6 @@ package works.repka.rysquests.client.screen;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -28,12 +27,16 @@ final class NewBookView implements BookView {
     private static final float ROW_H = 62;
     private static final long WAIT_MS = 15_000;
 
+    /** Where "Создать книгу" leads once the server has made the book. */
+    interface Start {
+        void open(BookScreen screen, String title, FirstRun.Answer answer);
+    }
+
     /**
-     * Where "Создать книгу" leads once the server has made the book: the table of a book from scratch (picture 09), with the answer
-     * to "Как устроена сборка?" (an answer "по порядку" means the editor makes the first epoch). The editor's screen puts its view
-     * here when the branches meet; until then a stub says what will be there.
+     * The editor's table of a book from scratch (picture 09): the title and the form of the answer go into the draft ("пока не знаю"
+     * keeps {@link works.repka.rysquests.data.MapForm#AUTO}), and only "по порядку" makes the first epoch.
      */
-    static BiFunction<BookScreen, FirstRun.Answer, BookView> firstQuests = FirstQuestsStub::new;
+    static Start firstQuests = (screen, title, answer) -> screen.editor.startNewBook(title, answer.form, answer == FirstRun.Answer.ORDER);
 
     private final BookScreen screen;
     private final TextArea name = new TextArea(false, 14, 18, Ui.SEMIBOLD, () -> { });
@@ -82,8 +85,9 @@ final class NewBookView implements BookView {
             return;
         }
         if (ClientBook.current().meta().title().filter(sent::equals).isPresent()) {
+            String title = sent;
             sent = null;
-            screen.openPage(firstQuests.apply(screen, answer));
+            firstQuests.open(screen, title, answer);
         } else if (Util.getMillis() - sentAt > WAIT_MS) {
             sent = null;
         }
@@ -279,25 +283,6 @@ final class NewBookView implements BookView {
     public void press(double x, double y, int button) {
         if (!name.contains(x, y)) {
             name.focus(false);
-        }
-    }
-
-    /** The table of a book from scratch (picture 09) is the editor's; until the branches meet this says what will be there. */
-    private static final class FirstQuestsStub implements BookView {
-        private final BookScreen screen;
-
-        FirstQuestsStub(BookScreen screen, FirstRun.Answer answer) {
-            this.screen = screen;
-        }
-
-        @Override
-        public boolean bareHeader() {
-            return true;
-        }
-
-        @Override
-        public void render(Ui ui, int x, int y, int w, int h) {
-            StubPage.render(ui, x, y, w, h, Component.translatable(P + "new.first_quests").getString(), screen::closePage);
         }
     }
 }

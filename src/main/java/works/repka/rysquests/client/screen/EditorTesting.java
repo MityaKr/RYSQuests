@@ -56,6 +56,12 @@ public final class EditorTesting {
         }
     }
 
+    /** The book's settings as the draft has them: a new book's title, form and epochs. */
+    public static works.repka.rysquests.data.BookMeta draftMeta() {
+        EditorBook book = EditorBook.get();
+        return book.draft().meta().orElse(book.base().meta());
+    }
+
     private static EditorMapView map() {
         return screen().editor.map();
     }

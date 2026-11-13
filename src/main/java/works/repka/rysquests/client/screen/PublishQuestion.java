@@ -34,8 +34,16 @@ final class PublishQuestion {
     private record Point(Mark mark, String bold, String text) {
     }
 
+    /**
+     * The one window of the book's lock: "Открыть игрокам" from the closed book's line, the header and "Проверка" while the book is
+     * closed, and "Закрыть для игроков…" of "Проверка" while it is open.
+     */
     static void ask(BookScreen screen) {
         QuestBook book = BookData.book();
+        if (book.meta().published()) {
+            askClose(screen);
+            return;
+        }
         FirstRun.Publish facts = FirstRun.publish(book);
         List<Point> points = new ArrayList<>();
         if (facts.clean()) {
@@ -89,6 +97,14 @@ final class PublishQuestion {
                 .width(WIDTH / 2)
                 .no(FirstRunParts.t("rysquests.closed.ask_no"), screen.answer(() -> { }))
                 .yes(FirstRunParts.t("rysquests.closed.open"), screen.answer(() -> ClientBook.requestPublish(true))));
+    }
+
+    /** "Закрыть книгу для игроков?": players see "Квестов пока нет" again, progress stays. */
+    private static void askClose(BookScreen screen) {
+        screen.ask(new Kit.Dialog(FirstRunParts.t("rysquests.ed.check.close_title"))
+                .text(FirstRunParts.t("rysquests.ed.check.close_text"))
+                .no(FirstRunParts.t("rysquests.ed.check.close_no"), screen.answer(() -> { }))
+                .yes(FirstRunParts.t("rysquests.ed.check.close_yes"), screen.answer(() -> ClientBook.requestPublish(false))));
     }
 
     /** The tabs players will have: those with something in them, matrices aside, which are only for the author. */

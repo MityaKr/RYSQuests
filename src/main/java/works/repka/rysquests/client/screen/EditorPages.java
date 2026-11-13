@@ -171,6 +171,35 @@ final class EditorPages {
         map().openTable(chapter);
     }
 
+    // --- the pencils of the player's pages ---
+
+    /** A guide, or a tab of pages, opens on the editor's "Гайды" or "Вкладки". */
+    void openGuide(GuideDraft draft) {
+        EditorBook.active = true;
+        screen.closePage();
+        if (draft.section) {
+            current = TABS;
+            ((TabsEditorView) page(TABS)).select(draft.id);
+        } else {
+            current = GUIDES;
+            ((GuideEditorView) page(GUIDES)).select(draft.id, 0);
+        }
+    }
+
+    /** A tab of the author: "Вкладки" with it chosen. */
+    void openSection(@org.jetbrains.annotations.Nullable works.repka.rysquests.data.SectionDef def) {
+        if (def instanceof works.repka.rysquests.data.PagesSection pages) {
+            openGuide(GuideDraft.of(pages));
+            return;
+        }
+        EditorBook.active = true;
+        screen.closePage();
+        current = TABS;
+        if (def != null) {
+            ((TabsEditorView) page(TABS)).select(def.id());
+        }
+    }
+
     static Component label(String id) {
         return Component.translatable("rysquests.tab." + id);
     }

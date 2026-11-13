@@ -69,7 +69,7 @@ final class GuidesTab implements BookView {
 
             @Override
             public void edit(Guide guide, int page) {
-                screen.editors.openGuide(GuideDraft.of(guide), false);
+                screen.editor.openGuide(GuideDraft.of(guide));
             }
         });
         this.pagesSection = new GuidePageView(guides, new GuidePageView.Source() {
@@ -110,7 +110,7 @@ final class GuidesTab implements BookView {
             @Override
             public void edit(Guide guide, int page) {
                 if (BookState.customSection() instanceof PagesSection pages) {
-                    screen.editors.openGuide(GuideDraft.of(pages), false);
+                    screen.editor.openGuide(GuideDraft.of(pages));
                 }
             }
         });
@@ -244,7 +244,7 @@ final class GuidesTab implements BookView {
             ui.tooltipIfOver(x, cy - 15, 30, 30, Component.translatable("rysquests.editor.edit"));
             ui.hit(x, cy - 15, 30, 30, () -> {
                 if (net.minecraft.client.Minecraft.getInstance().screen instanceof BookScreen open) {
-                    open.editors.openSection(section);
+                    open.editor.openSection(section);
                 }
             });
         }

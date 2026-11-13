@@ -35,7 +35,7 @@ import works.repka.ryscore.ui.ScaledScreen;
  * ({@link ClosedBookLine}), the message line ({@link BookMessageLine}) and a question ({@link #ask}).
  *
  * <p>The screen keeps no page logic of its own: views come from {@link BookTabs}, numbers from {@link BookTallies}, lookups from
- * {@link BookData}, and the old full-window editors from {@link BookEditors}. Small screens get the family's compact base 480×270.
+ * {@link BookData}, and the editor of the book from {@link EditorPages}. Small screens get the family's compact base 480×270.
  */
 public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     private static final float DIM = 0.6f;
@@ -61,7 +61,6 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     private final LoadingView loading = new LoadingView();
     private final EmptyBookView empty = new EmptyBookView(this);
     private final SearchPopover searchPopover = new SearchPopover(this);
-    final BookEditors editors = new BookEditors(this);
     final EditorPages editor = new EditorPages(this);
     @Nullable
     private BookView page;

@@ -2231,15 +2231,24 @@ public final class AutoTest {
         step("create the book", FirstRunHooks::createBook, 5);
         expect("the server made the book, closed, as a galaxy", () -> ClientBook.current().meta().title().filter("Моя сборка"::equals).isPresent()
                 && !ClientBook.current().meta().published() && ClientBook.current().meta().mapForm() == works.repka.rysquests.data.MapForm.GALAXY);
-        expect("the table of the new book opens (a stub until the editor)", () -> "FirstQuestsStub".equals(FirstRunHooks.pageName()));
-        screenshot("first_new_book_table_stub");
+        expect("the editor opens on the table of the new book's first chapter", () -> works.repka.rysquests.client.screen.EditorTesting.on()
+                && works.repka.rysquests.client.screen.EditorTesting.chapter() != null && FirstRunHooks.pageName().isEmpty());
+        expect("the draft keeps the answer: a galaxy, no epochs", () -> works.repka.rysquests.client.screen.EditorTesting.draftMeta().mapForm() == works.repka.rysquests.data.MapForm.GALAXY
+                && works.repka.rysquests.client.screen.EditorTesting.draftMeta().epochs().isEmpty());
+        step("point away", () -> moveMouse(1, 1), 5);
+        screenshot("first_new_book_table");
         step("put the new book aside for the import", () -> {
+            works.repka.rysquests.client.screen.EditorTesting.leave();
+            works.repka.rysquests.client.screen.EditorTesting.forgetDraft();
             mc().setScreen(null);
             try {
                 Path game = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get();
-                Path to = game.resolve("_stale").resolve("first-" + STARTED_AT).resolve("new-book-pack");
-                Files.createDirectories(to.getParent());
-                Files.move(game.resolve("config/rysquests/pack"), to);
+                Path aside = game.resolve("_stale").resolve("first-" + STARTED_AT);
+                Files.createDirectories(aside);
+                Files.move(game.resolve("config/rysquests/pack"), aside.resolve("new-book-pack"));
+                if (Files.exists(game.resolve("rysquests/drafts"))) {
+                    Files.move(game.resolve("rysquests/drafts"), aside.resolve("new-book-drafts"));
+                }
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -2442,6 +2451,7 @@ public final class AutoTest {
             if (!(mc().screen instanceof TitleScreen)) {
                 mc().setScreen(new TitleScreen());
             }
+            cleanStart();
             String world = worldName();
             if (mc().getLevelSource().levelExists(world)) {
                 mc().createWorldOpenFlows().openWorld(world, () -> fail("world did not open"));
@@ -2457,7 +2467,41 @@ public final class AutoTest {
         STEPS.add(new Step("world loaded", () -> {
             skipBackupQuestion();
             return mc().player != null && mc().level != null && mc().screen == null;
-        }, () -> {}, 40));
+        }, AutoTest::cleanWorld, 40));
+    }
+
+    /**
+     * Every scenario starts as on a fresh game directory, whatever the one before it left: the FTB import of "first", the editor's
+     * pack and the drafts of the editor go aside into {@code _stale} (nothing is deleted). Only "book_editor_restart" keeps them: it
+     * picks up what "book_editor" left on purpose.
+     */
+    private static void cleanStart() {
+        if ("book_editor_restart".equals(scenario)) {
+            return;
+        }
+        Path game = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get();
+        Path stale = game.resolve("_stale").resolve("left-before-" + scenario + "-" + STARTED_AT);
+        for (String folder : List.of("config/rysquests/import", "config/rysquests/pack", "rysquests/drafts")) {
+            Path from = game.resolve(folder);
+            if (Files.exists(from)) {
+                try {
+                    Path to = stale.resolve(folder);
+                    Files.createDirectories(to.getParent());
+                    Files.move(from, to);
+                    LOGGER.info("[autotest] put aside {} left by an earlier run", folder);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+        }
+    }
+
+    /** The world is shared by the scenarios: command answers go to chat again, as in a new world ("panel" turns them off). */
+    private static void cleanWorld() {
+        var server = mc().getSingleplayerServer();
+        if (server != null) {
+            server.execute(() -> server.getGameRules().getRule(GameRules.RULE_SENDCOMMANDFEEDBACK).set(true, server));
+        }
     }
 
     static void screenshot(String name) {

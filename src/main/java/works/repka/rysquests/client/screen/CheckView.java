@@ -179,11 +179,9 @@ final class CheckView extends EditorPage {
         works.repka.rysquests.client.ClientMessages.show(sent ? "rysquests.ed.check.layout_sent" : "rysquests.layout.no_baker", List.of(), sent);
     }
 
+    /** "Закрыть для игроков…": the same window of the lock as "Открыть игрокам" ({@link PublishQuestion}). */
     private void askClose() {
-        screen.ask(new works.repka.ryscore.ui.Kit.Dialog(tr("rysquests.ed.check.close_title"))
-                .text(tr("rysquests.ed.check.close_text"))
-                .no(tr("rysquests.ed.check.close_no"), screen.answer(() -> { }))
-                .yes(tr("rysquests.ed.check.close_yes"), screen.answer(() -> ClientBook.requestPublish(false))));
+        PublishQuestion.ask(screen);
     }
 
     // --- "Что исправить" ---
