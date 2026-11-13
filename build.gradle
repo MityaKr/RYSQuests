@@ -69,10 +69,19 @@ neoForge {
         autotest {
             client()
             // JEI and Create are in run-int/mods, copied from a pack, so that nothing else has to load them.
-            gameDirectory = project.file(project.findProperty('autotest') == 'integrations' ? 'run-int' : 'run')
+            // 'dock' looks at the panel of buttons beside FTB Library (and RYScope) from run-ftb/mods, picture 02 and 02b.
+            gameDirectory = project.file(project.findProperty('autotest') == 'integrations' ? 'run-int' : project.findProperty('autotest') == 'dock' ? 'run-ftb' : 'run')
             // 'layout' reads a copy of the RepYS book from run-layout/pack, made by tools/layout_pack.py.
             systemProperty 'rysquests.dev.examplePack', project.file(project.findProperty('autotest') == 'layout' ? 'run-layout/pack' : project.findProperty('autotest') == 'integrations' ? 'src/autotest/integration_pack' : (project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : (project.findProperty('autotest') ?: '').startsWith('panel') ? 'src/autotest/panel_pack' : ((project.findProperty('autotest') ?: '').startsWith('guides_design') || (project.findProperty('autotest') ?: '').startsWith('sections_design')) ? 'src/autotest/guides_pack' : 'examples/example_pack').absolutePath
             systemProperty 'rysquests.dev.brokenPack', project.file('examples/broken').absolutePath
+            if (project.findProperty('autotest') == 'first') {
+                // The first run starts without a book: no example pack.
+                systemProperty 'rysquests.dev.examplePack', ''
+                // The ATM10 book names items of mods this game does not have; it is carried over and shown whole all the same.
+                systemProperty 'rysquests.dev.anyItem', 'true'
+                // Nor the broken example: a reload that looks for new packs would switch it on.
+                systemProperty 'rysquests.dev.brokenPack', ''
+            }
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
             systemProperty 'rysquests.autotest.tag', project.findProperty('tag') ?: ''
             // 'canvas' and 'map' read the books of RepYS and ATM10 on the client, without a server.
@@ -172,12 +181,13 @@ tasks.named('check') {
 }
 
 // The game exits normally even when a scenario fails, so the verdict is read from its log.
-def autotestLog = file(project.findProperty('autotest') == 'integrations' ? 'run-int/logs/latest.log' : 'run/logs/latest.log')
+def autotestLog = file(project.findProperty('autotest') == 'integrations' ? 'run-int/logs/latest.log' : project.findProperty('autotest') == 'dock' ? 'run-ftb/logs/latest.log' : 'run/logs/latest.log')
 tasks.matching { it.name == 'runAutotest' }.configureEach {
     doLast {
         def lines = autotestLog.readLines('UTF-8')
         def errors = lines.findAll { it =~ /\/(ERROR|FATAL)\]/ }
-        if (!errors.isEmpty()) {
+        // FTB mods in run-ftb log errors of their own; only the verdict counts there.
+        if (!errors.isEmpty() && project.findProperty('autotest') != 'dock') {
             throw new GradleException("Autotest log has ${errors.size()} error line(s), first: ${errors[0]}")
         }
         if (!lines.any { it.contains('[autotest] PASS') }) {

@@ -23,6 +23,17 @@ public final class BookRole {
         return minecraft.player != null && minecraft.player.hasPermissions(2);
     }
 
+    /** Asks something as a player would see it: the tabs players will get when the book opens (picture 10). */
+    static <T> T asPlayer(java.util.function.Supplier<T> query) {
+        Boolean before = forced;
+        forced = false;
+        try {
+            return query.get();
+        } finally {
+            forced = before;
+        }
+    }
+
     /** Pretends a role, or stops pretending with null. For tests only. */
     public static void forceForTest(@Nullable Boolean operator) {
         forced = operator;

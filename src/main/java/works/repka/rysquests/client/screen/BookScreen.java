@@ -128,6 +128,12 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         page = view;
     }
 
+    /** The page over the tab, or null: the first-run hooks of the autotest look at it. */
+    @Nullable
+    BookView page() {
+        return page;
+    }
+
     void closePage() {
         if (page != null) {
             page.closed();
@@ -310,7 +316,7 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         shown = body;
         boolean bare = body == loading || body == empty || body.bareHeader();
         if (header != null) {
-            header.render(ui, x, y, w, bare ? BookHeader.Mode.BARE : BookHeader.Mode.FULL, compact());
+            header.render(ui, x, y, w, bare ? BookHeader.Mode.BARE : BookHeader.Mode.FULL, compact(), bare ? body : null);
         }
         int top = y + BookHeader.HEIGHT;
         if (!bare && ClosedBookLine.shown()) {

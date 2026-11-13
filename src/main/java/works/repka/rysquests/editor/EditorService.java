@@ -42,6 +42,8 @@ import works.repka.rysquests.data.SectionDef;
 import works.repka.rysquests.network.EditorResultPayload;
 import works.repka.rysquests.network.EditorSavePayload;
 import works.repka.rysquests.network.LayoutSavePayload;
+import works.repka.rysquests.network.MapFormPayload;
+import works.repka.rysquests.network.NewBookPayload;
 import works.repka.rysquests.network.PublishPayload;
 import works.repka.rysquests.network.QuestEditorSavePayload;
 import works.repka.rysquests.progress.ProgressRemap;
@@ -180,6 +182,52 @@ public final class EditorService {
                 });
             } catch (IOException | RuntimeException e) {
                 LOGGER.error("Could not change the publication of the book", e);
+                server.execute(() -> reply(player, false, FAILED));
+            }
+        }, Util.ioPool());
+    }
+
+    /** Sets the form of the map, or leaves it to the rule with {@code auto}: the form choice after the FTB Quests import. */
+    public static void handleMapForm(ServerPlayer player, MapFormPayload payload) {
+        if (!player.hasPermissions(PERMISSION)) {
+            reply(player, false, "rysquests.editor.error.denied");
+            return;
+        }
+        saveMetaAndReload(player, BookHolder.current().book().meta().withMapForm(payload.form()), book -> book.meta().mapForm() == payload.form());
+    }
+
+    /**
+     * Makes a book from scratch: its name, icon and map form, closed to players (picture 09a). A book that already has quests is
+     * never overwritten this way.
+     */
+    public static void handleNewBook(ServerPlayer player, NewBookPayload payload) {
+        if (!player.hasPermissions(PERMISSION)) {
+            reply(player, false, "rysquests.editor.error.denied");
+            return;
+        }
+        String title = payload.title().strip();
+        if (title.isEmpty() || title.length() > NewBookPayload.MAX_TITLE || !BookHolder.current().book().quests().isEmpty()) {
+            reply(player, false, "rysquests.editor.error.invalid");
+            return;
+        }
+        BookMeta base = BookMeta.DEFAULT;
+        BookMeta meta = new BookMeta(base.progressMode(), base.defaultView(), base.defaultTheme(), java.util.Optional.of(title), payload.icon(),
+                List.of(), base.hud(), List.of(), List.of(), payload.form(), false);
+        saveMetaAndReload(player, meta, book -> book.meta().title().filter(title::equals).isPresent());
+    }
+
+    private static void saveMetaAndReload(ServerPlayer player, BookMeta meta, Predicate<QuestBook> found) {
+        MinecraftServer server = player.server;
+        Path root = EditorFolder.root();
+        boolean createPack = !EditorFolder.servedByKubeJs();
+        boolean firstSave = createPack && !Files.isRegularFile(root.resolve("pack.mcmeta"));
+        String namespace = bookNamespace(server, null);
+        CompletableFuture.runAsync(() -> {
+            try {
+                EditorFiles.saveMeta(root, namespace, meta, createPack);
+                server.execute(() -> reloadBook(player, found, firstSave));
+            } catch (IOException | RuntimeException e) {
+                LOGGER.error("Could not save the book's settings", e);
                 server.execute(() -> reply(player, false, FAILED));
             }
         }, Util.ioPool());

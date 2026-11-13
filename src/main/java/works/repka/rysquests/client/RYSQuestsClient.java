@@ -27,7 +27,6 @@ import works.repka.rysquests.client.input.QuestKeys;
 import works.repka.rysquests.client.screen.BookScreen;
 import works.repka.rysquests.network.ModNetwork;
 import works.repka.ryscore.dock.DockButton;
-import works.repka.ryscore.ui.Icons;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -81,20 +80,31 @@ public final class RYSQuestsClient {
     }
 
     /**
-     * "Квесты" in the family's panel of buttons (RYSCore 1.9, plan section 4): without FTB Library the panel stands left of the
-     * inventory; with FTB Library our button stays in FTB's own panel ({@code sidebar_buttons/book.json}) unless a host replaces it.
+     * "Квесты" in the family's panel of buttons (RYSCore 1.9, plan section 4, pictures 01, 02, 02b). The mod sets up its button
+     * itself, in the core's registry: the icon (a white texture the panel tints), the tile, and that it replaces FTB Quests' own
+     * button. With the button in the registry the panel also hides our FTB sidebar button ({@code rysquests_book}), so a host such
+     * as RYScope that replaces FTB's panel shows "Квесты" once and first. Without a host and with FTB Library our button stays in
+     * FTB's own panel ({@code sidebar_buttons/book.json}); without FTB Library the panel stands left of the inventory.
      */
     private static void registerDockButton() {
         DockButton.builder("rysquests_book")
                 .label(() -> Component.translatable("rysquests.dock.label"))
-                .description(() -> Component.translatable("rysquests.dock.description", QuestKeys.label(QuestKeys.OPEN_BOOK)))
+                .description(RYSQuestsClient::dockDescription)
                 .tile(0xFFE9A83A)
-                .icon(Icons.Shape.BOOK)
+                .texture(ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "textures/gui/dock/book.png"))
                 .key(QuestKeys.OPEN_BOOK)
                 .order(0)
                 .replacesFtb("ftbquests_quests")
                 .action(BookScreen::open)
                 .register();
+    }
+
+    /** The second line under "Квесты" (picture 01): only while the book is empty, and for an operator an invitation to build it. */
+    private static Component dockDescription() {
+        if (!ClientBook.received() || !ClientBook.current().quests().isEmpty()) {
+            return Component.empty();
+        }
+        return Component.translatable(works.repka.rysquests.client.screen.BookRole.operator() ? "rysquests.dock.empty_operator" : "rysquests.dock.empty_player");
     }
 
     /** The FTB sidebar button runs this command: buttons there can only run commands or fire FTB's own events. */

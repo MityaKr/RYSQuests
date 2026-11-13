@@ -62,6 +62,16 @@ public final class ClientBook {
         PacketDistributor.sendToServer(new PublishPayload(open));
     }
 
+    /** Sets the form of the map, {@link works.repka.rysquests.data.MapForm#AUTO} to leave it to the rule; only an operator may. */
+    public static void requestMapForm(works.repka.rysquests.data.MapForm form) {
+        PacketDistributor.sendToServer(new works.repka.rysquests.network.MapFormPayload(form));
+    }
+
+    /** Makes a book from scratch, closed to players: "Создать книгу" (picture 09a). Refused when the book already has quests. */
+    public static void requestNewBook(String title, java.util.Optional<net.minecraft.resources.ResourceLocation> icon, works.repka.rysquests.data.MapForm form) {
+        PacketDistributor.sendToServer(new works.repka.rysquests.network.NewBookPayload(title, icon, form));
+    }
+
     /** Decodes in the background; a newer packet that arrives meanwhile wins over this one. */
     static void receive(BookSyncPayload payload, RegistryAccess registries) {
         int generation = GENERATION.incrementAndGet();

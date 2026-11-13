@@ -1,8 +1,6 @@
 package works.repka.rysquests.client.screen;
 
 import net.minecraft.network.chat.Component;
-import works.repka.rysquests.client.ClientBook;
-import works.repka.ryscore.ui.Kit;
 
 /**
  * "Книга закрыта для игроков" (picture 08, plan section 4): a narrow line under the header while the book is closed, for operators
@@ -44,13 +42,8 @@ final class ClosedBookLine {
         ui.labelFit(rest, textX + boldW, cy, right - textX - boldW, 12.5f, Ui.REGULAR, ui.c("text.secondary"));
     }
 
-    /** The question of picture 10 in its short form: how much players will see, "Пока нет" or "Открыть игрокам". */
+    /** The question of picture 10: what players will see, "Пока нет" or "Открыть игрокам". */
     static void askToOpen(BookScreen screen) {
-        long chapters = BookData.chapters().size();
-        long quests = BookData.book().quests().values().stream().filter(quest -> quest.options().live()).count();
-        screen.ask(new Kit.Dialog(Component.translatable("rysquests.closed.ask_title").getString())
-                .text(Component.translatable("rysquests.closed.ask_text", chapters, quests).getString())
-                .no(Component.translatable("rysquests.closed.ask_no").getString(), screen.answer(() -> { }))
-                .yes(Component.translatable("rysquests.closed.open").getString(), screen.answer(() -> ClientBook.requestPublish(true))));
+        PublishQuestion.ask(screen);
     }
 }
