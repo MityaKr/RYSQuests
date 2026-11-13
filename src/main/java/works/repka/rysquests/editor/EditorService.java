@@ -317,17 +317,29 @@ public final class EditorService {
         }));
     }
 
-    /** Reloads all data with packs that appeared since, as {@code /reload} does. Runs on the main thread. */
+    /**
+     * Reloads all data with packs that appeared since, as {@code /reload} does ({@code ReloadCommand.discoverNewPacks}). Runs on the
+     * main thread. A pack switched off stays off: {@code /datapack disable} reloads, and every reload writes the packs left out into
+     * the world's disabled list ({@code MinecraftServer.reloadResources}), which is what is skipped here. Of the packs that appeared
+     * since (a fresh import), only those the game would switch on itself when a world loads are switched on: their source adds them
+     * automatically and the world has their features ({@code MinecraftServer.configurePackRepository}). {@code /reload} switches on
+     * every new pack, also one meant to stay off until asked for (a {@code FEATURE} pack such as the dev example's broken book).
+     */
     public static CompletableFuture<Void> reloadWithNewPacks(MinecraftServer server) {
         PackRepository packs = server.getPackRepository();
-        List<String> selected = new ArrayList<>(packs.getSelectedIds());
+        List<String> before = List.copyOf(packs.getSelectedIds());
+        List<String> selected = new ArrayList<>(before);
         packs.reload();
         Collection<String> disabled = server.getWorldData().getDataConfiguration().dataPacks().getDisabled();
-        for (String id : packs.getAvailableIds()) {
-            if (!disabled.contains(id) && !selected.contains(id)) {
+        net.minecraft.world.flag.FeatureFlagSet features = server.getWorldData().enabledFeatures();
+        for (net.minecraft.server.packs.repository.Pack pack : packs.getAvailablePacks()) {
+            String id = pack.getId();
+            if (!disabled.contains(id) && !selected.contains(id) && pack.getPackSource().shouldAddAutomatically()
+                    && pack.getRequestedFeatures().isSubsetOf(features)) {
                 selected.add(id);
             }
         }
+        net.neoforged.neoforge.resource.ResourcePackLoader.reorderNewlyDiscoveredPacks(selected, before, packs);
         return server.reloadResources(selected);
     }
 
