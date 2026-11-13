@@ -72,13 +72,28 @@ final class BookHeader {
     }
 
     void render(Ui ui, int x, int y, int w, Mode mode, boolean compact) {
+        render(ui, x, y, w, mode, compact, null);
+    }
+
+    /** @param page a page in a bare header, which may name the window and draw after the name (the import's steps), or null */
+    void render(Ui ui, int x, int y, int w, Mode mode, boolean compact, @Nullable BookView page) {
         ui.rect(x, y + HEIGHT - 1, w, 1, ui.c("panel.border"));
         float cy = y + (HEIGHT - 1) / 2f;
         float pen = x + PAD_LEFT;
-        pen = renderBrand(ui, pen, cy, compact);
+        String title = page != null ? page.headerTitle() : null;
+        if (title != null) {
+            ui.image(MOD_ICON, pen, cy - 14, 28, 28, 16, 16);
+            ui.label(title, pen + 28 + 9, cy, 15, Ui.DISPLAY, ui.c("text.primary"));
+            pen += 28 + 9 + ui.width(title, 15, Ui.DISPLAY);
+        } else {
+            pen = renderBrand(ui, pen, cy, compact);
+        }
         float right = x + w - PAD_RIGHT;
         right = iconButton(ui, Icons.Shape.CROSS, right - BUTTON, cy, false, Component.translatable("rysquests.header.close"), host::close) - 8;
         if (mode == Mode.BARE) {
+            if (page != null) {
+                page.renderHeader(ui, pen, cy);
+            }
             hideSearch();
             return;
         }

@@ -63,6 +63,7 @@ import works.repka.rysquests.client.screen.BookRole;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.screen.BookScreen;
+import works.repka.rysquests.client.screen.FirstRunHooks;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.ViewMode;
@@ -89,7 +90,9 @@ public final class AutoTest {
     private static final String SCENARIO_PROPERTY = "rysquests.autotest";
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoTest.class);
     private static final boolean AS_PLAYER = Boolean.getBoolean("rysquests.autotest.asPlayer");
-    private static final int TOTAL_TICK_LIMIT = 20 * (AS_PLAYER ? 1200 : 300);
+    /** The first run carries a whole FTB book over and lays out four maps of it: longer than the other scenarios. */
+    private static final boolean LONG_SCENARIO = "first".equals(System.getProperty(SCENARIO_PROPERTY));
+    private static final int TOTAL_TICK_LIMIT = 20 * (AS_PLAYER || LONG_SCENARIO ? 1200 : 300);
     private static final int STEP_TICK_LIMIT = 20 * (AS_PLAYER ? 600 : 120);
     private static final int REPYS_MIN_QUESTS = 2000;
     private static final UUID REPYS_PLAYER = UUID.fromString("216ea99a-d6eb-45be-8a5b-3da7852588a5");
@@ -139,6 +142,10 @@ public final class AutoTest {
             buildBookScenario();
         } else if ("frame".equals(scenario)) {
             buildFrameScenario();
+        } else if ("first".equals(scenario)) {
+            buildFirstRunScenario();
+        } else if ("dock".equals(scenario)) {
+            buildDockScenario();
         } else if ("repys".equals(scenario)) {
             buildRepysScenario();
         } else if ("design".equals(scenario) || "design_sizes".equals(scenario)) {
@@ -1874,6 +1881,203 @@ public final class AutoTest {
         expect("normal layout again", () -> !BookScreen.compactForTest());
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
         expect("book closed", () -> mc().screen == null);
+    }
+
+    // --- the first run (plan, sections 4 and 5) ---
+
+    private static final String FTB_BROKEN = "zz_autotest_broken.snbt";
+
+    /**
+     * Moves what earlier runs made out of the way (into {@code _stale}, nothing is deleted) and lays a copy of the ATM10 book where
+     * FTB Quests keeps it, with one broken chapter: the scenario starts on an empty book each time.
+     */
+    private static void prepareFirstRun() {
+        Path game = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get();
+        Path stale = game.resolve("_stale").resolve("first-" + STARTED_AT);
+        try {
+            for (String folder : List.of("config/rysquests/import", "config/rysquests/pack", "config/ftbquests/quests")) {
+                Path from = game.resolve(folder);
+                if (Files.exists(from)) {
+                    Path to = stale.resolve(folder);
+                    Files.createDirectories(to.getParent());
+                    Files.move(from, to);
+                }
+            }
+            Path source = Path.of(System.getProperty("rysquests.autotest.atm10Quests"));
+            Path target = game.resolve("config/ftbquests/quests");
+            try (var files = Files.walk(source)) {
+                for (Path file : files.toList()) {
+                    Path to = target.resolve(source.relativize(file).toString());
+                    if (Files.isDirectory(file)) {
+                        Files.createDirectories(to);
+                    } else {
+                        Files.copy(file, to, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                }
+            }
+            Files.writeString(target.resolve("chapters").resolve(FTB_BROKEN), "{\n\tid: \"7A11ED0000000001\"\n\tfilename: \"zz_autotest_broken\"\n\tquests: [\n\t\t{\n\t\t\tid: \"7A11ED0000000002\"\n");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void buildFirstRunScenario() {
+        prepareFirstRun();
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+            ThemeManager.select("ryscore:slate");
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        expect("an empty book reached the client", () -> ClientBook.received() && ClientBook.current().quests().isEmpty());
+        // 01: the panel of the family left of the inventory, without FTB Library, the invitation of the empty book in the tooltip
+        dockShot("first_dock_no_ftb");
+        step("close the inventory", () -> mc().setScreen(null), 5);
+        // 09a: a book from scratch
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("the empty book", () -> "empty".equals(BookScreen.bodyForTest()));
+        step("build from scratch", () -> FirstRunHooks.open("new", false), 5);
+        expect("the new book page", () -> "NewBookView".equals(FirstRunHooks.pageName()));
+        step("point away", () -> moveMouse(1, 1), 5);
+        screenshot("first_new_book");
+        step("answer: a main line and mods around", () -> FirstRunHooks.newBookAnswer("CORE"), 5);
+        screenshot("first_new_book_answered");
+        step("create the book", FirstRunHooks::createBook, 5);
+        expect("the server made the book, closed, as a galaxy", () -> ClientBook.current().meta().title().filter("Моя сборка"::equals).isPresent()
+                && !ClientBook.current().meta().published() && ClientBook.current().meta().mapForm() == works.repka.rysquests.data.MapForm.GALAXY);
+        expect("the table of the new book opens (a stub until the editor)", () -> "FirstQuestsStub".equals(FirstRunHooks.pageName()));
+        screenshot("first_new_book_table_stub");
+        step("put the new book aside for the import", () -> {
+            mc().setScreen(null);
+            try {
+                Path game = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get();
+                Path to = game.resolve("_stale").resolve("first-" + STARTED_AT).resolve("new-book-pack");
+                Files.createDirectories(to.getParent());
+                Files.move(game.resolve("config/rysquests/pack"), to);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            command("reload");
+        }, 40);
+        expect("the book is empty again", () -> ClientBook.current().meta().title().isEmpty() && ClientBook.current().quests().isEmpty());
+        // 05, then 50: the import stops on the broken chapter
+        step("open the empty book with FTB", () -> {
+            BookScreen.ftbForTest(true);
+            pressKey(GLFW.GLFW_KEY_K);
+        }, 10);
+        screenshot("first_empty_ftb");
+        step("carry over from FTB", () -> FirstRunHooks.open("import", true), 2);
+        screenshot("first_import_running");
+        expect("the import stopped on the broken chapter", () -> "error".equals(FirstRunHooks.wizardState()));
+        step("log the failure", () -> LOGGER.info("[autotest] import failure: {}", works.repka.rysquests.client.ClientImport.error()), 5);
+        expect("it names the broken file", () -> works.repka.rysquests.client.ClientImport.error().failure().file().endsWith(FTB_BROKEN)
+                && works.repka.rysquests.client.ClientImport.error().failure().skippable());
+        screenshot("first_import_error");
+        // 06: carried over without that chapter
+        step("carry over without this chapter", works.repka.rysquests.client.ClientImport::skipFailedFile, 5);
+        expect("the report came", () -> "report".equals(FirstRunHooks.wizardState()));
+        // Rewards are item stacks, which a game without the mods of ATM10 cannot read: about half of the quests load here, all chapters do.
+        expect("the ATM10 book reached the client", () -> ClientBook.current().quests().size() > 2000 && ClientBook.current().chapters().size() >= 67);
+        step("log the report", () -> LOGGER.info("[autotest] import report: {}", works.repka.rysquests.client.ClientImport.report()), 40);
+        expect("the translations of the new book are loaded", () -> mc().getOverlay() == null);
+        expect("the skipped file is in the report", () -> works.repka.rysquests.client.ClientImport.report().skippedFiles().stream().anyMatch(file -> file.endsWith(FTB_BROKEN)));
+        expect("the carried book is closed to players", () -> !ClientBook.current().meta().published());
+        screenshot("first_import_report");
+        // 07b and 07: the map form
+        // On this half loaded book the forms take about a second each: the picture is taken while they are still being laid out.
+        step("next: the map form", FirstRunHooks::wizardNext, 1);
+        screenshot("first_form_calculating");
+        expect("the advised form is laid out first", FirstRunHooks::advisedDone);
+        expect("all four previews laid out", FirstRunHooks::previewsDone);
+        step("log the advice", () -> LOGGER.info("[autotest] advised form: {}", FirstRunHooks.advisedForm()), 20);
+        expect("ATM10 is advised a galaxy", () -> "galaxy".equals(FirstRunHooks.advisedForm()));
+        screenshot("first_form");
+        step("look at the spiral", () -> FirstRunHooks.selectForm("spiral"), 20);
+        screenshot("first_form_spiral");
+        step("back to the advised galaxy", () -> FirstRunHooks.selectForm("galaxy"), 10);
+        step("choose the galaxy", FirstRunHooks::chooseForm, 10);
+        // 08: the book, closed to players
+        expect("the book opened on the map", () -> "map".equals(BookScreen.bodyForTest()));
+        expect("the layout was saved for players", () -> ClientBook.current().freshLayout().filter(layout -> layout.form() == works.repka.rysquests.data.MapForm.GALAXY).isPresent());
+        step("point away", () -> moveMouse(1, 1), 20);
+        screenshot("first_book_closed");
+        // 10: open it to players
+        step("ask to open the book", FirstRunHooks::askToPublish, 5);
+        expect("the question is open", BookScreen::dialogOpenForTest);
+        screenshot("first_publish_ask");
+        step("open to players", () -> {
+            pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ClientBook.requestPublish(true);
+        }, 10);
+        expect("the book is open to players", () -> ClientBook.current().meta().published());
+        step("settle", () -> moveMouse(1, 1), 20);
+        screenshot("first_book_open");
+        step("close the book", () -> {
+            BookScreen.ftbForTest(null);
+            mc().setScreen(null);
+        }, 5);
+    }
+
+    /** Opens the inventory, points at the first button of the panel of the family and takes a screenshot (pictures 01, 02, 02b). */
+    private static void dockShot(String name) {
+        step("open the inventory", () -> mc().setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc().player)), 20);
+        step("point at the first button of the panel", () -> {
+            var screen = mc().screen;
+            LOGGER.info("[autotest] dock: standalone {}, hosted {}, replaces FTB {}, FTB visible {}, buttons {}", works.repka.ryscore.dock.Dock.standalone(screen),
+                    works.repka.ryscore.dock.Dock.hosted(screen), works.repka.ryscore.dock.Dock.replaces(screen), works.repka.ryscore.dock.Dock.ftbVisible(screen),
+                    works.repka.ryscore.dock.DockButtons.all().stream().map(works.repka.ryscore.dock.DockButton::id).toList());
+            int[] at = dockCorner();
+            if (at != null) {
+                moveMouse(at[0] + 14, at[1] + 14);
+            } else if (works.repka.ryscore.dock.Dock.ftbVisible(screen)) {
+                // FTB Library draws its own panel: our button stands third in its second row here (picture 02).
+                moveMouse(26, 25);
+            } else {
+                moveMouse(1, 1);
+            }
+        }, 10);
+        screenshot(name);
+    }
+
+    /** The top left corner of the panel of the family in GUI units, or null when there is none on screen. */
+    private static int[] dockCorner() {
+        int w = mc().getWindow().getGuiScaledWidth();
+        int h = mc().getWindow().getGuiScaledHeight();
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                if (works.repka.ryscore.dock.Dock.contains(x + 0.5, y + 0.5)) {
+                    return new int[] {x, y};
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The panel in a pack with FTB Library ({@code run-ftb}): its own panel (02), or replaced by the panel of RYScope (02b). */
+    private static void buildDockScenario() {
+        String tag = System.getProperty("rysquests.autotest.tag", "");
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        expect("the book reached the client", ClientBook::received);
+        dockShot("dock" + (tag.isEmpty() ? "" : "_" + tag));
+        step("open the book with the button of the panel", () -> {
+            if (dockCorner() != null) {
+                clickMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+            }
+        }, 10);
+        step("log what opened", () -> LOGGER.info("[autotest] after the click: {}", mc().screen == null ? "nothing" : mc().screen.getClass().getSimpleName()), 5);
+        step("close", () -> mc().setScreen(null), 5);
     }
 
     private static void buildBookScenario() {

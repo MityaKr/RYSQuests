@@ -159,6 +159,10 @@ public final class ModNetwork {
                         (payload, context) -> clientLayoutBakeHandler.accept(payload))
                 .playToServer(PublishPayload.TYPE, PublishPayload.STREAM_CODEC,
                         (payload, context) -> EditorService.handlePublish((ServerPlayer) context.player(), payload))
+                .playToServer(MapFormPayload.TYPE, MapFormPayload.STREAM_CODEC,
+                        (payload, context) -> EditorService.handleMapForm((ServerPlayer) context.player(), payload))
+                .playToServer(NewBookPayload.TYPE, NewBookPayload.STREAM_CODEC,
+                        (payload, context) -> EditorService.handleNewBook((ServerPlayer) context.player(), payload))
                 .playToServer(FtbqImportStartPayload.TYPE, FtbqImportStartPayload.STREAM_CODEC,
                         (payload, context) -> FtbqImportService.handle((ServerPlayer) context.player(), payload))
                 .playToClient(FtbqImportProgressPayload.TYPE, FtbqImportProgressPayload.STREAM_CODEC,

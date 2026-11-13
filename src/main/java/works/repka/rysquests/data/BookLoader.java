@@ -38,6 +38,12 @@ public final class BookLoader extends SimplePreparableReloadListener<BookHolder.
     private static final Logger LOGGER = LoggerFactory.getLogger(BookLoader.class);
     private static final FileToIdConverter FILES = FileToIdConverter.json("rysquests");
 
+    /**
+     * Dev runs only: every item counts as known, so that a book of a large pack (the ATM10 book of the first-run autotest) loads
+     * whole in a development game that has none of its mods. Set by {@code -Drysquests.dev.anyItem=true}.
+     */
+    private static final boolean ANY_ITEM = Boolean.getBoolean("rysquests.dev.anyItem");
+
     private final RegistryAccess registries;
 
     public BookLoader(RegistryAccess registries) {
@@ -53,7 +59,7 @@ public final class BookLoader extends SimplePreparableReloadListener<BookHolder.
         List<Issue> issues = new ArrayList<>(readErrors);
         issues.addAll(parsed.issues());
         RawBook raw = parsed.withIssues(issues);
-        BookValidator.Result result = BookValidator.validate(raw, BuiltInRegistries.ITEM::containsKey, ops);
+        BookValidator.Result result = BookValidator.validate(raw, ANY_ITEM ? id -> true : BuiltInRegistries.ITEM::containsKey, ops);
         QuestBook book = result.book().withAssets(BookAssets.read(EditorFolder.root(), result.book()));
         BookSyncPayload payload = new BookSyncPayload(book.hash(), BookSerializer.encode(book, registries));
         QuestBook shown = book.playerView();

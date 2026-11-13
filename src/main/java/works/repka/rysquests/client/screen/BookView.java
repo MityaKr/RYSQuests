@@ -51,6 +51,19 @@ interface BookView {
     }
 
     /**
+     * The name a page with a bare header gives the window instead of the book's ("Перенос из FTB Quests", picture 06), or null to
+     * keep the book's name.
+     */
+    @Nullable
+    default String headerTitle() {
+        return null;
+    }
+
+    /** Draws after the name in a bare header, as the import's steps do (picture 06). {@code x} is where the name ends. */
+    default void renderHeader(Ui ui, float x, float cy) {
+    }
+
+    /**
      * Where the book's message line lies over this view, {@code {x, y, w, h}} of the view's own column, or null for the whole view:
      * a view with a detail panel on the right keeps the line over its middle column (picture 48).
      */
