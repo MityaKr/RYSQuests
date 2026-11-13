@@ -241,12 +241,15 @@ final class QuestPanel {
     private record MenuItem(String label, @Nullable Runnable action) {
     }
 
-    /** "Сбросить прогресс" for anyone in the team; "Завершить", "Скопировать id" and "Открыть в редакторе" for an operator. */
+    /** The operator's menu: "Сбросить прогресс", "Завершить", "Скопировать id" and "Открыть в редакторе". A player has no menu at all. */
     private List<MenuItem> menuItems(Quest quest) {
         List<MenuItem> items = new ArrayList<>();
         QuestProgress own = ClientProgress.get(quest.id());
         boolean started = own.completed() || own.nextAt() > 0 || !own.claimed().isEmpty() || own.tasks().stream().anyMatch(value -> value > 0);
         String title = QuestFacts.plain(Component.translatable(quest.title()).getString());
+        if (!BookRole.operator()) {
+            return items;
+        }
         items.add(new MenuItem(t("rysquests.qmenu.reset"), started ? () -> ask("rysquests.qmenu.reset_title", t("rysquests.qmenu.reset_text", title),
                 "rysquests.qmenu.reset_yes", () -> QuestFacts.send(QuestActionPayload.RESET, quest, 0, List.of())) : null));
         if (BookRole.operator()) {
@@ -448,7 +451,7 @@ final class QuestPanel {
         ItemStack icon = QuestFacts.icon(quest);
         Runnable close = look.closable() ? events::close : null;
         float headH = DetailPanel.header(ui, x, pen, w, icon.isEmpty() ? null : icon, QuestFacts.plain(Component.translatable(quest.title()).getString()),
-                subtitle(f), () -> BookData.togglePin(quest.id()), ClientProgress.pinned().contains(quest.id()), close, (bx, by) -> moreButton(ui, quest, bx, by));
+                subtitle(f), () -> BookData.togglePin(quest.id()), ClientProgress.pinned().contains(quest.id()), close, BookRole.operator() ? (bx, by) -> moreButton(ui, quest, bx, by) : null);
         if (f.status == QuestStatus.LOCKED && !icon.isEmpty()) {
             ui.veil(x + 1, pen + 1, 44, 44, 6, ui.c("slot.bg"), 0.55f);
         }

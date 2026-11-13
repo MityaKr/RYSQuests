@@ -617,8 +617,13 @@ public final class ProgressService {
             }
             case QuestActionPayload.PIN -> togglePin(player, quest);
             case QuestActionPayload.RESET -> {
-                setCompleted(player, quest, false);
-                Feedback.inform(player, "rysquests.qmenu.reset_done");
+                // checked here, whatever the client shows: only an operator resets a quest, so that rewards cannot be taken twice
+                if (!player.hasPermissions(2)) {
+                    Feedback.refuse(player, "rysquests.qmenu.no_right");
+                } else {
+                    setCompleted(player, quest, false);
+                    Feedback.inform(player, "rysquests.qmenu.reset_done");
+                }
             }
             case QuestActionPayload.COMPLETE -> {
                 // checked here, whatever the client shows: only an operator completes a quest without its tasks
