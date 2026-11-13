@@ -95,8 +95,16 @@ final class QuestForm {
         row += EdUi.button(ui, EdText.tr("rysquests.ed.quest.next"), Icons.Shape.PLUS, row, pen, true, false, false, () -> addAfter(data, QuestEdits.Kind.MAIN)) + 6;
         EdUi.button(ui, EdText.tr("rysquests.ed.quest.add_side"), Icons.Shape.PLUS, row, pen, true, false, false, () -> addAfter(data, QuestEdits.Kind.SIDE));
         String iconLabel = compact ? "" : EdText.tr("rysquests.ed.quest.icon");
+        float sideEnd = row + EdUi.buttonWidth(ui, EdText.tr("rysquests.ed.quest.add_side"), Icons.Shape.PLUS, true) + 6;
+        if (sideEnd + EdUi.buttonWidth(ui, iconLabel, Icons.Shape.HAND, true) > bx + bw) {
+            // a wider font (vanilla's) leaves no room for the word: the hand alone, its name in the tooltip
+            iconLabel = "";
+        }
         float iw = EdUi.buttonWidth(ui, iconLabel, Icons.Shape.HAND, true);
         EdUi.button(ui, iconLabel, Icons.Shape.HAND, bx + bw - iw, pen, true, false, false, () -> iconFromHand(data));
+        if (iconLabel.isEmpty()) {
+            ui.tooltipIfOver(bx + bw - iw, pen, iw, EdUi.SM_H, net.minecraft.network.chat.Component.literal(EdText.tr("rysquests.ed.quest.icon")));
+        }
         pen += EdUi.SM_H + GAP;
         if (!compact) {
             pen += EdUi.field(ui, page.fields, "quest-text:" + id, EdText.tr("rysquests.ed.quest.description"), bx, pen, bw, 72, quest.text().orElse(""),
