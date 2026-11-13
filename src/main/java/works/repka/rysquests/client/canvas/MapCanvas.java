@@ -474,8 +474,7 @@ public final class MapCanvas {
             }
         }
         if (grid != null) {
-            double reach = Math.max(6, nodeRadiusPx(true, false)) / s;
-            int q = grid.nearest(wx, wy, reach, showSide ? null : this::side);
+            int q = grid.under(wx, wy, MAX_HIT / s, showSide ? null : this::side, this::reach);
             if (q >= 0) {
                 MapBook.Q quest = map.quests().get(q);
                 return new Target(Kind.QUEST, quest.id(), map.chapters().get(quest.chapter()).id(), map.chapters().get(quest.chapter()).epoch());
@@ -972,6 +971,31 @@ public final class MapCanvas {
 
     // --- nodes ---
 
+    /** Spare room round a node that a click still takes, in mockup pixels. */
+    private static final float HIT_SPARE = 3;
+    /** The least reach of a node: a dot of the whole book is a pixel or two, a pointer is not that exact. */
+    private static final float MIN_HIT = 7;
+    /** The farthest any node reaches: half the largest tile, its milestone frame and the spare room. */
+    private static final float MAX_HIT = 48 / 2f + 4.5f + HIT_SPARE + 1;
+
+    /**
+     * How far a point lies from a node in the node's own terms, under 1 on it: a tile takes its whole square and a little round
+     * it, a dot its circle and a little more, never less than {@value #MIN_HIT} pixels. As {@link #drawNodes} draws them.
+     */
+    private double reach(int q, double dx, double dy) {
+        double s = camera.scale;
+        Level level = levelOf(s);
+        boolean hub = layout.hub(q);
+        boolean big = layout.milestone(q);
+        boolean tile = level != Level.BOOK && tilePx(hub || big, false) >= MIN_TILE;
+        if (tile) {
+            float half = Math.max(MIN_TILE, tilePx(hub || big, big)) / 2 + (big ? 4.5f : 0) + HIT_SPARE;
+            return Math.max(Math.abs(dx), Math.abs(dy)) * s / Math.max(MIN_HIT, half);
+        }
+        float radius = nodeRadiusPx(hub, big) + (big ? 3 : 0) + HIT_SPARE + 1;
+        return Math.hypot(dx, dy) * s / Math.max(MIN_HIT, radius);
+    }
+
     /** The radius of a dot in mockup pixels. */
     private float nodeRadiusPx(boolean hub, boolean milestone) {
         double s = camera.scale;
@@ -1011,6 +1035,11 @@ public final class MapCanvas {
         int thumb = t.c("scroll.thumb");
         int hi = t.c("text.primary");
         int secondary = t.c("text.secondary");
+        // the plate under an item: brighter for the main way, a shade darker for side quests (from the canvas tokens of the theme)
+        int plate = t.c("map.label.bg") | 0xFF000000;
+        int backMain = Draw.mix(plate, open, 0.15f);
+        int backSide = Draw.mix(plate, open, 0.075f);
+        int gold = t.c("medal.gold");
         float rMain = nodeRadiusPx(true, false);
         float rSide = nodeRadiusPx(false, false);
         float rBig = nodeRadiusPx(true, true);
@@ -1039,6 +1068,12 @@ public final class MapCanvas {
             float py = f.py(wy) / PER_GUI;
             float r = (big ? rBig : hub ? rMain : rSide) / PER_GUI;
             byte st = state[q];
+            if (layout.finale(q)) {
+                // the book's finale in the middle of the spiral: a gold halo
+                dot(g, px, py, r + 9f / PER_GUI, Draw.alpha(gold, 0.16f));
+                dot(g, px, py, r + 6f / PER_GUI, Draw.alpha(gold, 0.9f));
+                dot(g, px, py, r + 4.6f / PER_GUI, bg);
+            }
             if (big) {
                 int ring = st == DONE ? done : st == OPEN ? open : locked;
                 dot(g, px, py, r + 3f / PER_GUI, ring);
@@ -1086,6 +1121,12 @@ public final class MapCanvas {
             float x0 = px - size / 2;
             float y0 = py - size / 2;
             float radius = size * 0.24f;
+            int back = hub || big ? backMain : backSide;
+            if (layout.finale(q)) {
+                float halo = 10;
+                fill(g, x0 - halo, y0 - halo, size + 2 * halo, size + 2 * halo, radius + halo, Draw.alpha(gold, 0.12f));
+                border(g, x0 - halo + 2, y0 - halo + 2, size + 2 * halo - 4, size + 2 * halo - 4, radius + halo - 2, Draw.alpha(gold, 0.9f), 2f);
+            }
             if (big) {
                 int ring = st == DONE ? t.c("ok.border") : t.c("button.border");
                 border(g, x0 - 4.5f, y0 - 4.5f, size + 9, size + 9, radius + 4.5f, ring, 1.5f);
@@ -1096,7 +1137,7 @@ public final class MapCanvas {
                 edge = hi;
                 edgeWidth = 2f;
             }
-            fill(g, x0, y0, size, size, radius, slot);
+            fill(g, x0, y0, size, size, radius, back);
             border(g, x0, y0, size, size, radius, edge, edgeWidth);
             if (iconCount < MAX_ICONS) {
                 ItemStack icon = icon(q);
@@ -1105,7 +1146,7 @@ public final class MapCanvas {
                     item(g, icon, px - iconSize / 2, py - iconSize / 2, iconSize);
                     iconCount++;
                     if (st == LOCKED) {
-                        fill(g, x0 + 1.5f, y0 + 1.5f, size - 3, size - 3, radius, Draw.alpha(slot, 0.62f));
+                        fill(g, x0 + 1.5f, y0 + 1.5f, size - 3, size - 3, radius, Draw.alpha(back, 0.62f));
                     }
                 }
             }

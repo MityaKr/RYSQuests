@@ -72,6 +72,37 @@ final class NodeGrid {
         return best;
     }
 
+    /** A node's distance from the point in its own terms: under 1 means the point is on it; NaN or more, not. */
+    interface Reach {
+        double of(int quest, double dx, double dy);
+    }
+
+    /**
+     * The node the point lies on, by each node's own reach: the one with the least {@link Reach} under 1, within {@code within} of
+     * the point at most; -1 when none.
+     */
+    int under(double x, double y, double within, IntPredicate skip, Reach reach) {
+        int best = -1;
+        double bestD = 1;
+        for (int r = row(y - within); r <= row(y + within); r++) {
+            for (int c = col(x - within); c <= col(x + within); c++) {
+                int cell = r * cols + c;
+                for (int i = start[cell]; i < start[cell + 1]; i++) {
+                    int q = items[i];
+                    if (skip != null && skip.test(q)) {
+                        continue;
+                    }
+                    double d = reach.of(q, x - layout.x[q], y - layout.y[q]);
+                    if (d < bestD) {
+                        bestD = d;
+                        best = q;
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
     /** How many nodes lie in the box of half sizes {@code hw}, {@code hh} round the point. */
     int count(double x, double y, double hw, double hh) {
         int count = 0;
