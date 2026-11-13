@@ -245,6 +245,7 @@ final class MapView implements BookView {
         }
         canvas.setOpenChapter(openChapter);
         canvas.setFocusEpoch(focusEpoch);
+        canvas.setCountAll(BookTallies.countAll());
         canvas.setMinimap(!compact);
         boolean showCard = selected == null && openChapter != null && level.ordinal() >= MapCanvas.Level.CHAPTER.ordinal() && state.ready();
         boolean showPanel = (selected != null || showCard) && !panelClosed;

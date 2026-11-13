@@ -255,8 +255,9 @@ final class Sidebar {
             hoverEpoch = -1;
         });
         renderWholeBook(ui, model, x + 8, y + HEAD_H, w - 16);
+        renderCountMode(ui, x + 8, y + HEAD_H + ALL_H + 4, w - 16);
         float offH = model.offMap().isEmpty() ? 0 : 6 + 22 + model.offMap().size() * (CHAPTER_H + ROW_GAP) - ROW_GAP + 8 + 1;
-        int listTop = y + HEAD_H + ALL_H + 6;
+        int listTop = y + HEAD_H + ALL_H + 4 + COUNT_H + 4;
         int listH = Math.round(y + h - offH - listTop);
         list = new int[] {x, listTop, w - 1, listH};
         ui.clip(x, listTop, w - 1, listH);
@@ -301,6 +302,38 @@ final class Sidebar {
         }
     }
 
+    private static final int COUNT_H = 24;
+
+    /** "Считать: Все | Основные": side quests in the counts and the checks of finished chapters, or main ones only. */
+    private static void renderCountMode(Ui ui, float x, float y, float w) {
+        float cy = y + COUNT_H / 2f;
+        ui.label(Component.translatable("rysquests.sidebar.count").getString(), x + 10, cy, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+        String[] labels = {Component.translatable("rysquests.sidebar.count_all").getString(), Component.translatable("rysquests.sidebar.count_main").getString()};
+        boolean all = BookTallies.countAll();
+        float[] widths = new float[2];
+        float total = 4;
+        for (int i = 0; i < 2; i++) {
+            widths[i] = ui.width(labels[i], 11.5f, Ui.MEDIUM) + 16;
+            total += widths[i];
+        }
+        float bx = x + w - total;
+        ui.box(bx, y, total, COUNT_H, 7, ui.c("sidebar.bg"), ui.c("panel.border"));
+        float pen = bx + 2;
+        for (int i = 0; i < 2; i++) {
+            boolean on = (i == 0) == all;
+            boolean over = ui.over(pen, y + 2, widths[i], COUNT_H - 4);
+            if (on) {
+                ui.fill(pen, y + 2, widths[i], COUNT_H - 4, 5, ui.c("tab.active.bg"));
+            } else if (over) {
+                ui.fill(pen, y + 2, widths[i], COUNT_H - 4, 5, ui.c("button.bg"));
+            }
+            ui.label(labels[i], pen + 8, cy, 11.5f, Ui.MEDIUM, ui.c(on || over ? "text.primary" : "text.secondary"));
+            boolean value = i == 0;
+            ui.hit(pen, y + 2, widths[i], COUNT_H - 4, () -> BookTallies.setCountAll(value));
+            pen += widths[i];
+        }
+    }
+
     private void renderWholeBook(Ui ui, Model model, float x, float y, float w) {
         boolean on = selected.get() == null;
         boolean over = ui.over(x, y, w, ALL_H);
@@ -311,7 +344,7 @@ final class Sidebar {
         ui.icon(Icons.Shape.COMPASS, x + 10, cy - 7.5f, 15, ui.c(on || over ? "text.primary" : "text.secondary"));
         ui.label(Component.translatable("rysquests.sidebar.whole_book").getString(), x + 10 + 15 + 8, cy, 12.5f, Ui.SEMIBOLD,
                 ui.c(on || over ? "text.primary" : "text.secondary"));
-        ui.labelRight(of(model.total().done(), model.total().total()), x + w - 10, cy, 11, Ui.REGULAR, ui.c("text.muted"));
+        ui.labelRight(of(model.total().shownDone(), model.total().shownTotal()), x + w - 10, cy, 11, Ui.REGULAR, ui.c("text.muted"));
         ui.bar(x + 10, y + ALL_H - 9 - 4, w - 20, 4, 2, model.total().ratio(), ui.c("state.ok"));
         ui.tooltipIfOver(x, y, w, ALL_H, Component.translatable("rysquests.sidebar.whole_book_tip",
                 of(model.total().done(), model.total().total()), of(model.total().optionalDone(), model.total().optionalTotal())));
@@ -383,7 +416,7 @@ final class Sidebar {
             case OPEN -> {
                 // a chapter of side quests only ("Летопись инженера") counts them rather than "0 из 0"
                 boolean sideOnly = tally.total() == 0 && tally.optionalTotal() > 0;
-                String text = sideOnly ? of(tally.optionalDone(), tally.optionalTotal()) : of(tally.done(), tally.total());
+                String text = sideOnly ? of(tally.optionalDone(), tally.optionalTotal()) : of(tally.shownDone(), tally.shownTotal());
                 ui.labelRight(text, right, cy, 11, Ui.REGULAR, ui.c("text.muted"));
                 yield ui.width(text, 11, Ui.REGULAR);
             }

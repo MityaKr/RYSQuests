@@ -346,11 +346,24 @@ final class Forms {
                 wheels.remove(centre);
                 Collections.reverse(wheels);
                 double end = Packer.pack(book, wheels, track, bandIn, s0, grid, tuning);
-                double to = Math.max(end, s0 + least(book, c, 8));
+                double to = 0;
                 if (c == last && last > 0) {
                     // the curl round the middle reaches half a band out: the next chapter starts a whole turn out, clear of it
-                    to = Math.max(to, track.lengthAt(2 * Math.PI));
+                    double block = track.lengthAt(2 * Math.PI);
+                    if (end < block - 8 && !wheels.isEmpty()) {
+                        // a short last chapter is spread over its whole block, wheels and trunk evenly, not left in its first half
+                        end = spread(book, wheels, track, bandIn, s0, block, centre, tuning);
+                        grid = new Packer.Grid();
+                        if (centre != null) {
+                            grid.add(0, 0, centre.r);
+                        }
+                        for (Wheels.Wheel wheel : wheels) {
+                            grid.add(wheel.x(), wheel.y(), wheel.r);
+                        }
+                    }
+                    to = block;
                 }
+                to = Math.max(to, Math.max(end, s0 + least(book, c, 8)));
                 seg[c] = new double[] {s0, to};
                 widths[c] = bandIn;
                 s = seg[c][1];
@@ -434,6 +447,36 @@ final class Forms {
         }
         progress.at(1);
         return draft.finish(MapForm.SPIRAL);
+    }
+
+    /**
+     * Packs the wheels along a stretch of the track from {@code s0} to {@code to}, spread over all of it: on a track whose lengths
+     * are drawn out until the packed wheels reach its end. @return the end of the packed stretch on the real track
+     */
+    private static double spread(MapBook book, List<Wheels.Wheel> wheels, Track.Spiral track, double band, double s0, double to,
+            @org.jetbrains.annotations.Nullable Wheels.Wheel centre, Packer.Tuning tuning) {
+        double k = 1;
+        double end = s0;
+        for (int round = 0; round < 6; round++) {
+            Packer.Grid grid = new Packer.Grid();
+            if (centre != null) {
+                grid.add(0, 0, centre.r);
+            }
+            double stretch = k;
+            Track drawn = new Track() {
+                @Override
+                void at(double s, double o, double[] out) {
+                    track.at(s0 + (s - s0) * stretch, o, out);
+                }
+            };
+            double packed = Packer.pack(book, wheels, drawn, band, s0, grid, tuning);
+            end = s0 + (packed - s0) * stretch;
+            if (Math.abs(end - to) < 12 || end > to) {
+                break;
+            }
+            k = Math.min(8, k * (to - s0) / Math.max(1, end - s0));
+        }
+        return end;
     }
 
     /**

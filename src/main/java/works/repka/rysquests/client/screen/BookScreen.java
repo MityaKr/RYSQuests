@@ -694,6 +694,13 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         EmptyBookView.ftbForTest = present;
     }
 
+    /** "Все / Основные" over the sidebar; returns the whole book's count as the sidebar shows it, "done/total". */
+    public static String countAllForTest(boolean all) {
+        BookTallies.setCountAll(all);
+        BookTallies.Tally tally = BookTallies.book();
+        return tally.shownDone() + "/" + tally.shownTotal();
+    }
+
     /** The quest menu "⋯" of the list's panel: opened or closed for a picture. */
     public static void questMenuForTest(boolean open) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {

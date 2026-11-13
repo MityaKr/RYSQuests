@@ -55,6 +55,11 @@ public final class ClientConfig {
             .comment("Show the dashed roads between chapters and the roads of side quests on the map.")
             .define("mapSideLinks", true);
 
+    /** "Все / Основные" over the sidebar: counts and the check of a finished chapter take side quests in too, or main ones only. */
+    public static final ModConfigSpec.BooleanValue COUNT_ALL_QUESTS = BUILDER
+            .comment("Count side quests too in the book's counts and finished chapters, not main quests only.")
+            .define("countAllQuests", false);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private ClientConfig() {

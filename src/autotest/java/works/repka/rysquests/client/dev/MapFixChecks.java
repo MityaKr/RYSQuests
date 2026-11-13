@@ -103,6 +103,15 @@ final class MapFixChecks {
             BookScreen.mapCanvasForTest().setShowSideLinks(true);
             moveMouse(1, 1);
         }, 5);
+        // the sidebar's "Все / Основные": side quests in the counts too, the same on the map
+        String[] counts = new String[2];
+        step("fb1 count all quests", () -> counts[0] = BookScreen.countAllForTest(true), 15);
+        screenshot("map_fb1_count_all");
+        step("fb1 count main quests", () -> counts[1] = BookScreen.countAllForTest(false), 10);
+        expect("fb1 all counts more than main", () -> {
+            LOGGER.info("[autotest] fb1 whole book: all {}, main {}", counts[0], counts[1]);
+            return Integer.parseInt(counts[0].split("/")[1]) > Integer.parseInt(counts[1].split("/")[1]);
+        });
         // 5: a click on a chapter of the whole book flies there; the canvas narrows under the card without a jump
         step("fb1 click the garden on the whole book", () -> {
             MapCanvas canvas = BookScreen.mapCanvasForTest();

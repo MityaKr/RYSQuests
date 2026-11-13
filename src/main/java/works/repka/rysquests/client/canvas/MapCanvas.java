@@ -132,6 +132,8 @@ public final class MapCanvas {
     private byte[] state = new byte[0];
     private byte[] chapterState = new byte[0];
     private int[] mainCount = new int[0];
+    /** "Все / Основные": the counts and the finished chapters take side quests in too. */
+    private boolean countAll;
     private int[] mainDone = new int[0];
     private int[] sideCount = new int[0];
     private int[] sideDone = new int[0];
@@ -773,7 +775,7 @@ public final class MapCanvas {
         }
         chapterState = new byte[nc];
         for (int c = 0; c < nc; c++) {
-            chapterState[c] = mainCount[c] > 0 && mainDone[c] == mainCount[c] ? CH_DONE : started[c] || anyOpen[c] ? CH_CURRENT : CH_LOCKED;
+            chapterState[c] = counted(c) > 0 && countedDone(c) == counted(c) ? CH_DONE : started[c] || anyOpen[c] ? CH_CURRENT : CH_LOCKED;
         }
         // a galaxy: nearly everything is open in such a book, so "can do" lights only in chapters already begun
         if (layout.form == MapForm.GALAXY) {
@@ -783,6 +785,22 @@ public final class MapCanvas {
                 }
             }
         }
+    }
+
+    /** Counts of side quests too, or main ones only, as the sidebar's "Все / Основные" says. */
+    public void setCountAll(boolean all) {
+        if (all != countAll) {
+            countAll = all;
+            seenProgress = Integer.MIN_VALUE;
+        }
+    }
+
+    private int counted(int chapter) {
+        return mainCount[chapter] + (countAll ? sideCount[chapter] : 0);
+    }
+
+    private int countedDone(int chapter) {
+        return mainDone[chapter] + (countAll ? sideDone[chapter] : 0);
     }
 
     private boolean side(int quest) {
@@ -1466,7 +1484,7 @@ public final class MapCanvas {
         String title = data == null ? chapter.id().getPath() : text(data.title());
         String number = layout.form == MapForm.GALAXY ? "" : String.format("%02d", chapter.number());
         byte st = chapterState[c];
-        String count = st == CH_DONE ? "" : Component.translatable("rysquests.canvas.count", mainDone[c], mainCount[c]).getString();
+        String count = st == CH_DONE ? "" : Component.translatable("rysquests.canvas.count", countedDone(c), counted(c)).getString();
         float numW = number.isEmpty() ? 0 : Draw.labelWidth(number, 11, Type.Weight.REGULAR) * PER_GUI + 5;
         float countW = count.isEmpty() ? (st == CH_DONE ? 16 : 0) : Draw.labelWidth(count, 11, Type.Weight.REGULAR) * PER_GUI + 5;
         float titleW = Draw.labelWidth(title, 11, Type.Weight.MEDIUM) * PER_GUI;
@@ -1532,8 +1550,8 @@ public final class MapCanvas {
             int total = 0;
             for (MapBook.Chap chapter : map.chapters()) {
                 if (chapter.epoch() == arm.epoch()) {
-                    done += mainDone[chapter.index()];
-                    total += mainCount[chapter.index()];
+                    done += countedDone(chapter.index());
+                    total += counted(chapter.index());
                 }
             }
             String upper = title.toUpperCase(java.util.Locale.ROOT);

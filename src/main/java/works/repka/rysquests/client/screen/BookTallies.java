@@ -33,7 +33,16 @@ final class BookTallies {
         static final Tally EMPTY = new Tally(0, 0, 0, 0, State.OPEN);
 
         float ratio() {
-            return total == 0 ? 0 : (float) done / total;
+            return shownTotal() == 0 ? 0 : (float) shownDone() / shownTotal();
+        }
+
+        /** Done as the sidebar counts it: main quests, or with "Все" side quests too. */
+        int shownDone() {
+            return countAll() ? done + optionalDone : done;
+        }
+
+        int shownTotal() {
+            return countAll() ? total + optionalTotal : total;
         }
 
         Tally plus(Tally other) {
@@ -44,6 +53,7 @@ final class BookTallies {
     private static final Map<ResourceLocation, Tally> CHAPTERS = new HashMap<>();
     private static final Map<ResourceLocation, List<Quest>> ORDER = new HashMap<>();
     private static int chaptersVersion = -1;
+    private static boolean chaptersAll;
     @Nullable
     private static QuestBook chaptersBook;
     @Nullable
@@ -72,8 +82,9 @@ final class BookTallies {
     }
 
     static Tally chapter(ResourceLocation chapter) {
-        if (chaptersVersion != ClientProgress.version() || chaptersBook != BookData.book()) {
+        if (chaptersVersion != ClientProgress.version() || chaptersBook != BookData.book() || chaptersAll != countAll()) {
             CHAPTERS.clear();
+            chaptersAll = countAll();
             chaptersVersion = ClientProgress.version();
             chaptersBook = BookData.book();
         }
@@ -90,9 +101,26 @@ final class BookTallies {
                 break;
             }
         }
-        State state = counts.main().total() > 0 && counts.main().done() >= counts.main().total() ? State.DONE
+        // with "Все" a chapter is finished when its side quests are done too
+        int need = counts.main().total() + (countAll() ? counts.side().total() : 0);
+        int got = counts.main().done() + (countAll() ? counts.side().done() : 0);
+        State state = need > 0 && got >= need ? State.DONE
                 : !anyOpen && !quests.isEmpty() ? State.LOCKED : State.OPEN;
         return new Tally(counts.main().done(), counts.main().total(), counts.side().done(), counts.side().total(), state);
+    }
+
+    /** "Все / Основные": whether side quests count too, kept in the client config; main ones only by default. */
+    static boolean countAll() {
+        try {
+            return works.repka.rysquests.client.ClientConfig.COUNT_ALL_QUESTS.get();
+        } catch (IllegalStateException notLoaded) {
+            return false;
+        }
+    }
+
+    static void setCountAll(boolean all) {
+        works.repka.rysquests.client.ClientConfig.COUNT_ALL_QUESTS.set(all);
+        works.repka.rysquests.client.ClientConfig.COUNT_ALL_QUESTS.save();
     }
 
     /** Main quests done and in total, the way the old views read them. */
