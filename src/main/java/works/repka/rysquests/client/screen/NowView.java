@@ -326,12 +326,12 @@ final class NowView implements BookView {
             h = Math.max(h, pad * 2 + 34 + 8 + 28);
         }
         boolean over = hero != null && ui.over(x, y, w, h);
-        ui.box(x, y, w, h, 14, ui.c(selected ? "tab.active.bg" : "card.bg"), ui.c(selected ? "text.secondary" : over ? "button.border" : "card.border"));
+        ui.card(x, y, w, h, 14, selected, ui.c(over ? "button.border" : "card.border"));
         if (hero != null) {
             ui.hit(x, y, w, h, () -> chosen = null);
         }
         float cy = y + h / 2f;
-        ui.box(x + pad, cy - iconS / 2f, iconS, iconS, 8, ui.c("slot.bg"), ui.c("slot.border"));
+        ui.plate(x + pad, cy - iconS / 2f, iconS, iconS, 8);
         if (!icon.isEmpty()) {
             ui.item(icon, x + pad + 12, cy - 18, 36);
             if (hero != null) {
@@ -562,7 +562,7 @@ final class NowView implements BookView {
         float lh = 18.1f;
         float h = 20 + lines.size() * lh;
         ui.box(x, y, w, h, 10, ui.c("status.bg"), ui.c("panel.border"));
-        works.repka.ryscore.ui.Draw.info(ui.g, Math.round((x + 12) / 2f), Math.round((y + 10) / 2f), ui.c("text.muted"));
+        ui.info(x + 12 + 3f, y + 10 + 3f, 14, ui.c("text.muted"));
         for (int i = 0; i < lines.size(); i++) {
             ui.label(lines.get(i), x + 12 + 15 + 10, y + 10 + lh * (i + 0.5f), 12.5f, Ui.REGULAR, ui.c("text.secondary"));
         }

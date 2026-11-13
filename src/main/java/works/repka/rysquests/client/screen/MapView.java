@@ -402,7 +402,7 @@ final class MapView implements BookView {
         toolButton(ui, right - PAD - TB * 2 - TB_GAP, ty, Icons.Shape.MINUS, false, Component.translatable("rysquests.mapview.zoom_out"), () -> canvas.zoomBy(1 / 1.6));
         boolean over = ui.over(ix, ty, TB, TB);
         ui.box(ix, ty, TB, TB, 9, over ? ui.mix("button.bg", "text.primary", 0.08f) : ui.c("button.bg"), ui.c(legendOpen ? "text.secondary" : "button.border"));
-        works.repka.ryscore.ui.Draw.info(ui.g, Math.round((ix + 5) / 2), Math.round((ty + 5) / 2), ui.c(legendOpen || over ? "text.primary" : "text.secondary"));
+        ui.info(ix + 5 + 2.5f, ty + 5 + 2.5f, 15, ui.c(legendOpen || over ? "text.primary" : "text.secondary"));
         ui.tooltipIfOver(ix, ty, TB, TB, Component.translatable("rysquests.mapview.legend_tip"));
         ui.hit(ix, ty, TB, TB, () -> legendOpen = !legendOpen);
         tools.add(new float[] {ix, ty, TB, TB});
@@ -632,7 +632,7 @@ final class MapView implements BookView {
      */
     private void questPanel(Ui ui, Quest quest, int x, int y, int w, int h) {
         panelFor = quest.id();
-        questView.render(ui, x, y, w, h, quest, QuestPanel.Look.MAP);
+        questView.render(ui, x, y, w, h, quest, screen.compact() ? QuestPanel.Look.MAP_OVER : QuestPanel.Look.MAP);
     }
 
     private void closeCross(Ui ui, float x, float y, Runnable action) {

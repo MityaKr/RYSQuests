@@ -60,6 +60,11 @@ public final class ClientProgress {
         receive(new ProgressPayload(true, quests, last));
     }
 
+    /** A copy of the whole progress, for the autotest to give it back after a made up one. */
+    public static Map<ResourceLocation, QuestProgress> snapshotForTest() {
+        return Map.copyOf(QUESTS);
+    }
+
     static void receive(ProgressPayload payload) {
         version++;
         if (payload.full()) {

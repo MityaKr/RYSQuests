@@ -68,7 +68,7 @@ final class AchievementEditorView extends EditorPage {
         String title = Ui.counted("rysquests.ed.ach.count", shown.size());
         ui.label(title, px, pen + 11, 19, Ui.DISPLAY, ui.c("text.primary"));
         float tw = ui.width(title, 19, Ui.DISPLAY);
-        Draw.info(ui.g, Math.round((px + tw + 8) / 2f), Math.round((pen + 4) / 2f), ui.c("text.muted"));
+        ui.info(px + tw + 8 + 3f, pen + 4 + 3f, 14, ui.c("text.muted"));
         ui.tooltipIfOver(px + tw + 6, pen, 18, 22, Component.translatable("rysquests.ed.ach.help"));
         ui.label(tr("rysquests.ed.ach.sub"), px, pen + 32, 12, Ui.REGULAR, ui.c("text.muted"));
         long noRewards = all.stream().filter(a -> a.tiers().stream().allMatch(t -> t.rewards().isEmpty())).count();

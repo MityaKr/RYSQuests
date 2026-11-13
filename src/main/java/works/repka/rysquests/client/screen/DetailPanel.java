@@ -148,7 +148,7 @@ final class DetailPanel {
         float size = 46;
         float pen = x;
         if (icon != null) {
-            ui.box(x, y, size, size, 6, ui.c("slot.bg"), ui.c("slot.border"));
+            ui.plate(x, y, size, size, 6);
             ui.item(icon, x + 7, y + 7, 32);
             pen += size + 12;
         }

@@ -48,6 +48,13 @@ final class Forms {
     }
 
     static final double SERPENTINE_ASPECT = 1.38;
+    /** A chapter with no quests yet still gets a chapter's shape, wide enough for its label: a book from nothing starts so. */
+    static final double EMPTY_LENGTH = 48;
+
+    /** The least length of a chapter along its track: an empty one is not a sliver. */
+    private static double least(MapBook book, int chapter, double least) {
+        return book.chapters().get(chapter).quests().length == 0 ? Math.max(least, EMPTY_LENGTH) : least;
+    }
 
     private Forms() {
     }
@@ -90,7 +97,7 @@ final class Forms {
         for (double band : bands) {
             double[] len = new double[nCh];
             for (MapBook.Chap chapter : book.chapters()) {
-                len[chapter.index()] = parts.line(chapter, band - 2 * margin).extent();
+                len[chapter.index()] = Math.max(parts.line(chapter, band - 2 * margin).extent(), least(book, chapter.index(), 0));
             }
             double[] unitLen = new double[units.size()];
             for (int u = 0; u < units.size(); u++) {
@@ -119,7 +126,7 @@ final class Forms {
         Local[] local = new Local[nCh];
         for (MapBook.Chap chapter : book.chapters()) {
             local[chapter.index()] = parts.line(chapter, band - 2 * margin);
-            len[chapter.index()] = local[chapter.index()].extent();
+            len[chapter.index()] = Math.max(local[chapter.index()].extent(), least(book, chapter.index(), 0));
         }
         double[] unitLen = new double[units.size()];
         for (int u = 0; u < units.size(); u++) {
@@ -153,7 +160,7 @@ final class Forms {
                         double wx = s + own.x()[k];
                         wheels.get(k).at((float) (mirror ? w - wx : wx), (float) (yc + own.y()[k]));
                     }
-                    double end = s + own.extent();
+                    double end = s + len[c];
                     double x0 = s - 5;
                     double x1 = end + 5;
                     if (mirror) {
@@ -287,7 +294,7 @@ final class Forms {
         for (int k = 0; k < centreWheels.size(); k++) {
             centreWheels.get(k).at(centre.x()[k], centre.y()[k]);
         }
-        double rLast = Math.max(centre.extent(), 20);
+        double rLast = Math.max(centre.extent(), book.chapters().get(last).quests().length == 0 ? 36 : 20);
         double band = Math.max(150, 2 * draft.maxR() + 16);
         double rIn = rLast + 16 + band / 2;
         Track.Spiral track = new Track.Spiral(rIn, band + 22, 0);
@@ -300,7 +307,7 @@ final class Forms {
             List<Wheels.Wheel> wheels = new ArrayList<>(draft.wheels.get(c));
             Collections.reverse(wheels);
             s = Packer.pack(book, wheels, track, band, s0, grid, tuning);
-            seg[c] = new double[] {s0, Math.max(s, s0 + 8)};
+            seg[c] = new double[] {s0, Math.max(s, s0 + least(book, c, 8))};
             progress.at((double) (last - c) / Math.max(1, last));
         }
         double[] p = new double[2];
@@ -361,7 +368,7 @@ final class Forms {
         List<double[]> placed = new ArrayList<>();
         for (MapBook.Chap chapter : book.chapters()) {
             Local own = parts.disc(chapter);
-            double r = Math.max(own.extent(), 16);
+            double r = Math.max(own.extent(), chapter.quests().length == 0 ? 36 : 16);
             double th = 0;
             double x;
             double y;
@@ -461,7 +468,7 @@ final class Forms {
             List<Wheels.Wheel> wheels = new ArrayList<>(draft.wheels.get(c));
             Collections.reverse(wheels);
             s = Packer.pack(book, wheels, coreTrack, coreBand, s0, grid, tuning);
-            s = Math.max(s, s0 + 8);
+            s = Math.max(s, s0 + least(book, c, 8));
             draft.regions[c] = segment(coreTrack, s0 - 4, s + 4, coreBand);
             coreTrack.at((s0 + s) / 2, coreBand / 4, p);
             draft.labels[c] = new CanvasLayout.Label((float) p[0], (float) p[1], (float) Math.min(s - s0 + 8, coreBand));
@@ -500,7 +507,7 @@ final class Forms {
             for (int c : arms.get(k)) {
                 double s0 = s + 16;
                 s = Packer.pack(book, draft.wheels.get(c), track, w, s0, grid, tuning);
-                s = Math.max(s, s0 + 8);
+                s = Math.max(s, s0 + least(book, c, 8));
                 draft.regions[c] = segment(track, s0 - 5, s + 5, w);
                 track.at((s0 + s) / 2, w / 4, p);
                 draft.labels[c] = new CanvasLayout.Label((float) p[0], (float) p[1], (float) Math.min(s - s0 + 10, w));

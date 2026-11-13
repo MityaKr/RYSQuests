@@ -93,7 +93,7 @@ public final class AutoTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoTest.class);
     private static final boolean AS_PLAYER = Boolean.getBoolean("rysquests.autotest.asPlayer");
     /** The first run carries a whole FTB book over and lays out four maps of it: longer than the other scenarios. */
-    private static final boolean LONG_SCENARIO = "first".equals(System.getProperty(SCENARIO_PROPERTY));
+    private static final boolean LONG_SCENARIO = List.of("first", "themes").contains(System.getProperty(SCENARIO_PROPERTY));
     private static final int TOTAL_TICK_LIMIT = 20 * (AS_PLAYER || LONG_SCENARIO ? 1200 : 300);
     private static final int STEP_TICK_LIMIT = 20 * (AS_PLAYER ? 600 : 120);
     private static final int REPYS_MIN_QUESTS = 2000;
@@ -184,6 +184,8 @@ public final class AutoTest {
             buildMapScenario();
         } else if ("layout".equals(scenario)) {
             buildLayoutScenario();
+        } else if ("themes".equals(scenario)) {
+            ThemesScenario.build();
         } else if ("book_editor".equals(scenario)) {
             EditorScenario.build(false);
         } else if ("book_editor_restart".equals(scenario)) {
@@ -2621,7 +2623,7 @@ public final class AutoTest {
         mc().keyboardHandler.keyPress(window, key, scan, GLFW.GLFW_RELEASE, 0);
     }
 
-    private static void moveMouse(double guiX, double guiY) {
+    static void moveMouse(double guiX, double guiY) {
         double scale = mc().getWindow().getGuiScale();
         double x = guiX * scale * mc().getWindow().getScreenWidth() / mc().getWindow().getWidth();
         double y = guiY * scale * mc().getWindow().getScreenHeight() / mc().getWindow().getHeight();

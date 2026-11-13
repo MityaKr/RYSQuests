@@ -149,7 +149,11 @@ final class TaskRow {
             case READY -> "text.secondary";
             case PLAIN -> "panel.border";
         };
-        ui.box(x, y, w, h, 10, ui.c("card.bg"), ui.c(border));
+        ui.card(x, y, w, h, 10, false, ui.c(border));
+        if (state != State.PLAIN && ui.theme.beveled()) {
+            // the state's border stays in vanilla too, over the bevel: a done or ready task is not only told by its words
+            ui.strokeBold(x, y, w, h, 10, ui.c(border));
+        }
         if (click != null) {
             ui.hit(x, y, w, h, click);
         }
@@ -161,7 +165,10 @@ final class TaskRow {
             case MISSING -> "slot.miss.border";
             case PLAIN -> "slot.border";
         };
-        ui.box(iconX, cy - ICON / 2f, ICON, ICON, 6, ui.c("slot.bg"), ui.c(slotBorder));
+        ui.plate(iconX, cy - ICON / 2f, ICON, ICON, 6);
+        if (slot != Slot.PLAIN) {
+            ui.stroke(iconX, cy - ICON / 2f, ICON, ICON, 6, ui.c(slotBorder));
+        }
         if (item != null) {
             ui.item(item, iconX + 4, cy - 12, 24);
             if (count > 1) {

@@ -381,7 +381,9 @@ final class Sidebar {
                 yield 9;
             }
             case OPEN -> {
-                String text = of(tally.done(), tally.total());
+                // a chapter of side quests only ("Летопись инженера") counts them rather than "0 из 0"
+                boolean sideOnly = tally.total() == 0 && tally.optionalTotal() > 0;
+                String text = sideOnly ? of(tally.optionalDone(), tally.optionalTotal()) : of(tally.done(), tally.total());
                 ui.labelRight(text, right, cy, 11, Ui.REGULAR, ui.c("text.muted"));
                 yield ui.width(text, 11, Ui.REGULAR);
             }

@@ -77,6 +77,8 @@ public final class MapCanvas {
     static final double CHAPTER_FROM = 2.7;
     static final double CLOSE_FROM = 4.2;
     private static final double MAX_SCALE = 7;
+    /** Room for an epoch's plate over the top row of chapters, in mockup pixels. */
+    private static final float EPOCH_LABEL_ROOM = 28;
     private static final int MAX_ICONS = 150;
     private static final float MIN_TILE = 14;
     private static final float MIN_ROAD = 4;
@@ -300,7 +302,7 @@ public final class MapCanvas {
         }
         focusEpoch = 0;
         openChapter = -1;
-        frame(layout.minX, layout.minY, layout.maxX, layout.maxY, false, 0);
+        frame(layout.minX, layout.minY, layout.maxX, layout.maxY, false, 0, EPOCH_LABEL_ROOM);
     }
 
     public void flyToEpoch(int epoch) {
@@ -311,7 +313,7 @@ public final class MapCanvas {
         if (box != null) {
             focusEpoch = epoch;
             openChapter = -1;
-            frame(box[0], box[1], box[2], box[3], false, 0);
+            frame(box[0], box[1], box[2], box[3], false, 0, EPOCH_LABEL_ROOM);
         }
     }
 
@@ -497,7 +499,7 @@ public final class MapCanvas {
      */
     public void render(GuiGraphics g, int x, int y, int w, int h, int mx, int my) {
         long start = System.nanoTime();
-        Theme t = ThemeManager.get();
+        Theme t = canvasTheme();
         vx = x;
         vy = y;
         vw = Math.max(1, w);
@@ -505,7 +507,7 @@ public final class MapCanvas {
         mouseX = mx;
         mouseY = my;
         Draw.scissor(g, Math.floorDiv(x, 2), Math.floorDiv(y, 2), Math.floorDiv(x + w + 1, 2), Math.floorDiv(y + h + 1, 2));
-        fill(g, x, y, w, h, 0, t.c("map.bg"));
+        fill(g, x, y, w, h, 0, ThemeManager.get().c("map.bg"));
         if (layout == null || map == null || book == null) {
             if (loading != null) {
                 drawLoading(g, t);
@@ -518,7 +520,7 @@ public final class MapCanvas {
         if (!fitted) {
             fitted = true;
             camera.maxScale = MAX_SCALE;
-            frame(layout.minX, layout.minY, layout.maxX, layout.maxY, true, 0);
+            frame(layout.minX, layout.minY, layout.maxX, layout.maxY, true, 0, EPOCH_LABEL_ROOM);
         }
         camera.update();
         refreshProgress();
@@ -551,6 +553,24 @@ public final class MapCanvas {
         }
         g.disableScissor();
         stats = new Stats(counts[0], counts[1], counts[2], counts[3], labels, System.nanoTime() - start);
+    }
+
+    /**
+     * The theme the canvas draws its nodes, roads and labels with. The canvas is dark in every theme (plan, decision 18): a light
+     * theme with a bevel (vanilla) keeps its own tools around it, but what lies on the canvas takes slate's tokens, as its
+     * mockup does (picture 45b).
+     */
+    static Theme canvasTheme() {
+        Theme current = ThemeManager.get();
+        if (!current.beveled()) {
+            return current;
+        }
+        for (Theme theme : ThemeManager.all()) {
+            if ("ryscore:slate".equals(theme.id)) {
+                return theme;
+            }
+        }
+        return current;
     }
 
     /** World to mockup pixels for one frame. */
@@ -592,11 +612,22 @@ public final class MapCanvas {
     }
 
     private void frame(double x0, double y0, double x1, double y1, boolean jump, double minScale) {
-        double s = Math.max(minScale, fitScale(x0, y0, x1, y1));
+        frame(x0, y0, x1, y1, jump, minScale, 0);
+    }
+
+    /**
+     * @param labelRoom mockup pixels kept free above what is framed: the plates of the epochs stand over their chapters, and on
+     *                  the whole book the first of them would slip under the tools ("I Механика" under "Карта | Список")
+     */
+    private void frame(double x0, double y0, double x1, double y1, boolean jump, double minScale, float labelRoom) {
+        float top = insetTop + labelRoom;
+        double w = Math.max(1, x1 - x0);
+        double h = Math.max(1, y1 - y0);
+        double s = Math.max(minScale, Math.min((vw - 2 * insetSide) / w, (vh - top - insetBottom) / h));
         s = Math.min(s, MAX_SCALE);
         double cx = (x0 + x1) / 2;
         // the tools take the top of the view: what is framed sits below them
-        double cy = (y0 + y1) / 2 - (insetTop - insetBottom) / 2 / s;
+        double cy = (y0 + y1) / 2 - (top - insetBottom) / 2 / s;
         if (jump) {
             camera.jump(cx, cy, s);
         } else {

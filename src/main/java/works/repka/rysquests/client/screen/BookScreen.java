@@ -296,8 +296,14 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
             sectionSearch.visible = false;
         }
         ui.shadow(x, y, w, h, 14, 1f);
-        ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
-        drawBook(ui, x + 1, y + 1, w - 2, h - 2);
+        if (ui.theme.beveled()) {
+            // vanilla's window: a bevel of four mockup pixels, what is inside stands within it (picture 45)
+            works.repka.ryscore.ui.Draw.bevel(g, x / 2f, y / 2f, w / 2f, h / 2f, ui.c("panel.bg"), ui.c("panel.bevel.light"), ui.c("panel.bevel.dark"), 2, false);
+            drawBook(ui, x + 4, y + 4, w - 8, h - 8);
+        } else {
+            ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
+            drawBook(ui, x + 1, y + 1, w - 2, h - 2);
+        }
         settleFields();
         lastHovered = ui.hoveredStack;
         lastHoveredText = ui.hoveredText == null ? null : ui.hoveredText.getString();

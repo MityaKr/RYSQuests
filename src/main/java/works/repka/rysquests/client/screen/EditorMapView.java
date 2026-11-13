@@ -282,7 +282,7 @@ final class EditorMapView extends EditorPage implements QuestForm.Host, QuestTab
         right -= 6 + EdUi.TB_H;
         boolean over = ui.over(right, ty + 2, EdUi.TB_H, EdUi.TB_H);
         ui.box(right, ty + 2, EdUi.TB_H, EdUi.TB_H, 9, ui.c(over ? "slot.hover" : "button.bg"), ui.c("button.border"));
-        Draw.info(ui.g, Math.round((right + 8) / 2f), Math.round((ty + 10) / 2f), ui.c("text.secondary"));
+        ui.info(right + 8 + 3f, ty + 10 + 3f, 14, ui.c("text.secondary"));
         ui.tooltipIfOver(right, ty + 2, EdUi.TB_H, EdUi.TB_H, Component.translatable("rysquests.ed.map.help"));
     }
 
@@ -431,7 +431,7 @@ final class EditorMapView extends EditorPage implements QuestForm.Host, QuestTab
         float pen2 = px;
         pen2 += switchView(ui, pen2, pen) + 8;
         pen2 += crumbs(ui, pen2, pen, book, compact) + 8;
-        Draw.info(ui.g, Math.round((pen2) / 2f), Math.round((pen + 10) / 2f), ui.c("text.muted"));
+        ui.info(pen2 + 3f, pen + 10 + 3f, 14, ui.c("text.muted"));
         ui.tooltipIfOver(pen2, pen + 6, 16, 22, Component.translatable("rysquests.ed.table.help"));
         List<QuestTable.Row> rows = table.rows(book);
         if (rows.size() >= 8 || table.filter() != 0) {

@@ -131,7 +131,7 @@ final class GridCard {
     }
 
     void render(Ui ui, float x, float y, float w, float h) {
-        ui.box(x, y, w, h, 12, ui.c(selected ? "tab.active.bg" : "card.bg"), ui.c(selected ? "text.secondary" : "panel.border"));
+        ui.card(x, y, w, h, 12, selected);
         if (click != null) {
             ui.hit(x, y, w, h, click);
         }
@@ -148,7 +148,7 @@ final class GridCard {
     private void renderStandard(Ui ui, float x, float y, float w, float h) {
         float textX = x;
         if (icon != null) {
-            ui.box(x, y, ICON, ICON, 6, ui.c("slot.bg"), ui.c("slot.border"));
+            ui.plate(x, y, ICON, ICON, 6);
             ui.item(icon, x + 6, y + 6, 28);
             if (count > 1) {
                 ui.count(count, x + ICON - 1, y + ICON + 2);

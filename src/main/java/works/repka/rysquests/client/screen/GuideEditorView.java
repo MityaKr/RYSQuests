@@ -295,7 +295,7 @@ final class GuideEditorView extends EditorPage {
             float by = pen;
             row += EdUi.button(ui, label, icon, row, pen, true, false, false, () -> insert(tool[0], area, bx, by + EdUi.SM_H + 4)) + 6;
         }
-        Draw.info(ui.g, Math.round((row + 4) / 2f), Math.round((pen + 7) / 2f), ui.c("text.muted"));
+        ui.info(row + 4 + 3f, pen + 7 + 3f, 14, ui.c("text.muted"));
         ui.tooltipIfOver(row, pen, 20, EdUi.SM_H, Component.translatable("rysquests.ed.guide.markup_help"));
         pen += EdUi.SM_H + 12;
         float ah = y + h - 14 - pen;

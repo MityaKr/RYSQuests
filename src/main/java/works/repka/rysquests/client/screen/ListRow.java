@@ -214,7 +214,7 @@ final class ListRow {
         if (dashed) {
             ui.dashed(x, y, w, h, ui.c("panel.border"));
         } else switch (look) {
-            case CARD, TIGHT -> ui.box(x, y, w, h, 10, ui.c(selected ? "tab.active.bg" : "card.bg"), ui.c(selected ? "text.secondary" : "panel.border"));
+            case CARD, TIGHT -> ui.card(x, y, w, h, 10, selected);
             case FLAT -> {
                 if (selected || over) {
                     ui.box(x, y, w, h, 10, ui.c("tab.active.bg"), selected ? ui.c("button.border") : 0);

@@ -107,6 +107,8 @@ final class QuestPanel {
     record Look(boolean closable, boolean mapLink, boolean onMap, boolean tasksFirst) {
         static final Look NOW = new Look(false, false, false, false);
         static final Look MAP = new Look(true, false, true, false);
+        /** The map in the compact layout (46): the panel over the canvas, tasks and reward first, the text and "Откроет" under them. */
+        static final Look MAP_OVER = new Look(true, false, true, true);
         static final Look LIST = new Look(true, true, false, false);
         static final Look OVER = new Look(true, true, false, true);
     }

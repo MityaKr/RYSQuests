@@ -346,11 +346,20 @@ final class ShopView implements BookView {
 
     // --- drawing ---
 
+    /** Where the detail starts: the book's message lies over the grid, not over the main button (picture 48). */
+    private int messageRight = Integer.MAX_VALUE;
+
+    @Override
+    public int[] messageArea(int x, int y, int w, int h) {
+        return new int[] {x, y, Math.min(x + w, messageRight) - x, h};
+    }
+
     @Override
     public void render(Ui ui, int x, int y, int w, int h) {
         boolean compact = screen.compact();
         int panelW = compact ? PANEL_COMPACT : DetailPanel.WIDTH;
         int panelLeft = x + w - panelW;
+        messageRight = panelLeft;
         List<ShopOffer> shown = tab == Tab.HISTORY ? List.of() : shown();
         ShopOffer selected = selected(shown);
         float left = x + PAD_X;
@@ -408,11 +417,10 @@ final class ShopView implements BookView {
         float cy = y + TOP_H / 2f;
         String tip = tab == Tab.SELL ? tr("rysquests.shop.sell_tip") : tab == Tab.HISTORY ? tr("rysquests.shop.history_tip") : null;
         if (tip != null && !compact) {
+            // the "i" is 14 mockup pixels across (picture 27), its tip on a target of 20
             pen += GAP + 4;
-            int ix = Math.round(pen / 2f);
-            int iy = Math.round((cy - 10) / 2f);
-            Draw.info(ui.g, ix, iy, ui.c("text.muted"));
-            ui.tooltipIfOver(ix * 2f, iy * 2f, 20, 20, Component.literal(tip));
+            ui.info(pen + 3, cy - 7, 14, ui.c("text.muted"));
+            ui.tooltipIfOver(pen, cy - 10, 20, 20, Component.literal(tip));
         }
         float right = x + w - renderWallet(ui, x + w, cy, compact) - GAP;
         if (tab == Tab.HISTORY) {

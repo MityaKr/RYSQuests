@@ -208,6 +208,16 @@ final class AchievementsView implements BookView {
 
     // --- drawing ---
 
+    /** The middle column between the categories and the detail: where the book's message lies (picture 48). */
+    private int messageLeft = Integer.MIN_VALUE;
+    private int messageRight = Integer.MAX_VALUE;
+
+    @Override
+    public int[] messageArea(int x, int y, int w, int h) {
+        int left = Math.max(x, messageLeft);
+        return new int[] {left, y, Math.min(x + w, messageRight) - left, h};
+    }
+
     @Override
     public void render(Ui ui, int x, int y, int w, int h) {
         boolean compact = screen.compact();
@@ -219,6 +229,8 @@ final class AchievementsView implements BookView {
         int sideW = compact ? 0 : SideList.WIDTH;
         sideRight = x + sideW;
         int panelW = compact ? 0 : DetailPanel.WIDTH;
+        messageLeft = x + sideW;
+        messageRight = x + w - (compact ? panelOpen && selected != null ? PANEL_COMPACT : 0 : panelW);
         if (!compact) {
             renderSide(ui, x, y, h);
         }

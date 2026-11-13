@@ -173,10 +173,11 @@ final class BookHeader {
             boolean on = tab == active;
             boolean empty = editing && !tab.hasContent().test(book);
             boolean over = ui.over(pen, y, tw, HEIGHT - 1);
-            if (on) {
-                ui.theme.tabLine(ui.g, Math.round(pen / 2f), Math.round(y / 2f), Math.round(tw / 2f), (HEIGHT) / 2, true, false);
+            // slate draws a line under the active tab, glass a pill, vanilla a bookmark under every tab (plan, decision 5)
+            if (on || ui.theme.beveled()) {
+                ui.theme.tabLine(ui.g, Math.round(pen / 2f), Math.round(y / 2f), Math.round(tw / 2f), (HEIGHT) / 2, on, over);
             }
-            int fg = ui.c(empty ? "text.dim" : on || over ? "text.primary" : "text.muted");
+            int fg = empty ? ui.c("text.dim") : ui.theme.beveled() ? ui.theme.tabLineFg(on, over) : ui.c(on || over ? "text.primary" : "text.muted");
             float tx = pen + pad;
             ui.label(tab.label(), tx, cy, TAB_PX, Ui.MEDIUM, fg);
             tx += ui.width(tab.label(), TAB_PX, Ui.MEDIUM);

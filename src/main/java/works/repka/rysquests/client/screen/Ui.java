@@ -272,6 +272,46 @@ public final class Ui {
         stroke(x, y, w, h, r, border);
     }
 
+    /**
+     * A card, a row of a list, a task: the theme's raised face (with a bevel in vanilla, picture 45), and when selected the theme's
+     * frame of the selected (a white frame in vanilla, a light border elsewhere), never the accent.
+     */
+    void card(float x, float y, float w, float h, float r, boolean selected) {
+        card(x, y, w, h, r, selected, c("panel.border"));
+    }
+
+    /** {@link #card} with its own border when not selected (a hovered card, a card of another weight). */
+    void card(float x, float y, float w, float h, float r, boolean selected, int border) {
+        if (theme.beveled()) {
+            theme.raised(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, 0);
+            if (selected) {
+                theme.selected(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, 0);
+            }
+            return;
+        }
+        box(x, y, w, h, r, c(selected ? "tab.active.bg" : "card.bg"), selected ? c("text.secondary") : border);
+    }
+
+    /** The plate under an item: sunk into the card in vanilla, a dark slot with its border elsewhere. */
+    void plate(float x, float y, float w, float h, float r) {
+        if (theme.beveled()) {
+            Draw.bevel(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, c("slot.bg"), c("slot.bevel.dark"), c("slot.bevel.light"), 1, false);
+            return;
+        }
+        box(x, y, w, h, r, c("slot.bg"), c("slot.border"));
+    }
+
+    /** A chip or a segment that is on: pressed in vanilla, on its light plate elsewhere. @return the colour of its text */
+    int pressed(float x, float y, float w, float h, float r) {
+        theme.pressed(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, radius(r));
+        return theme.pressedFg();
+    }
+
+    /** The round "i" beside a tip, {@code size} mockup pixels across (14 in the mockups). */
+    void info(float x, float y, float size, int color) {
+        Draw.info(g, x / PER_GUI, y / PER_GUI, size / PER_GUI, color);
+    }
+
     public void shadow(float x, float y, float w, float h, float r, float strength) {
         Draw.shadow(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, r / PER_GUI, strength);
     }
@@ -597,12 +637,24 @@ public final class Ui {
         int color;
         switch (style) {
             case ACCENT -> {
-                fill(x, y, w, h, r, over ? Draw.mix(c("accent"), 0xFFFFFFFF, 0.1f) : c("accent"));
+                int fill = over ? Draw.mix(c("accent"), 0xFFFFFFFF, 0.1f) : c("accent");
+                if (theme.beveled()) {
+                    // vanilla's button: a bevel lighter and darker than its face
+                    Draw.bevel(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, fill, Draw.mix(fill, 0xFFFFFFFF, 0.35f), Draw.mix(fill, 0xFF000000, 0.45f), 1, false);
+                } else {
+                    fill(x, y, w, h, r, fill);
+                }
                 color = c("accent.text");
             }
             case PLAIN -> {
-                box(x, y, w, h, r, over ? c("slot.hover") : c("button.bg"), c("button.border"));
-                color = c("text.primary");
+                if (theme.beveled()) {
+                    int fill = over ? Draw.mix(c("button.bg"), 0xFFFFFFFF, 0.18f) : c("button.bg");
+                    Draw.bevel(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, fill, Draw.mix(fill, 0xFFFFFFFF, 0.55f), c("button.border"), 1, false);
+                    color = c("tab.inactive.fg");
+                } else {
+                    box(x, y, w, h, r, over ? c("slot.hover") : c("button.bg"), c("button.border"));
+                    color = c("text.primary");
+                }
             }
             default -> {
                 if (over) {

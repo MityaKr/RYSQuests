@@ -38,12 +38,13 @@ final class FilterChips {
             float w = ui.width(label, PX, Ui.REGULAR) + pad * 2;
             boolean on = i == selected;
             boolean over = ui.over(pen, y, w, HEIGHT);
+            int fg = ui.c(over ? "text.secondary" : "text.muted");
             if (on) {
-                ui.fill(pen, y, w, HEIGHT, 6, ui.c("tab.active.bg"));
+                fg = ui.pressed(pen, y, w, HEIGHT, 6);
             } else if (over) {
                 ui.fill(pen, y, w, HEIGHT, 6, ui.c("button.bg"));
             }
-            ui.label(label, pen + pad, y + HEIGHT / 2f, PX, Ui.REGULAR, ui.c(on ? "text.primary" : over ? "text.secondary" : "text.muted"));
+            ui.label(label, pen + pad, y + HEIGHT / 2f, PX, Ui.REGULAR, fg);
             int index = i;
             ui.hit(pen, y, w, HEIGHT, () -> pick.accept(index));
             pen += w + GAP;
