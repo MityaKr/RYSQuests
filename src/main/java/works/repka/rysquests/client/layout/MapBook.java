@@ -102,7 +102,7 @@ public final class MapBook {
         int[] firstOf = new int[onMap.size() + 1];
         for (int i = 0; i < onMap.size(); i++) {
             firstOf[i] = ordered.size();
-            List<Quest> own = byChapter.getOrDefault(i, List.of());
+            List<Quest> own = byChapter.getOrDefault(i, new ArrayList<>());
             own.sort(Comparator.comparing(Quest::id));
             ordered.addAll(own);
         }

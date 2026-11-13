@@ -138,6 +138,47 @@ public final class EditorService {
         }, Util.ioPool());
     }
 
+    /** The book's settings, shop offers and achievements from the editor's draft (pictures 36, 39, 39b). */
+    public static void handleBookEdits(ServerPlayer player, works.repka.rysquests.network.BookEditsSavePayload payload) {
+        if (!player.hasPermissions(PERMISSION)) {
+            reply(player, false, "rysquests.editor.error.denied");
+            return;
+        }
+        MinecraftServer server = player.server;
+        Path root = EditorFolder.root();
+        boolean createPack = !EditorFolder.servedByKubeJs();
+        boolean firstSave = createPack && !Files.isRegularFile(root.resolve("pack.mcmeta"));
+        String namespace = bookNamespace(server, payload.offers().stream().map(works.repka.rysquests.data.ShopOffer::id).findFirst().orElse(null));
+        DynamicOps<JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, server.registryAccess());
+        // The lock is the publish button's alone: the editor's settings never open or close a book. A book made from nothing has no
+        // settings yet, and starts closed to players as the editor sends it (plan, section 4).
+        QuestBook current = BookHolder.current().book();
+        boolean empty = current.chapters().values().stream().noneMatch(works.repka.rysquests.data.Chapter::isStory);
+        java.util.Optional<BookMeta> meta = payload.meta().map(changed -> empty ? changed : changed.withPublished(current.meta().published()));
+        List<com.google.gson.JsonObject> achievements = new ArrayList<>();
+        for (String text : payload.achievements()) {
+            try {
+                achievements.add(JsonParser.parseString(text).getAsJsonObject());
+            } catch (RuntimeException e) {
+                reply(player, false, "rysquests.editor.error.invalid");
+                return;
+            }
+        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                EditorFiles.saveBookEdits(root, namespace, meta, payload.offers(), payload.removed(), achievements, payload.language(), payload.texts(), ops, createPack);
+                server.execute(() -> reloadBook(player, book -> payload.offers().stream().allMatch(offer -> book.offers().containsKey(offer.id()))
+                        && payload.removed().stream().noneMatch(book.offers()::containsKey)
+                        && meta.map(wanted -> wanted.mapForm() == book.meta().mapForm()).orElse(true), firstSave));
+            } catch (EditorFiles.Rejected e) {
+                server.execute(() -> reply(player, false, e.key()));
+            } catch (IOException | RuntimeException e) {
+                LOGGER.error("Could not save the book's settings, offers or achievements", e);
+                server.execute(() -> reply(player, false, FAILED));
+            }
+        }, Util.ioPool());
+    }
+
     /** Progress follows its own tasks and rewards when the editor moved, added or removed some (review C1). */
     private static void followTasks(MinecraftServer server, QuestBook before, List<Quest> saved) {
         ProgressStore store = ProgressStore.get(server);

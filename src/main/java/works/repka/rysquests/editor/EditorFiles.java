@@ -144,6 +144,7 @@ public final class EditorFiles {
         String folder = chapterFile.getPath().substring(0, chapterFile.getPath().lastIndexOf('/') + 1);
         Set<String> keys = new HashSet<>();
         keys.add(chapter.title());
+        chapter.subtitle().ifPresent(keys::add);
         chapter.groups().forEach(group -> keys.add(group.title()));
         Map<Path, JsonElement> files = new java.util.LinkedHashMap<>();
         for (Quest quest : quests) {
@@ -182,6 +183,77 @@ public final class EditorFiles {
         if (!texts.isEmpty()) {
             mergeLang(root.resolve("assets").resolve(chapter.id().getNamespace()).resolve("lang").resolve(language + ".json"), texts);
         }
+    }
+
+    /**
+     * Writes what the editor changed outside chapters, guides and tabs: the book's settings, shop offers and achievements, with their
+     * strings. A removed offer's file moves to {@code _removed/} inside the folder, out of the data, rather than being deleted; an
+     * offer that lives in another pack cannot be removed from here. Everything is checked before anything is written.
+     *
+     * @param achievements whole achievement files, each with its {@code id}
+     */
+    public static void saveBookEdits(Path root, String namespace, Optional<BookMeta> meta, List<works.repka.rysquests.data.ShopOffer> offers, List<ResourceLocation> removed,
+            List<JsonObject> achievements, String language, Map<String, String> texts, DynamicOps<JsonElement> ops, boolean createPackFile) throws Rejected, IOException {
+        if (!LANGUAGE.matcher(language).matches()) {
+            throw new Rejected("rysquests.editor.error.invalid");
+        }
+        Set<String> keys = new HashSet<>();
+        meta.flatMap(BookMeta::title).ifPresent(keys::add);
+        Map<Path, JsonElement> files = new java.util.LinkedHashMap<>();
+        for (works.repka.rysquests.data.ShopOffer offer : offers) {
+            files.put(fileOf(root, offer.id(), "rysquests/shop/"), ordered(works.repka.rysquests.data.ShopOffer.CODEC.encodeStart(ops, offer).getOrThrow(), FIELD_ORDER, RULE_ORDER));
+            offer.title().ifPresent(keys::add);
+            offer.category().ifPresent(keys::add);
+        }
+        for (JsonObject achievement : achievements) {
+            ResourceLocation id = achievement.has("id") ? ResourceLocation.tryParse(achievement.get("id").getAsString()) : null;
+            if (id == null || !achievement.has("task") || !achievement.has("tiers")) {
+                throw new Rejected("rysquests.editor.error.invalid");
+            }
+            files.put(fileOf(root, id, "rysquests/achievements/"), ordered(achievement, FIELD_ORDER, RULE_ORDER));
+            for (String field : List.of("title", "text", "hint", "category")) {
+                if (achievement.has(field)) {
+                    keys.add(achievement.get(field).getAsString());
+                }
+            }
+        }
+        Map<Path, Path> moves = new java.util.LinkedHashMap<>();
+        for (ResourceLocation id : removed) {
+            Path file = fileOf(root, id, "rysquests/shop/");
+            if (!Files.isRegularFile(file)) {
+                throw new Rejected("rysquests.editor.error.offer_elsewhere");
+            }
+            moves.put(file, root.resolve("_removed").resolve(root.relativize(file)));
+        }
+        if (!keys.containsAll(texts.keySet())) {
+            throw new Rejected("rysquests.editor.error.invalid");
+        }
+        if (createPackFile) {
+            writePackFile(root);
+        }
+        if (meta.isPresent()) {
+            writeText(bookFile(root, namespace), GSON.toJson(encodeMeta(meta.get())) + "\n");
+        }
+        for (Map.Entry<Path, JsonElement> file : files.entrySet()) {
+            writeText(file.getKey(), GSON.toJson(file.getValue()) + "\n");
+        }
+        for (Map.Entry<Path, Path> move : moves.entrySet()) {
+            Files.createDirectories(move.getValue().getParent());
+            Files.move(move.getKey(), move.getValue(), StandardCopyOption.REPLACE_EXISTING);
+        }
+        if (!texts.isEmpty()) {
+            mergeLang(root.resolve("assets").resolve(namespace).resolve("lang").resolve(language + ".json"), texts);
+        }
+    }
+
+    /** The file of an offer or an achievement by its id, checked so that it stays inside the folder. */
+    private static Path fileOf(Path root, ResourceLocation id, String folder) throws Rejected {
+        for (String segment : id.getPath().split("/")) {
+            if (!FILE_NAME.matcher(segment).matches()) {
+                throw new Rejected("rysquests.editor.error.invalid");
+            }
+        }
+        return root.resolve("data").resolve(id.getNamespace()).resolve(folder + id.getPath() + ".json");
     }
 
     private static Path dataFile(Path root, ResourceLocation file) {

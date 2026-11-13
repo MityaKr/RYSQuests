@@ -71,10 +71,13 @@ neoForge {
             // JEI and Create are in run-int/mods, copied from a pack, so that nothing else has to load them.
             gameDirectory = project.file(project.findProperty('autotest') == 'integrations' ? 'run-int' : 'run')
             // 'layout' reads a copy of the RepYS book from run-layout/pack, made by tools/layout_pack.py.
-            systemProperty 'rysquests.dev.examplePack', project.file(project.findProperty('autotest') == 'layout' ? 'run-layout/pack' : project.findProperty('autotest') == 'integrations' ? 'src/autotest/integration_pack' : (project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : ((project.findProperty('autotest') ?: '').startsWith('guides_design') || (project.findProperty('autotest') ?: '').startsWith('sections_design')) ? 'src/autotest/guides_pack' : 'examples/example_pack').absolutePath
+            // 'book_editor' makes a book from nothing: no example pack.
+            systemProperty 'rysquests.dev.examplePack', (project.findProperty('autotest') ?: '').startsWith('book_editor') ? '' : project.file(project.findProperty('autotest') == 'layout' ? 'run-layout/pack' : project.findProperty('autotest') == 'integrations' ? 'src/autotest/integration_pack' : (project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : ((project.findProperty('autotest') ?: '').startsWith('guides_design') || (project.findProperty('autotest') ?: '').startsWith('sections_design')) ? 'src/autotest/guides_pack' : 'examples/example_pack').absolutePath
             systemProperty 'rysquests.dev.brokenPack', project.file('examples/broken').absolutePath
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
             systemProperty 'rysquests.autotest.tag', project.findProperty('tag') ?: ''
+            // other agents run games beside this one
+            jvmArgument '-Xmx3G'
             // 'canvas' reads the books of RepYS and ATM10 on the client, without a server.
             systemProperty 'rysquests.autotest.repysBook', project.findProperty('repysBook') ?: project.file('../_fresh/book').absolutePath
             systemProperty 'rysquests.autotest.repysLang', "${System.getProperty('user.home')}/curseforge/minecraft/Instances/RepYS/kubejs/assets/repys/lang/ru_ru.json"

@@ -147,6 +147,8 @@ public final class ModNetwork {
                         (payload, context) -> EditorService.handleQuests((ServerPlayer) context.player(), payload))
                 .playToServer(EditorSavePayload.TYPE, EditorSavePayload.STREAM_CODEC,
                         (payload, context) -> EditorService.handle((ServerPlayer) context.player(), payload))
+                .playToServer(BookEditsSavePayload.TYPE, BookEditsSavePayload.STREAM_CODEC,
+                        (payload, context) -> EditorService.handleBookEdits((ServerPlayer) context.player(), payload))
                 .playToServer(PinWayPayload.TYPE, PinWayPayload.STREAM_CODEC,
                         (payload, context) -> ProgressService.togglePinnedWay((ServerPlayer) context.player(), payload.key()))
                 .playToServer(QuestActionPayload.TYPE, QuestActionPayload.STREAM_CODEC,

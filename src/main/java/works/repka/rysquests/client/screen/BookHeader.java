@@ -32,6 +32,11 @@ final class BookHeader {
     interface Host {
         List<BookTabs.Tab> tabs();
 
+        /** The tabs of the editor (plan, section 6): Карта · Гайды · Магазин · Достижения · Вкладки · Проверка. */
+        default List<BookTabs.Tab> editorTabs() {
+            return BookTabs.ALL;
+        }
+
         @Nullable
         BookTabs.Tab activeTab();
 
@@ -127,7 +132,7 @@ final class BookHeader {
     }
 
     private void renderTabs(Ui ui, float x, int y, float room, boolean editing) {
-        List<BookTabs.Tab> tabs = editing ? BookTabs.ALL : host.tabs();
+        List<BookTabs.Tab> tabs = editing ? host.editorTabs() : host.tabs();
         if (tabs.isEmpty() || room <= 0) {
             return;
         }
