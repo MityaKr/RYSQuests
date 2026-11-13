@@ -48,7 +48,7 @@ ProgressStore (SavedData) ──► ProgressDiffPayload ──► ClientProgress
 | `widget` | виджеты книги: `Panel`, `Slot`, `ProgressBar`, `Button`, `Tabs`, `ScrollList` (виртуализованный), `Tooltip`, `TextBlock` |
 | `layout` | `LayeredLayout` (автораскладка), `LayoutCache` |
 | `hud` | `StickerBoard` и интерфейс `Sticker` (id, высота, отрисовка, приоритет), стикеры квестов |
-| `input` | `KeyMapping`: открыть книгу (K), сдать готовое (G), закрепить (A) |
+| `input` | `KeyMapping`: открыть книгу (K), закрепить (P), свернуть стикеры (B); клавиши G «сдать готовое» нет (ADR-49) |
 | `markup` | парсер `[[kind:id|label]]` с синтаксисом RYScope, `**жирный**`, предупреждения; рендер с иконками предметов и кликами |
 | `util` | масштаб интерфейса, анимации с флагом «без анимаций» |
 
