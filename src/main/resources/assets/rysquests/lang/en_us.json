@@ -642,5 +642,10 @@
   "rysquests.layout.no_baker": "The map cannot be laid out in this version of the book yet",
   "rysquests.validate.issue.layout_stale": "The map layout is out of date: save the layout again (%s)",
   "rysquests.validate.issue.requires_archived": "Quest %s waits for %s, which is in the archive: players will never open it",
-  "rysquests.validate.issue.requires_draft": "Quest %s waits for the draft %s: players will not open it until the draft is finished"
+  "rysquests.validate.issue.requires_draft": "Quest %s waits for the draft %s: players will not open it until the draft is finished",
+  "rysquests.canvas.count": "%s of %s",
+  "rysquests.canvas.here": "you are here",
+  "rysquests.canvas.no_section": "No section",
+  "rysquests.canvas.loading_text": "The map is laid out for the first time. Next time it opens at once.",
+  "rysquests.canvas.open_list": "Open as a list meanwhile"
 }

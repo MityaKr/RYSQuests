@@ -50,6 +50,7 @@ public final class RYSQuestsClient {
         ModNetwork.setClientEditorResultHandler(payload -> BookScreen.onEditorResult(payload.ok(), payload.reason(), payload.args()));
         ModNetwork.setClientMessageHandler(ClientMessages::receive);
         ModNetwork.setClientLayoutBakeHandler(ClientLayout::onBakeRequest);
+        works.repka.rysquests.client.canvas.MapLayouts.register();
         ModNetwork.setClientImportHandlers(ClientImport::receiveProgress, ClientImport::receiveReport, ClientImport::receiveError);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> QuestKeys.tick());
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> Ponders.tick());

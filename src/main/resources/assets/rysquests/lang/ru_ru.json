@@ -649,5 +649,10 @@
   "rysquests.layout.no_baker": "В этой версии книги карту пока нельзя собрать",
   "rysquests.validate.issue.layout_stale": "Раскладка карты устарела: сохрани раскладку заново (%s)",
   "rysquests.validate.issue.requires_archived": "Квест %s ждёт %s, а тот в архиве: игроки его никогда не откроют",
-  "rysquests.validate.issue.requires_draft": "Квест %s ждёт черновик %s: игроки его не откроют, пока черновик не готов"
+  "rysquests.validate.issue.requires_draft": "Квест %s ждёт черновик %s: игроки его не откроют, пока черновик не готов",
+  "rysquests.canvas.count": "%s из %s",
+  "rysquests.canvas.here": "ты здесь",
+  "rysquests.canvas.no_section": "Без раздела",
+  "rysquests.canvas.loading_text": "Карта собирается первый раз. Дальше будет открываться сразу.",
+  "rysquests.canvas.open_list": "Открыть списком, пока считается"
 }

@@ -257,20 +257,69 @@ public final class EditorFiles {
         appendEntries(out, new java.util.TreeMap<>(layout.nodes()), point -> "[" + point.x() + ", " + point.y() + "]");
         out.append("},\n  \"areas\": {");
         appendEntries(out, new java.util.TreeMap<>(layout.areas()), area -> "[" + area.x() + ", " + area.y() + ", " + area.w() + ", " + area.h() + "]");
-        out.append("}\n}\n");
+        out.append("}");
+        BookLayout.Decor decor = layout.decor();
+        if (!decor.equals(BookLayout.Decor.EMPTY)) {
+            out.append(",\n  \"decor\": {\n    \"regions\": {");
+            appendEntries(out, new java.util.TreeMap<>(decor.regions()), EditorFiles::numbers, "      ", "\n    ");
+            out.append("},\n    \"labels\": {");
+            appendEntries(out, new java.util.TreeMap<>(decor.labels()), EditorFiles::numbers, "      ", "\n    ");
+            out.append("},\n    \"wheels\": ");
+            appendRows(out, decor.wheels());
+            out.append(",\n    \"marks\": ");
+            appendRows(out, decor.marks());
+            out.append(",\n    \"arms\": ");
+            appendRows(out, decor.arms());
+            out.append(",\n    \"turns\": ");
+            appendRows(out, decor.turns());
+            out.append("\n  }");
+        }
+        out.append("\n}\n");
         return out.toString();
     }
 
+    /** Numbers of the decor, whole ones without a fraction. */
+    private static String numbers(List<Float> values) {
+        StringBuilder out = new StringBuilder("[");
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) {
+                out.append(", ");
+            }
+            float v = values.get(i);
+            out.append(v == Math.rint(v) ? Long.toString((long) v) : Float.toString(v));
+        }
+        return out.append(']').toString();
+    }
+
+    /** One row of numbers to a line. */
+    private static void appendRows(StringBuilder out, List<List<Float>> rows) {
+        if (rows.isEmpty()) {
+            out.append("[]");
+            return;
+        }
+        out.append('[');
+        String separator = "\n";
+        for (List<Float> row : rows) {
+            out.append(separator).append("      ").append(numbers(row));
+            separator = ",\n";
+        }
+        out.append("\n    ]");
+    }
+
     private static <V> void appendEntries(StringBuilder out, Map<String, V> entries, java.util.function.Function<V, String> value) {
+        appendEntries(out, entries, value, "    ", "\n  ");
+    }
+
+    private static <V> void appendEntries(StringBuilder out, Map<String, V> entries, java.util.function.Function<V, String> value, String indent, String close) {
         if (entries.isEmpty()) {
             return;
         }
         String separator = "\n";
         for (Map.Entry<String, V> entry : entries.entrySet()) {
-            out.append(separator).append("    ").append(GSON.toJson(entry.getKey())).append(": ").append(value.apply(entry.getValue()));
+            out.append(separator).append(indent).append(GSON.toJson(entry.getKey())).append(": ").append(value.apply(entry.getValue()));
             separator = ",\n";
         }
-        out.append("\n  ");
+        out.append(close);
     }
 
     private static Set<String> keysOf(Optional<Guide> guide, Optional<SectionDef> section) {

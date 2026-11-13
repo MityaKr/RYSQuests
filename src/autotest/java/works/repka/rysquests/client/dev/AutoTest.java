@@ -160,6 +160,8 @@ public final class AutoTest {
             buildSectionsDesignScenario();
         } else if ("guides_design".equals(scenario)) {
             buildGuidesDesignScenario();
+        } else if ("canvas".equals(scenario)) {
+            buildCanvasScenario();
         } else if ("layout".equals(scenario)) {
             buildLayoutScenario();
         } else if ("team_a".equals(scenario)) {
@@ -712,6 +714,170 @@ public final class AutoTest {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    // --- the canvas of the map ---
+
+    private static final works.repka.rysquests.data.QuestBook[] CANVAS_BOOKS = new works.repka.rysquests.data.QuestBook[2];
+    private static final works.repka.rysquests.client.layout.MapBook[] CANVAS_MAPS = new works.repka.rysquests.client.layout.MapBook[2];
+    private static final java.util.List<java.util.Set<ResourceLocation>> CANVAS_DONE = new ArrayList<>(java.util.Arrays.asList(null, null));
+    private static final ResourceLocation[] CANVAS_HERE = new ResourceLocation[2];
+    private static CanvasTestScreen canvasScreen;
+
+    /**
+     * The canvas on its own test screen: RepYS as a serpentine on all four levels, with side quests hidden and a route lit, as a
+     * spiral and as a generator; ATM10 as a galaxy; and the loading page. Every view is shot and its frame timed into the log.
+     */
+    private static void buildCanvasScenario() {
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("read the books of RepYS and ATM10", () -> {
+            try {
+                CANVAS_BOOKS[0] = CanvasBooks.repys(Path.of(System.getProperty("rysquests.autotest.repysBook")), Path.of(System.getProperty("rysquests.autotest.repysLang")));
+                CANVAS_BOOKS[1] = CanvasBooks.atm10(Path.of(System.getProperty("rysquests.autotest.atm10Quests")));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            for (int i = 0; i < 2; i++) {
+                CANVAS_MAPS[i] = works.repka.rysquests.client.layout.MapBook.of(CANVAS_BOOKS[i]);
+            }
+            works.repka.rysquests.client.layout.MapBook repys = CANVAS_MAPS[0];
+            CANVAS_HERE[0] = repys.quests().stream().map(works.repka.rysquests.client.layout.MapBook.Q::id)
+                    .filter(id -> id.getPath().equals("b03_e2_current/electric_mechanism")).findFirst()
+                    .orElse(repys.quests().stream().filter(q -> repys.chapters().get(q.chapter()).epoch() == 2 && !q.optional()).findFirst().orElseThrow().id());
+            CANVAS_DONE.set(0, CanvasBooks.repysProgress(CANVAS_BOOKS[0], repys, CANVAS_HERE[0]));
+            CANVAS_DONE.set(1, CanvasBooks.atmProgress(CANVAS_BOOKS[1], CANVAS_MAPS[1]));
+            LOGGER.info("[autotest] canvas books: RepYS {} quests in {} chapters on the map, ATM10 {} quests in {} chapters", repys.quests().size(), repys.chapters().size(),
+                    CANVAS_MAPS[1].quests().size(), CANVAS_MAPS[1].chapters().size());
+        }, 1);
+        step("time the layouts", () -> {
+            for (int i = 0; i < 2; i++) {
+                for (works.repka.rysquests.data.MapForm form : List.of(works.repka.rysquests.data.MapForm.SERPENTINE, works.repka.rysquests.data.MapForm.SPIRAL,
+                        works.repka.rysquests.data.MapForm.GENERATOR, works.repka.rysquests.data.MapForm.GALAXY)) {
+                    long start = System.nanoTime();
+                    works.repka.rysquests.client.layout.CanvasLayout layout = new works.repka.rysquests.client.layout.LayoutEngine().lay(CANVAS_MAPS[i], form);
+                    LOGGER.info("[autotest] canvas layout {} {}: {} ms, {} quests, box {} x {}", i == 0 ? "RepYS" : "ATM10", form.getSerializedName(), (System.nanoTime() - start) / 1_000_000,
+                            layout.x.length, Math.round(layout.maxX - layout.minX), Math.round(layout.maxY - layout.minY));
+                }
+            }
+        }, 1);
+        step("open the canvas screen", () -> {
+            canvasScreen = new CanvasTestScreen();
+            mc().setScreen(canvasScreen);
+        }, 5);
+        expect("canvas screen open", () -> mc().screen == canvasScreen);
+
+        // RepYS as a serpentine, its own form
+        showCanvas(0, works.repka.rysquests.data.MapForm.SERPENTINE);
+        canvasShot("repys_serp_book", () -> {});
+        canvasShot("repys_serp_hover", () -> pointAtChapter(0, "b04_e2_oil"));
+        canvasShot("repys_serp_epoch", () -> canvasScreen.canvas.flyToEpoch(2));
+        canvasShot("repys_serp_chapter", () -> canvasScreen.canvas.flyToChapter(ResourceLocation.parse("repys:b03_e2_current")));
+        canvasShot("repys_serp_close", () -> {
+            canvasScreen.canvas.select(CANVAS_HERE[0]);
+            canvasScreen.canvas.flyToQuest(CANVAS_HERE[0]);
+        });
+        canvasShot("repys_serp_main_only", () -> {
+            canvasScreen.canvas.select(null);
+            canvasScreen.canvas.setShowSide(false);
+            canvasScreen.canvas.flyToChapter(ResourceLocation.parse("repys:b03_e2_current"));
+        });
+        canvasShot("repys_serp_route", () -> {
+            canvasScreen.canvas.setShowSide(true);
+            works.repka.rysquests.client.layout.MapBook repys = CANVAS_MAPS[0];
+            ResourceLocation goal = repys.quests().stream().filter(q -> q.milestone() && repys.chapters().get(q.chapter()).id().getPath().equals("b03_e2_current")
+                    && !CANVAS_DONE.get(0).contains(q.id())).map(works.repka.rysquests.client.layout.MapBook.Q::id).findFirst().orElse(CANVAS_HERE[0]);
+            canvasScreen.canvas.setRoute(CanvasBooks.route(CANVAS_BOOKS[0], CANVAS_DONE.get(0), goal));
+            canvasScreen.canvas.select(goal);
+            canvasScreen.canvas.flyToChapter(ResourceLocation.parse("repys:b03_e2_current"));
+        });
+        step("clear the route", () -> {
+            canvasScreen.canvas.setRoute(List.of());
+            canvasScreen.canvas.select(null);
+        }, 1);
+        // RepYS as a spiral and as a generator
+        showCanvas(0, works.repka.rysquests.data.MapForm.SPIRAL);
+        canvasShot("repys_spiral_book", () -> {});
+        canvasShot("repys_spiral_epoch", () -> canvasScreen.canvas.flyToEpoch(2));
+        showCanvas(0, works.repka.rysquests.data.MapForm.GENERATOR);
+        canvasShot("repys_gen_book", () -> {});
+        // ATM10 as a galaxy, its own form
+        showCanvas(1, works.repka.rysquests.data.MapForm.GALAXY);
+        canvasShot("atm_galaxy_book", () -> {});
+        canvasShot("atm_galaxy_hover", () -> pointAtChapter(1, "mekanism"));
+        canvasShot("atm_galaxy_chapter", () -> {
+            canvasScreen.pointer = new int[] {-100, -100};
+            canvasScreen.canvas.flyToChapter(ResourceLocation.parse("atm:create"));
+        });
+        canvasShot("atm_galaxy_close", () -> {
+            works.repka.rysquests.client.layout.MapBook atm = CANVAS_MAPS[1];
+            ResourceLocation open = atm.quests().stream().filter(q -> atm.chapters().get(q.chapter()).id().getPath().equals("create") && !CANVAS_DONE.get(1).contains(q.id()))
+                    .map(works.repka.rysquests.client.layout.MapBook.Q::id).findFirst().orElseThrow();
+            canvasScreen.canvas.select(open);
+            canvasScreen.canvas.flyToQuest(open);
+        });
+        // ATM10 at full size again, measured longer: the frame budget of picture 47
+        canvasShot("atm_galaxy_book_again", () -> {
+            canvasScreen.canvas.select(null);
+            canvasScreen.canvas.flyToBook();
+        });
+        step("check the frame budget", () -> {
+            double ms = canvasScreen.averageMs();
+            LOGGER.info("[autotest] canvas budget: ATM10 whole book {} ms a frame on the CPU, the goal is 4", String.format(java.util.Locale.ROOT, "%.2f", ms));
+        }, 1);
+        // the loading page, picture 49
+        step("show the loading page", () -> {
+            canvasScreen.pointer = new int[] {-100, -100};
+            canvasScreen.canvas.setLayout(CANVAS_BOOKS[1], CANVAS_MAPS[1], null);
+            canvasScreen.canvas.setLoading(() -> 0.62, () -> {});
+        }, 10);
+        screenshot("canvas_loading");
+    }
+
+    /** Lays the book out in the form through the client's layouts and gives it to the canvas with the made up progress. */
+    private static void showCanvas(int book, works.repka.rysquests.data.MapForm form) {
+        step("lay out " + book + " as " + form.getSerializedName(), () -> works.repka.rysquests.client.canvas.MapLayouts.get(CANVAS_BOOKS[book], form), 1);
+        expect("laid out " + book + " as " + form.getSerializedName(), () -> works.repka.rysquests.client.canvas.MapLayouts.get(CANVAS_BOOKS[book], form).ready());
+        step("show " + book + " as " + form.getSerializedName(), () -> {
+            works.repka.rysquests.client.canvas.MapLayouts.State state = works.repka.rysquests.client.canvas.MapLayouts.get(CANVAS_BOOKS[book], form);
+            CanvasBooks.Progress progress = CanvasBooks.progress(CANVAS_BOOKS[book], CANVAS_DONE.get(book));
+            canvasScreen.pointer = new int[] {-100, -100};
+            canvasScreen.canvas.setLoading(null, null);
+            canvasScreen.canvas.setShowSide(true);
+            canvasScreen.canvas.setLayout(CANVAS_BOOKS[book], state.map(), state.layout());
+            canvasScreen.canvas.setStatus(progress.status(), () -> 1);
+            canvasScreen.canvas.setHere(book == 0 ? CANVAS_HERE[0] : null);
+        }, 10);
+    }
+
+    /** Does something to the canvas, lets the flight end, shoots it and times its frames. */
+    private static void canvasShot(String name, Runnable action) {
+        step("canvas " + name, () -> {
+            // the pointer stays only for the hover views, which set it in their action
+            canvasScreen.pointer = new int[] {-100, -100};
+            action.run();
+        }, 25);
+        screenshot("canvas_" + name);
+        step("time " + name, () -> canvasScreen.resetTiming(), 60);
+        step("log " + name, () -> LOGGER.info("[autotest] canvas frame {}: {}", name, canvasScreen.timing()), 1);
+    }
+
+    private static void pointAtChapter(int book, String path) {
+        works.repka.rysquests.client.layout.MapBook map = CANVAS_MAPS[book];
+        works.repka.rysquests.client.layout.MapBook.Chap chapter = map.chapters().stream().filter(c -> c.id().getPath().equals(path)).findFirst().orElse(map.chapters().get(map.chapters().size() / 2));
+        works.repka.rysquests.client.layout.CanvasLayout.Region region = canvasScreen.canvas.layout().regions[chapter.index()];
+        works.repka.rysquests.client.layout.CanvasLayout.Label label = canvasScreen.canvas.layout().labels[chapter.index()];
+        float[] at = region.kind() == works.repka.rysquests.client.layout.CanvasLayout.RegionKind.RECT
+                ? canvasScreen.canvas.screenOf(region.centerX(), region.centerY() + (region.maxY() - region.minY()) * 0.3)
+                : canvasScreen.canvas.screenOf(label.x(), label.y());
+        canvasScreen.pointer = new int[] {Math.round(at[0]), Math.round(at[1])};
     }
 
     /** Chapters of the RepYS book on the map, whole and at full size, to judge the automatic layout. */
