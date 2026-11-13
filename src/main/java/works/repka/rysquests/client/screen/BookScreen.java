@@ -60,6 +60,7 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     private final Map<String, BookView> views = new HashMap<>();
     private final LoadingView loading = new LoadingView();
     private final EmptyBookView empty = new EmptyBookView(this);
+    private final SearchPopover searchPopover = new SearchPopover(this);
     final BookEditors editors = new BookEditors(this);
     @Nullable
     private BookView page;
@@ -248,6 +249,14 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         onClose();
     }
 
+    /** Puts a query in the search field, from a suggestion or a recent query of the results window. */
+    void setSearch(String query) {
+        BookState.search = query;
+        if (searchBox != null) {
+            searchBox.setValue(query);
+        }
+    }
+
     // --- drawing ---
 
     @Override
@@ -313,6 +322,9 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         int[] area = body.messageArea(x, top, w, bodyH);
         int[] line = area != null ? area : new int[] {x, top, w, bodyH};
         ui.aboveItems(() -> BookMessageLine.render(ui, line));
+        if (!bare) {
+            searchPopover.render(ui, x, y, w, h, searchBox != null && searchBox.isFocused(), compact());
+        }
         if (body != loading && body != empty && body != page && !editors.any() && BookState.previewSection == null) {
             BookState.track();
         }
@@ -604,6 +616,13 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
             return editors.key(key);
         }
         if (searchBox != null && searchBox.isFocused()) {
+            if (key != GLFW.GLFW_KEY_ESCAPE && searchPopover.key(key, true)) {
+                if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
+                    searchBox.setFocused(false);
+                    setFocused(null);
+                }
+                return true;
+            }
             if (key == GLFW.GLFW_KEY_ENTER && !BookState.search.isBlank()) {
                 SearchIndex.find(BookState.search).stream().findFirst().ifPresent(quest -> {
                     closePage();
@@ -623,6 +642,9 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         }
         if (typing()) {
             return super.keyPressed(key, scan, modifiers);
+        }
+        if (searchPopover.key(key, false)) {
+            return true;
         }
         if (shown != null && shown.key(key)) {
             return true;

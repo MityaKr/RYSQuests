@@ -142,6 +142,8 @@ public final class AutoTest {
             buildFrameScenario();
         } else if ("panel".equals(scenario)) {
             buildPanelScenario();
+        } else if ("extras".equals(scenario)) {
+            buildExtrasScenario();
         } else if ("repys".equals(scenario)) {
             buildRepysScenario();
         } else if ("design".equals(scenario) || "design_sizes".equals(scenario)) {
@@ -1943,6 +1945,157 @@ public final class AutoTest {
      * closed-book line and its question, loading, the empty book for an operator, a player and with FTB, a first-run page, and the
      * compact layout. Each state is a screenshot to lay over its mockup in {@code _audit/book2/final/img}.
      */
+    /**
+     * The shop, the achievements, the guides, the search and the HUD of the redesigned book (plan steps 8 and 9, pictures 23 to 31b),
+     * each state with a screenshot to lay over its mockup. The showcase book and states come from {@code ExtrasShowcase}.
+     */
+    private static void buildExtrasScenario() {
+        ResourceLocation tools = ResourceLocation.parse("example:start/first_tools");
+        ResourceLocation furnace = ResourceLocation.parse("example:start/first_furnace");
+        ResourceLocation dynamo = ResourceLocation.parse("example:power/dynamo");
+        openWorld();
+        expect("example book reached the client", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("reset the world", () -> {
+            moveMouse(1, 1);
+            ClientMessages.dismiss();
+            ThemeManager.select("ryscore:slate");
+            command("gamerule sendCommandFeedback false");
+            command("time set day");
+            command("clear @s");
+            ClientBook.current().quests().keySet().forEach(id -> command("rysquests progress @s reset " + id));
+        }, 30);
+        step("things to sell", () -> {
+            command("give @s minecraft:andesite 212");
+            command("give @s minecraft:copper_ingot 96");
+            command("give @s minecraft:coal 64");
+            command("give @s minecraft:iron_ingot 20");
+        }, 20);
+
+        step("the first entry: the key hint", () -> {
+            works.repka.rysquests.client.ClientConfig.KEY_HINT_SHOWN.set(false);
+            ClientProgress.pinnedForTest(List.of());
+            works.repka.rysquests.client.hud.StickerBoard.clearForTest();
+        }, 10);
+        screenshot("extras_hud_first_hint");
+        step("pinned quests, one waiting for its reward, and a message under them", () -> {
+            works.repka.rysquests.client.ClientConfig.KEY_HINT_SHOWN.set(true);
+            ClientProgress.progressForTest(furnace, new works.repka.rysquests.progress.QuestProgress(List.of(1, 1), System.currentTimeMillis(), List.of()));
+            ClientProgress.pinnedForTest(List.of(furnace, tools, ResourceLocation.parse("example:_achievements/iron_hoard/silver")));
+            works.repka.rysquests.client.hud.StickerBoard.celebrateForTest(ClientBook.current().quests().get(dynamo));
+        }, 10);
+        expect("three cards", () -> works.repka.rysquests.client.hud.StickerBoard.cardsForTest() == 3);
+        screenshot("extras_hud");
+        step("a low window", () -> {
+            mc().getWindow().setWindowed(960, 520);
+            mc().resizeDisplay();
+        }, 20);
+        expect("two cards when the window is low", () -> works.repka.rysquests.client.hud.StickerBoard.cardsForTest() == 2);
+        screenshot("extras_hud_low");
+        step("back to the mockups' window", () -> {
+            mc().getWindow().setWindowed(1280, 800);
+            mc().resizeDisplay();
+            works.repka.rysquests.client.hud.StickerBoard.clearForTest();
+            ClientProgress.pinnedForTest(List.of());
+            ClientProgress.progressForTest(furnace, works.repka.rysquests.progress.QuestProgress.EMPTY);
+        }, 20);
+
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("the showcase book", works.repka.rysquests.client.screen.ExtrasShowcase::install, 10);
+        expect("the hint is gone once the book was opened", () -> works.repka.rysquests.client.ClientConfig.KEY_HINT_SHOWN.get());
+        step("shop: buy two tokens", () -> works.repka.rysquests.client.screen.ExtrasShowcase.shop("token", "all", 2, false, false), 10);
+        expect("the shop is open", () -> "shop".equals(BookScreen.bodyForTest()));
+        screenshot("extras_shop_buy");
+        step("shop: a section from the list", () -> {
+            works.repka.rysquests.client.screen.ExtrasShowcase.walletOnly(214);
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop("quartz", "IV Энергия и разум", 1, false, true);
+        }, 10);
+        screenshot("extras_shop_sections");
+        step("shop: only available, the tip", () -> {
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop(null, "all", 1, false, false);
+            works.repka.rysquests.client.screen.ExtrasShowcase.shopOnlyAvailable(true);
+        }, 10);
+        screenshot("extras_shop_only_available");
+        step("shop: not enough coins", () -> {
+            works.repka.rysquests.client.screen.ExtrasShowcase.shopOnlyAvailable(false);
+            works.repka.rysquests.client.screen.ExtrasShowcase.walletOnly(6);
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop("steel", "all", 1, false, false);
+        }, 10);
+        screenshot("extras_shop_not_enough");
+        step("shop: nothing for quests", () -> {
+            works.repka.rysquests.client.screen.ExtrasShowcase.walletOnly(14);
+            ClientProgress.progressForTest(tools, new works.repka.rysquests.progress.QuestProgress(List.of(8, 1), 0, List.of()));
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop(null, "quests", 1, false, false);
+        }, 10);
+        screenshot("extras_shop_filter_empty");
+        step("shop: sell", () -> {
+            ClientProgress.progressForTest(tools, works.repka.rysquests.progress.QuestProgress.EMPTY);
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop("brass", "all", 3, false, false);
+        }, 10);
+        screenshot("extras_shop_sell");
+        step("shop: history", works.repka.rysquests.client.screen.ExtrasShowcase::shopHistory, 10);
+        screenshot("extras_shop_history");
+
+        step("achievements", () -> works.repka.rysquests.client.screen.ExtrasShowcase.achievements("miner", 0), 10);
+        expect("the achievements are open", () -> "achievements".equals(BookScreen.bodyForTest()));
+        screenshot("extras_achievements");
+        step("achievements in vanilla", () -> ThemeManager.select("ryscore:vanilla"), 10);
+        screenshot("extras_achievements_vanilla");
+        step("back to slate", () -> ThemeManager.select("ryscore:slate"), 5);
+
+        step("guides: the library", () -> {
+            BookScreen.openTabForTest("guides");
+            works.repka.rysquests.client.screen.ExtrasShowcase.library(0);
+        }, 10);
+        expect("the guides are open", () -> "guides".equals(BookScreen.bodyForTest()));
+        screenshot("extras_guides_library");
+        step("guides: a page", () -> works.repka.rysquests.client.screen.ExtrasShowcase.guidePage("create", 1), 10);
+        screenshot("extras_guide_page");
+
+        step("search: results", () -> {
+            BookScreen.openTabForTest("map");
+            works.repka.rysquests.client.screen.ExtrasShowcase.search("ящик");
+        }, 20);
+        screenshot("extras_search");
+        step("search: nothing found", () -> works.repka.rysquests.client.screen.ExtrasShowcase.search("кирак"), 10);
+        screenshot("extras_search_empty");
+        step("search: done", () -> {
+            works.repka.rysquests.client.screen.ExtrasShowcase.search("");
+            pressKey(GLFW.GLFW_KEY_ESCAPE);
+        }, 5);
+
+        step("a small window", () -> {
+            mc().getWindow().setWindowed(1100, 700);
+            mc().resizeDisplay();
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop("token", "all", 2, false, false);
+        }, 20);
+        expect("compact layout", BookScreen::compactForTest);
+        screenshot("extras_compact_shop");
+        step("compact achievements", () -> works.repka.rysquests.client.screen.ExtrasShowcase.achievements(null, 0), 10);
+        screenshot("extras_compact_achievements");
+        step("compact achievement detail", () -> works.repka.rysquests.client.screen.ExtrasShowcase.achievements("miner", 0), 10);
+        screenshot("extras_compact_achievement_detail");
+        step("compact guides", () -> {
+            BookScreen.openTabForTest("guides");
+            works.repka.rysquests.client.screen.ExtrasShowcase.library(0);
+        }, 10);
+        screenshot("extras_compact_guides");
+        step("back to the real book", () -> {
+            mc().getWindow().setWindowed(1280, 800);
+            mc().resizeDisplay();
+            works.repka.rysquests.client.screen.ExtrasShowcase.restore();
+            mc().setScreen(null);
+        }, 20);
+    }
+
     private static void buildFrameScenario() {
         openWorld();
         expect("example book reached the client", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);

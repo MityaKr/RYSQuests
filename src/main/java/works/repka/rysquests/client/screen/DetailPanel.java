@@ -32,6 +32,7 @@ final class DetailPanel {
     private static final int ACTION_PAD_Y = 12;
     private static final int BUTTON_H = 42;
     private static final int WHEEL = 48;
+    private static final int LINK_GAP = 8;
 
     /** The body of the panel, drawn at (x, y) in width w. */
     @FunctionalInterface
@@ -47,7 +48,11 @@ final class DetailPanel {
      * @param action null for a state in words: the label is then drawn as muted text, nothing to press
      * @param plain  a grey button instead of the amber one, for a page that has its amber button elsewhere
      */
-    record Action(String label, @Nullable Runnable action, boolean plain) {
+    record Action(String label, @Nullable Runnable action, boolean plain, @Nullable String link, @Nullable Runnable linkAction) {
+        Action(String label, @Nullable Runnable action, boolean plain) {
+            this(label, action, plain, null, null);
+        }
+
         static Action button(String label, Runnable action) {
             return new Action(label, action, false);
         }
@@ -59,6 +64,11 @@ final class DetailPanel {
         static Action state(String words) {
             return new Action(words, null, false);
         }
+
+        /** A link centered under the button or the state ("Рецепт вместо покупки", picture 25). */
+        Action withLink(String words, Runnable onClick) {
+            return new Action(label, action, plain, words, onClick);
+        }
     }
 
     private final Scroll scroll = new Scroll();
@@ -66,6 +76,7 @@ final class DetailPanel {
     private float top;
     private float right;
     private float bottom;
+    private float bodyBottom;
 
     /** Draws the panel; the left border is its own. */
     void render(Ui ui, float x, float y, float w, float h, Body body, @Nullable Action action) {
@@ -75,8 +86,10 @@ final class DetailPanel {
         bottom = y + h;
         ui.rect(x, y, w, h, ui.c("panel.bg"));
         ui.rect(x, y, 1, h, ui.c("panel.border"));
-        float actionH = action == null ? 0 : ACTION_PAD_Y * 2 + (action.action() == null ? Ui.lineHeight(12.5f) + 10 : BUTTON_H) + 1;
+        float linkH = action == null || action.link() == null ? 0 : LINK_GAP + Ui.lineHeight(12.5f);
+        float actionH = action == null ? 0 : ACTION_PAD_Y * 2 + (action.action() == null ? Ui.lineHeight(12.5f) + 10 : BUTTON_H) + linkH + 1;
         float bodyH = h - actionH;
+        bodyBottom = y + bodyH;
         int clipX = Math.round(x + 1);
         ui.clip(clipX, Math.round(y), Math.round(w - 1), Math.round(bodyH));
         int offset = scroll.offset();
@@ -88,13 +101,29 @@ final class DetailPanel {
             ui.rect(x + 1, ay, w - 1, 1, ui.c("panel.border"));
             float bx = x + 1 + PAD_X;
             float bw = w - 1 - PAD_X * 2;
+            float mainH = actionH - 1 - linkH;
             if (action.action() == null) {
-                ui.labelCentered(ui.fit(action.label(), bw, 12.5f, Ui.REGULAR), bx + bw / 2f, ay + 1 + (actionH - 1) / 2f, 12.5f, Ui.REGULAR, ui.c("text.muted"));
+                ui.labelCentered(ui.fit(action.label(), bw, 12.5f, Ui.REGULAR), bx + bw / 2f, ay + 1 + mainH / 2f, 12.5f, Ui.REGULAR, ui.c("text.muted"));
             } else {
                 ui.button(action.label(), bx, ay + 1 + ACTION_PAD_Y, bw, BUTTON_H, 9, 13.5f, Ui.SEMIBOLD, 20,
                         action.plain() ? Ui.Style.PLAIN : Ui.Style.ACCENT, action.action());
             }
+            if (action.link() != null) {
+                float lh = Ui.lineHeight(12.5f);
+                float ly = action.action() == null ? ay + 1 + mainH - ACTION_PAD_Y + LINK_GAP : ay + 1 + ACTION_PAD_Y + BUTTON_H + LINK_GAP;
+                float lw = ui.width(action.link(), 12.5f, Ui.MEDIUM);
+                boolean over = ui.over(bx + bw / 2f - lw / 2f, ly, lw, lh);
+                ui.labelCentered(action.link(), bx + bw / 2f, ly + lh / 2f, 12.5f, Ui.MEDIUM, ui.c(over ? "text.primary" : "link"));
+                if (action.linkAction() != null) {
+                    ui.hit(bx + bw / 2f - lw / 2f, ly, lw, lh, action.linkAction());
+                }
+            }
         }
+    }
+
+    /** The bottom of the body's visible area, for a block that stands at the foot of the body (shop: last operations). */
+    float bodyBottom() {
+        return bodyBottom;
     }
 
     boolean contains(double x, double y) {
@@ -144,9 +173,9 @@ final class DetailPanel {
         float textW = x + w - buttons - pen;
         java.util.List<String> lines = ui.wrap(title, textW, 18, Ui.DISPLAY, 2);
         float titleLine = Ui.headingHeight(18) - 2;
-        // The line under the title wraps onto a second line rather than losing its end ("шаг 6 из 15 · выполнен", picture 19).
+        // The line under the title wraps to a second line rather than being cut ("Жетоны · лимит 3 в день, обновится в полночь сервера").
         java.util.List<String> subLines = sub == null ? java.util.List.of() : ui.wrap(sub, textW, 12, Ui.REGULAR, 2);
-        float subH = sub == null ? 0 : 3 + Ui.lineHeight(12) * subLines.size();
+        float subH = sub == null ? 0 : 3 + subLines.size() * Ui.lineHeight(12);
         float textH = lines.size() * titleLine + subH;
         float blockH = Math.max(icon != null ? size : 0, textH);
         float ty = y + (blockH - textH) / 2f;
@@ -154,7 +183,10 @@ final class DetailPanel {
             ui.label(lines.get(i), pen, ty + titleLine * i + titleLine / 2f, 18, Ui.DISPLAY, ui.c("text.primary"));
         }
         for (int i = 0; i < subLines.size(); i++) {
-            ui.labelFit(subLines.get(i), pen, ty + lines.size() * titleLine + 3 + Ui.lineHeight(12) * (i + 0.5f), textW, 12, Ui.REGULAR, ui.c("text.muted"));
+            ui.labelFit(subLines.get(i), pen, ty + lines.size() * titleLine + 3 + i * Ui.lineHeight(12) + Ui.lineHeight(12) / 2f, textW, 12, Ui.REGULAR, ui.c("text.muted"));
+        }
+        if (sub != null && subLines.size() == 2 && !String.join(" ", subLines).equals(sub)) {
+            ui.tooltipIfOver(pen, ty + lines.size() * titleLine + 3, textW, 2 * Ui.lineHeight(12), Component.literal(sub));
         }
         return blockH;
     }

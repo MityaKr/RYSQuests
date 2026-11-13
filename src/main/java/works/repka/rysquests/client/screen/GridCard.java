@@ -39,6 +39,8 @@ final class GridCard {
     private String metaToken = "text.muted";
     private long price = -1;
     private boolean short_;
+    private boolean gain;
+    private boolean buttonOff;
     @Nullable
     private String button;
     @Nullable
@@ -86,6 +88,23 @@ final class GridCard {
     GridCard button(String label, Runnable action) {
         button = label;
         buttonAction = action;
+        buttonOff = false;
+        return this;
+    }
+
+    /** A button that cannot be pressed now, faded, its label the reason ("Не хватает", "Закрыто", "Нечего продать"). */
+    GridCard buttonOff(String label) {
+        button = label;
+        buttonAction = null;
+        buttonOff = true;
+        return this;
+    }
+
+    /** What a sale pays, written as a gain with the coin after it ("+1 ●", picture 27). */
+    GridCard gain(long coins) {
+        price = coins;
+        short_ = false;
+        gain = true;
         return this;
     }
 
@@ -153,12 +172,22 @@ final class GridCard {
         float bottom = y + h;
         if (price >= 0) {
             float cy = bottom - 14;
-            ui.circle(x, cy - 5.5f, 11, ui.c("coin"));
-            ui.label(Numbers.compact(price), x + 17, cy, 15, Ui.DISPLAY, ui.c(short_ ? "state.bad" : "text.primary"));
+            if (gain) {
+                String text = "+" + Numbers.compact(price);
+                ui.label(text, x, cy, 15, Ui.DISPLAY, ui.c("text.primary"));
+                ui.circle(x + ui.width(text, 15, Ui.DISPLAY) + 6, cy - 5.5f, 11, ui.c("coin"));
+            } else {
+                ui.circle(x, cy - 5.5f, 11, ui.c("coin"));
+                ui.label(Numbers.compact(price), x + 17, cy, 15, Ui.DISPLAY, ui.c(short_ ? "state.bad" : "text.primary"));
+            }
         }
         if (button != null && buttonAction != null) {
             float bw = ui.buttonWidth(button, 12, Ui.MEDIUM, 10);
             ui.button(button, x + w - bw, bottom - 28, bw, 28, 9, 12, Ui.MEDIUM, 10, Ui.Style.PLAIN, buttonAction);
+        } else if (button != null && buttonOff) {
+            float bw = Math.min(w - 50, ui.buttonWidth(button, 12, Ui.MEDIUM, 10));
+            ui.box(x + w - bw, bottom - 28, bw, 28, 9, Draw.alpha(ui.c("button.bg"), 0.5f), Draw.alpha(ui.c("button.border"), 0.5f));
+            ui.labelCentered(ui.fit(button, bw - 8, 12, Ui.MEDIUM), x + w - bw / 2f, bottom - 14, 12, Ui.MEDIUM, Draw.alpha(ui.c("text.secondary"), 0.5f));
         }
     }
 }

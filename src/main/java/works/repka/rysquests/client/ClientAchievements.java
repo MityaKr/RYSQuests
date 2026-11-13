@@ -29,6 +29,11 @@ public final class ClientAchievements {
         return state.activeTitle();
     }
 
+    /** For the in-game autotest: owned titles and the worn one the server did not send (picture 28). */
+    public static void showForTest(AchievementStatePayload payload) {
+        state = payload;
+    }
+
     static void clear() {
         state = new AchievementStatePayload(Map.of(), List.of(), "");
     }

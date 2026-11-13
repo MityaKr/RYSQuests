@@ -3,14 +3,15 @@ package works.repka.rysquests.client.screen;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
-import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
 import works.repka.rysquests.client.ClientAchievements;
 import works.repka.rysquests.client.ClientBook;
@@ -23,32 +24,51 @@ import works.repka.rysquests.network.SelectTitlePayload;
 import works.repka.rysquests.progress.QuestProgress;
 import works.repka.rysquests.reward.CurrencyReward;
 import works.repka.rysquests.reward.TitleReward;
+import works.repka.rysquests.reward.XpReward;
 import works.repka.ryscore.ui.Icons;
+import works.repka.ryscore.ui.Kit;
 import works.repka.ryscore.ui.Numbers;
 
-/** Achievements, from {@code design/Achievements.dc.html}. */
+/**
+ * Achievements (plan, section 3, pictures 28, 45, 46d), laid out as the author's sample: categories and the totals on the left, cards in
+ * the middle, the selected one with its levels on the right. A card has the ring with the icon and the level segments on its top line,
+ * the name in full width under them, two lines of description and one line of count. A level's color comes from its place
+ * ({@link Achievement#medal}), the ring takes the color of the highest level reached. The count is personal: no share of the server.
+ */
 final class AchievementsView implements BookView {
-    private static final int PANEL_W = 320;
-    private static final int PAD_X = 20;
-    private static final int PAD_Y = 16;
-    private static final int GAP = 12;
-    private static final int HEADER_H = 47;
+    private static final int PAD_X = 16;
+    private static final int PAD_Y = 14;
+    private static final int TOP_H = 28;
+    private static final int TOP_GAP = 14;
     private static final int COLUMNS = 3;
-    private static final int CARD_H = 113;
+    private static final int COLUMNS_COMPACT = 4;
+    private static final int CARD_H = 151;
     private static final int CARD_GAP = 10;
-    private static final int TIER_H = 50;
+    private static final int RING = 40;
+    private static final int FOOT_H = 38;
+    private static final int PANEL_COMPACT = 300;
     private static final int WHEEL = 48;
-    private static final String HIDDEN_FILTER = "\0hidden";
-    /** Medal colors are the metals of design/Achievements.dc.html and stay the same in every theme (ADR-41). */
-    private static final int GOLD = 0xFFF0C53D;
-    private static final int SILVER = 0xFFC9C9CF;
-    private static final int BRONZE = 0xFFB87333;
 
+    private enum Show {
+        ALL, IN_WORK, GOT
+    }
+
+    private final BookScreen screen;
+    private final DetailPanel panel = new DetailPanel();
     private final Scroll gridScroll = new Scroll();
+    private final Scroll sideScroll = new Scroll();
+    private final Kit.Dropdown categories = new Kit.Dropdown();
     private String category = "";
-    private boolean byProgress = true;
+    private Show show = Show.ALL;
     @Nullable
     private ResourceLocation selectedId;
+    /** The compact layout opens the detail over the page only after a click (picture 46d). */
+    private boolean panelOpen;
+    private int sideRight;
+
+    AchievementsView(BookScreen screen) {
+        this.screen = screen;
+    }
 
     private static String tr(String key) {
         return Component.translatable(key).getString();
@@ -58,17 +78,18 @@ final class AchievementsView implements BookView {
         return Component.translatable(key, args).getString();
     }
 
+    // --- what an achievement is ---
+
     private static boolean reached(Achievement achievement, Tier tier) {
         return ClientProgress.get(achievement.questId(tier)).completed();
     }
 
-    /** The highest tier reached, or null. */
-    @Nullable
-    private static Tier best(Achievement achievement) {
-        Tier found = null;
-        for (Tier tier : achievement.tiers()) {
-            if (reached(achievement, tier)) {
-                found = tier;
+    /** The index of the highest level reached, or -1. */
+    static int best(Achievement achievement) {
+        int found = -1;
+        for (int i = 0; i < achievement.tiers().size(); i++) {
+            if (reached(achievement, achievement.tiers().get(i))) {
+                found = i;
             }
         }
         return found;
@@ -84,7 +105,7 @@ final class AchievementsView implements BookView {
         return null;
     }
 
-    private static int progress(Achievement achievement) {
+    static int progress(Achievement achievement) {
         int most = 0;
         for (Tier tier : achievement.tiers()) {
             QuestProgress own = ClientProgress.get(achievement.questId(tier));
@@ -98,308 +119,544 @@ final class AchievementsView implements BookView {
         return next == null ? 1 : Math.min(1, (float) progress(achievement) / next.amount());
     }
 
-    private static boolean concealed(Achievement achievement) {
-        return achievement.hidden() && best(achievement) == null;
-    }
-
-    private static int medal(Ui ui, @Nullable Tier tier) {
-        if (tier == null) {
-            return ui.c("card.border");
+    /** How full each level is: reached ones whole, the current one in part from the level before, later ones empty. */
+    private static float[] fills(Achievement achievement) {
+        int[] amounts = new int[achievement.tiers().size()];
+        boolean[] reached = new boolean[amounts.length];
+        for (int i = 0; i < amounts.length; i++) {
+            amounts[i] = achievement.tiers().get(i).amount();
+            reached[i] = reached(achievement, achievement.tiers().get(i));
         }
-        return switch (tier.tier()) {
-            case "gold" -> GOLD;
-            case "silver" -> SILVER;
-            default -> BRONZE;
-        };
+        return fills(progress(achievement), amounts, reached);
     }
 
-    private static String tierName(Tier tier) {
-        String key = "rysquests.achievements.tier." + tier.tier();
-        return Language.getInstance().has(key) ? tr(key) : tier.tier();
+    /**
+     * The fill of each level's segment for a count: a level counts from the one before it, so 4 400 of levels 1 000, 10 000, 50 000
+     * fills the first, a third of the second and nothing of the third. A level reached by other means (a lower count after a reset)
+     * stays full.
+     */
+    static float[] fills(int value, int[] amounts, boolean[] reached) {
+        float[] out = new float[amounts.length];
+        int previous = 0;
+        for (int i = 0; i < out.length; i++) {
+            if (reached[i] || value >= amounts[i]) {
+                out[i] = 1;
+            } else if (value > previous) {
+                out[i] = (float) (value - previous) / Math.max(1, amounts[i] - previous);
+            }
+            previous = amounts[i];
+        }
+        return out;
+    }
+
+    private static boolean concealed(Achievement achievement) {
+        return achievement.hidden() && best(achievement) < 0;
     }
 
     private static ItemStack icon(Achievement achievement) {
         return achievement.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
     }
 
-    private static String name(Achievement achievement) {
+    static String name(Achievement achievement) {
         return concealed(achievement) ? tr("rysquests.achievements.unknown") : tr(achievement.titleKey());
     }
 
     private static String description(Achievement achievement) {
         if (concealed(achievement)) {
-            return Language.getInstance().has(achievement.hintKey()) ? text("rysquests.achievements.hint", tr(achievement.hintKey())) : "";
+            return Language.getInstance().has(achievement.hintKey()) ? text("rysquests.achievements.hint", tr(achievement.hintKey())) : tr("rysquests.achievements.secret_text");
         }
         return tr(achievement.textKey());
     }
 
+    @Nullable
+    private static String ringToken(Achievement achievement) {
+        int best = best(achievement);
+        return best < 0 ? null : LevelSegments.token(best, achievement.tiers().size());
+    }
+
+    private static List<Achievement> all() {
+        return ClientBook.current().achievements().values().stream().filter(achievement -> !achievement.archived()).toList();
+    }
+
     private List<Achievement> shown() {
         List<Achievement> list = new ArrayList<>();
-        for (Achievement achievement : ClientBook.current().achievements().values()) {
-            boolean match = category.isEmpty() || category.equals(HIDDEN_FILTER) && achievement.hidden() || achievement.category().filter(category::equals).isPresent();
-            if (match) {
+        for (Achievement achievement : all()) {
+            boolean inCategory = category.isEmpty() || achievement.category().filter(category::equals).isPresent();
+            boolean match = switch (show) {
+                case ALL -> true;
+                case IN_WORK -> next(achievement) != null && progress(achievement) > 0 && !concealed(achievement);
+                case GOT -> best(achievement) >= 0;
+            };
+            if (inCategory && match) {
                 list.add(achievement);
             }
         }
-        if (byProgress) {
-            list.sort(Comparator.comparing((Achievement achievement) -> next(achievement) == null).thenComparing(achievement -> -ratio(achievement)));
-        } else {
-            list.sort(Comparator.comparing(AchievementsView::name));
-        }
+        // One order: those closer to their goal first; finished ones and secrets at the end.
+        list.sort(Comparator.comparing(AchievementsView::concealed)
+                .thenComparing(achievement -> next(achievement) == null)
+                .thenComparing(achievement -> -ratio(achievement)));
         return list;
     }
 
+    private static Map<String, Integer> categoryCounts() {
+        Map<String, Integer> out = new LinkedHashMap<>();
+        for (Achievement achievement : all()) {
+            achievement.category().ifPresent(key -> out.merge(key, 1, Integer::sum));
+        }
+        return out;
+    }
+
+    // --- drawing ---
+
     @Override
     public void render(Ui ui, int x, int y, int w, int h) {
-        int panelLeft = x + w - PANEL_W;
+        boolean compact = screen.compact();
         List<Achievement> shown = shown();
         Achievement selected = selectedId == null ? null : ClientBook.current().achievements().get(selectedId);
         if (selected == null && !shown.isEmpty()) {
             selected = shown.getFirst();
         }
-        renderPanel(ui, selected, panelLeft, y, PANEL_W, h);
-        float left = x + PAD_X;
-        float inner = panelLeft - x - PAD_X * 2;
-        float cursor = y + PAD_Y;
-        renderHeader(ui, left, cursor, inner);
-        cursor += HEADER_H + GAP;
-        cursor = renderFilters(ui, left, cursor, inner) + GAP;
-        renderGrid(ui, shown, selected, left, cursor, inner, y + h - PAD_Y - cursor);
+        int sideW = compact ? 0 : SideList.WIDTH;
+        sideRight = x + sideW;
+        int panelW = compact ? 0 : DetailPanel.WIDTH;
+        if (!compact) {
+            renderSide(ui, x, y, h);
+        }
+        float left = x + sideW + PAD_X;
+        float inner = w - sideW - panelW - PAD_X * 2;
+        float top = y + PAD_Y;
+        float bodyTop = top + TOP_H + TOP_GAP;
+        float bottom = y + h - PAD_Y;
+        if (shown.isEmpty()) {
+            if (show == Show.GOT) {
+                EmptyFilter.render(ui, left, bodyTop, inner, bottom - bodyTop, tr("rysquests.achievements.empty.got"), tr("rysquests.achievements.empty.show_all"), () -> show = Show.ALL);
+            } else {
+                EmptyFilter.render(ui, left, bodyTop, inner, bottom - bodyTop, tr("rysquests.achievements.empty.filter"), tr("rysquests.achievements.empty.show_all"), () -> {
+                    show = Show.ALL;
+                    category = "";
+                });
+            }
+        } else {
+            renderGrid(ui, shown, compact && !panelOpen ? null : selected, left, bodyTop, inner, bottom - bodyTop, compact ? COLUMNS_COMPACT : COLUMNS);
+        }
+        if (!compact) {
+            renderPanel(ui, selected, x + w - panelW, y, panelW, h, false);
+        }
+        renderTop(ui, left, top, inner, compact);
+        if (compact && panelOpen && selected != null) {
+            // Over the page, as the quest's panel on the map: above the cards' items too.
+            Achievement shownAchievement = selected;
+            ui.aboveItems(() -> {
+                ui.shadow(x + w - PANEL_COMPACT, y, PANEL_COMPACT, h, 0, 0.6f);
+                ui.hit(x + w - PANEL_COMPACT, y, PANEL_COMPACT, h, () -> { });
+                renderPanel(ui, shownAchievement, x + w - PANEL_COMPACT, y, PANEL_COMPACT, h, true);
+            });
+        }
+        if (compact) {
+            renderCategoryList(ui);
+        } else {
+            renderTitleList(ui);
+        }
     }
 
-    private static void renderHeader(Ui ui, float x, float y, float w) {
-        ui.label(tr("rysquests.achievements.title"), x, y + 16, 19, Ui.DISPLAY, ui.c("text.primary"));
-        ui.labelFit(tr("rysquests.achievements.subtitle"), x, y + 35.5f, w * 0.5f, 11.5f, Ui.REGULAR, ui.c("text.muted"));
-        var all = ClientBook.current().achievements().values();
-        int got = (int) all.stream().filter(achievement -> best(achievement) != null).count();
-        int[] medals = new int[3];
+    // --- the column on the left ---
+
+    private void renderSide(Ui ui, int x, int y, int h) {
+        SideList.plate(ui, x, y, h);
+        float pen = y + 12;
+        pen += renderTotals(ui, x + 12, pen, SideList.WIDTH - 1 - 24) + 6 + 4;
+        float listTop = pen;
+        float footTop = SideList.footer(ui, x, y + h, FOOT_H);
+        int offset = sideScroll.offset();
+        ui.clip(x, Math.round(listTop), SideList.WIDTH - 1, Math.round(footTop - listTop));
+        float row = listTop - offset;
+        row += SideList.row(ui, x, row, tr("rysquests.achievements.category_all"), String.valueOf(all().size()), category.isEmpty(), false, null, () -> select(""));
+        for (Map.Entry<String, Integer> entry : categoryCounts().entrySet()) {
+            String key = entry.getKey();
+            row += SideList.row(ui, x, row, tr(key), String.valueOf(entry.getValue()), key.equals(category), false, null, () -> select(key));
+        }
+        ui.unclip();
+        sideScroll.content(row + offset - listTop, footTop - listTop);
+        renderTitleLine(ui, x + 12, footTop + 1, SideList.WIDTH - 1 - 24, FOOT_H - 1);
+    }
+
+    private void select(String key) {
+        category = key;
+        gridScroll.reset();
+    }
+
+    /** "7 из 58 достижений", the bar, "уровней 10 из 139" and three rings with counts by color. @return its height */
+    private static float renderTotals(Ui ui, float x, float y, float w) {
+        List<Achievement> all = all();
+        int got = 0;
+        int levels = 0;
+        int levelsGot = 0;
+        int[] byMedal = new int[3];
         for (Achievement achievement : all) {
-            Tier tier = best(achievement);
-            if (tier != null) {
-                medals[tier.tier().equals("gold") ? 0 : tier.tier().equals("silver") ? 1 : 2]++;
+            int n = achievement.tiers().size();
+            levels += n;
+            got += best(achievement) >= 0 ? 1 : 0;
+            for (int i = 0; i < n; i++) {
+                if (reached(achievement, achievement.tiers().get(i))) {
+                    levelsGot++;
+                    byMedal[Achievement.medal(i, n).ordinal()]++;
+                }
             }
         }
-        float boxW = 320;
-        float boxX = x + w - boxW;
-        float cy = y + HEADER_H / 2f;
-        ui.box(boxX, y, boxW, HEADER_H, 10, ui.c("card.bg"), ui.c("panel.border"));
+        float h = 12 + 24 + 8 + 5 + 8 + Ui.lineHeight(12) + 4 + 14 + 12;
+        ui.box(x, y, w, h, 12, ui.c("card.bg"), ui.c("panel.border"));
+        float pen = y + 12;
         String count = String.valueOf(got);
-        ui.label(count, boxX + 14, cy - 7, 16, Ui.DISPLAY, ui.c("text.primary"));
-        ui.label(text("rysquests.achievements.of", all.size()), boxX + 14 + ui.width(count, 16, Ui.DISPLAY) + 4, cy - 7, 12, Ui.REGULAR, ui.c("button.fg"));
-        ui.bar(boxX + 14, cy + 8, 160, 5, 3, all.isEmpty() ? 0 : (float) got / all.size(), ui.c("accent"));
-        ui.rect(boxX + 188, cy - 14, 1, 28, ui.c("panel.border"));
-        float pen = boxX + 202;
-        String[] tiers = {"gold", "silver", "bronze"};
+        ui.label(count, x + 12, pen + 12, 20, Ui.DISPLAY, ui.c("text.primary"));
+        ui.labelFit(text("rysquests.achievements.of_total", all.size()), x + 12 + ui.width(count, 20, Ui.DISPLAY) + 8, pen + 12, w - 32, 12.5f, Ui.REGULAR, ui.c("text.muted"));
+        pen += 24 + 8;
+        ui.bar(x + 12, pen, w - 24, 5, 3, all.isEmpty() ? 0 : (float) got / all.size(), ui.c("state.ok"));
+        pen += 5 + 8;
+        ui.label(text("rysquests.achievements.levels_of", levelsGot, levels), x + 12, pen + Ui.lineHeight(12) / 2f, 12, Ui.REGULAR, ui.c("text.muted"));
+        pen += Ui.lineHeight(12) + 4;
+        float rx = x + 12;
+        String[] tokens = {"medal.bronze", "medal.silver", "medal.gold"};
         for (int i = 0; i < 3; i++) {
-            ui.circle(pen, cy - 5, 10, medal(ui, new Tier(tiers[i], 1, List.of())));
-            pen += 14;
-            ui.label(String.valueOf(medals[i]), pen, cy, 12, Ui.REGULAR, ui.c("button.fg"));
-            pen += ui.width(String.valueOf(medals[i]), 12, Ui.REGULAR) + 14;
+            AchievementRing.dot(ui, rx, pen + 1.5f, 11, tokens[i]);
+            String n = String.valueOf(byMedal[i]);
+            ui.label(n, rx + 15, pen + 7, 12, Ui.REGULAR, ui.c("text.secondary"));
+            rx += 15 + ui.width(n, 12, Ui.REGULAR) + 12;
+        }
+        return h;
+    }
+
+    /** The titles the player owns, from every level that gives one. */
+    private static List<String> ownedTitles() {
+        Set<String> out = new LinkedHashSet<>();
+        for (Achievement achievement : all()) {
+            for (Tier tier : achievement.tiers()) {
+                for (RewardDef reward : tier.rewards()) {
+                    if (reward instanceof TitleReward title && ClientAchievements.owns(title.id())) {
+                        out.add(title.id());
+                    }
+                }
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    private float titleLeft;
+    private float titleTop;
+    private boolean titleListOpen;
+
+    /** "⚑ Титул «Кладовщик» · сменить" at the foot of the column. */
+    private void renderTitleLine(Ui ui, float x, float y, float w, float h) {
+        float cy = y + h / 2f;
+        String worn = ClientAchievements.activeTitle();
+        String line = worn == null || worn.isEmpty() ? tr("rysquests.achievements.no_title") : text("rysquests.achievements.title_line", tr(worn));
+        ui.icon(Icons.Shape.FLAG, x, cy - 7, 14, ui.c("text.secondary"));
+        List<String> owned = ownedTitles();
+        String change = tr("rysquests.achievements.change_title");
+        float changeW = owned.isEmpty() ? 0 : ui.width(change, 12.5f, Ui.MEDIUM);
+        ui.labelFit(line, x + 22, cy, w - 22 - changeW - 8, 12.5f, Ui.REGULAR, ui.c("text.secondary"));
+        if (!owned.isEmpty()) {
+            float lx = x + w - changeW;
+            boolean over = ui.over(lx, cy - 9, changeW, 18);
+            ui.label(change, lx, cy, 12.5f, Ui.MEDIUM, ui.c(over ? "text.primary" : "link"));
+            ui.hit(lx, cy - 9, changeW, 18, () -> titleListOpen = !titleListOpen);
+            titleLeft = x;
+            titleTop = y;
         }
     }
 
-    /** @return the y below the filters */
-    private float renderFilters(Ui ui, float x, float y, float w) {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        counts.put("", 0);
-        int hidden = 0;
-        for (Achievement achievement : ClientBook.current().achievements().values()) {
-            counts.merge("", 1, Integer::sum);
-            achievement.category().ifPresent(found -> counts.merge(found, 1, Integer::sum));
-            hidden += achievement.hidden() ? 1 : 0;
+    /** The list of owned titles over the column's foot, the worn one marked. A click outside closes it. */
+    private void renderTitleList(Ui ui) {
+        if (!titleListOpen) {
+            return;
         }
-        List<Chips.Chip> chips = new ArrayList<>();
-        counts.forEach((key, count) -> chips.add(new Chips.Chip(key, key.isEmpty() ? tr("rysquests.guides.category_all") : tr(key), count)));
-        if (hidden > 0) {
-            chips.add(new Chips.Chip(HIDDEN_FILTER, tr("rysquests.achievements.hidden"), hidden));
-        }
-        String sort = tr(byProgress ? "rysquests.achievements.sort_progress" : "rysquests.guides.sort_name");
-        float sortW = ui.width(sort, 12, Ui.REGULAR) + 24 + 14;
-        float[] end = Chips.render(ui, chips, category, key -> category = key, x, y, w - sortW - 6);
-        float sortX = x + w - sortW;
-        ui.box(sortX, y, sortW, Chips.HEIGHT, Chips.HEIGHT / 2f, ui.over(sortX, y, sortW, Chips.HEIGHT) ? ui.c("button.bg") : 0, ui.c("panel.border"));
-        ui.label(sort, sortX + 12, y + Chips.HEIGHT / 2f, 12, Ui.REGULAR, ui.c("text.muted"));
-        ui.icon(Icons.Shape.CHEVRON_DOWN, sortX + sortW - 21, y + Chips.HEIGHT / 2f - 4.5f, 9, ui.c("text.muted"));
-        ui.hit(sortX, y, sortW, Chips.HEIGHT, () -> byProgress = !byProgress);
-        return end[1] + Chips.HEIGHT;
+        List<String> owned = ownedTitles();
+        List<String> labels = new ArrayList<>();
+        labels.add("");
+        labels.addAll(owned);
+        String worn = ClientAchievements.activeTitle();
+        float rowH = 30;
+        float w = SideList.WIDTH - 24;
+        float h = 8 + labels.size() * rowH;
+        float x = titleLeft;
+        float y = titleTop - 6 - h;
+        ui.aboveItems(() -> {
+            ui.hit(0, 0, 100000, 100000, () -> titleListOpen = false);
+            ui.shadow(x, y, w, h, 12, 0.7f);
+            ui.box(x, y, w, h, 12, ui.c("sidebar.bg"), ui.c("button.border"));
+            for (int i = 0; i < labels.size(); i++) {
+                String title = labels.get(i);
+                boolean on = title.isEmpty() ? worn == null || worn.isEmpty() : title.equals(worn);
+                float ry = y + 4 + i * rowH;
+                boolean over = ui.over(x + 4, ry, w - 8, rowH);
+                if (on || over) {
+                    ui.fill(x + 4, ry, w - 8, rowH, 7, ui.c(on ? "row.selected.bg" : "button.bg"));
+                }
+                if (on) {
+                    ui.icon(Icons.Shape.CHECK, x + 12, ry + rowH / 2f - 6, 12, ui.c("text.primary"));
+                }
+                String label = title.isEmpty() ? tr("rysquests.achievements.no_title") : tr(title);
+                ui.labelFit(label, x + 32, ry + rowH / 2f, w - 44, 12.5f, on ? Ui.SEMIBOLD : Ui.REGULAR, ui.c("text.primary"));
+                ui.hit(x + 4, ry, w - 8, rowH, () -> {
+                    titleListOpen = false;
+                    PacketDistributor.sendToServer(new SelectTitlePayload(title));
+                });
+            }
+        });
     }
 
-    private void renderGrid(Ui ui, List<Achievement> shown, @Nullable Achievement selected, float x, float y, float w, float h) {
-        float cardW = (w - (COLUMNS - 1) * CARD_GAP) / COLUMNS;
-        int rows = (shown.size() + COLUMNS - 1) / COLUMNS;
+    // --- the line on top and the grid ---
+
+    private void renderTop(Ui ui, float x, float y, float w, boolean compact) {
+        float cy = y + TOP_H / 2f;
+        List<String> labels = List.of(tr("rysquests.achievements.show.all"), tr("rysquests.achievements.show.in_work"), tr("rysquests.achievements.show.got"));
+        if (!compact) {
+            float cw = FilterChips.width(ui, labels, false);
+            ui.labelFit(tr("rysquests.achievements.order_line"), x, cy, w - cw - 12, 12.5f, Ui.REGULAR, ui.c("text.muted"));
+            FilterChips.render(ui, x + w - cw, y, labels, show.ordinal(), index -> {
+                show = Show.values()[index];
+                gridScroll.reset();
+            }, false);
+            return;
+        }
+        Map<String, Integer> counts = categoryCounts();
+        List<String> keys = new ArrayList<>(List.of(""));
+        List<Kit.Option> options = new ArrayList<>(List.of(new Kit.Option(tr("rysquests.achievements.category_all"), all().size())));
+        counts.forEach((key, count) -> {
+            keys.add(key);
+            options.add(new Kit.Option(tr(key), count));
+        });
+        int picked = Math.max(0, keys.indexOf(category));
+        String label = text("rysquests.achievements.category_dd", options.get(picked).label(), options.get(picked).count());
+        int ddW = Kit.dropdown(ui.g, ui.theme, ui.kitHits, categories, Math.round(x / 2f), Math.round((cy - Kit.DROP_H) / 2f), 120, label, !category.isEmpty(), ui.mouseX / 2, ui.mouseY / 2) * 2;
+        float pen = x + ddW + 8;
+        pen += FilterChips.render(ui, pen, y, labels, show.ordinal(), index -> {
+            show = Show.values()[index];
+            gridScroll.reset();
+        }, true) + 12;
+        int got = (int) all().stream().filter(achievement -> best(achievement) >= 0).count();
+        int levels = all().stream().mapToInt(achievement -> achievement.tiers().size()).sum();
+        int levelsGot = all().stream().mapToInt(achievement -> best(achievement) + 1).sum();
+        String worn = ClientAchievements.activeTitle();
+        String title = worn == null || worn.isEmpty() ? "" : "«" + tr(worn) + "»";
+        float titleW = title.isEmpty() ? 0 : 14 + 6 + ui.width(title, 12.5f, Ui.MEDIUM);
+        String totals = text("rysquests.achievements.totals_compact", got, all().size(), levelsGot, levels);
+        float right = x + w;
+        if (!title.isEmpty()) {
+            ui.icon(Icons.Shape.FLAG, right - titleW, cy - 7, 14, ui.c("text.secondary"));
+            ui.label(title, right - titleW + 20, cy, 12.5f, Ui.MEDIUM, ui.c("link"));
+            right -= titleW + 12;
+        }
+        ui.labelFit(totals, Math.max(pen, right - ui.width(totals, 12.5f, Ui.REGULAR)), cy, right - pen, 12.5f, Ui.REGULAR, ui.c("text.secondary"));
+    }
+
+    /** The open list of categories, last in the frame. */
+    private void renderCategoryList(Ui ui) {
+        List<String> keys = new ArrayList<>(List.of(""));
+        List<Kit.Option> options = new ArrayList<>(List.of(new Kit.Option(tr("rysquests.achievements.category_all"), all().size())));
+        categoryCounts().forEach((key, count) -> {
+            keys.add(key);
+            options.add(new Kit.Option(tr(key), count));
+        });
+        Kit.dropdownList(ui.g, ui.theme, ui.kitHits, categories, options, Math.max(0, keys.indexOf(category)), 120, ui.mouseX / 2, ui.mouseY / 2, index -> select(keys.get(index)));
+    }
+
+    private void renderGrid(Ui ui, List<Achievement> shown, @Nullable Achievement selected, float x, float y, float w, float h, int columns) {
+        float cardW = (w - (columns - 1) * CARD_GAP) / columns;
+        int rows = (shown.size() + columns - 1) / columns;
         gridScroll.content(rows * CARD_H + Math.max(0, rows - 1) * CARD_GAP, Math.round(h));
         int offset = gridScroll.offset();
         ui.clip(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
         for (int i = 0; i < shown.size(); i++) {
-            float cy = y + (i / COLUMNS) * (CARD_H + CARD_GAP) - offset;
+            float cy = y + (i / columns) * (CARD_H + CARD_GAP) - offset;
             if (cy + CARD_H > y && cy < y + h) {
-                renderCard(ui, shown.get(i), shown.get(i) == selected, x + (i % COLUMNS) * (cardW + CARD_GAP), cy, cardW);
+                Achievement achievement = shown.get(i);
+                GridCard.of("").selected(achievement == selected).onClick(() -> {
+                    if (!achievement.id().equals(selectedId)) {
+                        panel.reset();
+                    }
+                    selectedId = achievement.id();
+                    panelOpen = true;
+                }).body((u, ix, iy, iw, ih) -> renderCard(u, achievement, ix, iy, iw)).render(ui, x + (i % columns) * (cardW + CARD_GAP), cy, cardW, CARD_H);
             }
         }
         ui.unclip();
     }
 
-    private static void medalIcon(Ui ui, ItemStack icon, int color, float x, float y, float size, float stroke, float iconSize) {
-        ui.circle(x, y, size, ui.c("slot.bg"));
-        ui.ring(x, y, size, stroke, color);
-        ui.item(icon, x + (size - iconSize) / 2f, y + (size - iconSize) / 2f, iconSize);
-    }
-
-    private void renderCard(Ui ui, Achievement achievement, boolean selected, float x, float y, float w) {
-        Tier best = best(achievement);
+    /** The inside of a card (mockup {@code .gc.ach}), in the padded rectangle. */
+    private static void renderCard(Ui ui, Achievement achievement, float x, float y, float w) {
         boolean concealed = concealed(achievement);
-        ui.box(x, y, w, CARD_H, 12, ui.c("card.bg"), ui.c("panel.border"));
-        if (selected) {
-            ui.strokeBold(x, y, w, CARD_H, 12, ui.c("accent"));
+        AchievementRing.render(ui, x, y, RING, concealed ? null : icon(achievement), ringToken(achievement));
+        float segX = x + RING + 12;
+        float segW = w - RING - 12;
+        if (concealed) {
+            LevelSegments.render(ui, segX, y + RING / 2f - LevelSegments.HEIGHT / 2f, segW, new float[] {0f});
+        } else {
+            LevelSegments.render(ui, segX, y + RING / 2f - LevelSegments.HEIGHT / 2f, segW, fills(achievement));
         }
-        medalIcon(ui, concealed ? ItemStack.EMPTY : icon(achievement), medal(ui, best), x + 13, y + 13, 44, 3, 20);
-        float textX = x + 13 + 44 + 12;
-        float inner = w - 13 - 13 - 44 - 12;
-        String tier = concealed ? tr("rysquests.achievements.concealed") : best != null ? tierName(best) : "";
-        float tierW = tier.isEmpty() ? 0 : ui.width(tier, 10.5f, Ui.REGULAR) + 6;
-        ui.labelFitTip(name(achievement), textX, y + 13 + 8, inner - tierW, 13, Ui.SEMIBOLD, ui.c(concealed ? "text.muted" : "text.primary"));
-        if (!tier.isEmpty()) {
-            ui.labelRight(tier, textX + inner, y + 13 + 8, 10.5f, Ui.REGULAR, best != null ? medal(ui, best) : ui.c("text.muted"));
+        float pen = y + RING + 3 + 5;
+        ui.labelFit(name(achievement), x, pen + Ui.lineHeight(13) / 2f, w, 13, Ui.SEMIBOLD, ui.c("text.primary"));
+        pen += Ui.lineHeight(13) + 5;
+        String description = description(achievement);
+        List<String> lines = ui.wrap(description, w, 11.5f, Ui.REGULAR, 2);
+        for (int i = 0; i < lines.size(); i++) {
+            ui.label(lines.get(i), x, pen + i * 15.5f + 7.75f, 11.5f, Ui.REGULAR, ui.c("text.muted"));
         }
-        List<String> lines = ui.wrap(description(achievement), inner, 11.5f, Ui.REGULAR, 2);
-        float textY = y + 13 + 16 + 4;
-        ui.lines(lines, textX, textY + lines.size() * 7.75f, 15.5f, 11.5f, Ui.REGULAR, ui.c(concealed ? "text.muted" : "button.fg"));
-        float rowY = textY + lines.size() * 15.5f + 4;
+        if (lines.size() == 2 && !String.join(" ", lines).equals(description)) {
+            ui.tooltipIfOver(x, pen, w, 31, Component.literal(description));
+        }
+        pen += 31 + 4 + 5;
         Tier next = next(achievement);
-        String progress = next == null ? tr("rysquests.achievements.got") : concealed ? "" : Ui.ratio(progress(achievement), next.amount());
-        float progressW = progress.isEmpty() ? 0 : ui.width(progress, 11, Ui.REGULAR) + 8;
-        ui.bar(textX, rowY + 5, inner - progressW, 4, 2, ratio(achievement), best != null ? medal(ui, best) : ui.c("text.muted"));
-        ui.labelRight(progress, textX + inner, rowY + 7, 11, Ui.REGULAR, ui.c("text.muted"));
-        ui.labelFit(rarityLine(achievement), textX, rowY + 14 + 4 + 6, inner, 10.5f, Ui.REGULAR, ui.c("text.dim"));
-        ui.hit(x, y, w, CARD_H, () -> selectedId = achievement.id());
+        String count;
+        String token;
+        if (concealed) {
+            count = tr("rysquests.achievements.secret");
+            token = "text.muted";
+        } else if (next == null) {
+            count = tr("rysquests.achievements.all_levels");
+            token = "state.ok";
+        } else {
+            count = text("rysquests.count.of", Numbers.compact(progress(achievement)), Numbers.compact(next.amount()));
+            token = "text.secondary";
+        }
+        ui.labelFit(count, x, pen + Ui.lineHeight(11.5f) / 2f, w, 11.5f, Ui.REGULAR, ui.c(token));
     }
 
-    private static String towards(String kind, Tier tier, Object... args) {
-        String own = "rysquests.achievements." + kind + "." + tier.tier();
-        if (Language.getInstance().has(own)) {
-            return text(own, args);
+    // --- the detail on the right ---
+
+    private void renderPanel(Ui ui, @Nullable Achievement achievement, int x, int y, int w, int h, boolean overlay) {
+        if (achievement == null) {
+            panel.render(ui, x, y, w, h, (u, bx, by, bw) -> 0, null);
+            return;
         }
-        List<Object> all = new ArrayList<>(List.of(tierName(tier)));
-        all.addAll(List.of(args));
-        return text("rysquests.achievements." + kind, all.toArray());
+        boolean concealed = concealed(achievement);
+        Tier next = next(achievement);
+        int n = achievement.tiers().size();
+        TitleReward title = lastTitle(achievement);
+        DetailPanel.Action action = null;
+        if (title != null) {
+            boolean owns = ClientAchievements.owns(title.id());
+            boolean worn = title.id().equals(ClientAchievements.activeTitle());
+            if (owns && !worn) {
+                action = DetailPanel.Action.button(text("rysquests.achievements.wear_title", tr(title.id())), () -> PacketDistributor.sendToServer(new SelectTitlePayload(title.id())));
+            } else if (owns) {
+                action = DetailPanel.Action.state(text("rysquests.achievements.wearing", tr(title.id())));
+            } else if (!concealed) {
+                action = DetailPanel.Action.state(text("rysquests.achievements.title_for_last", tr(title.id())));
+            }
+        }
+        panel.render(ui, x, y, w, h, (u, bx, by, bw) -> {
+            float pen = by;
+            String category = achievement.category().map(AchievementsView::tr).orElse("");
+            if (!category.isEmpty()) {
+                pen += DetailPanel.rubric(u, bx, pen, bw, category, null) + 8;
+            }
+            float ring = 56;
+            AchievementRing.render(u, bx, pen, ring, concealed ? null : icon(achievement), ringToken(achievement));
+            float textX = bx + ring + 12;
+            float buttons = 0;
+            if (overlay) {
+                float cx = bx + bw - 28;
+                boolean over = u.over(cx, pen + 14, 28, 28);
+                u.icon(Icons.Shape.CROSS, cx + 7, pen + 21, 14, u.c(over ? "text.primary" : "text.muted"));
+                u.hit(cx, pen + 14, 28, 28, () -> panelOpen = false);
+                buttons += 36;
+            }
+            if (next != null && !concealed) {
+                ResourceLocation quest = achievement.questId(next);
+                boolean pinned = ClientProgress.pinned().contains(quest);
+                float px = bx + bw - buttons - 34;
+                boolean over = u.over(px, pen + 11, 34, 34);
+                u.box(px, pen + 11, 34, 34, 9, u.c(over ? "slot.hover" : "button.bg"), u.c(pinned ? "text.secondary" : "button.border"));
+                u.icon(Icons.Shape.PIN, px + 9, pen + 20, 16, u.c(pinned ? "text.primary" : "text.secondary"));
+                u.tooltipIfOver(px, pen + 11, 34, 34, Component.translatable(pinned ? "rysquests.book.unpin" : "rysquests.achievements.pin"));
+                u.hit(px, pen + 11, 34, 34, () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, quest, 0, List.of())));
+                buttons += 34 + 8;
+            }
+            float textW = bx + bw - buttons - textX;
+            u.labelFit(name(achievement), textX, pen + 17, textW, 18, Ui.DISPLAY, u.c("text.primary"));
+            int best = best(achievement);
+            String state;
+            if (concealed) {
+                state = tr("rysquests.achievements.secret");
+            } else if (next == null) {
+                state = tr("rysquests.achievements.all_levels");
+            } else {
+                state = text("rysquests.achievements.level_state", best + 1, n, Sidebar.full(next.amount() - progress(achievement)));
+            }
+            List<String> sub = u.wrap(state, textW, 12, Ui.REGULAR, 2);
+            for (int i = 0; i < sub.size(); i++) {
+                u.label(sub.get(i), textX, pen + 34 + i * 15 + 7, 12, Ui.REGULAR, u.c("text.muted"));
+            }
+            pen += Math.max(ring, 34 + sub.size() * 15) + DetailPanel.GAP;
+            List<String> lines = u.wrap(description(achievement), bw, 12.5f, Ui.REGULAR, 8);
+            for (int i = 0; i < lines.size(); i++) {
+                u.label(lines.get(i), bx, pen + i * 19 + 9.5f, 12.5f, Ui.REGULAR, u.c("text.secondary"));
+            }
+            pen += lines.size() * 19 + DetailPanel.GAP;
+            if (concealed) {
+                return pen - by;
+            }
+            pen += DetailPanel.rubric(u, bx, pen, bw, tr("rysquests.achievements.tiers"), null) + 6;
+            for (int i = 0; i < n; i++) {
+                pen += renderTier(u, achievement, i, bx, pen, bw) + 6;
+            }
+            if (next != null) {
+                pen += 6;
+                u.bar(bx, pen, bw, 6, 3, ratio(achievement), u.c("text.secondary"));
+                pen += 6 + 6;
+                int index = achievement.tiers().indexOf(next);
+                u.labelFit(text("rysquests.achievements.until_level", Sidebar.full(progress(achievement)), Sidebar.full(next.amount()), index + 1), bx, pen + 8, bw, 12, Ui.REGULAR, u.c("text.muted"));
+                pen += 16;
+            }
+            return pen - by;
+        }, action);
     }
 
-    private static String rarityLine(Achievement achievement) {
-        Tier best = best(achievement);
-        Tier next = next(achievement);
-        if (best != null && next != null && ratio(achievement) > 0.5f) {
-            return towards("left", next, Numbers.compact(next.amount() - progress(achievement)));
+    /** One level (mockup {@code .tier}): its ring, "Уровень 2 · 10 000", the rewards, and its state on the right. @return its height */
+    private static float renderTier(Ui ui, Achievement achievement, int index, float x, float y, float w) {
+        Tier tier = achievement.tiers().get(index);
+        int n = achievement.tiers().size();
+        boolean got = reached(achievement, tier);
+        boolean current = tier == next(achievement);
+        float h = 16 + Ui.lineHeight(13) + Ui.lineHeight(11.5f);
+        ui.box(x, y, w, h, 10, ui.c("card.bg"), ui.c("panel.border"));
+        float cy = y + h / 2f;
+        AchievementRing.dot(ui, x + 12, cy - 7, 14, LevelSegments.token(index, n));
+        String status = got ? tr("rysquests.achievements.level_got") : current ? text("rysquests.count.of", Sidebar.full(progress(achievement)), Sidebar.full(tier.amount())) : "";
+        float statusW = status.isEmpty() ? 0 : ui.width(status, 12, Ui.REGULAR) + 10;
+        float textX = x + 12 + 14 + 10;
+        float textW = x + w - 12 - statusW - textX;
+        ui.labelFit(text("rysquests.achievements.level_name", index + 1, Sidebar.full(tier.amount())), textX, y + 8 + Ui.lineHeight(13) / 2f, textW, 13, Ui.MEDIUM, ui.c("text.primary"));
+        ui.labelFit(rewards(tier), textX, y + 8 + Ui.lineHeight(13) + Ui.lineHeight(11.5f) / 2f, textW, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+        if (!status.isEmpty()) {
+            ui.labelRight(status, x + w - 12, cy, 12, Ui.REGULAR, ui.c(got ? "state.ok" : "text.muted"));
         }
-        Tier shown = best != null ? best : achievement.tiers().getFirst();
-        int percent = ClientAchievements.rarity(achievement.questId(shown));
-        if (percent == 0) {
-            return tr("rysquests.achievements.nobody");
-        }
-        return best == null || achievement.tiers().size() == 1 ? text("rysquests.achievements.has", percent) : text("rysquests.achievements.tier_has", tierName(best), percent);
+        return h;
     }
 
     private static String rewards(Tier tier) {
         List<String> parts = new ArrayList<>();
         for (RewardDef reward : tier.rewards()) {
             if (reward instanceof CurrencyReward currency) {
-                String key = "rysquests.currency." + currency.id();
-                parts.add("+" + Numbers.compact(currency.amount()) + " " + (Language.getInstance().has(key) ? tr(key) : currency.id()));
+                parts.add("+" + ShopView.money(currency.id(), currency.amount()));
+            } else if (reward instanceof XpReward xp && xp.points().isPresent()) {
+                parts.add(Plural.full("rysquests.plural.xp", xp.points().get()));
+            } else if (reward instanceof XpReward xp && xp.levels().isPresent()) {
+                parts.add(Plural.full("rysquests.plural.level", xp.levels().get()));
             } else if (reward instanceof TitleReward title) {
                 parts.add(text("rysquests.achievements.title_reward", tr(title.id())));
             }
         }
-        return String.join(" · ", parts);
+        return parts.isEmpty() ? tr("rysquests.achievements.no_reward") : String.join(" · ", parts);
     }
 
-    private void renderPanel(Ui ui, @Nullable Achievement achievement, int x, int y, int w, int h) {
-        ui.fillCorners(x, y, w, h, 13, ui.c("card.bg"), false, true, true, false);
-        ui.rect(x, y, 1, h, ui.c("panel.border"));
-        if (achievement == null) {
-            return;
-        }
-        float left = x + 17;
-        float inner = w - 33;
-        float cursor = y + 16;
-        Tier best = best(achievement);
-        boolean concealed = concealed(achievement);
-        medalIcon(ui, concealed ? ItemStack.EMPTY : icon(achievement), medal(ui, best), left, cursor, 56, 4, 26);
-        ui.labelFitTip(name(achievement), left + 68, cursor + 10 + 11, inner - 68, 17, Ui.DISPLAY, ui.c("text.primary"));
-        String category = achievement.category().map(AchievementsView::tr).orElse("");
-        String state = best != null ? text("rysquests.achievements.tier_got", tierName(best)) : tr("rysquests.achievements.not_yet");
-        ui.labelFit(category.isEmpty() ? state : category + " · " + state, left + 68, cursor + 10 + 22 + 7, inner - 68, 11.5f, Ui.REGULAR, ui.c("text.muted"));
-        cursor += 56 + 12;
-        List<String> lines = ui.wrap(description(achievement), inner, 13, Ui.REGULAR, 6);
-        ui.lines(lines, left, cursor + lines.size() * 9.75f, 19.5f, 13, Ui.REGULAR, ui.readingFg());
-        cursor += lines.size() * 19.5f + 12;
-        if (!concealed) {
-            ui.caps(tr("rysquests.achievements.tiers"), left, cursor + 7, ui.c("text.dim"));
-            cursor += 14 + 6;
-            for (Tier tier : achievement.tiers()) {
-                renderTier(ui, achievement, tier, left, cursor, inner);
-                cursor += TIER_H + 6;
-            }
-            cursor += 6;
-            cursor = renderNext(ui, achievement, left, cursor, inner);
-        }
-        renderButtons(ui, achievement, left, y + h - 16 - 34, inner);
-    }
-
-    private static void renderTier(Ui ui, Achievement achievement, Tier tier, float x, float y, float w) {
-        boolean got = reached(achievement, tier);
-        boolean isNext = tier == next(achievement);
-        ui.box(x, y, w, TIER_H, 9, ui.c("status.bg"), isNext ? ui.warmBorder(0.34f) : ui.c("panel.border"));
-        float cy = y + TIER_H / 2f;
-        int color = medal(ui, tier);
-        ui.ring(x + 11, cy - 8, 16, 3, color);
-        ui.labelFit(StringUtils.capitalize(tierName(tier)) + " · " + Numbers.compact(tier.amount()), x + 37, cy - 8, w - 37 - 80, 12.5f, Ui.REGULAR, ui.nameFg());
-        ui.labelFit(rewards(tier), x + 37, cy + 9, w - 37 - 80, 11, Ui.REGULAR, ui.c("text.muted"));
-        String status = got ? tr("rysquests.achievements.got") : Math.round(100 * Math.min(1f, (float) progress(achievement) / tier.amount())) + " %";
-        ui.labelRight(status, x + w - 11, cy, 11, Ui.REGULAR, ui.c(got ? "state.ok" : isNext ? "accent" : "text.muted"));
-    }
-
-    private static float renderNext(Ui ui, Achievement achievement, float x, float y, float w) {
-        Tier next = next(achievement);
-        if (next == null) {
-            return y;
-        }
-        float h = 66;
-        ui.fill(x, y, w, h, 10, ui.c("status.bg"));
-        ui.label(towards("until", next), x + 12, y + 12 + 7, 12, Ui.REGULAR, ui.c("button.fg"));
-        ui.labelRight(Ui.ratio(progress(achievement), next.amount()), x + w - 12, y + 12 + 7, 12, Ui.REGULAR, ui.c("text.primary"));
-        ui.bar(x + 12, y + 32, w - 24, 6, 3, ratio(achievement), medal(ui, next));
-        int percent = ClientAchievements.rarity(achievement.questId(next));
-        ui.label(percent > 0 ? text("rysquests.achievements.tier_has", tierName(next), percent) : tr("rysquests.achievements.nobody"), x + 12, y + 44 + 7, 11, Ui.REGULAR, ui.c("text.muted"));
-        return y + h + 12;
-    }
-
-    private static void renderButtons(Ui ui, Achievement achievement, float x, float y, float w) {
-        Tier next = next(achievement);
-        TitleReward title = ownedTitle(achievement);
-        boolean canPin = next != null && !concealed(achievement);
-        float buttonW = canPin && title != null ? (w - 6) / 2f : w;
-        float pen = x;
-        if (canPin) {
-            ResourceLocation quest = achievement.questId(next);
-            boolean pinned = ClientProgress.pinned().contains(quest);
-            ui.button(tr(pinned ? "rysquests.book.unpin" : "rysquests.achievements.pin"), pen, y, buttonW, 34, 9, 12, Ui.REGULAR, 6, Ui.Style.PLAIN,
-                    () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, quest, 0, List.of())));
-            pen += buttonW + 6;
-        }
-        if (title != null) {
-            boolean worn = title.id().equals(ClientAchievements.activeTitle());
-            String label = worn ? tr("rysquests.achievements.take_off") : text("rysquests.achievements.wear", tr(title.id()));
-            String target = worn ? "" : title.id();
-            ui.button(label, pen, y, buttonW, 34, 9, 12, Ui.REGULAR, 6, Ui.Style.PLAIN, () -> PacketDistributor.sendToServer(new SelectTitlePayload(target)));
-        }
-    }
-
-    /** The best title of this achievement the player has. */
+    /** The title given by the achievement's last level that gives one. */
     @Nullable
-    private static TitleReward ownedTitle(Achievement achievement) {
+    private static TitleReward lastTitle(Achievement achievement) {
         TitleReward found = null;
         for (Tier tier : achievement.tiers()) {
             for (RewardDef reward : tier.rewards()) {
-                if (reward instanceof TitleReward title && ClientAchievements.owns(title.id())) {
+                if (reward instanceof TitleReward title) {
                     found = title;
                 }
             }
@@ -407,12 +664,55 @@ final class AchievementsView implements BookView {
         return found;
     }
 
+    // --- input ---
+
     @Override
     public void scroll(double mouseX, double mouseY, double amount) {
-        gridScroll.wheel(amount, WHEEL);
+        if (categories.scrolled(mouseX / 2, mouseY / 2, amount)) {
+            return;
+        }
+        if (panel.contains(mouseX, mouseY)) {
+            panel.scroll(amount);
+        } else if (mouseX < sideRight) {
+            sideScroll.wheel(amount, WHEEL);
+        } else {
+            gridScroll.wheel(amount, WHEEL);
+        }
+    }
+
+    @Override
+    public boolean key(int key) {
+        if (categories.keyPressed(key)) {
+            return true;
+        }
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && titleListOpen) {
+            titleListOpen = false;
+            return true;
+        }
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && panelOpen && screen.compact()) {
+            panelOpen = false;
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void closed() {
+        categories.close();
+        titleListOpen = false;
     }
 
     void selectForTest(ResourceLocation id) {
         selectedId = id;
+        panelOpen = true;
+    }
+
+    void showForTest(int filter, String categoryKey) {
+        show = Show.values()[filter];
+        category = categoryKey;
+    }
+
+    void closePanelForTest() {
+        panelOpen = false;
     }
 }

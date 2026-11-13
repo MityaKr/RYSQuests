@@ -320,7 +320,7 @@ public final class Ui {
         Icons.drawRotated(g, shape, x / PER_GUI, y / PER_GUI, size / PER_GUI, degrees, color);
     }
 
-    void icon(Icons.Shape shape, float x, float y, float size, int color) {
+    public void icon(Icons.Shape shape, float x, float y, float size, int color) {
         Icons.draw(g, shape, x / PER_GUI, y / PER_GUI, size / PER_GUI, color);
     }
 
@@ -425,7 +425,7 @@ public final class Ui {
     // --- text ---
 
     /** The height of a line in the mockups' font, which browsers round per ascent and per descent. */
-    static float lineHeight(float px) {
+    public static float lineHeight(float px) {
         return Math.round(px * 0.96875f) + Math.round(px * 0.2412f);
     }
 
@@ -486,7 +486,7 @@ public final class Ui {
         return Draw.ellipsize(text, maxWidth / PER_GUI, px, weight);
     }
 
-    List<String> wrap(String text, float maxWidth, float px, Type.Weight weight, int maxLines) {
+    public List<String> wrap(String text, float maxWidth, float px, Type.Weight weight, int maxLines) {
         return Draw.wrapLabel(text, Math.max(1f, maxWidth) / PER_GUI, px, weight, maxLines);
     }
 

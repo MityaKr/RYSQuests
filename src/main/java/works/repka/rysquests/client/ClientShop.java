@@ -37,6 +37,11 @@ public final class ClientShop {
         return state.history();
     }
 
+    /** For the in-game autotest: shows a shop state the server did not send (pictures 25 to 27b). */
+    public static void showForTest(ShopStatePayload payload) {
+        state = payload;
+    }
+
     static void clear() {
         state = new ShopStatePayload(Map.of(), Map.of(), false, Map.of(), List.of());
     }

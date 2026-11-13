@@ -54,10 +54,10 @@ final class BookTabs {
                     GuidesTab::new,
                     () -> BookState.inGuides() || BookState.customSection() != null, BookTabs::openGuides),
             new Tab(SHOP, book -> allowed(book, BookMeta.SHOP) && !book.offers().isEmpty(), () -> 0,
-                    screen -> new ShopView(),
+                    ShopView::new,
                     BookState::inShop, () -> BookState.openSection(BookMeta.SHOP)),
             new Tab(ACHIEVEMENTS, book -> allowed(book, BookMeta.ACHIEVEMENTS) && !book.achievements().isEmpty(), () -> 0,
-                    screen -> new AchievementsView(),
+                    AchievementsView::new,
                     BookState::inAchievements, () -> BookState.openSection(BookMeta.ACHIEVEMENTS)));
 
     private BookTabs() {

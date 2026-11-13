@@ -137,6 +137,24 @@ public final class ClientProgress {
         return stageLocked.contains(quest);
     }
 
+    // --- for the in-game autotest: states the server did not send (shop, achievements, guides, HUD pictures) ---
+
+    public static void progressForTest(ResourceLocation quest, QuestProgress progress) {
+        version++;
+        QUESTS.put(quest, progress);
+    }
+
+    public static void pinnedForTest(List<ResourceLocation> quests) {
+        version++;
+        pinned = List.copyOf(quests);
+    }
+
+    public static void guidePagesForTest(java.util.Collection<String> readKeys, Set<ResourceLocation> locked) {
+        version++;
+        GUIDE_PAGES.addAll(readKeys);
+        guideLocked = Set.copyOf(locked);
+    }
+
     static void clear() {
         version++;
         QUESTS.clear();

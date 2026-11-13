@@ -36,6 +36,11 @@ public final class ClientConfig {
             .comment("The lines about the book on the first page were read and closed.")
             .define("nowIntroSeen", false);
 
+    /** The hint of the book's key on the first entry was shown and the book opened since (picture 31b): it never comes back. */
+    public static final ModConfigSpec.BooleanValue KEY_HINT_SHOWN = BUILDER
+            .comment("The hint of the book's key on the first entry is done with.")
+            .define("keyHintShown", false);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private ClientConfig() {

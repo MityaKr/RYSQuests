@@ -2,55 +2,50 @@ package works.repka.rysquests.client.screen;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
-import works.repka.rysquests.data.StructureDef;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
+import works.repka.rysquests.client.integration.Ponders;
 import works.repka.rysquests.client.integration.Recipes;
 import works.repka.rysquests.client.markup.GuideTopics;
 import works.repka.rysquests.client.markup.Markup;
 import works.repka.rysquests.data.Guide;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
-import works.repka.rysquests.progress.QuestProgress;
+import works.repka.rysquests.data.StructureDef;
 import works.repka.rysquests.progress.QuestStatus;
 import works.repka.ryscore.ui.Icons;
-import works.repka.ryscore.ui.Numbers;
+import works.repka.ryscore.ui.Kit;
 
 /**
- * A guide from the inside, from {@code design/GuidePage.dc.html} without what ADR-33 removed: the list of pages, the
- * page itself, and a panel that gathers itself from the page's text.
+ * A guide from the inside (plan, section 3, picture 24): on the left the way back, the guide and its pages; in the middle one column of
+ * reading with its insets (a recipe, a showing in motion, a picture, a structure) and the quests of the page at its end; at the bottom
+ * the previous page and the next one, the next as the screen's one amber button. In the compact layout the pages hide under a list.
  */
 final class GuidePageView implements BookView {
-    private static final int PANEL_W = 300;
+    private static final int COLUMN_W = 640;
     private static final int PAD_X = 20;
-    private static final int PAD_Y = 14;
+    private static final int PAD_TOP = 22;
+    private static final int NAV_H = 58;
+    private static final float TEXT_PX = 13.5f;
+    private static final float TEXT_LINE = 21.6f;
+    private static final float TITLE_PX = 21;
     private static final int GAP = 12;
-    private static final int HEADER_H = 38;
-    private static final int TOC_W = 172;
-    private static final int TOC_GAP = 16;
-    private static final int TOC_ROW = 28;
-    private static final int TOC_STEP = 30;
-    private static final int NEXT_H = 40;
-    private static final float TEXT_PX = 14.5f;
-    private static final float TEXT_LINE = 23.2f;
-    private static final int CELL = 22;
-    private static final int CELL_GAP = 3;
-    private static final int GRID = 9;
-    private static final int RECIPE_H = 94;
-    private static final int RECIPE_COLUMNS = 3;
-    private static final int ROW_H = 32;
+    private static final int LINK_H = 36;
+    private static final int LINK_W = 420;
+    private static final int SLOT = 34;
     private static final int WHEEL = 48;
+
     private final java.util.Map<ResourceLocation, StructureBlock> structures = new java.util.HashMap<>();
     private StructureBlock dragging;
     private StructureBlock hoveredStructure;
 
-    private record Topics(QuestBook book, ResourceLocation guide, int page, List<Quest> quests, List<ItemStack> items) {
+    private record Topics(QuestBook book, ResourceLocation guide, int page, List<Quest> quests) {
     }
 
     /** What the view shows: a guide of the library, or a section on the pages template. */
@@ -64,7 +59,7 @@ final class GuidePageView implements BookView {
 
         boolean tracksReading();
 
-        /** The first part of the path above the title, which leads back, or null when there is nowhere to go. */
+        /** The words of the way back on top of the column ("Все гайды"), or null when there is nowhere to go. */
         @Nullable
         String crumb();
 
@@ -78,9 +73,8 @@ final class GuidePageView implements BookView {
     private final Source source;
     private final Scroll textScroll = new Scroll();
     private final Scroll tocScroll = new Scroll();
-    private final Scroll panelScroll = new Scroll();
+    private final Kit.Dropdown pagesList = new Kit.Dropdown();
     private int tocRight;
-    private int panelLeft;
     @Nullable
     private Topics topics;
 
@@ -93,162 +87,192 @@ final class GuidePageView implements BookView {
         return Component.translatable(key).getString();
     }
 
+    private static String text(String key, Object... args) {
+        return Component.translatable(key, args).getString();
+    }
+
+    private static boolean compact() {
+        return net.minecraft.client.Minecraft.getInstance().screen instanceof BookScreen screen && screen.compact();
+    }
+
     @Override
     public void render(Ui ui, int x, int y, int w, int h) {
         hoveredStructure = null;
         Guide guide = source.guide();
-        if (guide == null) {
+        if (guide == null || guide.pages().isEmpty()) {
             source.back();
             return;
         }
         int index = Math.clamp(source.page(), 0, guide.pages().size() - 1);
         Guide.Page page = guide.pages().get(index);
         String body = tr(page.text());
-        panelLeft = x + w - PANEL_W;
-        renderPanel(ui, topicsOf(guide, index, page, body), panelLeft, y, PANEL_W, h);
-        float left = x + PAD_X;
-        float inner = panelLeft - x - PAD_X * 2;
-        float top = y + PAD_Y;
-        renderHeader(ui, guide, page, index, left, top, inner);
-        float bodyTop = top + HEADER_H + GAP;
-        float bottom = y + h - PAD_Y;
-        renderContents(ui, guide, index, left, bodyTop, bottom - bodyTop);
-        tocRight = Math.round(left + TOC_W + TOC_GAP / 2f);
-        float textX = left + TOC_W + TOC_GAP;
-        float textW = inner - TOC_W - TOC_GAP;
-        float textBottom = bottom;
-        if (index + 1 < guide.pages().size()) {
-            renderNext(ui, guide, index + 1, textX, bottom - NEXT_H, textW);
-            textBottom = bottom - NEXT_H - GAP;
+        Topics found = topicsOf(guide, index, page, body);
+        boolean compact = compact();
+        int sideW = compact ? 0 : SideList.WIDTH;
+        tocRight = x + sideW;
+        if (!compact) {
+            renderSide(ui, guide, index, x, y, h);
         }
+        float mainX = x + sideW;
+        float mainW = w - sideW;
+        float columnW = Math.min(COLUMN_W, mainW - PAD_X * 2);
+        float columnX = mainX + (mainW - columnW) / 2f;
+        float top = y + PAD_TOP;
+        float bottom = y + h - NAV_H;
+        renderNav(ui, guide, index, mainX, bottom, mainW);
         int offset = textScroll.offset();
-        ui.clip(Math.round(textX), Math.round(bodyTop), Math.round(textW), Math.round(textBottom - bodyTop));
-        float end = renderBody(ui, body, textX, bodyTop - offset, textW);
+        ui.clip(Math.round(mainX), y, Math.round(mainW), Math.round(bottom - y));
+        float pen = top - offset;
+        pen = renderHead(ui, guide, page, index, columnX, pen, columnW, compact);
+        pen = renderBody(ui, body, columnX, pen, columnW);
+        pen = renderQuests(ui, found.quests, columnX, pen + 2, columnW);
         ui.unclip();
-        textScroll.content(Math.round(end + offset - bodyTop), Math.round(textBottom - bodyTop));
+        textScroll.content(pen + offset - top + GAP, bottom - top);
+        if (compact) {
+            renderPagesList(ui, guide, index);
+        }
     }
 
     private Topics topicsOf(Guide guide, int index, Guide.Page page, String body) {
         QuestBook book = ClientBook.current();
         if (topics == null || topics.book != book || !topics.guide.equals(guide.id()) || topics.page != index) {
-            List<ItemStack> items = new ArrayList<>();
-            GuideTopics.items(body).forEach(id -> items.add(TaskText.stackOf(id)));
-            topics = new Topics(book, guide.id(), index, GuideTopics.quests(book, guide, page, body).stream().filter(BookData::inStory).toList(), items);
+            topics = new Topics(book, guide.id(), index, GuideTopics.quests(book, guide, page, body).stream().filter(BookData::inStory).toList());
             textScroll.reset();
-            panelScroll.reset();
             // Meshes of the page left behind go now, not when the book closes: leafing through would pile them up.
             closeStructures();
         }
         return topics;
     }
 
-    private void renderHeader(Ui ui, Guide guide, Guide.Page page, int index, float x, float y, float w) {
-        float cy = y + HEADER_H / 2f;
-        float lead = 0;
-        if (BookState.canGoBack()) {
-            // Back to wherever the player came from, a quest or another page: the arrows on the right only turn pages.
-            float backY = y + 19 - 16;
-            boolean over = ui.over(x, backY, 32, 32);
-            ui.box(x, backY, 32, 32, 8, over ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
-            ui.icon(Icons.Shape.UNDO, x + 10, backY + 10, 12, ui.c("button.fg"));
-            ui.tooltipIfOver(x, backY, 32, 32, Component.translatable("rysquests.book.back"));
-            ui.hit(x, backY, 32, 32, BookState::back);
-            lead = 32 + 10;
-        }
-        ui.cell(GuideLibraryView.icon(guide), x + lead, y, 38, 38, 8, 20, ui.c("slot.bg"), ui.c("card.border"));
-        float textX = x + lead + 38 + 12;
-        String crumb = source.crumb();
-        float pen = textX;
-        if (crumb != null) {
-            float crumbW = ui.width(crumb, 11.5f, Ui.REGULAR);
-            boolean over = ui.over(textX, y, crumbW, 14);
-            ui.label(crumb, textX, y + 7, 11.5f, Ui.REGULAR, ui.c(over ? "text.primary" : "text.muted"));
-            ui.hit(textX, y, crumbW, 14, source::back);
-            ui.icon(Icons.Shape.CHEVRON_RIGHT, textX + crumbW + 4, y + 3, 8, ui.c("text.dim"));
-            pen += crumbW + 16;
-        }
-        ui.label(tr(guide.title()), pen, y + 7, 11.5f, Ui.REGULAR, ui.c("text.muted"));
-        float right = x + w;
-        renderArrow(ui, "→", right - 32, cy - 16, index + 1 < guide.pages().size(), () -> source.open(guide, index + 1));
-        renderArrow(ui, "←", right - 32 - 10 - 32, cy - 16, index > 0, () -> source.open(guide, index - 1));
-        if (Minecraft.getInstance().player.hasPermissions(2)) {
-            float pencilX = right - 32 - 10 - 32 - 10 - 32 - ui.width(Component.translatable("rysquests.guides.page_of", index + 1, guide.pages().size()).getString(), 11.5f, Ui.REGULAR) - 12;
-            boolean overPencil = ui.over(pencilX, cy - 16, 32, 32);
-            ui.box(pencilX, cy - 16, 32, 32, 8, overPencil ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
-            ui.icon(Icons.Shape.PENCIL, pencilX + 10, cy - 6, 12, ui.c("button.fg"));
-            ui.tooltipIfOver(pencilX, cy - 16, 32, 32, Component.translatable("rysquests.editor.edit"));
-            ui.hit(pencilX, cy - 16, 32, 32, () -> source.edit(guide, index));
-        }
-        String pageOf = Component.translatable("rysquests.guides.page_of", index + 1, guide.pages().size()).getString();
-        float pageOfW = ui.width(pageOf, 11.5f, Ui.REGULAR);
-        float pageOfX = right - 32 - 10 - 32 - 10 - pageOfW;
-        ui.label(pageOf, pageOfX, cy, 11.5f, Ui.REGULAR, ui.c("text.muted"));
-        ui.labelFit(tr(page.title()), textX, y + 14 + 11.5f, pageOfX - 12 - textX, 18, Ui.DISPLAY, ui.c("text.primary"));
-    }
+    // --- the column on the left ---
 
-    private static void renderArrow(Ui ui, String arrow, float x, float y, boolean enabled, Runnable action) {
-        ui.box(x, y, 32, 32, 8, enabled && ui.over(x, y, 32, 32) ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
-        ui.labelCentered(arrow, x + 16, y + 16, 13, Ui.REGULAR, ui.c(enabled ? "text.primary" : "text.dim"));
-        if (enabled) {
-            ui.hit(x, y, 32, 32, action);
+    private void renderSide(Ui ui, Guide guide, int current, int x, int y, int h) {
+        SideList.plate(ui, x, y, h);
+        float pen = y;
+        String back = source.crumb();
+        if (back != null) {
+            float bx = x + 14;
+            float bw = ui.width(back, 12.5f, Ui.MEDIUM) + 14 + 6;
+            boolean over = ui.over(bx, pen + 10, bw, 20);
+            int color = ui.c(over ? "text.primary" : "link");
+            ui.icon(Icons.Shape.CHEVRON_LEFT, bx, pen + SideList.HEAD_H / 2f - 7, 14, color);
+            ui.label(back, bx + 14 + 6, pen + SideList.HEAD_H / 2f, 12.5f, Ui.MEDIUM, color);
+            ui.hit(bx, pen + 10, bw, 20, source::back);
         }
-    }
-
-    private void renderContents(Ui ui, Guide guide, int current, float x, float y, float h) {
-        ui.caps(tr("rysquests.guides.pages"), x + 8, y + 7, ui.c("text.dim"));
-        float listTop = y + 14 + 8;
-        float listH = h - 22;
-        tocScroll.content(guide.pages().size() * TOC_STEP - 2, Math.round(listH));
+        pen += SideList.HEAD_H;
+        float gx = x + 12;
+        ui.box(gx, pen, 36, 36, 6, ui.c("slot.bg"), ui.c("slot.border"));
+        ui.item(GuideLibraryView.icon(guide), gx + 4, pen + 4, 28);
+        float tx = gx + 36 + 10;
+        float tw = x + SideList.WIDTH - 12 - tx;
+        ui.labelFit(tr(guide.title()), tx, pen + 9, tw, 14, Ui.SEMIBOLD, ui.c("text.primary"));
+        List<String> sub = new ArrayList<>();
+        guide.category().ifPresent(category -> sub.add(tr(category)));
+        if (source.tracksReading()) {
+            sub.add(text("rysquests.count.of", ClientProgress.readPages(guide), guide.pages().size()));
+        }
+        ui.labelFit(String.join(" · ", sub), tx, pen + 27, tw, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+        pen += 36 + 10;
+        float listTop = pen;
         int offset = tocScroll.offset();
-        ui.clip(Math.round(x), Math.round(listTop), TOC_W, Math.round(listH));
+        ui.clip(x, Math.round(listTop), SideList.WIDTH - 1, Math.round(y + h - listTop));
+        float row = listTop - offset;
         for (int i = 0; i < guide.pages().size(); i++) {
-            float rowY = listTop + i * TOC_STEP - offset;
-            if (rowY + TOC_ROW > listTop && rowY < listTop + listH) {
-                renderTocRow(ui, guide, i, i == current, x, rowY);
+            if (ui.rowVisible(row, SideList.SUB_H)) {
+                renderTocRow(ui, guide, i, i == current, x, row);
             }
+            row += SideList.SUB_H + 1;
         }
         ui.unclip();
+        tocScroll.content(row + offset - listTop + 8, y + h - listTop);
     }
 
     private void renderTocRow(Ui ui, Guide guide, int index, boolean now, float x, float y) {
         Guide.Page page = guide.pages().get(index);
         boolean read = source.tracksReading() && ClientProgress.isRead(guide, page);
-        float cy = y + TOC_ROW / 2f;
+        float rx = x + SideList.PAD;
+        float rw = SideList.WIDTH - 1 - SideList.PAD * 2;
+        float h = SideList.SUB_H;
+        boolean over = ui.over(rx, y, rw, h);
         if (now) {
-            ui.fill(x, y, TOC_W, TOC_ROW, 7, ui.c("button.bg"));
-            ui.rect(x, y, 2, TOC_ROW, ui.c("accent"));
-        } else if (ui.over(x, y, TOC_W, TOC_ROW)) {
-            ui.fill(x, y, TOC_W, TOC_ROW, 7, ui.c("slot.hover"));
+            ui.fill(rx, y, rw, h, 8, ui.c("tab.active.bg"));
+        } else if (over) {
+            ui.fill(rx, y, rw, h, 8, ui.c("button.bg"));
         }
+        float cy = y + h / 2f;
+        ui.label(String.valueOf(index + 1), rx + 10, cy, 11, Ui.REGULAR, ui.c("text.dim"));
+        float textX = rx + 10 + 16 + 8;
+        ui.labelFit(tr(page.title()), textX, cy, rx + rw - 10 - 14 - 6 - textX, 12.5f, now ? Ui.MEDIUM : Ui.REGULAR, ui.c(now ? "text.primary" : "text.secondary"));
         if (read && !now) {
-            ui.check(x + 10, cy - 5.5f, 11, ui.c("state.ok"));
+            ui.icon(Icons.Shape.CHECK, rx + rw - 10 - 12, cy - 6, 12, ui.c("state.ok"));
         }
-        ui.labelFitTip(tr(page.title()), x + 30, cy, TOC_W - 38, 12, Ui.REGULAR, ui.c(now ? "text.primary" : read ? "text.muted" : "button.fg"));
-        ui.hit(x, y, TOC_W, TOC_ROW, () -> source.open(guide, index));
+        ui.hit(rx, y, rw, h, () -> source.open(guide, index));
     }
 
-    private void renderNext(Ui ui, Guide guide, int next, float x, float y, float w) {
-        boolean over = ui.over(x, y, w, NEXT_H);
-        ui.box(x, y, w, NEXT_H, 9, over ? ui.c("slot.hover") : ui.c("card.bg"), ui.c("panel.border"));
-        float cy = y + NEXT_H / 2f;
-        String label = tr("rysquests.guides.next_page");
-        ui.label(label, x + 13, cy, 11, Ui.REGULAR, ui.c("text.muted"));
-        float pen = x + 13 + ui.width(label, 11, Ui.REGULAR) + 10;
-        ui.labelFit(tr(guide.pages().get(next).title()), pen, cy, x + w - 34 - pen, 12.5f, Ui.MEDIUM, ui.c("text.primary"));
-        ui.labelRight("→", x + w - 13, cy, 13, Ui.REGULAR, ui.c("text.muted"));
-        ui.hit(x, y, w, NEXT_H, () -> source.open(guide, next));
+    /** The compact layout: the pages under a list in the head of the column. */
+    private void renderPagesList(Ui ui, Guide guide, int current) {
+        List<Kit.Option> options = new ArrayList<>();
+        for (Guide.Page page : guide.pages()) {
+            options.add(new Kit.Option(tr(page.title())));
+        }
+        Kit.dropdownList(ui.g, ui.theme, ui.kitHits, pagesList, options, current, 150, ui.mouseX / 2, ui.mouseY / 2, index -> source.open(guide, index));
     }
 
-    // --- the page ---
+    // --- the column of reading ---
+
+    /** "Create · страница 2 из 23", the title, and for an operator the pencil. @return the y under it */
+    private float renderHead(Ui ui, Guide guide, Guide.Page page, int index, float x, float y, float w, boolean compact) {
+        float cy = y + 8;
+        float pen = x;
+        if (compact) {
+            String back = source.crumb();
+            if (back != null) {
+                boolean over = ui.over(pen, cy - 9, 14, 18);
+                ui.icon(Icons.Shape.CHEVRON_LEFT, pen, cy - 7, 14, ui.c(over ? "text.primary" : "link"));
+                ui.hit(pen, cy - 9, 14, 18, source::back);
+                pen += 14 + 8;
+            }
+            String label = tr("rysquests.guides.pages_button");
+            int ddW = Kit.dropdown(ui.g, ui.theme, ui.kitHits, pagesList, Math.round(pen / 2f), Math.round((cy - Kit.DROP_H) / 2f), 80, label, false, ui.mouseX / 2, ui.mouseY / 2) * 2;
+            pen += ddW + 10;
+        }
+        String crumb = text("rysquests.guides.page_crumb", tr(guide.title()), index + 1, guide.pages().size());
+        ui.labelFit(crumb, pen, cy, x + w - pen - 40, 12, Ui.REGULAR, ui.c("text.muted"));
+        if (BookRole.operator()) {
+            float px = x + w - 30;
+            boolean over = ui.over(px, cy - 15, 30, 30);
+            ui.box(px, cy - 15, 30, 30, 8, over ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
+            ui.icon(Icons.Shape.PENCIL, px + 9, cy - 6, 12, ui.c("button.fg"));
+            ui.tooltipIfOver(px, cy - 15, 30, 30, Component.translatable("rysquests.editor.edit"));
+            ui.hit(px, cy - 15, 30, 30, () -> source.edit(guide, index));
+        }
+        float top = y + 16 + 10;
+        List<String> title = ui.wrap(tr(page.title()), w, TITLE_PX, Ui.DISPLAY, 2);
+        float titleLine = Ui.headingHeight(TITLE_PX);
+        for (int i = 0; i < title.size(); i++) {
+            ui.label(title.get(i), x, top + i * titleLine + titleLine / 2f, TITLE_PX, Ui.DISPLAY, ui.c("text.primary"));
+        }
+        return top + title.size() * titleLine + 8;
+    }
 
     /** @return the y below the text */
     float renderBody(Ui ui, String body, float x, float y, float w) {
-        TextBlock.Look look = new TextBlock.Look(TEXT_PX, TEXT_LINE, ui.c("text.body"), ui.c("text.primary"));
+        TextBlock.Look look = new TextBlock.Look(TEXT_PX, TEXT_LINE, ui.c("text.secondary"), ui.c("text.primary"));
         StringBuilder run = new StringBuilder();
         for (String line : body.split("\n", -1)) {
-            Markup.Span block = Markup.block(Markup.parse(line).getFirst());
+            List<Markup.Paragraph> parsed = Markup.parse(line);
+            Markup.Paragraph paragraph = parsed.isEmpty() ? null : parsed.getFirst();
+            Markup.Span showing = paragraph == null ? null : showing(paragraph);
+            if (showing != null) {
+                y = flush(ui, run, x, y, w, look);
+                y = renderShowing(ui, showing, x, y, Math.min(LINK_W, w)) + 6;
+                continue;
+            }
+            Markup.Span block = paragraph == null ? null : Markup.block(paragraph);
             if (block == null || !canDraw(block)) {
-                run.append(line).append('\n');
+                if (run.isEmpty() && y > 0 && !line.isEmpty() || !run.isEmpty() || !line.isEmpty()) {
+                    run.append(line).append('\n');
+                }
                 continue;
             }
             y = flush(ui, run, x, y, w, look);
@@ -261,6 +285,51 @@ final class GuidePageView implements BookView {
         return flush(ui, run, x, y, w, look);
     }
 
+    /** A line that is one link to a showing in motion becomes its own row with "показать" (mockup {@code .lk}). */
+    @Nullable
+    private static Markup.Span showing(Markup.Paragraph paragraph) {
+        if (paragraph.warning()) {
+            return null;
+        }
+        Markup.Span found = null;
+        for (Markup.Span span : paragraph.spans()) {
+            if (span.kind().equals("ponder") && ResourceLocation.tryParse(span.target()) != null) {
+                if (found != null) {
+                    return null;
+                }
+                found = span;
+            } else if (!span.text().isBlank()) {
+                return null;
+            }
+        }
+        return found;
+    }
+
+    private static float renderShowing(Ui ui, Markup.Span span, float x, float y, float w) {
+        ResourceLocation scene = ResourceLocation.parse(span.target());
+        ItemStack icon = TaskText.stackOf(scene);
+        String label = span.text().isEmpty() ? icon.getHoverName().getString() : span.text();
+        boolean can = Ponders.exists(scene);
+        boolean over = can && ui.over(x, y, w, LINK_H);
+        ui.box(x, y, w, LINK_H, 9, ui.c(over ? "slot.hover" : "card.bg"), ui.c("panel.border"));
+        float cy = y + LINK_H / 2f;
+        ui.box(x + 4, cy - 14, 28, 28, 6, ui.c("slot.bg"), ui.c("slot.border"));
+        ui.item(icon, x + 8, cy - 10, 20);
+        String act = tr(can ? "rysquests.guides.show" : "rysquests.guides.show_missing");
+        float actW = ui.width(act, 11.5f, Ui.REGULAR) + (can ? 16 : 0);
+        ui.labelFit(label, x + 4 + 28 + 9, cy, w - 41 - actW - 18, 12.5f, Ui.REGULAR, ui.c("text.primary"));
+        float ax = x + w - 10 - actW;
+        if (can) {
+            ui.icon(Icons.Shape.PLAY, ax, cy - 6, 12, ui.c("text.muted"));
+            ax += 16;
+        }
+        ui.label(act, ax, cy, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+        if (can) {
+            ui.hit(x, y, w, LINK_H, () -> Ponders.open(scene));
+        }
+        return y + LINK_H;
+    }
+
     /** Draws and empties the text gathered so far. */
     private static float flush(Ui ui, StringBuilder run, float x, float y, float w, TextBlock.Look look) {
         if (run.length() == 0) {
@@ -268,6 +337,9 @@ final class GuidePageView implements BookView {
         }
         String text = run.substring(0, run.length() - 1);
         run.setLength(0);
+        if (text.isBlank()) {
+            return y;
+        }
         return TextBlock.render(ui, text, x, y, w, look, Recipes::showRecipes) + GAP;
     }
 
@@ -282,15 +354,15 @@ final class GuidePageView implements BookView {
             return size != null && size[0] > 0 && size[1] > 0;
         }
         if (block.kind().equals("structure")) {
-            return works.repka.rysquests.client.ClientBook.current().structures().containsKey(target);
+            return ClientBook.current().structures().containsKey(target);
         }
         ItemStack stack = TaskText.stackOf(target);
-        return Recipes.layout(stack, Markup.recipeCategory(block.target())) != null || RecipePreview.of(stack) != null;
+        return RecipePreview.of(stack) != null;
     }
 
     /** A structure is kept while the book is open, so that it stays turned as the reader left it. */
     private float renderStructure(Ui ui, ResourceLocation id, String caption, float x, float y, float w) {
-        StructureDef definition = works.repka.rysquests.client.ClientBook.current().structures().get(id);
+        StructureDef definition = ClientBook.current().structures().get(id);
         StructureBlock block = structures.get(id);
         if (block == null || !block.definition.equals(definition)) {
             if (block != null) {
@@ -337,165 +409,133 @@ final class GuidePageView implements BookView {
         ui.image(texture, x, y, shownW, shownH, size[0], size[1]);
         y += shownH;
         if (!caption.isEmpty()) {
-            ui.label(caption, x, y + 6 + 7, 11, Ui.REGULAR, ui.c("text.muted"));
+            ui.label(caption, x, y + 6 + 7, 11.5f, Ui.REGULAR, ui.c("text.muted"));
             y += 6 + 14;
         }
         return y + GAP;
     }
 
+    /** A recipe as one compact row (picture 24): what goes in, an arrow, what comes out, its name and the link "рецепт". */
     private static float renderRecipe(Ui ui, String reference, float x, float y, float w) {
         ItemStack target = TaskText.stackOf(ResourceLocation.parse(Markup.recipeItem(reference)));
-        Recipes.Layout layout = Recipes.layout(target, Markup.recipeCategory(reference));
-        if (layout != null) {
-            return renderLayout(ui, layout, target, x, y, w);
-        }
         RecipePreview.Shown recipe = RecipePreview.of(target);
-        ui.box(x, y, w, RECIPE_H, 10, ui.c("card.bg"), ui.c("panel.border"));
-        float gridX = x + 11;
-        float gridY = y + 11;
-        for (int i = 0; i < GRID; i++) {
-            float cellX = gridX + (i % RECIPE_COLUMNS) * (CELL + CELL_GAP);
-            float cellY = gridY + (i / RECIPE_COLUMNS) * (CELL + CELL_GAP);
-            ItemStack input = i < recipe.grid().size() ? recipe.grid().get(i) : ItemStack.EMPTY;
-            ui.cell(input, cellX, cellY, CELL, CELL, 4, 16, ui.c("slot.bg"), ui.c("card.border"));
-            ui.interactive(input, cellX, cellY, CELL, CELL);
-        }
-        float pen = gridX + RECIPE_COLUMNS * CELL + (RECIPE_COLUMNS - 1) * CELL_GAP + 12;
-        float cy = y + RECIPE_H / 2f;
-        ui.labelCentered("→", pen + 7, cy, 14, Ui.REGULAR, ui.c("text.dim"));
-        pen += 14 + 12;
-        ui.cell(recipe.output(), pen, cy - 17, 34, 34, 7, 20, ui.c("slot.bg"), ui.c("card.border"));
-        ui.interactive(recipe.output(), pen, cy - 17, 34, 34);
-        pen += 34 + 12;
-        ui.labelFit(recipe.output().getHoverName().getString(), pen, cy - 8, x + w - 11 - pen, 12.5f, Ui.SEMIBOLD, ui.c("text.primary"));
-        String link = Component.translatable("rysquests.guides.open_viewer", RecipePreview.viewerName()).getString();
-        ui.link(link, pen, cy + 9, 11, ui.c("chip.mod.fg"));
-        ui.hit(pen, cy + 2, ui.width(link, 11, Ui.REGULAR), 14, () -> Recipes.showRecipes(recipe.output()));
-        return y + RECIPE_H + GAP;
-    }
-
-    private static float renderLayout(Ui ui, Recipes.Layout layout, ItemStack target, float x, float y, float w) {
-        float inner = w - 22;
-        float layoutH = RecipeLayoutView.height(layout, inner);
-        float h = 11 + layoutH + 10 + 14 + 9;
-        ui.box(x, y, w, h, 10, ui.c("card.bg"), ui.c("panel.border"));
-        RecipeLayoutView.render(ui, layout, x + 11, y + 11, inner);
-        String link = Component.translatable("rysquests.guides.open_viewer", RecipePreview.viewerName()).getString();
-        float linkY = y + 11 + layoutH + 10 + 7;
-        ui.link(link, x + 11, linkY, 11, ui.c("chip.mod.fg"));
-        ui.hit(x + 11, linkY - 7, ui.width(link, 11, Ui.REGULAR), 14, () -> Recipes.showRecipes(target));
-        return y + h + GAP;
-    }
-
-    // --- the panel that gathers itself ---
-
-    private void renderPanel(Ui ui, Topics found, int x, int y, int w, int h) {
-        ui.fillCorners(x, y, w, h, 13, ui.c("card.bg"), false, true, true, false);
-        ui.rect(x, y, 1, h, ui.c("panel.border"));
-        float left = x + 17;
-        float inner = w - 33;
-        int offset = panelScroll.offset();
-        float cursor = y + 16 - offset;
-        ui.clip(x, y, w, h);
-        if (!found.quests.isEmpty()) {
-            ui.label(tr("rysquests.guides.topic_quests"), left, cursor + 9.5f, 15, Ui.DISPLAY, ui.c("text.primary"));
-            cursor += 19 + 12;
-            cursor = renderQuests(ui, found.quests, left, cursor, inner) + 16;
-        }
-        if (!found.items.isEmpty()) {
-            ui.caps(tr("rysquests.guides.topic_items"), left, cursor + 7, ui.c("text.dim"));
-            cursor += 14 + 5;
-            for (ItemStack item : found.items) {
-                renderItemRow(ui, item, left, cursor, inner);
-                cursor += ROW_H + 5;
+        List<ItemStack> inputs = new ArrayList<>();
+        List<Item> seen = new ArrayList<>();
+        for (ItemStack input : recipe.grid().isEmpty() ? recipe.inputs() : recipe.grid()) {
+            if (!input.isEmpty() && !seen.contains(input.getItem())) {
+                seen.add(input.getItem());
+                inputs.add(input);
             }
         }
-        ui.unclip();
-        panelScroll.content(Math.round(cursor + offset - y + 11), h);
+        String name = recipe.output().getHoverName().getString();
+        String link = tr("rysquests.guides.recipe_link");
+        float content = inputs.size() * (SLOT + 6) + 4 + 14 + 4 + 6 + SLOT + 6 + ui.width(name, 12.5f, Ui.REGULAR) + 14 + ui.width(link, 12, Ui.MEDIUM);
+        float boxW = Math.min(w, 10 + content + 10);
+        float h = 8 + SLOT + 8;
+        ui.box(x, y, boxW, h, 10, ui.c("card.bg"), ui.c("panel.border"));
+        float cy = y + h / 2f;
+        float pen = x + 10;
+        for (ItemStack input : inputs) {
+            if (pen + SLOT > x + boxW - 10) {
+                break;
+            }
+            ui.cell(input, pen, cy - SLOT / 2f, SLOT, SLOT, 6, 24, ui.c("slot.bg"), ui.c("slot.border"));
+            pen += SLOT + 6;
+        }
+        pen += 4;
+        ui.icon(Icons.Shape.CHEVRON_RIGHT, pen, cy - 7, 14, ui.c("text.muted"));
+        pen += 14 + 4 + 6;
+        ui.cell(recipe.output(), pen, cy - SLOT / 2f, SLOT, SLOT, 6, 24, ui.c("slot.bg"), ui.c("slot.border"));
+        ui.count(recipe.output().getCount(), pen + SLOT - 1, cy + SLOT / 2f + 2);
+        pen += SLOT + 6;
+        float linkW = ui.width(link, 12, Ui.MEDIUM);
+        ui.labelFit(name, pen, cy, x + boxW - 10 - linkW - 14 - pen, 12.5f, Ui.REGULAR, ui.c("text.secondary"));
+        float lx = x + boxW - 10 - linkW;
+        boolean over = ui.over(lx, cy - 9, linkW, 18);
+        ui.label(link, lx, cy, 12, Ui.MEDIUM, ui.c(over ? "text.primary" : "link"));
+        ui.hit(lx, cy - 9, linkW, 18, () -> Recipes.showRecipes(recipe.output()));
+        return y + h + GAP + 2;
     }
 
-    private static boolean active(Quest quest) {
-        QuestStatus status = BookState.status(quest);
-        return status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS;
-    }
-
+    /** The quests of the page, one row each, the state on the right. @return the y under them */
     private static float renderQuests(Ui ui, List<Quest> quests, float x, float y, float w) {
-        Quest featured = quests.stream().filter(GuidePageView::active).findFirst().orElse(null);
-        if (featured != null) {
-            y = renderFeatured(ui, featured, x, y, w) + 8;
-        }
         for (Quest quest : quests) {
-            if (quest != featured && (!quest.options().hidden() || BookState.status(quest) != QuestStatus.LOCKED)) {
-                renderQuestRow(ui, quest, x, y, w);
-                y += ROW_H + 5;
+            QuestStatus status = BookState.status(quest);
+            if (quest.options().hidden() && status == QuestStatus.LOCKED) {
+                continue;
             }
+            boolean over = ui.over(x, y, w, LINK_H);
+            ui.box(x, y, w, LINK_H, 9, ui.c(over ? "slot.hover" : "card.bg"), ui.c("panel.border"));
+            float cy = y + LINK_H / 2f;
+            ui.box(x + 4, cy - 14, 28, 28, 6, ui.c("slot.bg"), ui.c("slot.border"));
+            ui.item(quest.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY), x + 8, cy - 10, 20);
+            boolean done = status == QuestStatus.COMPLETED || status == QuestStatus.CLAIMED;
+            String word = tr(switch (status) {
+                case LOCKED -> "rysquests.guides.quest_locked";
+                case AVAILABLE, IN_PROGRESS -> "rysquests.guides.quest_open";
+                default -> "rysquests.guides.quest_done";
+            });
+            float wordW = ui.width(word, 11.5f, Ui.REGULAR) + (done ? 16 : 0);
+            ui.labelFit(text("rysquests.guides.quest_row", tr(quest.title())), x + 41, cy, w - 41 - wordW - 20, 12.5f, Ui.REGULAR, ui.c("text.primary"));
+            float wx = x + w - 10 - wordW;
+            if (done) {
+                ui.icon(Icons.Shape.CHECK, wx, cy - 6, 12, ui.c("state.ok"));
+                wx += 16;
+            }
+            ui.label(word, wx, cy, 11.5f, Ui.REGULAR, ui.c(done ? "state.ok" : "text.muted"));
+            ui.hit(x, y, w, LINK_H, () -> BookState.select(quest));
+            y += LINK_H + 6;
         }
-        return y - 5;
+        return y;
     }
 
-    private static float renderFeatured(Ui ui, Quest quest, float x, float y, float w) {
-        float h = 133;
-        ui.box(x, y, w, h, 10, ui.c("status.bg"), ui.warmBorder(0.34f));
-        float left = x + 13;
-        float inner = w - 26;
-        ui.label(tr("rysquests.guides.your_quest"), left, y + 13 + 7, 11, Ui.REGULAR, ui.c("accent"));
-        float rowY = y + 13 + 14 + 8;
-        ItemStack icon = quest.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
-        ui.cell(icon, left, rowY, 32, 32, 7, 18, ui.c("slot.bg"), ui.c("card.border"));
-        QuestProgress own = ClientProgress.get(quest.id());
-        ui.labelFit(tr(quest.title()), left + 42, rowY + 8, inner - 42, 13, Ui.SEMIBOLD, ui.c("text.primary"));
-        String chapter = Ui.roman(BookData.chapterNumber(quest.chapter().orElse(null)));
-        String line = Component.translatable("rysquests.guides.quest_line", chapter, QuestFacts.tasksDone(quest, own), quest.tasks().size()).getString();
-        ui.labelFit(line, left + 42, rowY + 24, inner - 42, 11, Ui.REGULAR, ui.c("text.muted"));
-        float barY = rowY + 32 + 8;
-        ui.bar(left, barY, inner, 5, 3, quest.tasks().isEmpty() ? 0 : (float) QuestFacts.tasksDone(quest, own) / quest.tasks().size(), ui.c("accent"));
-        ui.button(tr("rysquests.guides.to_quest"), left, barY + 5 + 8, inner, 32, 8, 12, Ui.SEMIBOLD, 12, Ui.Style.ACCENT, () -> BookState.select(quest));
-        return y + h;
-    }
+    // --- the line at the bottom ---
 
-    private static void renderQuestRow(Ui ui, Quest quest, float x, float y, float w) {
-        boolean over = ui.over(x, y, w, ROW_H);
-        ui.box(x, y, w, ROW_H, 8, over ? ui.c("slot.hover") : ui.c("status.bg"), ui.c("status.border"));
-        float cy = y + ROW_H / 2f;
-        ui.item(quest.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY), x + 9, cy - 8, 16);
-        QuestStatus status = BookState.status(quest);
-        String word = tr(switch (status) {
-            case LOCKED -> "rysquests.guides.quest_locked";
-            case AVAILABLE, IN_PROGRESS -> "rysquests.guides.available";
-            default -> "rysquests.guides.quest_done";
-        });
-        float wordW = ui.width(word, 11, Ui.REGULAR);
-        ui.labelFitTip(tr(quest.title()), x + 32, cy, w - 32 - 9 - wordW - 8, 12, Ui.REGULAR, ui.nameFg());
-        ui.labelRight(word, x + w - 9, cy, 11, Ui.REGULAR, ui.c(status == QuestStatus.LOCKED ? "text.dim" : status == QuestStatus.CLAIMED || status == QuestStatus.COMPLETED ? "state.ok" : "text.muted"));
-        ui.hit(x, y, w, ROW_H, () -> BookState.select(quest));
-    }
-
-    private static void renderItemRow(Ui ui, ItemStack item, float x, float y, float w) {
-        boolean over = ui.over(x, y, w, ROW_H);
-        ui.box(x, y, w, ROW_H, 8, over ? ui.c("slot.hover") : ui.c("status.bg"), ui.c("status.border"));
-        float cy = y + ROW_H / 2f;
-        ui.item(item, x + 9, cy - 8, 16);
-        int held = RecipePreview.held(item);
-        String have = Numbers.compact(held);
-        float haveW = ui.width(have, 11, Ui.REGULAR);
-        ui.labelFitTip(item.getHoverName().getString(), x + 32, cy, w - 32 - 9 - haveW - 8, 12, Ui.REGULAR, ui.nameFg());
-        ui.labelRight(have, x + w - 9, cy, 11, Ui.REGULAR, ui.c(held > 0 ? "state.ok" : "text.muted"));
-        ui.interactive(item, x, y, w, ROW_H);
+    private void renderNav(Ui ui, Guide guide, int index, float x, float y, float w) {
+        ui.rect(x, y, w, 1, ui.c("panel.border"));
+        float cy = y + NAV_H / 2f;
+        float left = x + 18;
+        float right = x + w - 18;
+        if (index > 0) {
+            String label = tr(guide.pages().get(index - 1).title());
+            float bw = Math.min((w - 54) / 2f, ui.width(label, 12.5f, Ui.MEDIUM) + 14 + 7 + 28);
+            boolean over = ui.over(left, cy - 17, bw, 34);
+            ui.box(left, cy - 17, bw, 34, 9, ui.c(over ? "slot.hover" : "button.bg"), ui.c("button.border"));
+            ui.icon(Icons.Shape.CHEVRON_LEFT, left + 14, cy - 7, 14, ui.c("text.secondary"));
+            ui.labelFit(label, left + 14 + 14 + 7, cy, bw - 14 - 14 - 7 - 14, 12.5f, Ui.MEDIUM, ui.c("text.secondary"));
+            ui.hit(left, cy - 17, bw, 34, () -> source.open(guide, index - 1));
+        }
+        if (index + 1 < guide.pages().size()) {
+            String label = tr(guide.pages().get(index + 1).title());
+            float bw = Math.min((w - 54) / 2f, ui.width(label, 12.5f, Ui.SEMIBOLD) + 14 + 7 + 28);
+            float bx = right - bw;
+            boolean over = ui.over(bx, cy - 17, bw, 34);
+            ui.fill(bx, cy - 17, bw, 34, 9, over ? works.repka.ryscore.ui.Draw.mix(ui.c("accent"), 0xFFFFFFFF, 0.1f) : ui.c("accent"));
+            ui.labelFit(label, bx + 14, cy, bw - 14 - 14 - 7 - 14, 12.5f, Ui.SEMIBOLD, ui.c("accent.text"));
+            ui.icon(Icons.Shape.CHEVRON_RIGHT, right - 14 - 14, cy - 7, 14, ui.c("accent.text"));
+            ui.hit(bx, cy - 17, bw, 34, () -> source.open(guide, index + 1));
+        }
     }
 
     // --- input ---
 
     @Override
     public void scroll(double mouseX, double mouseY, double amount) {
+        if (pagesList.scrolled(mouseX / 2, mouseY / 2, amount)) {
+            return;
+        }
         if (net.minecraft.client.gui.screens.Screen.hasControlDown() && hoveredStructure != null) {
             hoveredStructure.zoom(amount);
             return;
         }
-        (mouseX >= panelLeft ? panelScroll : mouseX < tocRight ? tocScroll : textScroll).wheel(amount, WHEEL);
+        (mouseX < tocRight ? tocScroll : textScroll).wheel(amount, WHEEL);
     }
 
     @Override
     public boolean key(int key) {
+        if (pagesList.keyPressed(key)) {
+            return true;
+        }
         Guide guide = source.guide();
         if (guide == null) {
             return false;
