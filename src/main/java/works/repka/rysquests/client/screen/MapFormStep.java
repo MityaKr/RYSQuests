@@ -92,6 +92,7 @@ final class MapFormStep {
             return;
         }
         releaseThumbs();
+        cancelJobs(null);
         startedFor = current.layoutHash();
         book = current;
         map = MapBook.of(current);
@@ -356,6 +357,8 @@ final class MapFormStep {
         QuestBook current = ClientBook.current();
         MapForm picked = selected == null ? advised : selected;
         MapForm save = FirstRun.formToSave(picked, advised);
+        // the other forms are not needed any more: their layouts stop, as the hint under the cards promises
+        cancelJobs(picked);
         CanvasLayout layout = ready(picked);
         if (save == current.meta().mapForm() && map != null && layout != null && layout.hash.equals(current.layoutHash())) {
             PacketDistributor.sendToServer(new LayoutSavePayload(layout.toBaked(map)));
@@ -440,6 +443,16 @@ final class MapFormStep {
 
     void closed() {
         releaseThumbs();
+        cancelJobs(null);
+    }
+
+    /** Stops the layouts of the preview still being worked out, but the one of {@code keep} (none: all of them). */
+    private void cancelJobs(@Nullable MapForm keep) {
+        jobs.forEach((form, job) -> {
+            if (form != keep && !job.result.isDone()) {
+                job.cancel();
+            }
+        });
     }
 
     private void releaseThumbs() {

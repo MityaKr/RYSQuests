@@ -436,7 +436,19 @@ public final class Ui {
 
     /** @param cy the vertical middle of the line */
     public void label(String text, float x, float cy, float px, Type.Weight weight, int color) {
-        Draw.label(g, text, x / PER_GUI, cy / PER_GUI, px, weight, color);
+        Draw.label(g, plain(text), x / PER_GUI, cy / PER_GUI, px, weight, color);
+    }
+
+    /**
+     * A label's text without the game's formatting codes: imported FTB titles carry {@code §a} and the like, which the book's font would
+     * draw as letters. Texts without a section sign come back as they are.
+     */
+    static String plain(String text) {
+        if (text.indexOf('§') < 0) {
+            return text;
+        }
+        String stripped = net.minecraft.ChatFormatting.stripFormatting(text);
+        return stripped == null ? text : stripped;
     }
 
     public void labelRight(String text, float right, float cy, float px, Type.Weight weight, int color) {
@@ -455,8 +467,8 @@ public final class Ui {
     public void labelFit(String text, float x, float cy, float maxWidth, float px, Type.Weight weight, int color) {
         String shown = fit(text, maxWidth, px, weight);
         label(shown, x, cy, px, weight, color);
-        if (!shown.equals(text)) {
-            tooltipIfOver(x, cy - px * 0.7f, Math.min(maxWidth, width(shown, px, weight)), px * 1.4f, Component.literal(ChatFormattingStrip.strip(text)));
+        if (!shown.equals(plain(text))) {
+            tooltipIfOver(x, cy - px * 0.7f, Math.min(maxWidth, width(shown, px, weight)), px * 1.4f, Component.literal(plain(text)));
         }
     }
 
@@ -465,16 +477,8 @@ public final class Ui {
         label(fit(text, maxWidth, px, weight), x, cy, px, weight, color);
     }
 
-    /** Formatting codes of imported texts stay out of the tooltip. */
-    private static final class ChatFormattingStrip {
-        static String strip(String text) {
-            String plain = net.minecraft.ChatFormatting.stripFormatting(text);
-            return plain == null ? text : plain;
-        }
-    }
-
     public float width(String text, float px, Type.Weight weight) {
-        return Draw.labelWidth(text, px, weight) * PER_GUI;
+        return Draw.labelWidth(plain(text), px, weight) * PER_GUI;
     }
 
     /** The same as {@link #labelFit}, which now always shows a cut text in full; kept for the places that asked for it by name. */
@@ -483,11 +487,11 @@ public final class Ui {
     }
 
     String fit(String text, float maxWidth, float px, Type.Weight weight) {
-        return Draw.ellipsize(text, maxWidth / PER_GUI, px, weight);
+        return Draw.ellipsize(plain(text), maxWidth / PER_GUI, px, weight);
     }
 
     public List<String> wrap(String text, float maxWidth, float px, Type.Weight weight, int maxLines) {
-        return Draw.wrapLabel(text, Math.max(1f, maxWidth) / PER_GUI, px, weight, maxLines);
+        return Draw.wrapLabel(plain(text), Math.max(1f, maxWidth) / PER_GUI, px, weight, maxLines);
     }
 
     /** The narrowest a text can get when it wraps: its longest word. */
@@ -509,11 +513,11 @@ public final class Ui {
 
     /** A section heading in capitals with letter spacing, drawn as one string (RYSCore 1.7.5 tracking) rather than letter by letter. */
     void caps(String text, float x, float cy, int color) {
-        Draw.label(g, text.toUpperCase(java.util.Locale.ROOT), x / PER_GUI, cy / PER_GUI, CAPS_PX, MEDIUM, color, CAPS_TRACKING / PER_GUI);
+        Draw.label(g, plain(text).toUpperCase(java.util.Locale.ROOT), x / PER_GUI, cy / PER_GUI, CAPS_PX, MEDIUM, color, CAPS_TRACKING / PER_GUI);
     }
 
     float capsWidth(String text) {
-        return Draw.labelWidth(text.toUpperCase(java.util.Locale.ROOT), CAPS_PX, MEDIUM, CAPS_TRACKING / PER_GUI) * PER_GUI;
+        return Draw.labelWidth(plain(text).toUpperCase(java.util.Locale.ROOT), CAPS_PX, MEDIUM, CAPS_TRACKING / PER_GUI) * PER_GUI;
     }
 
     void capsRight(String text, float right, float cy, int color) {

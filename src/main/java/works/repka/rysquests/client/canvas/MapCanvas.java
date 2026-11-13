@@ -1270,7 +1270,7 @@ public final class MapCanvas {
         float maxW = hover ? Float.MAX_VALUE : (float) (anchor.maxWidth() * f.s);
         MapBook.Chap chapter = map.chapters().get(c);
         Chapter data = book.chapters().get(chapter.id());
-        String title = data == null ? chapter.id().getPath() : Component.translatable(data.title()).getString();
+        String title = data == null ? chapter.id().getPath() : text(data.title());
         String number = layout.form == MapForm.GALAXY ? "" : String.format("%02d", chapter.number());
         byte st = chapterState[c];
         String count = st == CH_DONE ? "" : Component.translatable("rysquests.canvas.count", mainDone[c], mainCount[c]).getString();
@@ -1334,7 +1334,7 @@ public final class MapCanvas {
         int count = 0;
         for (CanvasLayout.Arm arm : layout.arms) {
             String title = arm.epoch() > 0 ? map.epochTitle(arm.epoch()) : "";
-            title = title.isEmpty() ? Component.translatable("rysquests.canvas.no_section").getString() : Component.translatable(title).getString();
+            title = title.isEmpty() ? Component.translatable("rysquests.canvas.no_section").getString() : text(title);
             int done = 0;
             int total = 0;
             for (MapBook.Chap chapter : map.chapters()) {
@@ -1414,7 +1414,7 @@ public final class MapCanvas {
             float size = Math.max(MIN_TILE, tilePx(hub || big, big));
             float px = f.px(layout.x[q]);
             float py = f.py(layout.y[q]) + size / 2 + 4;
-            String title = Component.translatable(quest.title()).getString();
+            String title = text(quest.title());
             List<String> lines = Draw.wrapLabel(title, 104 / PER_GUI, 11, Type.Weight.REGULAR, 2);
             float lw = 0;
             for (String line : lines) {
@@ -1495,7 +1495,7 @@ public final class MapCanvas {
 
     private String epochTitle(int epoch) {
         String title = map.epochTitle(epoch);
-        return title.isEmpty() ? "" : Component.translatable(title).getString();
+        return title.isEmpty() ? "" : text(title);
     }
 
     static String roman(int n) {
@@ -1620,6 +1620,16 @@ public final class MapCanvas {
             return;
         }
         Draw.round(g, x - r, y - r, 2 * r, 2 * r, r, color);
+    }
+
+    /** A title from its key, without the formatting codes of imported FTB texts, which the font would draw as letters. */
+    private static String text(String key) {
+        String shown = Component.translatable(key).getString();
+        if (shown.indexOf('§') < 0) {
+            return shown;
+        }
+        String plain = net.minecraft.ChatFormatting.stripFormatting(shown);
+        return plain == null ? shown : plain;
     }
 
     private static void label(GuiGraphics g, String text, float x, float cy, float px, Type.Weight weight, int color) {

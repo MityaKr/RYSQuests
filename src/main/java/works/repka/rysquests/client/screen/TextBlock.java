@@ -80,9 +80,20 @@ final class TextBlock {
 
     /** @return the y below the text */
     static float render(Ui ui, String text, float x, float y, float width, Look look, Consumer<ItemStack> onItem) {
-        Laid laid = layout(ui, text, width, look);
+        Laid laid = layout(ui, imported(text), width, look);
         draw(ui, laid, x, y, look, onItem);
         return y + laid.height;
+    }
+
+    /**
+     * Texts carried over from FTB Quests before the import learned to: a written backslash and n where a line breaks, and FTB's
+     * page break, which the book shows as an empty line.
+     */
+    static String imported(String text) {
+        if (text.indexOf('\\') < 0 && text.indexOf('{') < 0) {
+            return text;
+        }
+        return text.replace("{@pagebreak}", "\n").replace("\\n", "\n");
     }
 
     private static Laid layout(Ui ui, String text, float width, Look look) {

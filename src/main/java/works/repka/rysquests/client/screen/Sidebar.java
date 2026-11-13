@@ -189,7 +189,7 @@ final class Sidebar {
             }
             BookTallies.State state = allDone ? BookTallies.State.DONE : allLocked ? BookTallies.State.LOCKED : BookTallies.State.OPEN;
             String title = group.getKey() < 0 ? Component.translatable("rysquests.canvas.no_section").getString() : meta.epoch(group.getKey()).map(BookMeta.Epoch::title)
-                    .orElse(Component.translatable(entries.getFirst().chapter().title()).getString());
+                    .map(key -> Component.translatable(key).getString()).orElse(Component.translatable(entries.getFirst().chapter().title()).getString());
             groups.add(new Group(group.getKey(), title, List.copyOf(entries), tally, state, current));
         });
         BookTallies.Tally total = BookTallies.book();
@@ -329,7 +329,7 @@ final class Sidebar {
         int fg = ui.c(locked ? "text.dim" : group.current() ? "text.primary" : "text.secondary");
         float pen = x + 4 + 12 + 7;
         if (model.numerals()) {
-            String numeral = Ui.roman(group.number());
+            String numeral = group.number() < 0 ? "" : Ui.roman(group.number());
             ui.labelCentered(numeral, pen + 14, cy, 12, Ui.DISPLAY, ui.c(locked ? "text.dim" : group.current() ? "text.primary" : "text.muted"));
             pen += 28 + 7;
         } else {
@@ -406,7 +406,9 @@ final class Sidebar {
             Group group = groups.get(i);
             String token = group.state() == BookTallies.State.DONE ? "state.ok" : group.state() == BookTallies.State.LOCKED ? "text.dim"
                     : group.current() ? "text.primary" : "text.muted";
-            String label = model.numerals() ? Ui.roman(group.number()) : String.valueOf(group.number());
+            // chapters without a section (number -1) have no number of their own: an ellipsis; the popover beside the rail names them
+            boolean noSection = group.number() < 0;
+            String label = noSection ? "…" : model.numerals() ? Ui.roman(group.number()) : String.valueOf(group.number());
             boolean over = ui.over(cx - RAIL_BUTTON_W / 2f, pen, RAIL_BUTTON_W, RAIL_BUTTON_H);
             if (over) {
                 hovered = i;
@@ -463,7 +465,7 @@ final class Sidebar {
             float px = bx * 2f;
             float py = by * 2f;
             float pw = bw * 2f;
-            String title = (model.numerals() ? Ui.roman(group.number()) + " " : "") + group.title();
+            String title = (model.numerals() && group.number() >= 0 ? Ui.roman(group.number()) + " " : "") + group.title();
             float stateW = renderCount(ui, group.tally(), BookTallies.State.OPEN, px + pw - 14, py + 12 + 10, true);
             ui.labelFit(title, px + 14, py + 12 + 10, pw - 28 - stateW - 8, 14, Ui.DISPLAY, ui.c("text.primary"));
             float row = py + 12 + 20 + 6;

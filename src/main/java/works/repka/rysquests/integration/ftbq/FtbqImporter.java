@@ -200,7 +200,12 @@ public final class FtbqImporter {
         book.addProperty("progress_mode", "solo");
         book.addProperty("default_view", "flow");
         book.addProperty("title", "book." + namespace + ".title");
-        translate("book." + namespace + ".title", "file.1.title");
+        // FTB keys the file's title by its id written as sixteen hex digits ("file.0000000000000001.title"); older packs wrote "file.1"
+        // or kept the title in data.snbt. Without any of them the book is still named, so its key never shows.
+        String titleKey = "book." + namespace + ".title";
+        if (!translate(titleKey, "file.0000000000000001.title") && !translate(titleKey, "file.1.title")) {
+            lang.computeIfAbsent(ENGLISH, key -> new LinkedHashMap<>()).put(titleKey, string(source.data(), "title").map(FtbqImporter::gameFormatting).orElse("FTB Quests"));
+        }
         itemId(source.data().get("icon")).ifPresent(icon -> book.addProperty("icon", icon));
         book.add("chapter_order", order);
         // Chapter groups become the sections of the book. They are marked as the import's, so that the automatic map form
@@ -655,9 +660,12 @@ public final class FtbqImporter {
         return Optional.of(gameFormatting(value.getAsString()));
     }
 
-    /** FTB writes colors as {@code &a}; translations need the game's own section sign. */
-    private static String gameFormatting(String text) {
-        return text.replaceAll("&([0-9a-fk-or])", "§$1");
+    /**
+     * FTB writes colors as {@code &a}; translations need the game's own section sign. Its lang files also keep line breaks written
+     * as a backslash and n, and its page break, which the book shows as an empty line.
+     */
+    static String gameFormatting(String text) {
+        return text.replaceAll("&([0-9a-fk-or])", "§$1").replace("{@pagebreak}", "\n").replace("\\n", "\n");
     }
 
     // --- JSON helpers ---

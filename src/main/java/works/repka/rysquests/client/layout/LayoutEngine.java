@@ -29,6 +29,7 @@ public final class LayoutEngine {
         public final CompletableFuture<CanvasLayout> result = new CompletableFuture<>();
         private volatile double progress;
         private volatile boolean started;
+        private volatile boolean cancelled;
 
         Job(MapForm form) {
             this.form = form;
@@ -41,6 +42,28 @@ public final class LayoutEngine {
 
         public boolean queued() {
             return !started;
+        }
+
+        /**
+         * Not wanted any more ("расчёт остальных остановится" once a form is chosen): a queued job never starts, a running one stops at
+         * its next step. Its result ends cancelled; a finished one keeps its layout.
+         */
+        public void cancel() {
+            cancelled = true;
+            if (!started) {
+                result.cancel(false);
+            }
+        }
+
+        public boolean cancelled() {
+            return cancelled;
+        }
+    }
+
+    /** Thrown from the progress of a cancelled job to leave the layout where it is. */
+    private static final class Cancelled extends RuntimeException {
+        Cancelled() {
+            super(null, null, false, false);
         }
     }
 
@@ -100,8 +123,20 @@ public final class LayoutEngine {
 
     private void run(Job job, MapBook book) {
         job.started = true;
+        if (job.cancelled) {
+            job.result.cancel(false);
+            return;
+        }
         try {
-            job.result.complete(lay(book, job.form, fraction -> job.progress = fraction));
+            job.result.complete(lay(book, job.form, fraction -> {
+                if (job.cancelled) {
+                    throw new Cancelled();
+                }
+                job.progress = fraction;
+            }));
+        } catch (Cancelled stopped) {
+            LOGGER.debug("Stopped laying the map out as {}", job.form.getSerializedName());
+            job.result.cancel(false);
         } catch (Throwable failure) {
             LOGGER.error("Could not lay the map out as {}", job.form.getSerializedName(), failure);
             job.result.completeExceptionally(failure);
