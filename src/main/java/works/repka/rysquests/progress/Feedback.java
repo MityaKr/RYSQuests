@@ -9,7 +9,8 @@ import works.repka.rysquests.network.BookMessagePayload;
 
 /** Quiet sounds that confirm a reward or a trade, heard only by the player who made it, and the book's message line. */
 public final class Feedback {
-    private static final float REWARD_VOLUME = 0.55f;
+    /** The amethyst chime is quiet in itself (volume 0.2 in the game's sounds): at 0.55 it was hardly heard. */
+    private static final float REWARD_VOLUME = 1f;
     private static final float TRADE_VOLUME = 0.3f;
     private static final float BUY_PITCH = 1.5f;
     private static final float SELL_PITCH = 1.12f;

@@ -27,6 +27,10 @@ public final class ClientConfig {
             .comment("Show a message when a quest is completed.")
             .define("completionToast", true);
 
+    public static final ModConfigSpec.BooleanValue TEAM_QUEST_TOASTS = BUILDER
+            .comment("Show a message when a teammate completes a quest.")
+            .define("teamQuestToasts", true);
+
     public static final ModConfigSpec.BooleanValue REWARD_SOUND = BUILDER
             .comment("Play a sound when a reward is taken.")
             .define("rewardSound", false);

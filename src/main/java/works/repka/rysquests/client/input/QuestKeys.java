@@ -43,7 +43,10 @@ public final class QuestKeys {
 
     public static void tick() {
         while (OPEN_BOOK.consumeClick()) {
-            BookScreen.open();
+            // While a message about a finished quest is on screen, the key opens the book on that quest.
+            if (!works.repka.ryscore.ui.Notices.press(works.repka.ryscore.ui.Notice.QUESTS)) {
+                BookScreen.open();
+            }
         }
         while (BOARD.consumeClick()) {
             StickerBoard.toggleCollapsed();

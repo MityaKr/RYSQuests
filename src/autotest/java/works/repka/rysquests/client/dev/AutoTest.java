@@ -93,7 +93,7 @@ public final class AutoTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoTest.class);
     private static final boolean AS_PLAYER = Boolean.getBoolean("rysquests.autotest.asPlayer");
     /** The first run carries a whole FTB book over and lays out four maps of it: longer than the other scenarios. */
-    private static final boolean LONG_SCENARIO = List.of("first", "themes").contains(System.getProperty(SCENARIO_PROPERTY));
+    private static final boolean LONG_SCENARIO = List.of("first", "themes", "panel_notify").contains(System.getProperty(SCENARIO_PROPERTY));
     private static final int TOTAL_TICK_LIMIT = 20 * (AS_PLAYER || LONG_SCENARIO ? 1200 : 300);
     private static final int STEP_TICK_LIMIT = 20 * (AS_PLAYER ? 600 : 120);
     private static final int REPYS_MIN_QUESTS = 2000;
@@ -192,6 +192,8 @@ public final class AutoTest {
             buildLayoutScenario();
         } else if ("themes".equals(scenario)) {
             ThemesScenario.build();
+        } else if ("panel_notify".equals(scenario)) {
+            NoticesScenario.build();
         } else if ("book_editor".equals(scenario)) {
             EditorScenario.build(false);
         } else if ("book_editor_restart".equals(scenario)) {
@@ -530,6 +532,10 @@ public final class AutoTest {
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
         step("confirm the shared task", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CHECK, TEAM_QUEST, 0, List.of())), 20);
         expect("quest completed", () -> ClientProgress.get(TEAM_QUEST).completed());
+        expect("the own quest's notice stands in the toasts' column", () -> works.repka.ryscore.ui.Notices.activeForTest().stream()
+                .anyMatch(line -> line.startsWith("quests/done:" + TEAM_QUEST + " CARD on")));
+        step("let it slide in", () -> works.repka.ryscore.ui.Notices.playedForTest().forEach(line -> LOGGER.info("[autotest] notice sound: {}", line)), 14);
+        screenshot("team_a_notice_own");
         step("claim first", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
         expect("got the reward for each and the single one", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 1);
         teamScreens("a");
@@ -605,6 +611,10 @@ public final class AutoTest {
         }
         expect("team of two on this client", () -> ClientProgress.teamSize() == 2);
         expect("progress is shared", () -> ClientProgress.get(TEAM_QUEST).completed());
+        expect("the teammate's quest came as a notice with a sound", () -> works.repka.ryscore.ui.Notices.activeForTest().stream()
+                .anyMatch(line -> line.startsWith("quests/done:" + TEAM_QUEST + " CARD on")) && !works.repka.ryscore.ui.Notices.playedForTest().isEmpty());
+        step("let it slide in", () -> works.repka.ryscore.ui.Notices.playedForTest().forEach(line -> LOGGER.info("[autotest] notice sound: {}", line)), 14);
+        screenshot("team_b_notice_mate");
         expect("the single reward is taken by the first", () -> ClientProgress.get(TEAM_QUEST).claimed().contains(1) && !ClientProgress.get(TEAM_QUEST).claimed().contains(0));
         teamScreens("b_before_claim");
         step("claim second", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
@@ -2766,7 +2776,7 @@ public final class AutoTest {
         }
     }
 
-    private static void clickMouse(int button) {
+    static void clickMouse(int button) {
         long window = mc().getWindow().getWindow();
         try {
             var onPress = MouseHandler.class.getDeclaredMethod("onPress", long.class, int.class, int.class, int.class);

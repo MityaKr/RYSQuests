@@ -16,6 +16,7 @@ import works.repka.rysquests.client.screen.BookScreen;
 import works.repka.rysquests.client.screen.Ui;
 import works.repka.rysquests.data.MatrixSection;
 import works.repka.rysquests.data.Quest;
+import works.repka.rysquests.network.ProgressPayload;
 import works.repka.rysquests.progress.QuestLogic;
 import works.repka.rysquests.progress.QuestStatus;
 import works.repka.ryscore.ui.Anchors;
@@ -24,7 +25,8 @@ import works.repka.ryscore.ui.UiScale;
 
 /**
  * Everything the book draws over the game, in one place (plan, section 3, pictures 31, 31b): one stack of pinned cards in the corner
- * {@link Anchors} gives, the message about a finished quest under it. The top middle (the boss bar) and the room over the hotbar (the
+ * {@link Anchors} gives. Messages about finished quests are the family's notices in the game's column of toasts
+ * ({@link QuestNotices}). The top middle (the boss bar) and the room over the hotbar (the
  * item's name, the action line) stay free. The scale never goes under 75 %; when the window is low (under 540 pixels) the stack holds
  * two cards instead of three. A pinned quest that is done stays and says "награда ждёт · K" instead of raising a message. On the very
  * first entry, before the book was ever opened, a hint of its key stands where the stack will be.
@@ -34,17 +36,10 @@ public final class StickerBoard {
     private static final int MARGIN = 14;
     private static final int GAP = 10;
     private static final int RECENT_DAMAGE_TICKS = 100;
-    private static final long DONE_MS = 5000;
     private static final double MIN_PIXELS = 1.5;
     private static final int LOW_WINDOW = 540;
     private static final int CARDS = 3;
     private static final int CARDS_LOW = 2;
-    private static final int TOASTS = 2;
-
-    private record Done(QuestToast card, long until) {
-    }
-
-    private static final List<Done> DONE = new ArrayList<>();
     private static boolean collapsed;
 
     private StickerBoard() {
@@ -54,12 +49,14 @@ public final class StickerBoard {
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "stickers"), StickerBoard::render);
     }
 
-    /** A quest got finished. A pinned one raises no message: its card changes its line by itself. */
-    public static void celebrate(Quest quest) {
-        if (ClientProgress.pinned().contains(quest.id())) {
-            return;
+    /**
+     * Quests got finished by one update of progress. A pinned one of the player's own raises no card: its card changes its line by
+     * itself. The messages are the family's notices ({@link QuestNotices}).
+     */
+    public static void celebrate(List<Quest> quests, java.util.Map<ResourceLocation, ProgressPayload.Done> done) {
+        if (!quests.isEmpty()) {
+            QuestNotices.completed(quests, done);
         }
-        DONE.add(new Done(new QuestToast(quest), System.currentTimeMillis() + DONE_MS));
     }
 
     public static void toggleCollapsed() {
@@ -104,26 +101,18 @@ public final class StickerBoard {
         if (fighting && !ClientConfig.HUD_IN_COMBAT.get()) {
             return;
         }
-        long now = System.currentTimeMillis();
-        DONE.removeIf(done -> done.until < now);
         List<Sticker> stack = new ArrayList<>();
         if (!ClientConfig.KEY_HINT_SHOWN.get() && !ClientBook.current().quests().isEmpty()) {
             stack.add(new KeyHint());
         }
         stack.addAll(cards());
-        List<Sticker> toasts = new ArrayList<>();
-        if (ClientConfig.COMPLETION_TOAST.get()) {
-            for (int i = Math.max(0, DONE.size() - TOASTS); i < DONE.size(); i++) {
-                toasts.add(DONE.get(i).card);
-            }
-        }
-        if (stack.isEmpty() && toasts.isEmpty()) {
+        if (stack.isEmpty()) {
             return;
         }
-        UiScale.render(g, scaled -> draw(scaled, stack, toasts));
+        UiScale.render(g, scaled -> draw(scaled, stack));
     }
 
-    private static void draw(GuiGraphics g, List<Sticker> stack, List<Sticker> toasts) {
+    private static void draw(GuiGraphics g, List<Sticker> stack) {
         // The family's scale, but never under 75 %: the cards stay readable on a small window.
         double pixels = UiScale.pixels();
         float k = pixels < MIN_PIXELS ? (float) (MIN_PIXELS / pixels) : 1f;
@@ -135,10 +124,6 @@ public final class StickerBoard {
         for (Sticker sticker : stack) {
             height += sticker.height(ui, WIDTH, collapsed) + GAP;
         }
-        for (Sticker toast : toasts) {
-            height += toast.height(ui, toast.width(ui), false) + GAP;
-            widest = Math.max(widest, toast.width(ui));
-        }
         int[] place = Anchors.place(Anchors.Element.PINNED_QUESTS, Math.round(widest * k / 2f), Math.round(height * k / 2f), MARGIN / 2, MARGIN / 2);
         float screenW = g.guiWidth() * 2 / k;
         int x = ClientConfig.HUD_RIGHT.get() ? Math.round(screenW - widest - MARGIN) : Math.round(place[0] * 2 / k);
@@ -147,17 +132,18 @@ public final class StickerBoard {
             sticker.render(ui, x, y, WIDTH, collapsed);
             y += sticker.height(ui, WIDTH, collapsed) + GAP;
         }
-        for (Sticker toast : toasts) {
-            int w = toast.width(ui);
-            toast.render(ui, ClientConfig.HUD_RIGHT.get() ? x + widest - w : x, y, w, false);
-            y += toast.height(ui, w, false) + GAP;
-        }
         g.pose().popPose();
     }
 
-    /** For the in-game autotest: a finished quest's message without finishing it (picture 31). */
+    /** For the in-game autotest: a finished quest's message without finishing it, as if {@code done} said so. */
+    public static void celebrateForTest(Quest quest, ProgressPayload.Done done) {
+        QuestNotices.completed(List.of(quest), java.util.Map.of(quest.id(), done));
+    }
+
+    /** For the in-game autotest: a finished quest's message without finishing it (picture 31), the reward waiting. */
     public static void celebrateForTest(Quest quest) {
-        DONE.add(new Done(new QuestToast(quest), System.currentTimeMillis() + DONE_MS * 4));
+        celebrateForTest(quest, new ProgressPayload.Done(java.util.Optional.empty(), "",
+                quest.rewards().isEmpty() ? ProgressPayload.Done.NONE : ProgressPayload.Done.WAITING));
     }
 
     /** For the in-game autotest: how many cards the stack shows now. */
@@ -166,6 +152,6 @@ public final class StickerBoard {
     }
 
     public static void clearForTest() {
-        DONE.clear();
+        works.repka.ryscore.ui.Notices.clearForTest();
     }
 }

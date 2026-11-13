@@ -335,14 +335,35 @@ public final class ProgressService {
             if (team(member).equals(team)) {
                 Map<ResourceLocation, QuestProgress> view = new HashMap<>();
                 changes.forEach((id, progress) -> view.put(id, viewFor(member, id, progress)));
+                Map<ResourceLocation, ProgressPayload.Done> done = new HashMap<>();
+                for (ResourceLocation id : newlyCompleted) {
+                    done.put(id, new ProgressPayload.Done(byPlayer ? Optional.of(player.getUUID()) : Optional.empty(),
+                            player.getGameProfile().getName(), rewardState(id, view.get(id))));
+                }
                 // The chapter of the last completion belongs to whoever did it: teammates keep their own.
-                PacketDistributor.sendToPlayer(member, new ProgressPayload(false, view, member == player ? lastChapter : Optional.empty()));
+                PacketDistributor.sendToPlayer(member, new ProgressPayload(false, view, member == player ? lastChapter : Optional.empty(), done));
                 if (tierReached) {
                     claimAchievements(member);
                     AchievementService.send(member);
                 }
             }
         }
+    }
+
+    /**
+     * What became of a just completed quest's reward for a member, for the message about it: achievement tiers are given at once, a
+     * reward only one of the team could take may already be taken, otherwise it waits in the book.
+     */
+    private static int rewardState(ResourceLocation id, QuestProgress view) {
+        Quest quest = book().quests().get(id);
+        if (quest == null || quest.rewards().isEmpty()) {
+            return ProgressPayload.Done.NONE;
+        }
+        if (Achievement.isTierQuest(id)) {
+            return ProgressPayload.Done.RECEIVED;
+        }
+        boolean allTaken = view != null && view.claimed().size() >= quest.rewards().size();
+        return allTaken ? ProgressPayload.Done.TEAM_TAKEN : ProgressPayload.Done.WAITING;
     }
 
     /** The story chapter of the last of these quests, for the next step on "Now"; achievement tiers and card conditions have none. */

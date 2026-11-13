@@ -74,17 +74,20 @@ public final class ClientProgress {
             return;
         }
         payload.lastChapter().ifPresent(chapter -> lastChapter = Optional.of(chapter));
+        List<Quest> finished = new java.util.ArrayList<>();
         payload.quests().forEach((id, progress) -> {
             if (progress.completed() && !get(id).completed()) {
                 Quest quest = ClientBook.current().quests().get(id);
-                // A hidden quest that has opened is an ordinary quest by now and gets its toast like any other.
+                // A hidden quest that has opened is an ordinary quest by now and gets its message like any other.
                 if (quest != null && (!quest.options().hidden() || Achievement.isTierQuest(quest.id())
                         || works.repka.rysquests.progress.QuestLogic.isUnlocked(quest, ClientProgress::get))) {
-                    StickerBoard.celebrate(quest);
+                    finished.add(quest);
                 }
             }
             QUESTS.put(id, progress);
         });
+        // After the whole update is in: a chapter the last of these quests closes counts as closed.
+        StickerBoard.celebrate(finished, payload.done());
     }
 
     /** How many players share this player's progress. */
