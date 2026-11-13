@@ -110,6 +110,7 @@ public final class MapCanvas {
     private Runnable openList;
 
     private boolean showSide = true;
+    private boolean showSideLinks = true;
     private int here = -1;
     private int selected = -1;
     private int[] route = new int[0];
@@ -216,6 +217,18 @@ public final class MapCanvas {
         return showSide;
     }
 
+    /**
+     * Side links shown or hidden ("Побочные связи" in the legend): the dashed roads between chapters and the roads to and between
+     * side quests. A way lit to a goal shows whatever it takes.
+     */
+    public void setShowSideLinks(boolean show) {
+        showSideLinks = show;
+    }
+
+    public boolean showSideLinks() {
+        return showSideLinks;
+    }
+
     /** The quest the player is at: "you are here". */
     public void setHere(@Nullable ResourceLocation quest) {
         here = index(quest);
@@ -318,6 +331,15 @@ public final class MapCanvas {
     }
 
     public void flyToChapter(ResourceLocation chapter) {
+        flyToChapter(chapter, 0);
+    }
+
+    /**
+     * Flies to the chapter as it will be framed in a rectangle {@code width} wide from the same left edge: the chapter's card opens
+     * on arrival and narrows the canvas, and a flight aimed at the narrower canvas from the start arrives without a jerk. 0 for the
+     * rectangle as it is.
+     */
+    public void flyToChapter(ResourceLocation chapter, float width) {
         if (layout == null || map == null) {
             return;
         }
@@ -328,8 +350,13 @@ public final class MapCanvas {
         CanvasLayout.Region region = layout.regions[c];
         openChapter = c;
         focusEpoch = map.chapters().get(c).epoch();
+        planWidth = width;
         frame(region.minX(), region.minY(), region.maxX(), region.maxY(), false, CHAPTER_FROM);
+        planWidth = 0;
     }
+
+    /** The width {@link #frame} frames for, when not the rectangle's own. */
+    private float planWidth;
 
     /** A close up of the quest, framed with the quest it hangs on so that the road between them shows. */
     public void flyToQuest(ResourceLocation quest) {
@@ -374,10 +401,23 @@ public final class MapCanvas {
      * map's panel opening narrows the canvas.
      */
     public void setViewport(int x, int y, int w, int h) {
+        viewport(x, y, w, h);
+    }
+
+    /**
+     * The rectangle of this frame. When only its width changes, as the map's panel opens or closes, the picture stays where it is:
+     * the view centre moves with the middle of the rectangle, through a flight too, so nothing jumps sideways.
+     */
+    private void viewport(int x, int y, int w, int h) {
+        float nw = Math.max(1, w);
+        float nh = Math.max(1, h);
+        if (layout != null && fitted && x == vx && y == vy && nh == vh && nw != vw) {
+            camera.shiftScreen((nw - vw) / 2, 0);
+        }
         vx = x;
         vy = y;
-        vw = Math.max(1, w);
-        vh = Math.max(1, h);
+        vw = nw;
+        vh = nh;
     }
 
     /** Where a canvas point is in the rectangle now, in mockup pixels. */
@@ -499,10 +539,7 @@ public final class MapCanvas {
     public void render(GuiGraphics g, int x, int y, int w, int h, int mx, int my) {
         long start = System.nanoTime();
         Theme t = canvasTheme();
-        vx = x;
-        vy = y;
-        vw = Math.max(1, w);
-        vh = Math.max(1, h);
+        viewport(x, y, w, h);
         mouseX = mx;
         mouseY = my;
         Draw.scissor(g, Math.floorDiv(x, 2), Math.floorDiv(y, 2), Math.floorDiv(x + w + 1, 2), Math.floorDiv(y + h + 1, 2));
@@ -622,9 +659,11 @@ public final class MapCanvas {
         float top = insetTop + labelRoom;
         double w = Math.max(1, x1 - x0);
         double h = Math.max(1, y1 - y0);
-        double s = Math.max(minScale, Math.min((vw - 2 * insetSide) / w, (vh - top - insetBottom) / h));
+        float planW = planWidth > 0 ? planWidth : vw;
+        double s = Math.max(minScale, Math.min((planW - 2 * insetSide) / w, (vh - top - insetBottom) / h));
         s = Math.min(s, MAX_SCALE);
-        double cx = (x0 + x1) / 2;
+        // framed in the middle of the planned rectangle, which shares the left edge of this one
+        double cx = (x0 + x1) / 2 + (vw - planW) / 2 / s;
         // the tools take the top of the view: what is framed sits below them
         double cy = (y0 + y1) / 2 - (top - insetBottom) / 2 / s;
         if (jump) {
@@ -850,6 +889,9 @@ public final class MapCanvas {
                 continue;
             }
             boolean onRoute = routeEdges.contains(edgeKey(a, b));
+            if (!showSideLinks && !onRoute && (edge.cross() || side(a) || side(b))) {
+                continue;
+            }
             if (edge.cross() && !onRoute) {
                 cross.add(edge);
                 continue;

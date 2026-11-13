@@ -69,6 +69,21 @@ final class Camera {
         }
     }
 
+    /**
+     * Moves the view centre by {@code dx, dy} mockup pixels at every moment of a flight, its start, its end and so where it is now:
+     * the view widens or narrows under a picture that should stay where it is.
+     */
+    void shiftScreen(double dx, double dy) {
+        cx += dx / scale;
+        cy += dy / scale;
+        if (flying) {
+            fromX += dx / fromScale;
+            fromY += dy / fromScale;
+            toX += dx / toScale;
+            toY += dy / toScale;
+        }
+    }
+
     void stop() {
         flying = false;
     }

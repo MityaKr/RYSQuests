@@ -45,6 +45,16 @@ public final class ClientConfig {
             .comment("The hint of the book's key on the first entry is done with.")
             .define("keyHintShown", false);
 
+    /** "Побочные квесты" in the map's legend: side quests on the canvas. */
+    public static final ModConfigSpec.BooleanValue MAP_SIDE_QUESTS = BUILDER
+            .comment("Show side quests on the map.")
+            .define("mapSideQuests", true);
+
+    /** "Побочные связи" in the map's legend: dashed roads between chapters and the roads of side quests. */
+    public static final ModConfigSpec.BooleanValue MAP_SIDE_LINKS = BUILDER
+            .comment("Show the dashed roads between chapters and the roads of side quests on the map.")
+            .define("mapSideLinks", true);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private ClientConfig() {

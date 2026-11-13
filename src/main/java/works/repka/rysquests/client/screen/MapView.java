@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
+import works.repka.rysquests.client.ClientConfig;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.canvas.MapCanvas;
 import works.repka.rysquests.client.canvas.MapLayouts;
@@ -110,12 +111,28 @@ final class MapView implements BookView {
         canvas.setStatus(MapView::status, ClientProgress::version);
         canvas.setInsets(56, 14, 54);
         canvas.setMinimapFrom(MapCanvas.Level.EPOCH);
+        canvas.setShowSide(ClientConfig.MAP_SIDE_QUESTS.get());
+        canvas.setShowSideLinks(ClientConfig.MAP_SIDE_LINKS.get());
+    }
+
+    /** The legend's switches, kept for the next time the book opens. */
+    private void showSide(boolean show) {
+        canvas.setShowSide(show);
+        ClientConfig.MAP_SIDE_QUESTS.set(show);
+        ClientConfig.MAP_SIDE_QUESTS.save();
+    }
+
+    private void showSideLinks(boolean show) {
+        canvas.setShowSideLinks(show);
+        ClientConfig.MAP_SIDE_LINKS.set(show);
+        ClientConfig.MAP_SIDE_LINKS.save();
     }
 
     // ================= the sidebar's side =================
 
     void flyToBook() {
         lastFlight = canvas::flyToBook;
+        plannedW = -1;
         openChapter = null;
         focusEpoch = 0;
         canvas.select(null);
@@ -127,6 +144,7 @@ final class MapView implements BookView {
         // the sidebar numbers a galaxy's chapters without a section -1; on the canvas they are epoch 0
         int epoch = Math.max(0, number);
         lastFlight = () -> canvas.flyToEpoch(epoch);
+        plannedW = -1;
         openChapter = null;
         focusEpoch = epoch;
         canvas.flyToEpoch(epoch);
@@ -135,13 +153,15 @@ final class MapView implements BookView {
     void flyToChapter(ResourceLocation chapter) {
         // flown again only as a camera move: a quest selected meanwhile stays selected
         lastFlight = () -> canvas.flyToChapter(chapter);
+        // the chapter's card opens on arrival and narrows the canvas: the flight aims at the narrower canvas from the start
+        plannedW = fullW > 0 && !screen.compact() ? fullW - PANEL_W : fullW;
         openChapter = chapter;
         focusEpoch = chapterEpoch(chapter);
         BookState.openChapter(chapter);
         BookState.quest = null;
         panelClosed = false;
         canvas.setOpenChapter(chapter);
-        canvas.flyToChapter(chapter);
+        canvas.flyToChapter(chapter, plannedW);
     }
 
     void flyToQuest(ResourceLocation quest) {
@@ -150,6 +170,7 @@ final class MapView implements BookView {
             return;
         }
         lastFlight = () -> canvas.flyToQuest(quest);
+        plannedW = -1;
         BookState.select(found);
         openChapter = found.chapter().orElse(null);
         focusEpoch = openChapter == null ? 0 : chapterEpoch(openChapter);
@@ -228,6 +249,7 @@ final class MapView implements BookView {
         boolean showCard = selected == null && openChapter != null && level.ordinal() >= MapCanvas.Level.CHAPTER.ordinal() && state.ready();
         boolean showPanel = (selected != null || showCard) && !panelClosed;
         int canvasW = showPanel && !compact ? w - PANEL_W : w;
+        fullW = w;
         canvas.setViewport(x, y, canvasW, h);
         long now = System.currentTimeMillis();
         if (canvas.flying()) {
@@ -236,7 +258,8 @@ final class MapView implements BookView {
         if (canvasW != lastCanvasW) {
             // the card of a chapter opens only when the flight has zoomed in far enough, often in its very last frame: a flight
             // that has just ended is flown again into the narrower canvas too, or the chapter stays framed for the wider one
-            if (lastCanvasW >= 0 && lastFlight != null && now - flyingSeenAt < REFLY_AFTER_MS) {
+            // a flight aimed at this width already (a chapter's) needs nothing
+            if (lastCanvasW >= 0 && lastFlight != null && now - flyingSeenAt < REFLY_AFTER_MS && canvasW != plannedW) {
                 lastFlight.run();
             }
             lastCanvasW = canvasW;
@@ -288,6 +311,10 @@ final class MapView implements BookView {
     @Nullable
     private Runnable lastFlight;
     private int lastCanvasW = -1;
+    /** The whole width of the map's area in the last frame, the canvas and the panel. */
+    private int fullW = -1;
+    /** The canvas width the last flight was aimed at, or -1. */
+    private float plannedW = -1;
     /** When the canvas was last seen in flight. */
     private long flyingSeenAt;
     private static final long REFLY_AFTER_MS = 300;
@@ -470,15 +497,19 @@ final class MapView implements BookView {
         }
     }
 
-    /** One line: done, can do, locked, milestone; and while side quests are hidden, "побочные скрыты · показать". */
+    /**
+     * One line: done, can do, locked, milestone; and while side quests are hidden, "побочные скрыты · показать", while only their
+     * links are, "связи скрыты · показать".
+     */
     private void drawLegendLine(Ui ui, float right, float y) {
         String[] words = {tr("rysquests.mapview.legend.done"), tr("rysquests.mapview.legend.open"), tr("rysquests.mapview.legend.locked"), tr("rysquests.mapview.legend.milestone")};
         float w = 12;
         for (String word : words) {
             w += 12 + 5 + ui.width(word, 11.5f, Ui.REGULAR) + 12;
         }
-        boolean hidden = !canvas.showSide();
-        String hiddenText = tr("rysquests.mapview.legend.side_hidden");
+        boolean sideHidden = !canvas.showSide();
+        boolean hidden = sideHidden || !canvas.showSideLinks();
+        String hiddenText = tr(sideHidden ? "rysquests.mapview.legend.side_hidden" : "rysquests.mapview.legend.links_hidden");
         String show = tr("rysquests.mapview.legend.show");
         float hiddenW = hidden ? 12 + ui.width(hiddenText, 11.5f, Ui.REGULAR) + 8 + ui.width(show, 11.5f, Ui.MEDIUM) + 12 : 0;
         w += hiddenW;
@@ -500,7 +531,13 @@ final class MapView implements BookView {
             pen += ui.width(hiddenText, 11.5f, Ui.REGULAR) + 8;
             float sw = ui.width(show, 11.5f, Ui.MEDIUM);
             ui.label(show, pen, cy, 11.5f, Ui.MEDIUM, ui.c("link"));
-            ui.hit(pen - 2, y, sw + 4, TB, () -> canvas.setShowSide(true));
+            ui.hit(pen - 2, y, sw + 4, TB, () -> {
+                if (sideHidden) {
+                    showSide(true);
+                } else {
+                    showSideLinks(true);
+                }
+            });
         }
     }
 
@@ -537,7 +574,10 @@ final class MapView implements BookView {
                 tr("rysquests.mapview.legend.milestone_long"), tr("rysquests.mapview.legend.side_long"), tr("rysquests.canvas.here")};
         String note = tr("rysquests.mapview.legend.note");
         List<String> noteLines = ui.wrap(note, w - 28, 11.5f, Ui.REGULAR, 4);
-        int h = 12 + 20 + 8 + rows.length * 26 + 8 + 30 + 4 + noteLines.size() * 16 + 12;
+        String linksHint = tr("rysquests.mapview.legend.links_hint");
+        List<String> hintLines = ui.wrap(linksHint, w - 28 - 44, 11, Ui.REGULAR, 2);
+        int linksH = 26 + hintLines.size() * 14 + 4;
+        int h = 12 + 20 + 8 + rows.length * 26 + 8 + 30 + linksH + 4 + noteLines.size() * 16 + 12;
         int x = right - PAD - w;
         int top = y + 50;
         int[] box = Kit.popover(ui.g, ui.theme, x / 2, top / 2, 1, 1, w / 2, h / 2, Kit.Side.BELOW, null, (g, bx, by, bw, bh) -> {
@@ -560,8 +600,19 @@ final class MapView implements BookView {
             float tx = px + w - 14 - 36;
             boolean hot = ui.over(tx, pen + 9, 36, 20);
             Kit.toggle(ui.g, ui.theme, Math.round(tx / 2), Math.round((pen + 9) / 2), canvas.showSide(), hot);
-            ui.hit(tx - 4, pen + 5, 44, 28, () -> canvas.setShowSide(!canvas.showSide()));
-            pen += 30 + 4;
+            ui.hit(tx - 4, pen + 5, 44, 28, () -> showSide(!canvas.showSide()));
+            pen += 30;
+            // the switch of side links: the dashed roads between chapters and the lines to side quests
+            ui.label(tr("rysquests.mapview.legend.links_toggle"), px + 14, pen + 13, 12.5f, Ui.REGULAR, ui.c("text.body"));
+            float linkPen = pen + 26;
+            for (String line : hintLines) {
+                ui.label(line, px + 14, linkPen + 2, 11, Ui.REGULAR, ui.c("text.muted"));
+                linkPen += 14;
+            }
+            boolean hotLinks = ui.over(tx, pen + 3, 36, 20);
+            Kit.toggle(ui.g, ui.theme, Math.round(tx / 2), Math.round((pen + 3) / 2), canvas.showSideLinks(), hotLinks);
+            ui.hit(tx - 4, pen - 1, 44, 28, () -> showSideLinks(!canvas.showSideLinks()));
+            pen += linksH + 4;
             for (String line : noteLines) {
                 ui.label(line, px + 14, pen + 8, 11.5f, Ui.REGULAR, ui.c("text.muted"));
                 pen += 16;
