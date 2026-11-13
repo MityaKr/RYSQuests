@@ -29,8 +29,11 @@ final class BookState {
     static ResourceLocation chapter;
     @Nullable
     static ResourceLocation quest;
+    /** The open view of the story: {@link ViewMode#HOME} is "Now", {@link ViewMode#MAP} and {@link ViewMode#LIST} are the "Map" tab. */
     @Nullable
     static ViewMode view;
+    /** Map or list: what the "Map" tab shows when it is opened again. */
+    static ViewMode mapMode = ViewMode.MAP;
     static String search = "";
     /** The open section of the book, or null for the first one. */
     @Nullable
@@ -135,29 +138,31 @@ final class BookState {
         selected.chapter().ifPresent(id -> chapter = id);
     }
 
-    /** The sections on the rail: those the book names and has something to show in. */
+    /** The sections with something to show, in book order: built-in ones first, then the author's own tabs. */
     static List<String> sections() {
         QuestBook book = ClientBook.current();
-        return book.meta().sections().stream().distinct().filter(id -> hasContent(book, id)).toList();
+        List<String> all = new java.util.ArrayList<>(List.of(Chapter.STORY, BookMeta.GUIDES, BookMeta.SHOP, BookMeta.ACHIEVEMENTS));
+        book.sections().keySet().forEach(id -> all.add(id.toString()));
+        return all.stream().filter(id -> hasContent(book, id)).toList();
     }
 
     private static boolean hasContent(QuestBook book, String id) {
+        if (!BookTabs.allowed(book, id)) {
+            return false;
+        }
         return switch (id) {
             case Chapter.STORY -> book.chapters().values().stream().anyMatch(chapter -> chapter.isStory() && !chapter.hidden());
             case BookMeta.GUIDES -> !book.guides().isEmpty();
             case BookMeta.SHOP -> !book.offers().isEmpty();
             case BookMeta.ACHIEVEMENTS -> !book.achievements().isEmpty();
-            default -> ResourceLocation.tryParse(id) != null && book.sections().containsKey(ResourceLocation.parse(id));
+            default -> ResourceLocation.tryParse(id) != null && BookTabs.authorSections(book).stream().anyMatch(section -> section.id().toString().equals(id));
         };
     }
 
     static String currentSection() {
         QuestBook book = ClientBook.current();
-        if (book.meta().sections().isEmpty()) {
-            return Chapter.STORY;
-        }
-        // A section that is not on the rail can still be open: a card's page leads to one.
-        if (section != null && hasContent(book, section)) {
+        // A section that is not listed can still be open: a card's page leads to one.
+        if (section != null && (hasContent(book, section) || ResourceLocation.tryParse(section) != null && book.sections().containsKey(ResourceLocation.parse(section)))) {
             return section;
         }
         List<String> sections = sections();
@@ -243,18 +248,38 @@ final class BookState {
         return 0;
     }
 
+    /** Keeps the open chapter one the book shows: the first story chapter when it is gone or was never set. */
+    static void ensureChapter() {
+        var open = chapter == null ? null : ClientBook.current().chapters().get(chapter);
+        if (open == null || !open.isStory()) {
+            chapter = BookData.chapters().stream().findFirst().map(Chapter::id).orElse(null);
+        }
+    }
+
     static void openChapter(ResourceLocation id) {
         chapter = id;
         showDone = false;
         showRest = false;
     }
 
+    /**
+     * The open view of the story. The flow, the timeline and the dev view are gone (plan, section 8): a book or chapter that still
+     * names one as its default opens on "Now".
+     */
     static ViewMode currentView() {
-        if (view != null) {
-            return view;
+        ViewMode chosen = view;
+        if (chosen == null) {
+            var open = chapter == null ? null : ClientBook.current().chapters().get(chapter);
+            chosen = open == null ? ClientBook.current().meta().defaultView() : open.defaultView().orElse(ClientBook.current().meta().defaultView());
         }
-        var open = chapter == null ? null : ClientBook.current().chapters().get(chapter);
-        return open == null ? ClientBook.current().meta().defaultView() : open.defaultView().orElse(ClientBook.current().meta().defaultView());
+        ViewMode shown = switch (chosen) {
+            case MAP, LIST -> chosen;
+            default -> ViewMode.HOME;
+        };
+        if (shown == ViewMode.MAP || shown == ViewMode.LIST) {
+            mapMode = shown;
+        }
+        return shown;
     }
 
     static QuestStatus status(Quest target) {

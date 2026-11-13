@@ -43,7 +43,7 @@ public final class QuestKeys {
 
     public static void tick() {
         while (OPEN_BOOK.consumeClick()) {
-            Minecraft.getInstance().setScreen(new BookScreen());
+            BookScreen.open();
         }
         while (BOARD.consumeClick()) {
             StickerBoard.toggleCollapsed();

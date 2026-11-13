@@ -50,7 +50,7 @@ final class SearchIndex {
         builtFor = book;
         builtLanguage = language;
         entries = List.of();
-        List<Chapter> chapters = BookScreen.chapters();
+        List<Chapter> chapters = BookData.chapters();
         CompletableFuture.supplyAsync(() -> build(book, chapters), Util.backgroundExecutor())
                 .thenAcceptAsync(built -> {
                     if (book == builtFor) {

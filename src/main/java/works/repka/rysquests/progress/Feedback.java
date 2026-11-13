@@ -18,7 +18,7 @@ public final class Feedback {
     private Feedback() {
     }
 
-    /** A refusal in words: the open book shows it in its message line, otherwise it goes above the hotbar. */
+    /** A refusal in words: the book shows it in its message line over the bottom of the page. */
     public static void refuse(ServerPlayer player, String key, Object... args) {
         message(player, false, key, args);
     }

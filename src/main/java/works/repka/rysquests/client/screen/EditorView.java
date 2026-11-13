@@ -335,7 +335,7 @@ final class EditorView {
     private List<Choice> quests() {
         List<Choice> out = new ArrayList<>();
         for (Quest quest : ClientBook.current().quests().values()) {
-            if (BookScreen.inStory(quest)) {
+            if (BookData.inStory(quest)) {
                 out.add(new Choice(tr(quest.title()), "", quest.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY), () -> insertLink("quest", quest.id().toString(), "")));
             }
         }

@@ -58,6 +58,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.client.ClientBook;
+import works.repka.rysquests.client.ClientMessages;
+import works.repka.rysquests.client.screen.BookRole;
+import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.screen.BookScreen;
 import works.repka.rysquests.data.BookHolder;
@@ -134,6 +137,8 @@ public final class AutoTest {
             buildValidateScenario();
         } else if ("book".equals(scenario)) {
             buildBookScenario();
+        } else if ("frame".equals(scenario)) {
+            buildFrameScenario();
         } else if ("repys".equals(scenario)) {
             buildRepysScenario();
         } else if ("design".equals(scenario) || "design_sizes".equals(scenario)) {
@@ -1596,6 +1601,115 @@ public final class AutoTest {
     }
 
     /** Plays the first example quest through the real keys and the real packets. */
+    /**
+     * The frame of the redesigned book (plan step 4): header and tabs, sidebar and its rail, settings, the message line, the
+     * closed-book line and its question, loading, the empty book for an operator, a player and with FTB, a first-run page, and the
+     * compact layout. Each state is a screenshot to lay over its mockup in {@code _audit/book2/final/img}.
+     */
+    private static void buildFrameScenario() {
+        openWorld();
+        expect("example book reached the client", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
+        step("mouse out of the way, no messages", () -> {
+            moveMouse(1, 1);
+            ClientMessages.dismiss();
+            ThemeManager.select("ryscore:slate");
+        }, 2);
+        step("open the book with its key", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        expect("the first opening is on Now", () -> "now".equals(BookScreen.bodyForTest()));
+        expect("tabs with content only", () -> BookScreen.tabsForTest().contains("now") && BookScreen.tabsForTest().contains("map"));
+        step("log the tabs", () -> LOGGER.info("[autotest] tabs: {}", BookScreen.tabsForTest()), 2);
+        screenshot("frame_now");
+        step("open the map tab", () -> BookScreen.openTabForTest("map"), 20);
+        expect("the map tab is open", () -> "map".equals(BookScreen.bodyForTest()));
+        screenshot("frame_map");
+        step("fold the sidebar", () -> BookScreen.foldSidebarForTest(true), 5);
+        screenshot("frame_map_rail");
+        step("unfold the sidebar, open the list", () -> {
+            BookScreen.foldSidebarForTest(false);
+            BookScreen.showForTest(ViewMode.LIST);
+        }, 10);
+        screenshot("frame_list");
+        for (String tab : List.of("guides", "shop", "achievements")) {
+            step("open the " + tab + " tab", () -> BookScreen.openTabForTest(tab), 10);
+            expect("the " + tab + " tab is open", () -> tab.equals(BookScreen.bodyForTest()));
+            screenshot("frame_" + tab);
+        }
+        step("open the settings", BookScreen::toggleSettingsForTest, 5);
+        expect("the settings are a page", () -> "page".equals(BookScreen.bodyForTest()));
+        screenshot("frame_settings");
+        step("back from the settings", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("the settings closed, the book stayed", () -> mc().screen instanceof BookScreen && "achievements".equals(BookScreen.bodyForTest()));
+        step("a message from the server", () -> {
+            BookScreen.openTabForTest("now");
+            ClientMessages.show("rysquests.reward.error.inventory_full", List.of(), false);
+        }, 5);
+        screenshot("frame_message");
+        step("the shared components on one page", works.repka.rysquests.client.screen.FrameShowcase::open, 10);
+        screenshot("frame_components");
+        step("back from the components", () -> {
+            pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ClientMessages.dismiss();
+        }, 5);
+        step("a closed book", () -> {
+            QuestBook book = ClientBook.current();
+            ClientBook.overrideForTest(new QuestBook(book.meta().withPublished(false), book.chapters(), book.quests(), book.guides(), book.sections(),
+                    book.unlocks(), book.byItem(), book.hash(), book.assets(), book.offers(), book.achievements(), book.structures(), book.layoutHash(),
+                    book.layout()), null);
+            BookScreen.openTabForTest("map");
+        }, 10);
+        screenshot("frame_closed");
+        step("ask to open it", BookScreen::askToOpenForTest, 5);
+        expect("the question is open", BookScreen::dialogOpenForTest);
+        screenshot("frame_closed_ask");
+        step("answer no with Esc", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("the question closed, the book stayed", () -> !BookScreen.dialogOpenForTest() && mc().screen instanceof BookScreen);
+        step("the book still loading", () -> ClientBook.overrideForTest(QuestBook.EMPTY, false), 5);
+        expect("loading state", () -> "loading".equals(BookScreen.bodyForTest()));
+        screenshot("frame_loading");
+        step("an empty book, operator", () -> {
+            ClientBook.overrideForTest(QuestBook.EMPTY, true);
+            BookScreen.ftbForTest(false);
+        }, 5);
+        expect("empty state", () -> "empty".equals(BookScreen.bodyForTest()));
+        screenshot("frame_empty_operator");
+        step("an empty book, player", () -> BookRole.forceForTest(false), 5);
+        screenshot("frame_empty_player");
+        step("an empty book with FTB", () -> {
+            BookRole.forceForTest(null);
+            BookScreen.ftbForTest(true);
+        }, 5);
+        screenshot("frame_empty_ftb");
+        step("build the book", () -> BookScreen.openEmptyPageForTest(false), 5);
+        expect("a first-run page", () -> "page".equals(BookScreen.bodyForTest()));
+        screenshot("frame_new_book");
+        step("back to the real book", () -> {
+            pressKey(GLFW.GLFW_KEY_ESCAPE);
+            BookScreen.ftbForTest(null);
+            ClientBook.overrideForTest(null, null);
+        }, 5);
+        expect("the book is back", () -> List.of("now", "map").contains(BookScreen.bodyForTest()));
+        step("a small window", () -> {
+            mc().getWindow().setWindowed(1100, 700);
+            mc().resizeDisplay();
+            BookScreen.openTabForTest("map");
+        }, 20);
+        expect("compact layout", BookScreen::compactForTest);
+        screenshot("frame_compact_map");
+        step("compact now", () -> BookScreen.openTabForTest("now"), 10);
+        screenshot("frame_compact_now");
+        step("compact settings", BookScreen::toggleSettingsForTest, 5);
+        screenshot("frame_compact_settings");
+        step("back to the size of the mockups", () -> {
+            pressKey(GLFW.GLFW_KEY_ESCAPE);
+            mc().getWindow().setWindowed(1280, 800);
+            mc().resizeDisplay();
+        }, 20);
+        expect("normal layout again", () -> !BookScreen.compactForTest());
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("book closed", () -> mc().screen == null);
+    }
+
     private static void buildBookScenario() {
         ResourceLocation chapter = ResourceLocation.parse("example:01_start");
         ResourceLocation quest = ResourceLocation.parse("example:start/first_tools");

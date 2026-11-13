@@ -57,7 +57,7 @@ final class HomeView implements BookView {
         List<Quest> claim = new ArrayList<>();
         List<News> finished = new ArrayList<>();
         for (Quest quest : ClientBook.current().quests().values()) {
-            if (!BookScreen.inStory(quest)) {
+            if (!BookData.inStory(quest)) {
                 continue;
             }
             QuestStatus status = BookState.status(quest);
@@ -110,7 +110,7 @@ final class HomeView implements BookView {
         for (int i = 0; i < quest.tasks().size(); i++) {
             if (quest.tasks().get(i) instanceof ItemTask item) {
                 // Craft mode counts what is crafted, so items already held do not bring the quest closer (review U9).
-                missing += works.repka.rysquests.progress.QuestLogic.stillNeeded(item, own.task(i), BookScreen.held(item));
+                missing += works.repka.rysquests.progress.QuestLogic.stillNeeded(item, own.task(i), BookData.held(item));
             }
         }
         return missing;
@@ -150,7 +150,7 @@ final class HomeView implements BookView {
             int[] counts = BookScreen.countsOf(chapter.id());
             int done = counts[0];
             int total = counts[1];
-            String status = Component.translatable("rysquests.home.chapter_status", Ui.roman(BookScreen.chapterNumber(chapter.id())), done, total).getString();
+            String status = Component.translatable("rysquests.home.chapter_status", Ui.roman(BookData.chapterNumber(chapter.id())), done, total).getString();
             ui.labelRight(status, x + w, y + 15.5f, 12, Ui.REGULAR, ui.c("text.muted"));
         }
         float cursor = y + 26 + 12;
@@ -285,8 +285,8 @@ final class HomeView implements BookView {
     private float renderRight(Ui ui, float x, float y, float w) {
         ui.label(Component.translatable("rysquests.home.progress").getString(), x, y + 13, 20, Ui.DISPLAY, ui.c("text.primary"));
         float boxY = y + 38;
-        List<Chapter> chapters = BookScreen.chapters();
-        int firstRow = Math.max(0, Math.min(chapters.size() - PROGRESS_ROWS, BookScreen.chapterNumber(BookState.chapter) - 3));
+        List<Chapter> chapters = BookData.chapters();
+        int firstRow = Math.max(0, Math.min(chapters.size() - PROGRESS_ROWS, BookData.chapterNumber(BookState.chapter) - 3));
         int rows = Math.min(PROGRESS_ROWS, chapters.size());
         float boxH = 30 + rows * 46 - 8;
         ui.box(x, boxY, w, boxH, 12, ui.c("card.bg"), ui.c("panel.border"));

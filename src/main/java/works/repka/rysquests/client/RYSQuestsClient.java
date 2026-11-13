@@ -26,6 +26,12 @@ import works.repka.rysquests.client.hud.StickerBoard;
 import works.repka.rysquests.client.input.QuestKeys;
 import works.repka.rysquests.client.screen.BookScreen;
 import works.repka.rysquests.network.ModNetwork;
+import works.repka.ryscore.dock.DockButton;
+import works.repka.ryscore.ui.Icons;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.neoforged.neoforge.client.event.sound.PlaySoundEvent;
 
 /** Client-only entry point; never loaded on a dedicated server. */
 @Mod(value = RYSQuests.MODID, dist = Dist.CLIENT)
@@ -54,6 +60,7 @@ public final class RYSQuestsClient {
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> QuestKeys.tick());
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> Ponders.tick());
         NeoForge.EVENT_BUS.addListener(RYSQuestsClient::onClientCommands);
+        NeoForge.EVENT_BUS.addListener(RYSQuestsClient::onSound);
         NeoForge.EVENT_BUS.addListener((ClientChatReceivedEvent.Player event) -> QuestLinks.onChat(event));
         NeoForge.EVENT_BUS.addListener((ClientChatReceivedEvent.System event) -> QuestLinks.onChat(event));
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> {
@@ -68,15 +75,42 @@ public final class RYSQuestsClient {
     }
 
     private static void onClientSetup(FMLClientSetupEvent event) {
+        event.enqueueWork(RYSQuestsClient::registerDockButton);
         LOGGER.info("RYSQuests client setup complete");
     }
 
+    /**
+     * "Квесты" in the family's panel of buttons (RYSCore 1.9, plan section 4): without FTB Library the panel stands left of the
+     * inventory; with FTB Library our button stays in FTB's own panel ({@code sidebar_buttons/book.json}) unless a host replaces it.
+     */
+    private static void registerDockButton() {
+        DockButton.builder("rysquests_book")
+                .label(() -> Component.translatable("rysquests.dock.label"))
+                .description(() -> Component.translatable("rysquests.dock.description", QuestKeys.label(QuestKeys.OPEN_BOOK)))
+                .tile(0xFFE9A83A)
+                .icon(Icons.Shape.BOOK)
+                .key(QuestKeys.OPEN_BOOK)
+                .order(0)
+                .replacesFtb("ftbquests_quests")
+                .action(BookScreen::open)
+                .register();
+    }
+
     /** The FTB sidebar button runs this command: buttons there can only run commands or fire FTB's own events. */
+    /** "Звук награды" off in the book's settings: the reward chime the server plays to the player stays silent. */
+    private static void onSound(PlaySoundEvent event) {
+        var sound = event.getSound();
+        if (sound != null && !ClientConfig.REWARD_SOUND.get() && sound.getSource() == SoundSource.PLAYERS
+                && SoundEvents.AMETHYST_BLOCK_CHIME.getLocation().equals(sound.getLocation())) {
+            event.setSound(null);
+        }
+    }
+
     private static void onClientCommands(RegisterClientCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("rysquests_book")
                 .executes(context -> {
                     Minecraft mc = Minecraft.getInstance();
-                    mc.execute(() -> mc.setScreen(new BookScreen()));
+                    mc.execute(BookScreen::open);
                     return 1;
                 })
                 .then(Commands.literal("open").then(Commands.argument("quest", ResourceLocationArgument.id()).executes(context -> {

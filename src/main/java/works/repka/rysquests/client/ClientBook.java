@@ -30,7 +30,8 @@ public final class ClientBook {
     }
 
     public static QuestBook current() {
-        return current;
+        QuestBook test = testBook;
+        return test != null ? test : current;
     }
 
     /**
@@ -38,7 +39,22 @@ public final class ClientBook {
      * a player of a closed book gets an empty one (plan, pictures 04 and 04b).
      */
     public static boolean received() {
-        return received;
+        Boolean test = testReceived;
+        return test != null ? test : received;
+    }
+
+    @org.jetbrains.annotations.Nullable
+    private static volatile QuestBook testBook;
+    @org.jetbrains.annotations.Nullable
+    private static volatile Boolean testReceived;
+
+    /**
+     * Makes the client see another book, or "still loading", until called with nulls: the autotest's way to the empty and loading
+     * states of the book in a world that has a book.
+     */
+    public static void overrideForTest(@org.jetbrains.annotations.Nullable QuestBook book, @org.jetbrains.annotations.Nullable Boolean arrived) {
+        testBook = book;
+        testReceived = arrived;
     }
 
     /** Opens the book to players or closes it again; only an operator may, and the server answers with an editor result. */

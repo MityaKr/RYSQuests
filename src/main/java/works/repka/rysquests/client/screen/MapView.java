@@ -124,7 +124,7 @@ final class MapView implements BookView {
         List<Quest> all = new ArrayList<>(own);
         for (ResourceLocation id : chapter.links()) {
             Quest linked = ClientBook.current().quests().get(id);
-            if (linked != null && !all.contains(linked) && BookScreen.inStory(linked)
+            if (linked != null && !all.contains(linked) && BookData.inStory(linked)
                     && (!linked.options().hidden() || works.repka.rysquests.progress.QuestLogic.isUnlocked(linked, ClientProgress::get))) {
                 all.add(linked);
             }
@@ -437,7 +437,7 @@ final class MapView implements BookView {
         float sx = viewX + (x - panX) * zoom;
         float sy = viewY + (y - panY) * zoom;
         ui.hit(sx, sy, w * zoom, h * zoom, click);
-        ui.rightHit(sx, sy, w * zoom, h * zoom, () -> BookScreen.togglePin(quest.id()));
+        ui.rightHit(sx, sy, w * zoom, h * zoom, () -> BookData.togglePin(quest.id()));
     }
 
     private void renderNode(Ui ui, Quest quest, Placed placed, Layout current) {
@@ -492,7 +492,7 @@ final class MapView implements BookView {
         float px = 10.5f;
         if (linked(quest)) {
             // A link names the chapter the quest lives in; a click opens it there, and Backspace comes back.
-            String chapter = Ui.roman(BookScreen.chapterNumber(quest.chapter().orElse(null)));
+            String chapter = Ui.roman(BookData.chapterNumber(quest.chapter().orElse(null)));
             String token = status == QuestStatus.CLAIMED ? "state.ok" : status == QuestStatus.LOCKED ? "text.muted" : "accent";
             ui.labelFit(Component.translatable("rysquests.map.linked", chapter).getString(), x, cy, maxW, px, Ui.REGULAR, Draw.alpha(ui.c(token), opacity));
             return;
@@ -575,7 +575,7 @@ final class MapView implements BookView {
         float left = viewX + 16;
         float cy = viewY + 21.5f;
         if (chapter != null) {
-            String title = Ui.roman(BookScreen.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
+            String title = Ui.roman(BookData.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
             ui.label(title, left, cy, 15, Ui.DISPLAY, ui.c("text.primary"));
             left += ui.width(title, 15, Ui.DISPLAY) + 10;
         }

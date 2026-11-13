@@ -133,7 +133,7 @@ final class GuidePageView implements BookView {
         if (topics == null || topics.book != book || !topics.guide.equals(guide.id()) || topics.page != index) {
             List<ItemStack> items = new ArrayList<>();
             GuideTopics.items(body).forEach(id -> items.add(TaskText.stackOf(id)));
-            topics = new Topics(book, guide.id(), index, GuideTopics.quests(book, guide, page, body).stream().filter(BookScreen::inStory).toList(), items);
+            topics = new Topics(book, guide.id(), index, GuideTopics.quests(book, guide, page, body).stream().filter(BookData::inStory).toList(), items);
             textScroll.reset();
             panelScroll.reset();
             // Meshes of the page left behind go now, not when the book closes: leafing through would pile them up.
@@ -444,7 +444,7 @@ final class GuidePageView implements BookView {
         ui.cell(icon, left, rowY, 32, 32, 7, 18, ui.c("slot.bg"), ui.c("card.border"));
         QuestProgress own = ClientProgress.get(quest.id());
         ui.labelFit(tr(quest.title()), left + 42, rowY + 8, inner - 42, 13, Ui.SEMIBOLD, ui.c("text.primary"));
-        String chapter = Ui.roman(BookScreen.chapterNumber(quest.chapter().orElse(null)));
+        String chapter = Ui.roman(BookData.chapterNumber(quest.chapter().orElse(null)));
         String line = Component.translatable("rysquests.guides.quest_line", chapter, QuestCard.tasksDone(quest, own), quest.tasks().size()).getString();
         ui.labelFit(line, left + 42, rowY + 24, inner - 42, 11, Ui.REGULAR, ui.c("text.muted"));
         float barY = rowY + 32 + 8;
