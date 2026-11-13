@@ -853,11 +853,37 @@ public final class MapCanvas {
                     }
                     float width = (float) (region.width() * f.s) / PER_GUI;
                     if (hover || on) {
-                        Draw.polyline(g, xy, n, false, width + 2.4f / PER_GUI, hover ? t.c("text.muted") : t.c("text.dim"));
+                        int edge = hover ? t.c("text.muted") : t.c("text.dim");
+                        Draw.polyline(g, xy, n, false, width + 2.4f / PER_GUI, edge);
+                        roundJoins(g, xy, n, (width + 2.4f / PER_GUI) / 2, edge);
                     }
                     int color = hover || on ? t.c("card.bg") : st == CH_DONE ? Draw.mix(bg, done, 0.05f) : st == CH_CURRENT ? Draw.mix(bg, open, 0.045f) : Draw.mix(bg, open, 0.02f);
                     Draw.polyline(g, xy, n, false, width, color);
+                    roundJoins(g, xy, n, width / 2, color);
                 }
+            }
+        }
+    }
+
+    /**
+     * Fills the wedges a wide band leaves open where its line turns sharply: in the curl round the middle of the spiral the band is
+     * far wider than the turn and its pieces fan out. A plain spiral turns a degree a piece and needs none.
+     */
+    private static void roundJoins(GuiGraphics g, float[] xy, int n, float radius, int color) {
+        for (int i = 1; i + 1 < n; i++) {
+            float ax = xy[2 * i] - xy[2 * i - 2];
+            float ay = xy[2 * i + 1] - xy[2 * i - 1];
+            float bx = xy[2 * i + 2] - xy[2 * i];
+            float by = xy[2 * i + 3] - xy[2 * i + 1];
+            float la = (float) Math.hypot(ax, ay);
+            float lb = (float) Math.hypot(bx, by);
+            if (la == 0 || lb == 0) {
+                continue;
+            }
+            float cos = (ax * bx + ay * by) / (la * lb);
+            // a turn of more than about 6 degrees opens a wedge wider than a pixel on a band this wide
+            if (cos < 0.995f && radius * (float) Math.sqrt(Math.max(0, 2 - 2 * cos)) > 0.5f) {
+                Draw.disc(g, xy[2 * i], xy[2 * i + 1], radius, color);
             }
         }
     }
