@@ -238,15 +238,19 @@ final class MapView implements BookView {
         canvas.render(ui.g, x, y, canvasW, h, ui.mouseX, ui.mouseY);
         int toolsRight = showPanel && compact ? x + w - PANEL_W : x + canvasW;
         middle = new int[] {x, y, toolsRight - x, h};
-        drawTopLeft(ui, x, y, toolsRight - x, compact);
-        if (state.ready()) {
-            drawTopRight(ui, toolsRight, y);
-            drawBottom(ui, x, y, toolsRight - x, h, compact, level);
-            drawChapterPopover(ui, x, y, canvasW, h);
-            if (legendOpen) {
-                drawLegend(ui, toolsRight, y);
+        // the tools lie over the canvas: above the items of the nodes under them too
+        int toolsAt = toolsRight;
+        ui.aboveItems(() -> {
+            drawTopLeft(ui, x, y, toolsAt - x, compact);
+            if (state.ready()) {
+                drawTopRight(ui, toolsAt, y);
+                drawBottom(ui, x, y, toolsAt - x, h, compact, level);
+                drawChapterPopover(ui, x, y, canvasW, h);
+                if (legendOpen) {
+                    drawLegend(ui, toolsAt, y);
+                }
             }
-        }
+        });
         questShown = showPanel && selected != null;
         if (showPanel) {
             int px = x + w - PANEL_W;

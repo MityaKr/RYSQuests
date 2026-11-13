@@ -272,7 +272,8 @@ final class EditorMapView extends EditorPage implements QuestForm.Host, QuestTab
         if (linkFrom != null && linkMoved) {
             renderLink(ui, x, y, w, h, book);
         }
-        renderTools(ui, x, y, w, book, compact);
+        // the tools lie over the canvas: above the items of the nodes under them too
+        ui.aboveItems(() -> renderTools(ui, x, y, w, book, compact));
     }
 
     /** The tools over the canvas: "Карта | Таблица", the crumbs, "+ Квест"; on the right help, "−" and "+". */

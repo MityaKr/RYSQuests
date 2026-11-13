@@ -299,7 +299,9 @@ final class ShopView implements BookView {
             String full = Ui.roman(group.number()) + " " + group.title();
             for (String key : sections) {
                 String name = tr(key);
-                if (name.equals(full) || name.equals(group.title())) {
+                // "II Индустрия", "Индустрия", and as the RepYS shop writes its sections, "II. Индустрия"
+                String bare = name.replaceFirst("^[IVXLCDM]+\\.?\\s+", "");
+                if (name.equals(full) || name.equals(group.title()) || bare.equals(group.title())) {
                     return key;
                 }
             }

@@ -130,8 +130,10 @@ class RepysBookDataTest {
         assertEquals(Set.of(id("a01_map"), id("a2_chronicle")), off, "the intro and the chronicle are off the map");
         assertTrue(off.stream().allMatch(c -> after.chapters().get(c).epoch().orElse(0) == 0), "only chapters without an epoch leave the map");
         long offQuests = after.quests().values().stream().filter(q -> q.options().live() && q.chapter().filter(off::contains).isPresent()).count();
-        assertEquals(was.chapters().size() - off.size(), now.chapters().size(), "chapters on the map");
-        assertEquals(was.quests().size() - offQuests, now.quests().size(), "quests on the map");
+        // The instance's book keeps them in epoch 0, which already reads as no epoch (ADR-51): the same map either way.
+        assertEquals(was.chapters().size(), now.chapters().size(), "chapters on the map");
+        assertEquals(was.quests().size(), now.quests().size(), "quests on the map");
+        assertTrue(now.chapters().stream().noneMatch(chapter -> off.contains(chapter.id())), "neither is on the map");
         System.out.printf("on the map: %d chapters, %d quests before; %d chapters, %d quests after (%d quests off the map); %d chapters, %d quests in all%n",
                 was.chapters().size(), was.quests().size(), now.chapters().size(), now.quests().size(), offQuests, after.chapters().size(), after.quests().size());
     }
@@ -184,12 +186,14 @@ class RepysBookDataTest {
 
     @Test
     @Order(7)
-    void choosesTheSerpentineOnItsOwn() throws IOException {
+    void takesTheSpiralItsAuthorSet() throws IOException {
         QuestBook book = read(copy()).book();
-        assertEquals(MapForm.AUTO, book.meta().mapForm(), "the book leaves the form to the rule");
+        // The author's choice: RepYS is a spiral. Left to the rule, its epochs would make it a serpentine.
+        assertEquals(MapForm.SPIRAL, book.meta().mapForm(), "book.json sets the form");
         MapForms.Choice choice = MapForms.choose(book);
-        assertEquals(MapForm.SERPENTINE, choice.form());
-        assertEquals(MapForms.Reason.EPOCHS, choice.reason());
+        assertEquals(MapForm.SPIRAL, choice.form());
+        assertEquals(MapForms.Reason.SET_BY_AUTHOR, choice.reason());
+        assertEquals(MapForm.SERPENTINE, MapForms.auto(book.meta(), List.copyOf(book.chapters().values()), List.copyOf(book.quests().values())).form());
         System.out.printf("form: %s by %s, %d of %d chapters with an epoch%n", choice.form(), choice.reason(), choice.chaptersWithEpoch(), choice.chapters());
     }
 
@@ -203,12 +207,12 @@ class RepysBookDataTest {
         assertEquals(book.layoutHash(), baked.hash(), "the hash the server works out");
         assertTrue(book.freshLayout().isPresent());
         assertTrue(result.report().issues().stream().noneMatch(issue -> issue.code().equals("layout_stale")));
-        assertEquals(MapForm.SERPENTINE, baked.form());
+        assertEquals(MapForm.SPIRAL, baked.form());
         MapBook map = MapBook.of(book);
         CanvasLayout read = CanvasLayout.fromBaked(map, baked);
         assertNotNull(read, "the file holds the whole canvas");
         CanvasLayoutTest.check(map, read, "RepYS baked");
-        assertTrue(new LayoutEngine().lay(map, MapForm.SERPENTINE).sameAs(read), "the engine lays the book out as the file has it");
+        assertTrue(new LayoutEngine().lay(map, MapForm.SPIRAL).sameAs(read), "the engine lays the book out as the file has it");
         assertEquals(map.quests().size(), baked.nodes().size(), "a node for every quest on the map");
     }
 
