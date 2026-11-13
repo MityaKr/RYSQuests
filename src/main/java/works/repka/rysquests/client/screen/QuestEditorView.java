@@ -151,6 +151,8 @@ final class QuestEditorView {
     private State state;
     private State saved;
     private boolean newChapter;
+    /** The last save was refused because another operator changed the chapter: the next one saves over their changes. */
+    private boolean forceNextSave;
     private QuestBook base;
     private Tab tab = Tab.PROPS;
     private int taskForm = -1;
@@ -442,7 +444,7 @@ final class QuestEditorView {
             String key = QuestEdits.groupKey(state.chapter.id(), id);
             groups.add(new Chapter.Group(id, key));
             Chapter c = state.chapter;
-            setChapter(new Chapter(c.id(), c.title(), c.subtitle(), c.icon(), c.epoch(), c.defaultView(), groups, c.requires(), c.hidden(), c.section(), c.links()));
+            setChapter(c.withGroups(groups));
             putText(key, text("rysquests.quest_editor.group_name", number));
             selected.forEach(each -> putQuest(QuestEdits.withGroup(state.quests.get(each), Optional.of(id))));
         });
@@ -564,16 +566,24 @@ final class QuestEditorView {
         });
         saving = true;
         show(tr("rysquests.editor.saving"), false);
-        PacketDistributor.sendToServer(new QuestEditorSavePayload(state.chapter, chapterChanged(), quests, Minecraft.getInstance().getLanguageManager().getSelected(), texts));
+        // The version the editing began from: the server refuses to save over what another operator saved meanwhile.
+        String baseVersion = newChapter ? "" : works.repka.rysquests.data.BookHash.chapterVersion(saved.chapter, saved.quests.values(), ops());
+        PacketDistributor.sendToServer(new QuestEditorSavePayload(state.chapter, chapterChanged(), quests, Minecraft.getInstance().getLanguageManager().getSelected(), texts,
+                baseVersion, forceNextSave));
+        forceNextSave = false;
     }
 
-    void onResult(boolean ok, String reason) {
+    void onResult(boolean ok, String reason, List<String> args) {
         saving = false;
         if (ok) {
             saved = state;
             newChapter = false;
             BookState.chapter = state.chapter.id();
             show(tr("rysquests.editor.saved"), false);
+        } else if (reason.startsWith(works.repka.rysquests.network.EditorResultPayload.CONFLICT)) {
+            // Saving once more saves over the other operator's changes; the message says so.
+            forceNextSave = true;
+            show(Component.translatable(reason, args.toArray()).getString(), true);
         } else {
             show(text("rysquests.editor.failed", tr(reason)), true);
         }
@@ -760,7 +770,7 @@ final class QuestEditorView {
         for (Quest quest : state.quests.values()) {
             var at = quest.options().layout();
             nodes.add(new ChapterLayout.Node(quest.id().toString(), quest.requires().stream().map(ResourceLocation::toString).toList(), quest.group(),
-                    quest.options().optional(), at.x().map(OptionalInt::of).orElse(OptionalInt.empty()), at.y().map(OptionalInt::of).orElse(OptionalInt.empty())));
+                    quest.options().optional(), at.fixedX().map(OptionalInt::of).orElse(OptionalInt.empty()), at.fixedY().map(OptionalInt::of).orElse(OptionalInt.empty())));
         }
         List<String> groupOrder = state.chapter.groups().stream().map(Chapter.Group::id).toList();
         String key = nodes.toString() + groupOrder;
@@ -778,7 +788,7 @@ final class QuestEditorView {
 
     private int[] position(Quest quest) {
         var fixed = quest.options().layout();
-        if (fixed.x().isPresent() && fixed.y().isPresent()) {
+        if (fixed.fixedX().isPresent() && fixed.fixedY().isPresent()) {
             return new int[] {fixed.x().get(), fixed.y().get()};
         }
         Placed placed = layout.get(quest.id().toString());
@@ -1246,13 +1256,13 @@ final class QuestEditorView {
         }
         Map<ResourceLocation, Quest> quests = new LinkedHashMap<>();
         state.quests.values().forEach(quest -> quests.put(quest.id(), quest.withChapter(id)));
-        state = new State(new Chapter(id, key, c.subtitle(), c.icon(), c.epoch(), c.defaultView(), c.groups(), c.requires(), c.hidden(), c.section(), c.links()), quests, texts);
+        state = new State(new Chapter(id, key, c.subtitle(), c.icon(), c.epoch(), c.defaultView(), c.groups(), c.requires(), c.hidden(), c.section(), c.links(), c.offMap()), quests, texts);
     }
 
     private void setEpoch(String value) {
         Chapter c = state.chapter;
         Optional<Integer> epoch = value.matches("[0-9]{1,3}") ? Optional.of(Integer.parseInt(value)) : Optional.empty();
-        setChapter(new Chapter(c.id(), c.title(), c.subtitle(), c.icon(), epoch, c.defaultView(), c.groups(), c.requires(), c.hidden(), c.section(), c.links()));
+        setChapter(c.withEpoch(epoch));
     }
 
     private float readOnly(Ui ui, String label, String value, float x, float y, float w) {
@@ -1425,7 +1435,7 @@ final class QuestEditorView {
     private void renderLayoutField(Ui ui, Quest quest, float x, float y, float w) {
         ui.label(tr("rysquests.quest_editor.field.layout"), x, y + 7, 11, Ui.REGULAR, ui.c("text.muted"));
         float boxY = y + 18;
-        boolean auto = quest.options().layout().x().isEmpty();
+        boolean auto = quest.options().layout().fixedX().isEmpty();
         ui.box(x, boxY, w, 32, 8, ui.over(x, boxY, w, 32) ? ui.c("slot.hover") : ui.c("slot.bg"), ui.c("button.border"));
         ui.label(tr(auto ? "rysquests.quest_editor.layout_auto" : "rysquests.quest_editor.layout_manual"), x + 10, boxY + 16, 12, Ui.REGULAR, ui.c("button.fg"));
         ui.fill(x + w - 38, boxY + 8, 28, 16, 8, auto ? ui.c("accent") : ui.c("button.border"));
@@ -1434,7 +1444,7 @@ final class QuestEditorView {
         ui.hit(x, boxY, w, 32, () -> edit(() -> {
             Quest current = state.quests.get(id);
             int[] at = position(current);
-            putQuest(current.options().layout().x().isEmpty() ? QuestEdits.moved(current, at[0], at[1]) : QuestEdits.auto(current));
+            putQuest(current.options().layout().fixedX().isEmpty() ? QuestEdits.moved(current, at[0], at[1]) : QuestEdits.auto(current));
         }));
     }
 
@@ -1961,6 +1971,6 @@ final class QuestEditorView {
     }
 
     boolean layoutReadyForTest() {
-        return layout.size() == state.quests.size() || state.quests.values().stream().allMatch(quest -> quest.options().layout().x().isPresent());
+        return layout.size() == state.quests.size() || state.quests.values().stream().allMatch(quest -> quest.options().layout().fixedX().isPresent());
     }
 }

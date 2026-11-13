@@ -4,6 +4,8 @@ import java.util.function.Function;
 import net.minecraft.resources.ResourceLocation;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.RequiresMode;
+import works.repka.rysquests.data.TaskDef;
+import works.repka.rysquests.task.ItemTask;
 
 /** Status rules shared by the server and the client's display. */
 public final class QuestLogic {
@@ -20,6 +22,23 @@ public final class QuestLogic {
             case RequiresMode.AtLeast atLeast -> done >= Math.min(atLeast.n(), quest.requires().size());
             case RequiresMode.Named named -> named == RequiresMode.ANY ? done > 0 : done == quest.requires().size();
         };
+    }
+
+    /** A quest players see and the server counts: neither a draft nor in the archive. */
+    public static boolean isLive(Quest quest) {
+        return quest.options().live();
+    }
+
+    /**
+     * How much of a task is still missing when the player holds {@code held} of what it asks for. A task in craft mode counts
+     * only what is crafted after the quest opened, so what lies in the inventory does not bring it closer.
+     */
+    public static int stillNeeded(TaskDef task, int value, int held) {
+        int missing = Math.max(0, task.target() - value);
+        if (task instanceof ItemTask item && item.mode() == ItemTask.Mode.CRAFT) {
+            return missing;
+        }
+        return Math.max(0, missing - Math.max(0, held));
     }
 
     public static boolean allClaimed(Quest quest, QuestProgress progress) {

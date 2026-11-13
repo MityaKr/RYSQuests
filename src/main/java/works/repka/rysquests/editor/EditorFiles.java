@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import net.minecraft.resources.ResourceLocation;
 import works.repka.rysquests.data.BookAssets;
+import works.repka.rysquests.data.BookLayout;
 import works.repka.rysquests.data.BookMeta;
 import works.repka.rysquests.data.CardsSection;
 import works.repka.rysquests.data.Chapter;
@@ -41,8 +42,10 @@ public final class EditorFiles {
             "advancement", "spoilers", "compact", "search", "row_title", "group", "groups", "art", "mark", "best", "hint", "stage", "stage_title", "done", "needs", "gives", "page", "quest",
             "links", "columns", "rows", "cells", "cards", "pages");
     private static final List<String> QUEST_ORDER = List.of("id", "chapter", "group", "title", "subtitle", "text", "icon", "requires", "requires_mode", "stage_required", "guide", "tasks", "rewards",
-            "layout", "size", "optional", "hidden", "repeatable", "page", "tags");
-    private static final List<String> CHAPTER_ORDER = List.of("id", "title", "subtitle", "icon", "epoch", "default_view", "section", "hidden", "requires", "groups", "links");
+            "layout", "milestone", "optional", "hidden", "repeatable", "page", "tags", "draft", "archived");
+    private static final List<String> CHAPTER_ORDER = List.of("id", "title", "subtitle", "icon", "epoch", "default_view", "section", "hidden", "off_map", "requires", "groups", "links");
+    private static final List<String> BOOK_ORDER = List.of("progress_mode", "default_view", "default_theme", "title", "icon", "chapter_order", "hud", "sections", "epochs", "map_form", "published");
+
     /** Tasks and rewards start with their type, as the files written by hand do. */
     private static final List<String> RULE_ORDER = List.of("type", "id", "item", "any_of", "entity", "stat", "target", "advancement", "dimension", "biome", "structure", "pos", "size", "radius", "fluid", "script", "table", "stage", "command",
             "levels", "points", "count", "amount", "rolls", "mode", "nbt", "of", "weights", "title", "pin", "x", "y");
@@ -215,11 +218,59 @@ public final class EditorFiles {
         if (rail.isEmpty() || rail.stream().anyMatch(id -> ResourceLocation.tryParse(id) == null)) {
             throw new Rejected("rysquests.editor.error.invalid");
         }
+        saveMeta(root, namespace, meta.withSections(rail), createPackFile);
+    }
+
+    /** Writes the book's settings as they are, in the order of the format document. */
+    public static void saveMeta(Path root, String namespace, BookMeta meta, boolean createPackFile) throws IOException {
         if (createPackFile) {
             writePackFile(root);
         }
-        BookMeta updated = new BookMeta(meta.progressMode(), meta.defaultView(), meta.defaultTheme(), meta.title(), meta.icon(), meta.chapterOrder(), meta.hud(), rail);
-        writeText(root.resolve("data").resolve(namespace).resolve("rysquests/book.json"), GSON.toJson(BookMeta.CODEC.encodeStart(JsonOps.INSTANCE, updated).getOrThrow()) + "\n");
+        writeText(bookFile(root, namespace), GSON.toJson(encodeMeta(meta)) + "\n");
+    }
+
+    public static JsonElement encodeMeta(BookMeta meta) {
+        return ordered(BookMeta.CODEC.encodeStart(JsonOps.INSTANCE, meta).getOrThrow(), BOOK_ORDER, RULE_ORDER);
+    }
+
+    public static Path bookFile(Path root, String namespace) {
+        return root.resolve("data").resolve(namespace).resolve("rysquests/book.json");
+    }
+
+    /** Writes the baked map beside the book's settings. */
+    public static void saveLayout(Path root, String namespace, BookLayout layout, boolean createPackFile) throws IOException {
+        if (createPackFile) {
+            writePackFile(root);
+        }
+        writeText(root.resolve("data").resolve(namespace).resolve("rysquests/layout.json"), layoutText(layout));
+    }
+
+    /**
+     * The layout file, one node or area to a line and sorted by id: a book of thousands of quests stays a file that diffs well,
+     * which pretty printing every coordinate on a line of its own would not be.
+     */
+    public static String layoutText(BookLayout layout) {
+        StringBuilder out = new StringBuilder("{\n");
+        out.append("  \"form\": ").append(GSON.toJson(layout.form().getSerializedName())).append(",\n");
+        out.append("  \"hash\": ").append(GSON.toJson(layout.hash())).append(",\n");
+        out.append("  \"nodes\": {");
+        appendEntries(out, new java.util.TreeMap<>(layout.nodes()), point -> "[" + point.x() + ", " + point.y() + "]");
+        out.append("},\n  \"areas\": {");
+        appendEntries(out, new java.util.TreeMap<>(layout.areas()), area -> "[" + area.x() + ", " + area.y() + ", " + area.w() + ", " + area.h() + "]");
+        out.append("}\n}\n");
+        return out.toString();
+    }
+
+    private static <V> void appendEntries(StringBuilder out, Map<String, V> entries, java.util.function.Function<V, String> value) {
+        if (entries.isEmpty()) {
+            return;
+        }
+        String separator = "\n";
+        for (Map.Entry<String, V> entry : entries.entrySet()) {
+            out.append(separator).append("    ").append(GSON.toJson(entry.getKey())).append(": ").append(value.apply(entry.getValue()));
+            separator = ",\n";
+        }
+        out.append("\n  ");
     }
 
     private static Set<String> keysOf(Optional<Guide> guide, Optional<SectionDef> section) {

@@ -46,6 +46,7 @@ public final class BookValidator {
         spreadBrokenDependencies(quests, broken, issues);
         chapters.values().forEach(chapter -> checkChapter(chapter, chapters, quests, issues));
         checkChapterOrder(chapters, quests, issues);
+        checkHiddenDependencies(quests, issues);
 
         List<Quest> valid = quests.values().stream().filter(quest -> !broken.contains(quest.id())).toList();
         List<Chapter> ordered = orderChapters(raw.meta(), chapters, issues);
@@ -54,8 +55,30 @@ public final class BookValidator {
         List<ShopOffer> offers = checkOffers(raw, quests, itemExists, issues);
         List<Achievement> achievementList = checkAchievements(raw, itemExists, issues);
         List<StructureDef> structureList = checkStructures(raw, issues);
-        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, guideList, sectionList, BookHash.compute(ordered, valid, guideList, sectionList, offers, achievementList, structureList, ops)).withOffers(offers).withAchievements(achievementList).withStructures(structureList);
+        QuestBook book = QuestBook.create(raw.meta(), ordered, valid, guideList, sectionList, BookHash.compute(ordered, valid, guideList, sectionList, offers, achievementList, structureList, ops)).withOffers(offers).withAchievements(achievementList).withStructures(structureList)
+                .withLayout(raw.layout());
+        // The book goes out with a stale layout all the same: a client lays the map out itself when the hash does not match.
+        if (book.layout().isPresent() && book.freshLayout().isEmpty()) {
+            issues.add(new Issue(Severity.WARNING, "layout_stale", "book", book.layout().get().hash()));
+        }
         return new Result(book, new BookReport(List.copyOf(issues)));
+    }
+
+    /** A quest that waits for a draft or an archived quest never opens for players, who are sent neither. */
+    private static void checkHiddenDependencies(Map<ResourceLocation, Quest> quests, List<Issue> issues) {
+        for (Quest quest : quests.values()) {
+            if (!quest.options().live()) {
+                continue;
+            }
+            for (ResourceLocation dependency : quest.requires()) {
+                Quest needed = quests.get(dependency);
+                if (needed != null && needed.options().archived()) {
+                    issues.add(warning("requires_archived", quest.id(), dependency.toString()));
+                } else if (needed != null && needed.options().draft()) {
+                    issues.add(warning("requires_draft", quest.id(), dependency.toString()));
+                }
+            }
+        }
     }
 
     private static Map<ResourceLocation, Chapter> dedupeChapters(RawBook raw, List<Issue> issues) {

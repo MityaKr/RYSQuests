@@ -149,6 +149,10 @@ test {
     useJUnitPlatform()
     systemProperty 'rysquests.examplesDir', project.file('examples').absolutePath
     systemProperty 'rysquests.reportFile', project.file('build/ftbq-real-report.txt').absolutePath
+    // Real books for the automatic map form and for reading RepYS; each test is skipped where its folder is absent.
+    systemProperty 'rysquests.repysBook', project.findProperty('repysBook') ?: project.file('../_fresh/book').absolutePath
+    systemProperty 'rysquests.repysPack', project.findProperty('repysPack') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/RepYS/kubejs/data/repys/rysquests"
+    systemProperty 'rysquests.atm10Quests', project.findProperty('atm10Quests') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/All the Mods 10 - ATM10/config/ftbquests/quests"
     if (project.hasProperty('ftbqDir')) {
         systemProperty 'rysquests.ftbqDir', project.property('ftbqDir')
         outputs.upToDateWhen { false }

@@ -7,13 +7,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.editor.EditorService;
+import works.repka.rysquests.integration.ftbq.FtbqImportService;
 import works.repka.rysquests.shop.ShopService;
 import works.repka.rysquests.progress.AchievementService;
 import works.repka.rysquests.progress.ProgressService;
 
 /** Registers payloads. Client handlers are injected, so that this class never refers to client code. */
 public final class ModNetwork {
-    private static final String VERSION = "9";
+    private static final String VERSION = "10";
 
     private static BiConsumer<BookSyncPayload, RegistryAccess> clientBookHandler = (payload, registries) -> {
     };
@@ -40,6 +41,17 @@ public final class ModNetwork {
     };
 
     private static Consumer<AchievementStatePayload> clientAchievementHandler = payload -> {
+    };
+
+    private static Consumer<BookMessagePayload> clientMessageHandler = payload -> {
+    };
+    private static Consumer<LayoutBakeRequestPayload> clientLayoutBakeHandler = payload -> {
+    };
+    private static Consumer<FtbqImportProgressPayload> clientImportProgressHandler = payload -> {
+    };
+    private static Consumer<FtbqImportReportPayload> clientImportReportHandler = payload -> {
+    };
+    private static Consumer<FtbqImportErrorPayload> clientImportErrorHandler = payload -> {
     };
 
     private ModNetwork() {
@@ -86,6 +98,23 @@ public final class ModNetwork {
         clientPinnedHandler = handler;
     }
 
+    /** The server's word about what the player did, for the book's message line. */
+    public static void setClientMessageHandler(Consumer<BookMessagePayload> handler) {
+        clientMessageHandler = handler;
+    }
+
+    /** The answer to {@code /rysquests layout bake}: lay the map out and send it back. */
+    public static void setClientLayoutBakeHandler(Consumer<LayoutBakeRequestPayload> handler) {
+        clientLayoutBakeHandler = handler;
+    }
+
+    /** How the FTB Quests import goes: its steps, its report, or where it stopped. */
+    public static void setClientImportHandlers(Consumer<FtbqImportProgressPayload> progress, Consumer<FtbqImportReportPayload> report, Consumer<FtbqImportErrorPayload> error) {
+        clientImportProgressHandler = progress;
+        clientImportReportHandler = report;
+        clientImportErrorHandler = error;
+    }
+
     public static void register(RegisterPayloadHandlersEvent event) {
         event.registrar(RYSQuests.MODID).versioned(VERSION)
                 .playToClient(BookSyncPayload.TYPE, BookSyncPayload.STREAM_CODEC,
@@ -121,6 +150,22 @@ public final class ModNetwork {
                 .playToServer(PinWayPayload.TYPE, PinWayPayload.STREAM_CODEC,
                         (payload, context) -> ProgressService.togglePinnedWay((ServerPlayer) context.player(), payload.key()))
                 .playToServer(QuestActionPayload.TYPE, QuestActionPayload.STREAM_CODEC,
-                        (payload, context) -> ProgressService.handle((ServerPlayer) context.player(), payload));
+                        (payload, context) -> ProgressService.handle((ServerPlayer) context.player(), payload))
+                .playToClient(BookMessagePayload.TYPE, BookMessagePayload.STREAM_CODEC,
+                        (payload, context) -> clientMessageHandler.accept(payload))
+                .playToServer(LayoutSavePayload.TYPE, LayoutSavePayload.STREAM_CODEC,
+                        (payload, context) -> EditorService.handleLayout((ServerPlayer) context.player(), payload))
+                .playToClient(LayoutBakeRequestPayload.TYPE, LayoutBakeRequestPayload.STREAM_CODEC,
+                        (payload, context) -> clientLayoutBakeHandler.accept(payload))
+                .playToServer(PublishPayload.TYPE, PublishPayload.STREAM_CODEC,
+                        (payload, context) -> EditorService.handlePublish((ServerPlayer) context.player(), payload))
+                .playToServer(FtbqImportStartPayload.TYPE, FtbqImportStartPayload.STREAM_CODEC,
+                        (payload, context) -> FtbqImportService.handle((ServerPlayer) context.player(), payload))
+                .playToClient(FtbqImportProgressPayload.TYPE, FtbqImportProgressPayload.STREAM_CODEC,
+                        (payload, context) -> clientImportProgressHandler.accept(payload))
+                .playToClient(FtbqImportReportPayload.TYPE, FtbqImportReportPayload.STREAM_CODEC,
+                        (payload, context) -> clientImportReportHandler.accept(payload))
+                .playToClient(FtbqImportErrorPayload.TYPE, FtbqImportErrorPayload.STREAM_CODEC,
+                        (payload, context) -> clientImportErrorHandler.accept(payload));
     }
 }

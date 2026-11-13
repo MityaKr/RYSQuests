@@ -37,6 +37,7 @@ public final class ProgressStore extends SavedData {
     private static final String SHOP_HISTORY = "shop_history";
     private static final String TITLES = "titles";
     private static final String ACTIVE_TITLE = "active_title";
+    private static final String LAST_CHAPTER = "last_chapter";
     private static final int HISTORY_LINES = 30;
     private static final UUID SERVER_TEAM = new UUID(0, 0);
 
@@ -49,6 +50,7 @@ public final class ProgressStore extends SavedData {
     private static final Codec<Map<UUID, Map<String, Long>>> WALLETS_CODEC = Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.unboundedMap(Codec.STRING, Codec.LONG));
     private static final Codec<Map<UUID, Map<String, ShopLimits.Usage>>> USAGE_CODEC = Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.unboundedMap(Codec.STRING, ShopLimits.Usage.CODEC));
     private static final Codec<Map<UUID, List<ShopLine>>> HISTORY_CODEC = Codec.unboundedMap(UUIDUtil.STRING_CODEC, ShopLine.CODEC.listOf());
+    private static final Codec<Map<UUID, ResourceLocation>> LAST_CHAPTER_CODEC = Codec.unboundedMap(UUIDUtil.STRING_CODEC, ResourceLocation.CODEC);
     private static final Factory<ProgressStore> FACTORY = new Factory<>(ProgressStore::new, ProgressStore::load);
 
     private final Map<UUID, Map<ResourceLocation, QuestProgress>> teams = new HashMap<>();
@@ -63,9 +65,17 @@ public final class ProgressStore extends SavedData {
     private final Map<UUID, List<ShopLine>> shopHistory = new HashMap<>();
     private final Map<UUID, Set<String>> titles = new HashMap<>();
     private final Map<UUID, String> activeTitles = new HashMap<>();
+    /** Per player, not per team: the chapter of the quest this player last completed by their own doing. */
+    private final Map<UUID, ResourceLocation> lastChapters = new HashMap<>();
 
-    /** One operation with money. @param ref the offer or the quest behind it @param times how many trades, 0 for a reward */
-    public record ShopLine(long time, long delta, String currency, String ref, int times) {
+    /**
+     * One operation with money.
+     *
+     * @param ref the offer or the quest behind it
+     * @param times how many trades, 0 for a reward
+     * @param treasury the money came from or went to the team's treasury rather than the player's own wallet
+     */
+    public record ShopLine(long time, long delta, String currency, String ref, int times, boolean treasury) {
         public static final String TRANSFER = "rysquests:transfer";
         public static final String EXCHANGE = "rysquests:exchange";
 
@@ -74,8 +84,15 @@ public final class ProgressStore extends SavedData {
                 Codec.LONG.fieldOf("delta").forGetter(ShopLine::delta),
                 Codec.STRING.fieldOf("currency").forGetter(ShopLine::currency),
                 Codec.STRING.fieldOf("ref").forGetter(ShopLine::ref),
-                Codec.INT.fieldOf("times").forGetter(ShopLine::times)
+                Codec.INT.fieldOf("times").forGetter(ShopLine::times),
+                // Lines saved before the field are the player's own wallet.
+                Codec.BOOL.optionalFieldOf("treasury", false).forGetter(ShopLine::treasury)
         ).apply(instance, ShopLine::new));
+
+        /** A line of the player's own wallet. */
+        public ShopLine(long time, long delta, String currency, String ref, int times) {
+            this(time, delta, currency, ref, times, false);
+        }
     }
 
     public static ProgressStore get(MinecraftServer server) {
@@ -121,6 +138,9 @@ public final class ProgressStore extends SavedData {
         if (tag.contains(SHOP_HISTORY)) {
             HISTORY_CODEC.parse(NbtOps.INSTANCE, tag.get(SHOP_HISTORY)).result().ifPresent(saved -> saved.forEach((owner, lines) -> store.shopHistory.put(owner, new ArrayList<>(lines))));
         }
+        if (tag.contains(LAST_CHAPTER)) {
+            LAST_CHAPTER_CODEC.parse(NbtOps.INSTANCE, tag.get(LAST_CHAPTER)).result().ifPresent(store.lastChapters::putAll);
+        }
         return store;
     }
 
@@ -142,7 +162,36 @@ public final class ProgressStore extends SavedData {
         tag.put(WALLETS, WALLETS_CODEC.encodeStart(NbtOps.INSTANCE, wallets).getOrThrow());
         tag.put(SHOP_USAGE, USAGE_CODEC.encodeStart(NbtOps.INSTANCE, shopUsage).getOrThrow());
         tag.put(SHOP_HISTORY, HISTORY_CODEC.encodeStart(NbtOps.INSTANCE, shopHistory).getOrThrow());
+        tag.put(LAST_CHAPTER, LAST_CHAPTER_CODEC.encodeStart(NbtOps.INSTANCE, lastChapters).getOrThrow());
         return tag;
+    }
+
+    public java.util.Optional<ResourceLocation> lastChapter(UUID player) {
+        return java.util.Optional.ofNullable(lastChapters.get(player));
+    }
+
+    /** @return whether it changed */
+    public boolean setLastChapter(UUID player, ResourceLocation chapter) {
+        if (chapter.equals(lastChapters.put(player, chapter))) {
+            return false;
+        }
+        setDirty();
+        return true;
+    }
+
+    /** Rewrites one quest's progress in every record that has it: teams, and the players' own records of claims. */
+    public void remapQuest(ResourceLocation quest, java.util.function.UnaryOperator<QuestProgress> change) {
+        boolean changed = false;
+        for (Map<ResourceLocation, QuestProgress> row : teams.values()) {
+            QuestProgress before = row.get(quest);
+            if (before != null) {
+                row.put(quest, change.apply(before));
+                changed = true;
+            }
+        }
+        if (changed) {
+            setDirty();
+        }
     }
 
     public QuestProgress get(UUID team, ResourceLocation quest) {

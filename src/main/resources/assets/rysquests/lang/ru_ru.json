@@ -1,7 +1,6 @@
 {
   "key.categories.rysquests": "RYSQuests",
   "key.rysquests.open_book": "Открыть книгу квестов",
-  "key.rysquests.submit_ready": "Сдать всё готовое",
   "key.rysquests.pin": "Закрепить выбранный квест",
   "sidebar_button.rysquests.book": "Квесты",
   "rysquests.toast.complete": "Квест выполнен",
@@ -102,7 +101,7 @@
   "rysquests.task.visit": "Посетить: %s",
   "rysquests.task.advancement": "Достижение: %s",
   "rysquests.task.checkbox": "Нажмите, чтобы подтвердить",
-  "rysquests.import.done": "Импорт из FTB Quests: глав %s, квестов %s, заметок %s в config/rysquests/import/import-report.md. Перезагружаю.",
+  "rysquests.import.done": "Перенесено из FTB Quests: глав %s, квестов %s, скрыто до проверки %s; отчёт в config/rysquests/import/import-report.md.",
   "rysquests.import.failed": "Импорт из FTB Quests не удался: %s",
   "rysquests.import.progress": "Импортирован прогресс: команд %s, квестов %s.",
   "rysquests.progress.unknown_quest": "Неизвестный квест %s",
@@ -637,5 +636,18 @@
   "rysquests.import.patchouli": "Импортировано из Patchouli: гайдов %s, страниц %s, структур %s, пропущено %s",
   "rysquests.validate.issue.structure_shape": "Структура %s: слои разного размера",
   "rysquests.validate.issue.structure_symbol": "Структура %s: символа %s нет в mapping",
-  "rysquests.validate.issue.unknown_block": "Структура %s: неизвестный блок %s"
+  "rysquests.validate.issue.unknown_block": "Структура %s: неизвестный блок %s",
+  "rysquests.reward.error.not_done": "Квест ещё не выполнен",
+  "rysquests.reward.error.no_right": "Роль в команде не даёт забирать награды",
+  "rysquests.reward.error.pick": "Сначала выбери одну из наград",
+  "rysquests.reward.error.inventory_full": "В инвентаре нет места: награда подождёт, пока ты его освободишь",
+  "rysquests.editor.error.conflict": "Пока ты правил, главу изменил %s. Сохрани ещё раз, чтобы записать поверх его правок",
+  "rysquests.editor.error.conflict_files": "Пока ты правил, глава изменилась. Сохрани ещё раз, чтобы записать поверх этих правок",
+  "rysquests.layout.error.stale": "пока карта собиралась, книга изменилась, собери её ещё раз",
+  "rysquests.layout.bake_needs_player": "Собрать карту может только игрок: это делает его клиент",
+  "rysquests.layout.bake_asked": "Твой клиент собирает карту; когда закончит, сервер запишет layout.json",
+  "rysquests.layout.no_baker": "В этой версии книги карту пока нельзя собрать",
+  "rysquests.validate.issue.layout_stale": "Раскладка карты устарела: сохрани раскладку заново (%s)",
+  "rysquests.validate.issue.requires_archived": "Квест %s ждёт %s, а тот в архиве: игроки его никогда не откроют",
+  "rysquests.validate.issue.requires_draft": "Квест %s ждёт черновик %s: игроки его не откроют, пока черновик не готов"
 }

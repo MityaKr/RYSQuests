@@ -230,9 +230,11 @@ class FtbqImporterTest {
         assertTrue(xp.get("consume").getAsBoolean());
         assertTrue(quests.stream().map(q -> q.getAsJsonArray("tasks").get(0).getAsJsonObject())
                 .anyMatch(t -> t.has("mode") && t.get("mode").getAsString().equals("craft")));
-        JsonObject placeholder = quests.stream().map(q -> q.getAsJsonArray("tasks").get(0).getAsJsonObject())
-                .filter(t -> t.get("type").getAsString().equals("rysquests:script")).findFirst().orElseThrow();
-        assertEquals("rysquests:unconverted", placeholder.get("script").getAsString());
+        // A task the book cannot hold stands in as a checkbox, and the quest is a draft that players are not sent.
+        JsonObject unconverted = quests.stream().filter(q -> q.getAsJsonArray("tasks").get(0).getAsJsonObject().get("type").getAsString().equals("rysquests:checkbox"))
+                .findFirst().orElseThrow();
+        assertTrue(unconverted.get("draft").getAsBoolean());
+        assertEquals("rysquests.import.unconverted_task", unconverted.getAsJsonArray("tasks").get(0).getAsJsonObject().get("title").getAsString());
         assertEquals(List.of(), load(result).report().issues());
     }
 
@@ -300,11 +302,15 @@ class FtbqImporterTest {
         assertEquals(0, staged.getAsJsonArray("tasks").size(), "a quest that only waited for a stage opens and completes with it");
         assertTrue(!staged.has("page"));
         assertTrue(result.notes().stream().anyMatch(note -> note.contains("team stage")));
-        // An empty stack, a 1.20 string item and a kill task for a tag: the import goes on and keeps what it can.
-        JsonObject legacy = quests.stream().filter(q -> q.getAsJsonArray("tasks").size() == 1
-                && q.getAsJsonArray("tasks").get(0).getAsJsonObject().get("type").getAsString().equals("rysquests:item")).findFirst().orElseThrow();
-        assertEquals("minecraft:stone", legacy.getAsJsonArray("tasks").get(0).getAsJsonObject().get("item").getAsString());
+        // An empty stack, a 1.20 string item and a kill task for a tag: the import goes on and keeps what it can. What it cannot
+        // keep stands in as a checkbox, and the quest is a draft until the author looks at it.
+        JsonObject legacy = quests.stream().filter(q -> q.getAsJsonArray("tasks").size() == 3).findFirst().orElseThrow();
+        assertEquals("rysquests:checkbox", legacy.getAsJsonArray("tasks").get(0).getAsJsonObject().get("type").getAsString());
+        assertEquals("minecraft:stone", legacy.getAsJsonArray("tasks").get(1).getAsJsonObject().get("item").getAsString());
+        assertEquals("rysquests:checkbox", legacy.getAsJsonArray("tasks").get(2).getAsJsonObject().get("type").getAsString());
         assertEquals(0, legacy.getAsJsonArray("rewards").size());
+        assertTrue(legacy.get("draft").getAsBoolean());
+        assertTrue(full.get("draft").getAsBoolean(), "the toast was left out");
         assertTrue(result.notes().stream().anyMatch(note -> note.contains("minecraft:skeletons")));
         assertTrue(result.notes().getFirst().startsWith("Summary: "));
         assertTrue(result.notes().stream().anyMatch(note -> note.equals("Summary: reward toast: 0 carried over, 1 skipped")));

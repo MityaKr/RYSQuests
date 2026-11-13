@@ -135,7 +135,18 @@ public final class ProgressService {
 
     // --- polling ---
 
+    /**
+     * Whether the book counts for this player: a closed book is not sent to players, so it neither counts their progress nor takes
+     * their actions until an operator opens it. Operators try it out meanwhile.
+     */
+    private static boolean counts(ServerPlayer player) {
+        return book().meta().published() || player.hasPermissions(works.repka.rysquests.data.BookHolder.OPERATOR);
+    }
+
     public static void tick(ServerPlayer player) {
+        if (!counts(player)) {
+            return;
+        }
         int phase = player.getId() + player.server.getTickCount();
         if (phase % STAGE_INTERVAL == 0) {
             refreshStageLocks(player);
@@ -224,6 +235,10 @@ public final class ProgressService {
         List<Quest> open = new ArrayList<>();
         long expires = Long.MAX_VALUE;
         for (Quest quest : activeBook.quests().values()) {
+            // Drafts and archived quests are not counted: players are never sent them.
+            if (!QuestLogic.isLive(quest)) {
+                continue;
+            }
             QuestProgress own = progress.apply(quest.id());
             if (own.completed()) {
                 continue;
@@ -284,6 +299,11 @@ public final class ProgressService {
     }
 
     private static void apply(ServerPlayer player, Map<ResourceLocation, QuestProgress> changes) {
+        apply(player, changes, true);
+    }
+
+    /** @param byPlayer the change comes from what the player did, not from an operator's command */
+    private static void apply(ServerPlayer player, Map<ResourceLocation, QuestProgress> changes, boolean byPlayer) {
         if (changes.isEmpty()) {
             return;
         }
@@ -293,6 +313,7 @@ public final class ProgressService {
                 .filter(entry -> entry.getValue().completed() && !store.get(team, entry.getKey()).completed())
                 .map(Map.Entry::getKey)
                 .toList();
+        Optional<ResourceLocation> lastChapter = byPlayer ? lastChapterOf(newlyCompleted).filter(chapter -> store.setLastChapter(player.getUUID(), chapter)) : Optional.empty();
         // Task values move every poll; only a quest that finishes or starts a new round changes which quests are open.
         boolean reopens = changes.entrySet().stream().anyMatch(entry -> {
             QuestProgress old = store.get(team, entry.getKey());
@@ -314,7 +335,8 @@ public final class ProgressService {
             if (team(member).equals(team)) {
                 Map<ResourceLocation, QuestProgress> view = new HashMap<>();
                 changes.forEach((id, progress) -> view.put(id, viewFor(member, id, progress)));
-                PacketDistributor.sendToPlayer(member, new ProgressPayload(false, view));
+                // The chapter of the last completion belongs to whoever did it: teammates keep their own.
+                PacketDistributor.sendToPlayer(member, new ProgressPayload(false, view, member == player ? lastChapter : Optional.empty()));
                 if (tierReached) {
                     claimAchievements(member);
                     AchievementService.send(member);
@@ -323,14 +345,28 @@ public final class ProgressService {
         }
     }
 
+    /** The story chapter of the last of these quests, for the next step on "Now"; achievement tiers and card conditions have none. */
+    private static Optional<ResourceLocation> lastChapterOf(List<ResourceLocation> completed) {
+        Optional<ResourceLocation> found = Optional.empty();
+        for (ResourceLocation id : completed) {
+            Quest quest = book().quests().get(id);
+            Optional<ResourceLocation> chapter = quest == null ? Optional.empty() : quest.chapter();
+            if (chapter.map(book().chapters()::get).filter(works.repka.rysquests.data.Chapter::isStory).isPresent()) {
+                found = chapter;
+            }
+        }
+        return found;
+    }
+
     /** Achievements have nothing to press: what is reached is given at once, and on the next login to those who were away. */
     private static void claimAchievements(ServerPlayer player) {
         boolean given = false;
         for (Achievement achievement : book().achievements().values()) {
             for (Achievement.Tier tier : achievement.tiers()) {
                 Quest quest = book().quests().get(achievement.questId(tier));
-                if (quest != null && QuestLogic.status(quest, lookup(player)) == QuestStatus.COMPLETED) {
-                    given |= claim(player, quest, List.of());
+                if (quest != null && QuestLogic.isLive(quest) && QuestLogic.status(quest, lookup(player)) == QuestStatus.COMPLETED) {
+                    // Nothing to press here, so a reward that does not fit falls at the player's feet, as before.
+                    given |= claim(player, quest, List.of(), true).given();
                 }
             }
         }
@@ -452,7 +488,7 @@ public final class ProgressService {
 
     /** Crafted or smelted items count towards open tasks in craft mode. */
     public static void onCrafted(ServerPlayer player, ItemStack stack) {
-        if (stack.isEmpty()) {
+        if (stack.isEmpty() || !counts(player)) {
             return;
         }
         ProgressStore store = ProgressStore.get(player.server);
@@ -475,6 +511,9 @@ public final class ProgressService {
     }
 
     public static void onKill(ServerPlayer player, ResourceLocation entity) {
+        if (!counts(player)) {
+            return;
+        }
         ProgressStore store = ProgressStore.get(player.server);
         Map<ResourceLocation, QuestProgress> changes = new HashMap<>();
         for (Quest quest : openFor(player)) {
@@ -497,21 +536,27 @@ public final class ProgressService {
     // --- player actions ---
 
     public static void handle(ServerPlayer player, QuestActionPayload payload) {
+        if (!counts(player)) {
+            return;
+        }
         if (payload.action() == QuestActionPayload.SUBMIT_ALL) {
             if (!TeamsApi.get().can(player.getUUID(), "submit_tasks")) {
-                player.displayClientMessage(Component.translatable("rysquests.submit.no_right"), true);
+                Feedback.refuse(player, "rysquests.submit.no_right");
                 return;
             }
             // Each quest is checked right before it is paid, against what the ones before it left: none is paid by half.
             int handed = 0;
             for (Quest open : openFor(player)) {
-                if (canSubmitFully(player, open) && submit(player, open)) {
+                if (canSubmitFully(player, open) && submit(player, open, QuestActionPayload.ALL_TASKS)) {
                     handed++;
                 }
             }
-            // The key works anywhere in the world, so it says what it did, or that there was nothing to hand in.
-            player.displayClientMessage(handed == 0 ? Component.translatable("rysquests.submit.nothing")
-                    : Component.translatable("rysquests.submit.done", handed), true);
+            // It says what it did, or that there was nothing to hand in.
+            if (handed == 0) {
+                Feedback.refuse(player, "rysquests.submit.nothing");
+            } else {
+                Feedback.inform(player, "rysquests.submit.done", handed);
+            }
             if (handed > 0) {
                 Feedback.submit(player);
             }
@@ -537,15 +582,20 @@ public final class ProgressService {
             return;
         }
         Quest quest = book().quests().get(payload.quest());
-        if (quest == null) {
+        if (quest == null || !QuestLogic.isLive(quest)) {
             return;
         }
         switch (payload.action()) {
-            case QuestActionPayload.SUBMIT -> submit(player, quest);
+            // The value names the one task whose "Hand in" was pressed, or ALL_TASKS for the whole quest (review U10).
+            case QuestActionPayload.SUBMIT -> submit(player, quest, payload.value());
             case QuestActionPayload.CHECK -> check(player, quest, payload.value());
             case QuestActionPayload.CLAIM -> {
-                if (claim(player, quest, payload.choices())) {
+                Claim result = claim(player, quest, payload.choices(), false);
+                if (result.given()) {
                     Feedback.reward(player);
+                }
+                if (result.refusal() != null) {
+                    Feedback.refuse(player, result.refusal());
                 }
             }
             case QuestActionPayload.PIN -> togglePin(player, quest);
@@ -598,14 +648,21 @@ public final class ProgressService {
     private static void claimAll(ServerPlayer player) {
         Function<ResourceLocation, QuestProgress> progress = lookup(player);
         List<Quest> ready = book().quests().values().stream()
-                .filter(quest -> QuestLogic.status(quest, progress) == QuestStatus.COMPLETED)
+                .filter(quest -> QuestLogic.isLive(quest) && QuestLogic.status(quest, progress) == QuestStatus.COMPLETED)
                 .toList();
         boolean given = false;
+        boolean full = false;
         for (Quest quest : ready) {
-            given |= claim(player, quest, List.of());
+            Claim result = claim(player, quest, List.of(), false);
+            given |= result.given();
+            full |= INVENTORY_FULL.equals(result.refusal());
         }
         if (given) {
             Feedback.reward(player);
+        }
+        // A choice left for the player to pick is expected here; a full inventory is not.
+        if (full) {
+            Feedback.refuse(player, INVENTORY_FULL);
         }
     }
 
@@ -619,7 +676,7 @@ public final class ProgressService {
             if (openPinned(player, pinned) + store.pinnedWays(player.getUUID()).size() < book().meta().hud().maxPinned()) {
                 pinned.add(quest.id());
             } else {
-                player.displayClientMessage(Component.translatable("rysquests.pin.limit", book().meta().hud().maxPinned()), true);
+                Feedback.refuse(player, "rysquests.pin.limit", book().meta().hud().maxPinned());
             }
         }
         store.setPinned(player.getUUID(), pinned);
@@ -647,7 +704,7 @@ public final class ProgressService {
             if (ways.size() + openPinned(player, store.pinned(player.getUUID())) < book().meta().hud().maxPinned()) {
                 ways.add(key);
             } else {
-                player.displayClientMessage(Component.translatable("rysquests.pin.limit", book().meta().hud().maxPinned()), true);
+                Feedback.refuse(player, "rysquests.pin.limit", book().meta().hud().maxPinned());
             }
         }
         store.setPinnedWays(player.getUUID(), ways);
@@ -659,15 +716,24 @@ public final class ProgressService {
         return (status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS) && stageAllows(player, quest);
     }
 
-    /** @return whether anything was handed in */
-    private static boolean submit(ServerPlayer player, Quest quest) {
+    /**
+     * @param only the one task to hand in, or {@link QuestActionPayload#ALL_TASKS} for all of them
+     * @return whether anything was handed in
+     */
+    private static boolean submit(ServerPlayer player, Quest quest, int only) {
         if (!isOpen(player, quest) || !TeamsApi.get().can(player.getUUID(), "submit_tasks")) {
+            return false;
+        }
+        if (only != QuestActionPayload.ALL_TASKS && (only < 0 || only >= quest.tasks().size())) {
             return false;
         }
         QuestProgress before = ProgressStore.get(player.server).get(team(player), quest.id());
         List<Integer> values = before.taskValues(quest.tasks().size());
         boolean changed = false;
         for (int i = 0; i < quest.tasks().size(); i++) {
+            if (only != QuestActionPayload.ALL_TASKS && i != only) {
+                continue;
+            }
             int missing = quest.tasks().get(i).target() - values.get(i);
             int taken = 0;
             if (missing > 0 && quest.tasks().get(i) instanceof ItemTask task && task.mode() == ItemTask.Mode.CONSUME) {
@@ -722,18 +788,34 @@ public final class ProgressService {
         apply(player, Map.of(quest.id(), finish(quest, before, values)));
     }
 
-    /** @return whether any reward was given now */
-    private static boolean claim(ServerPlayer player, Quest quest, List<Integer> choices) {
+    private static final String INVENTORY_FULL = "rysquests.reward.error.inventory_full";
+
+    /** @param given whether any reward was given now @param refusal the lang key of why something was not, or null */
+    private record Claim(boolean given, @Nullable String refusal) {
+    }
+
+    /** @param dropExtra give what does not fit at the player's feet rather than keep it for a later claim */
+    private static Claim claim(ServerPlayer player, Quest quest, List<Integer> choices, boolean dropExtra) {
         UUID team = team(player);
         ProgressStore store = ProgressStore.get(player.server);
         QuestProgress before = viewFor(player, quest.id(), store.get(team, quest.id()));
-        if (!before.completed() || !TeamsApi.get().can(player.getUUID(), "claim_rewards")) {
-            return false;
+        if (!before.completed()) {
+            return new Claim(false, "rysquests.reward.error.not_done");
+        }
+        if (!TeamsApi.get().can(player.getUUID(), "claim_rewards")) {
+            return new Claim(false, "rysquests.reward.error.no_right");
         }
         List<Integer> claimed = new ArrayList<>(before.claimed());
+        String refusal = null;
         for (int i = 0; i < quest.rewards().size(); i++) {
-            if (!claimed.contains(i) && grant(player, quest, quest.rewards().get(i), i < choices.size() ? choices.get(i) : -1)) {
+            if (claimed.contains(i)) {
+                continue;
+            }
+            String problem = grant(player, quest, quest.rewards().get(i), i < choices.size() ? choices.get(i) : -1, dropExtra);
+            if (problem == null) {
                 claimed.add(i);
+            } else if (refusal == null || INVENTORY_FULL.equals(problem)) {
+                refusal = problem;
             }
         }
         boolean given = claimed.size() > before.claimed().size();
@@ -751,7 +833,10 @@ public final class ProgressService {
                 store.put(player.getUUID(), Map.of(quest.id(), QuestProgress.EMPTY));
             }
             apply(player, Map.of(quest.id(), new QuestProgress(List.of(), 0, List.of(), cooldown > 0 ? System.currentTimeMillis() + cooldown : 0, times)));
-            return given;
+            return new Claim(given, refusal);
+        }
+        if (!given) {
+            return new Claim(false, refusal);
         }
         if (team.equals(player.getUUID())) {
             apply(player, Map.of(quest.id(), before.withClaimed(List.copyOf(claimed))));
@@ -765,13 +850,22 @@ public final class ProgressService {
                 PacketDistributor.sendToPlayer(player, new ProgressPayload(false, Map.of(quest.id(), before.withClaimed(List.copyOf(claimed)))));
             }
         }
-        return given;
+        return new Claim(given, refusal);
     }
 
-    /** @return false when the reward stays unclaimed, which only happens to a choice with no valid pick */
-    private static boolean grant(ServerPlayer player, Quest quest, RewardDef reward, int choice) {
+    /**
+     * @return null when the reward was given, or the lang key of why it stays unclaimed: a choice with no valid pick, or items
+     *         that do not fit, which wait for the next claim instead of falling to the ground
+     */
+    @Nullable
+    private static String grant(ServerPlayer player, Quest quest, RewardDef reward, int choice, boolean dropExtra) {
         switch (reward) {
-            case ItemReward item -> giveItem(player, item);
+            case ItemReward item -> {
+                if (!dropExtra && !fits(player.getInventory(), item)) {
+                    return INVENTORY_FULL;
+                }
+                giveItem(player, item);
+            }
             case XpReward xp -> {
                 xp.levels().ifPresent(player::giveExperienceLevels);
                 xp.points().ifPresent(player::giveExperiencePoints);
@@ -784,15 +878,34 @@ public final class ProgressService {
             case works.repka.rysquests.reward.ScriptReward script -> ScriptHooks.get().reward(player, script.script());
             case ChoiceReward options -> {
                 if (choice < 0 || choice >= options.of().size()) {
-                    return false;
+                    return "rysquests.reward.error.pick";
                 }
-                grant(player, quest, options.of().get(choice), -1);
+                return grant(player, quest, options.of().get(choice), -1, dropExtra);
             }
-            case RandomReward random -> grant(player, quest, pick(player, random), -1);
+            // A roll cannot be known before it is made: what it gives may still fall at the player's feet.
+            case RandomReward random -> grant(player, quest, pick(player, random), -1, true);
             default -> {
             }
         }
-        return true;
+        return null;
+    }
+
+    /** Whether the whole reward fits into the main inventory, in free slots and on top of the same items. */
+    private static boolean fits(Inventory inventory, ItemReward reward) {
+        ItemStack template = new ItemStack(BuiltInRegistries.ITEM.get(reward.item()));
+        reward.components().ifPresent(template::applyComponents);
+        long room = 0;
+        for (ItemStack stack : inventory.items) {
+            if (stack.isEmpty()) {
+                room += template.getMaxStackSize();
+            } else if (ItemStack.isSameItemSameComponents(stack, template)) {
+                room += Math.max(0, stack.getMaxStackSize() - stack.getCount());
+            }
+            if (room >= reward.count()) {
+                return true;
+            }
+        }
+        return room >= reward.count();
     }
 
     private static void rollLoot(ServerPlayer player, LootTableReward reward) {
@@ -872,7 +985,7 @@ public final class ProgressService {
         ProgressStore store = ProgressStore.get(player.server);
         Map<ResourceLocation, QuestProgress> view = new HashMap<>();
         store.team(team(player)).forEach((id, progress) -> view.put(id, viewFor(player, id, progress)));
-        PacketDistributor.sendToPlayer(player, new ProgressPayload(true, view));
+        PacketDistributor.sendToPlayer(player, new ProgressPayload(true, view, store.lastChapter(player.getUUID())));
         PacketDistributor.sendToPlayer(player, new PinnedPayload(store.pinned(player.getUUID()), store.pinnedWays(player.getUUID())));
         ShopService.send(player);
         claimAchievements(player);
@@ -901,7 +1014,8 @@ public final class ProgressService {
             List<Integer> values = quest.tasks().stream().map(TaskDef::target).toList();
             progress = new QuestProgress(values, System.currentTimeMillis(), List.of());
         }
-        apply(player, Map.of(quest.id(), progress));
+        // An operator's command is not the player's own doing: their chapter of the last completion stays.
+        apply(player, Map.of(quest.id(), progress), false);
     }
 
     /** Forgets caches after progress was replaced from outside, such as an import or a migration. */

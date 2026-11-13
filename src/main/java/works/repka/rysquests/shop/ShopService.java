@@ -55,7 +55,9 @@ public final class ShopService {
 
     public static void handle(ServerPlayer player, ShopTradePayload payload) {
         ShopOffer offer = BookHolder.current().book().offers().get(payload.offer());
-        String problem = offer == null ? "rysquests.shop.error.unknown" : trade(player, offer, payload.times(), payload.treasury());
+        // A closed book is not sent to players, its shop included.
+        boolean closed = !BookHolder.current().book().meta().published() && !player.hasPermissions(BookHolder.OPERATOR);
+        String problem = offer == null || closed ? "rysquests.shop.error.unknown" : trade(player, offer, payload.times(), payload.treasury());
         PacketDistributor.sendToPlayer(player, new ShopResultPayload(problem == null, problem == null ? "" : problem));
         if (problem == null) {
             works.repka.rysquests.progress.Feedback.trade(player, offer.isSale());
@@ -119,7 +121,7 @@ public final class ShopService {
         ShopOffer.Entry money = offer.isSale() ? offer.gives().getFirst() : offer.cost().stream().filter(ShopOffer.Entry::isCurrency).findFirst().orElse(null);
         if (money != null) {
             long delta = (offer.isSale() ? 1 : -1) * (long) money.amount() * times;
-            store.addShopHistory(player.getUUID(), new ProgressStore.ShopLine(System.currentTimeMillis(), delta, money.id(), offer.id().toString(), times));
+            store.addShopHistory(player.getUUID(), new ProgressStore.ShopLine(System.currentTimeMillis(), delta, money.id(), offer.id().toString(), times, treasury));
         }
         return null;
     }
@@ -199,9 +201,10 @@ public final class ShopService {
     /** A currency reward: a shared one goes to the treasury of the team. */
     public static void deposit(ServerPlayer player, String currency, long amount, boolean toTreasury, ResourceLocation source) {
         ProgressStore store = ProgressStore.get(player.server);
-        UUID wallet = toTreasury && inTeam(player) ? team(player) : player.getUUID();
+        boolean shared = toTreasury && inTeam(player);
+        UUID wallet = shared ? team(player) : player.getUUID();
         store.addBalance(wallet, currency, amount);
-        store.addShopHistory(player.getUUID(), new ProgressStore.ShopLine(System.currentTimeMillis(), amount, currency, source.toString(), 0));
+        store.addShopHistory(player.getUUID(), new ProgressStore.ShopLine(System.currentTimeMillis(), amount, currency, source.toString(), 0, shared));
         sendToTeam(player);
     }
 
@@ -231,7 +234,7 @@ public final class ShopService {
         }
         if (delta != 0) {
             store.addBalance(owner, currency, delta);
-            store.addShopHistory(player.getUUID(), new ProgressStore.ShopLine(System.currentTimeMillis(), delta, currency, ProgressStore.ShopLine.TRANSFER, 0));
+            store.addShopHistory(player.getUUID(), new ProgressStore.ShopLine(System.currentTimeMillis(), delta, currency, ProgressStore.ShopLine.TRANSFER, 0, treasury));
             sendToTeam(player);
         }
         return true;

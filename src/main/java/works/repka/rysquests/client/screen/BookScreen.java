@@ -637,7 +637,7 @@ public final class BookScreen extends ScaledScreen {
     }
 
     /** The server's answer to a save. */
-    public static void onEditorResult(boolean ok, String reason) {
+    public static void onEditorResult(boolean ok, String reason, List<String> args) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.editor != null) {
             screen.editor.onResult(ok, reason);
         }
@@ -645,7 +645,7 @@ public final class BookScreen extends ScaledScreen {
             screen.sectionEditor.onResult(ok, reason);
         }
         if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.questEditor != null) {
-            screen.questEditor.onResult(ok, reason);
+            screen.questEditor.onResult(ok, reason, args);
         }
         lastEditorResult = ok ? "" : reason;
     }
@@ -947,15 +947,10 @@ public final class BookScreen extends ScaledScreen {
             countsVersion = ClientProgress.version();
             countsBook = book();
         }
+        // Main quests only: optional ones never hold a chapter back (review U4).
         return CHAPTER_COUNTS.computeIfAbsent(chapter, id -> {
-            int[] counts = new int[2];
-            for (Quest quest : questsOf(id)) {
-                counts[1]++;
-                if (ClientProgress.get(quest.id()).everDone()) {
-                    counts[0]++;
-                }
-            }
-            return counts;
+            works.repka.rysquests.progress.BookCounts.Count main = works.repka.rysquests.progress.BookCounts.of(questsOf(id), ClientProgress::get).main();
+            return new int[] {main.done(), main.total()};
         });
     }
 
@@ -1155,10 +1150,6 @@ public final class BookScreen extends ScaledScreen {
             }
             if (QuestKeys.OPEN_BOOK.matches(key, scan)) {
                 Minecraft.getInstance().setScreen(null);
-                return true;
-            }
-            if (QuestKeys.SUBMIT_READY.matches(key, scan)) {
-                QuestKeys.sendAll(QuestActionPayload.SUBMIT_ALL);
                 return true;
             }
             if (QuestKeys.PIN.matches(key, scan) && BookState.quest != null) {

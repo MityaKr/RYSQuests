@@ -13,7 +13,9 @@ import works.repka.rysquests.RYSQuests;
  * option of a choice reward or -1. The server checks everything again.
  */
 public record QuestActionPayload(int action, ResourceLocation quest, int value, List<Integer> choices) implements CustomPacketPayload {
+    /** {@code value} is the index of the one task to hand in, or {@link #ALL_TASKS} for the whole quest. */
     public static final int SUBMIT = 0;
+    public static final int ALL_TASKS = -1;
     public static final int CHECK = 1;
     public static final int CLAIM = 2;
     public static final int SUBMIT_ALL = 3;

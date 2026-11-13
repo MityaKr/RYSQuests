@@ -82,7 +82,7 @@ public final class QuestEdits {
     }
 
     private static QuestOptions withLayout(QuestOptions options, Layout layout) {
-        return new QuestOptions(layout, options.size(), options.optional(), options.hidden(), options.repeatable(), options.page(), options.tags());
+        return options.withLayout(layout);
     }
 
     public static Quest moved(Quest quest, int x, int y) {

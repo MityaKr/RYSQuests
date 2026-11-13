@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 import works.repka.rysquests.client.hud.StickerBoard;
@@ -27,6 +28,7 @@ public final class ClientProgress {
     private static List<String> pinnedWays = List.of();
     private static final Set<String> GUIDE_PAGES = new HashSet<>();
     private static int teamSize = 1;
+    private static Optional<ResourceLocation> lastChapter = Optional.empty();
     /** Grows with every packet that changes what the book shows: caches of counts and statuses compare it. */
     private static int version;
 
@@ -45,13 +47,23 @@ public final class ClientProgress {
         return pinned;
     }
 
+    /**
+     * The chapter of the quest this player last completed by their own doing, for the next step on "Now". Empty before the first
+     * one: then the first unfinished chapter is meant.
+     */
+    public static Optional<ResourceLocation> lastChapter() {
+        return lastChapter;
+    }
+
     static void receive(ProgressPayload payload) {
         version++;
         if (payload.full()) {
             QUESTS.clear();
             QUESTS.putAll(payload.quests());
+            lastChapter = payload.lastChapter();
             return;
         }
+        payload.lastChapter().ifPresent(chapter -> lastChapter = Optional.of(chapter));
         payload.quests().forEach((id, progress) -> {
             if (progress.completed() && !get(id).completed()) {
                 Quest quest = ClientBook.current().quests().get(id);
@@ -124,6 +136,7 @@ public final class ClientProgress {
         version++;
         QUESTS.clear();
         pinned = List.of();
+        lastChapter = Optional.empty();
         stageLocked = Set.of();
         guideLocked = Set.of();
         openStages = Set.of();

@@ -150,8 +150,8 @@ final class MapView implements BookView {
         List<Node> nodes = new ArrayList<>();
         for (Quest quest : quests) {
             var layout = quest.options().layout();
-            OptionalInt x = layout.x().map(OptionalInt::of).orElse(OptionalInt.empty());
-            OptionalInt y = layout.y().map(OptionalInt::of).orElse(OptionalInt.empty());
+            OptionalInt x = layout.fixedX().map(OptionalInt::of).orElse(OptionalInt.empty());
+            OptionalInt y = layout.fixedY().map(OptionalInt::of).orElse(OptionalInt.empty());
             nodes.add(new Node(quest.id().toString(), quest.requires().stream().map(ResourceLocation::toString).toList(), x, y));
         }
         CollapsedBranches.Result collapsed = foldDone

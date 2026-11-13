@@ -109,7 +109,8 @@ final class HomeView implements BookView {
         int missing = 0;
         for (int i = 0; i < quest.tasks().size(); i++) {
             if (quest.tasks().get(i) instanceof ItemTask item) {
-                missing += Math.max(0, item.count() - own.task(i) - BookScreen.held(item));
+                // Craft mode counts what is crafted, so items already held do not bring the quest closer (review U9).
+                missing += works.repka.rysquests.progress.QuestLogic.stillNeeded(item, own.task(i), BookScreen.held(item));
             }
         }
         return missing;

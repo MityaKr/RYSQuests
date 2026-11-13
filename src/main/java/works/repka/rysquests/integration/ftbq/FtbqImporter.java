@@ -48,9 +48,9 @@ public final class FtbqImporter {
         }
     }
 
-    /** @param files JSON by path relative to the pack root; @param lang translations by locale */
+    /** @param files JSON by path relative to the pack root; @param lang translations by locale; @param report the report by kind */
     public record Result(Map<String, JsonObject> files, Map<String, Map<String, String>> lang, Ids ids,
-            List<String> notes, int chapters, int quests) {
+            List<String> notes, int chapters, int quests, ImportReport report) {
     }
 
     private final Source source;
@@ -69,6 +69,31 @@ public final class FtbqImporter {
 
     private void count(String kind, boolean carried) {
         counts.computeIfAbsent(kind, key -> new int[2])[carried ? 0 : 1]++;
+    }
+
+    /** What waits for the author's hand, by kind: the quests, and the FTB Quests types behind them. */
+    private final Map<String, java.util.TreeSet<String>> manualQuests = new java.util.TreeMap<>();
+    private final Map<String, java.util.TreeSet<String>> manualTypes = new java.util.TreeMap<>();
+    private final Map<String, Integer> manualCounts = new java.util.TreeMap<>();
+    private final Set<String> drafts = new java.util.TreeSet<>();
+    private int optionalQuests;
+    private int taskCount;
+    private int rewardCount;
+    private int dependencyCount;
+
+    private void manual(String kind, String quest, String type) {
+        manualQuests.computeIfAbsent(kind, key -> new java.util.TreeSet<>()).add(quest);
+        manualTypes.computeIfAbsent(kind, key -> new java.util.TreeSet<>()).add(type);
+        manualCounts.merge(kind, 1, Integer::sum);
+    }
+
+    private ImportReport report(int chapters) {
+        List<ImportReport.Manual> manual = new ArrayList<>();
+        manualQuests.forEach((kind, quests) -> manual.add(new ImportReport.Manual(kind, manualCounts.get(kind), List.copyOf(manualTypes.get(kind)),
+                !kind.equals(ImportReport.LOOT_EMPTY_WEIGHT), List.copyOf(quests))));
+        List<String> languages = source.lang().keySet().stream().sorted().toList();
+        int sections = (int) source.groups().stream().filter(group -> string(group, "id").isPresent()).count();
+        return new ImportReport(chapters, questCount, optionalQuests, taskCount, rewardCount, languages, dependencyCount, sections, chapters, manual, drafts.size(), 0, List.of(), "");
     }
 
     /** One line per kind at the head of the report, before the notes on single quests. */
@@ -91,21 +116,46 @@ public final class FtbqImporter {
         return new FtbqImporter(source, namespace, previous).run();
     }
 
+    /** A chapter that could not be converted, named by its file, so that the import can go on without it. */
+    public static final class ChapterError extends RuntimeException {
+        private final String file;
+
+        ChapterError(String file, RuntimeException cause) {
+            super(file + ": " + cause.getMessage(), cause);
+            this.file = file;
+        }
+
+        /** As {@link FtbqFiles.Failure#file()} names it. */
+        public String file() {
+            return file;
+        }
+    }
+
     private Result run() {
         List<JsonObject> chapters = orderedChapters();
         usedIds.addAll(previous.quests().values());
-        chapters.forEach(this::assignQuestIds);
+        chapters.forEach(chapter -> guarded(chapter, () -> assignQuestIds(chapter)));
 
         JsonArray order = new JsonArray();
         for (JsonObject chapter : chapters) {
-            String dir = chapterDir(chapter);
-            order.add(namespace + ":" + dir);
-            writeChapter(chapter, dir);
+            guarded(chapter, () -> {
+                String dir = chapterDir(chapter);
+                order.add(namespace + ":" + dir);
+                writeChapter(chapter, dir);
+            });
         }
         writeBook(order);
         notes.addAll(0, summary());
         Map<String, Map<String, String>> sortedLang = new HashMap<>(lang);
-        return new Result(files, sortedLang, ids, notes, chapters.size(), questCount);
+        return new Result(files, sortedLang, ids, notes, chapters.size(), questCount, report(chapters.size()));
+    }
+
+    private void guarded(JsonObject chapter, Runnable work) {
+        try {
+            work.run();
+        } catch (RuntimeException e) {
+            throw new ChapterError("chapters/" + string(chapter, "filename").orElse(string(chapter, "id").orElse("?")) + ".snbt", e);
+        }
     }
 
     private List<JsonObject> orderedChapters() {
@@ -153,6 +203,23 @@ public final class FtbqImporter {
         translate("book." + namespace + ".title", "file.1.title");
         itemId(source.data().get("icon")).ifPresent(icon -> book.addProperty("icon", icon));
         book.add("chapter_order", order);
+        // Chapter groups become the sections of the book. They are marked as the import's, so that the automatic map form
+        // does not take them for the author's epochs (plan, section 5).
+        JsonArray epochs = new JsonArray();
+        for (int i = 0; i < source.groups().size(); i++) {
+            String hex = string(source.groups().get(i), "id").orElse("");
+            String key = "book." + namespace + ".epoch." + (i + 1);
+            translateRequired(key, "chapter_group." + hex + ".title", hex);
+            JsonObject epoch = new JsonObject();
+            epoch.addProperty("title", key);
+            epoch.addProperty("imported", true);
+            epochs.add(epoch);
+        }
+        if (!epochs.isEmpty()) {
+            book.add("epochs", epochs);
+        }
+        // A carried over book stays closed to players until an operator has looked at it and opened it.
+        book.addProperty("published", false);
         files.put("data/" + namespace + "/rysquests/book.json", book);
     }
 
@@ -217,6 +284,7 @@ public final class FtbqImporter {
             String target = ids.quests().get(dependency.getAsString());
             if (target != null) {
                 requires.add(target);
+                dependencyCount++;
             } else {
                 notes.add("Quest " + id + ": dependency " + dependency.getAsString() + " is not a quest, skipped");
             }
@@ -250,26 +318,31 @@ public final class FtbqImporter {
                 }
                 continue;
             }
-            convertTask(source, id).ifPresent(converted -> {
-                ids.tasks().put(string(source, "id").orElseThrow(), new Ref(id, tasks.size()));
-                tasks.add(converted);
+            // A task the book cannot hold stands in as a checkbox, and the quest becomes a draft that players do not see until
+            // the author has looked at it (plan, section 5): it neither completes by itself nor pays out for a click meanwhile.
+            JsonObject converted = convertTask(source, id).orElseGet(() -> {
+                manual(ImportReport.UNCONVERTED_TASK, id, string(source, "type").orElse("?"));
+                drafts.add(id);
+                JsonObject standIn = new JsonObject();
+                standIn.addProperty("type", "rysquests:checkbox");
+                standIn.addProperty("title", "rysquests.import.unconverted_task");
+                return standIn;
             });
+            ids.tasks().put(string(source, "id").orElseThrow(), new Ref(id, tasks.size()));
+            tasks.add(converted);
         }
-        if (tasks.isEmpty() && array(quest, "tasks").size() > stageTasks) {
-            // Every task was skipped: without one the quest would complete by itself and hand out its rewards for nothing.
-            // A script nobody registers never finishes, so the quest waits for the author instead of paying out for a click.
-            JsonObject placeholder = new JsonObject();
-            placeholder.addProperty("type", "rysquests:script");
-            placeholder.addProperty("script", "rysquests:unconverted");
-            placeholder.addProperty("title", "rysquests.import.unconverted_task");
-            tasks.add(placeholder);
-            notes.add("Quest " + id + ": no task could be converted, a task that cannot finish stands in until it is fixed by hand");
-        }
+        taskCount += tasks.size();
         out.add("tasks", tasks);
 
         JsonArray rewards = new JsonArray();
         for (JsonElement reward : array(quest, "rewards")) {
-            convertReward(reward.getAsJsonObject(), id).ifPresent(converted -> {
+            Optional<JsonObject> carried = convertReward(reward.getAsJsonObject(), id);
+            if (carried.isEmpty()) {
+                // The quest comes without the reward, as a draft, so that players do not take it for the whole quest.
+                manual(ImportReport.DROPPED_REWARD, id, string(reward.getAsJsonObject(), "type").orElse("item"));
+                drafts.add(id);
+            }
+            carried.ifPresent(converted -> {
                 ids.rewards().put(string(reward.getAsJsonObject(), "id").orElseThrow(), new Ref(id, rewards.size()));
                 if (bool(reward.getAsJsonObject(), "team_reward")) {
                     converted.addProperty("team_mode", "once");
@@ -277,11 +350,22 @@ public final class FtbqImporter {
                 rewards.add(converted);
             });
         }
+        rewardCount += rewards.size();
         out.add("rewards", rewards);
 
-        out.addProperty("size", number(quest, "size", 1) >= 2 || decimal(quest, "size") >= 1.5 ? 2 : 1);
+        // FTB Quests' own place of the quest is kept, not pinned: our map lays the quest out itself (plan, section 5).
+        if (quest.has("x") || quest.has("y")) {
+            JsonObject layout = new JsonObject();
+            layout.addProperty("x", (int) Math.round(decimal(quest, "x") * works.repka.rysquests.data.Layout.FTB_CELL));
+            layout.addProperty("y", (int) Math.round(decimal(quest, "y") * works.repka.rysquests.data.Layout.FTB_CELL));
+            out.add("layout", layout);
+        }
+        if (number(quest, "size", 1) >= 2 || decimal(quest, "size") >= 1.5) {
+            out.addProperty("milestone", true);
+        }
         if (bool(quest, "optional")) {
             out.addProperty("optional", true);
+            optionalQuests++;
         }
         if (bool(quest, "hide_until_deps_complete")) {
             out.addProperty("hidden", true);
@@ -293,6 +377,9 @@ public final class FtbqImporter {
         }
         if (tasks.isEmpty() && stageTasks == 0) {
             out.addProperty("page", true);
+        }
+        if (drafts.contains(id)) {
+            out.addProperty("draft", true);
         }
         String file = path.substring(path.lastIndexOf('/') + 1);
         files.put("data/" + namespace + "/rysquests/chapters/" + dir + "/" + file + ".json", out);
@@ -499,9 +586,12 @@ public final class FtbqImporter {
         }
         JsonArray of = new JsonArray();
         JsonArray weights = new JsonArray();
-        if ("loot".equals(string(reward, "type").orElse("")) && decimal(table, "empty_weight") > 0 && notedTables.add(number(reward, "table_id", 0))) {
+        if ("loot".equals(string(reward, "type").orElse("")) && decimal(table, "empty_weight") > 0) {
             // A loot roll in FTB Quests may give nothing; here one of the table's rewards always comes.
-            notes.add("Reward table " + number(reward, "table_id", 0) + " has an empty weight, which is left out: a roll always gives something");
+            manual(ImportReport.LOOT_EMPTY_WEIGHT, questId, "loot");
+            if (notedTables.add(number(reward, "table_id", 0))) {
+                notes.add("Reward table " + number(reward, "table_id", 0) + " has an empty weight, which is left out: a roll always gives something");
+            }
         }
         nested++;
         for (JsonElement entry : array(table, "rewards")) {

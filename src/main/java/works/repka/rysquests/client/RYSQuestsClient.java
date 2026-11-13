@@ -47,7 +47,10 @@ public final class RYSQuestsClient {
         ModNetwork.setClientDevReportHandler(ClientDev::receive);
         ModNetwork.setClientAchievementHandler(ClientAchievements::receive);
         ModNetwork.setClientShopHandlers(ClientShop::receive, payload -> BookScreen.onShopResult(payload.ok(), payload.reason()));
-        ModNetwork.setClientEditorResultHandler(payload -> BookScreen.onEditorResult(payload.ok(), payload.reason()));
+        ModNetwork.setClientEditorResultHandler(payload -> BookScreen.onEditorResult(payload.ok(), payload.reason(), payload.args()));
+        ModNetwork.setClientMessageHandler(ClientMessages::receive);
+        ModNetwork.setClientLayoutBakeHandler(ClientLayout::onBakeRequest);
+        ModNetwork.setClientImportHandlers(ClientImport::receiveProgress, ClientImport::receiveReport, ClientImport::receiveError);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> QuestKeys.tick());
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> Ponders.tick());
         NeoForge.EVENT_BUS.addListener(RYSQuestsClient::onClientCommands);
@@ -58,6 +61,9 @@ public final class RYSQuestsClient {
             ClientProgress.clear();
             ClientShop.clear();
             ClientAchievements.clear();
+            ClientMessages.clear();
+            ClientLayout.clear();
+            ClientImport.clear();
         });
     }
 

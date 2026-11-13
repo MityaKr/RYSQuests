@@ -183,8 +183,9 @@ final class QuestCard {
         String claim = claimLabel(quest, status);
         float claimW = claim.isEmpty() ? 0 : ui.buttonWidth(claim, 13, Ui.SEMIBOLD, 14);
         float room = w - (claim.isEmpty() ? 0 : claimW + 10);
-        while (parts.size() > 1 && minRow(ui, parts) > room) {
-            parts.removeLast();
+        // Nothing is cut away: a row too narrow for every reward wraps onto more rows, as the card does (review U1, ADR-45).
+        if (minRow(ui, parts) > room) {
+            return rewards(ui, quest, status, x, y, w) - 14;
         }
         float[] base = new float[parts.size()];
         float[] min = new float[parts.size()];
@@ -465,7 +466,7 @@ final class QuestCard {
         ui.labelFit(taskName(task), textX, y + 16.5f, textW, 12.5f, Ui.REGULAR, ui.nameFg());
         ui.labelFit(taskLine(task, value, done), textX, y + 31, textW, 11, Ui.REGULAR, ui.c(done ? "state.ok" : "accent"));
         if (submit) {
-            ui.button(submitText, x + w - 11 - buttonW, cy - 14, buttonW, 28, 7, 11.5f, Ui.SEMIBOLD, 10, Ui.Style.ACCENT, () -> send(QuestActionPayload.SUBMIT, quest, 0, List.of()));
+            ui.button(submitText, x + w - 11 - buttonW, cy - 14, buttonW, 28, 7, 11.5f, Ui.SEMIBOLD, 10, Ui.Style.ACCENT, () -> send(QuestActionPayload.SUBMIT, quest, index, List.of()));
         }
         if (task instanceof CheckboxTask && open && !done) {
             ui.hit(x, y, w, h, () -> send(QuestActionPayload.CHECK, quest, index, List.of()));

@@ -297,7 +297,7 @@ final class ListView implements BookView {
         } else if (status != QuestStatus.LOCKED && readyToSubmit(quest, own)) {
             key = "rysquests.book.submit";
             style = Ui.Style.ACCENT;
-            click = () -> QuestCard.send(QuestActionPayload.SUBMIT, quest, 0, List.of());
+            click = () -> QuestCard.send(QuestActionPayload.SUBMIT, quest, QuestActionPayload.ALL_TASKS, List.of());
         } else {
             key = "rysquests.home.open";
             click = () -> {

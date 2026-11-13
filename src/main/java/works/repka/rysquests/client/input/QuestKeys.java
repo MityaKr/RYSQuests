@@ -13,11 +13,13 @@ import works.repka.rysquests.client.hud.StickerBoard;
 import works.repka.rysquests.client.screen.BookScreen;
 import works.repka.rysquests.network.QuestActionPayload;
 
-/** Key bindings of the mod. {@code P} rather than {@code A} pins, because RYScope claims {@code A} over items. */
+/**
+ * Key bindings of the mod: K, P and B. {@code P} rather than {@code A} pins, because RYScope claims {@code A} over items. The G key
+ * that handed in everything ready is gone (plan, section 8); "Hand in all ready" is a button of the book.
+ */
 public final class QuestKeys {
     private static final String CATEGORY = "key.categories.rysquests";
     public static final KeyMapping OPEN_BOOK = new KeyMapping("key.rysquests.open_book", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, CATEGORY);
-    public static final KeyMapping SUBMIT_READY = new KeyMapping("key.rysquests.submit_ready", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, CATEGORY);
     public static final KeyMapping PIN = new KeyMapping("key.rysquests.pin", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_P, CATEGORY);
 
     public static final KeyMapping BOARD = new KeyMapping("key.rysquests.board", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, CATEGORY);
@@ -27,7 +29,6 @@ public final class QuestKeys {
 
     public static void register(RegisterKeyMappingsEvent event) {
         event.register(OPEN_BOOK);
-        event.register(SUBMIT_READY);
         event.register(PIN);
         event.register(BOARD);
     }
@@ -47,9 +48,7 @@ public final class QuestKeys {
         while (BOARD.consumeClick()) {
             StickerBoard.toggleCollapsed();
         }
-        while (SUBMIT_READY.consumeClick()) {
-            sendAll(QuestActionPayload.SUBMIT_ALL);
-        }
+
     }
 
     public static void sendAll(int action) {

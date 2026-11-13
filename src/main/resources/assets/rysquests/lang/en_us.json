@@ -1,7 +1,6 @@
 {
   "key.categories.rysquests": "RYSQuests",
   "key.rysquests.open_book": "Open quest book",
-  "key.rysquests.submit_ready": "Hand in everything ready",
   "key.rysquests.pin": "Pin the selected quest",
   "sidebar_button.rysquests.book": "Quests",
   "rysquests.toast.complete": "Quest complete",
@@ -102,7 +101,7 @@
   "rysquests.task.visit": "Visit: %s",
   "rysquests.task.advancement": "Advancement: %s",
   "rysquests.task.checkbox": "Click to confirm",
-  "rysquests.import.done": "Imported from FTB Quests: %s chapters, %s quests, %s notes in config/rysquests/import/import-report.md. Reloading.",
+  "rysquests.import.done": "Imported from FTB Quests: %s chapters, %s quests, %s hidden until you check them; the report is in config/rysquests/import/import-report.md.",
   "rysquests.import.failed": "FTB Quests import failed: %s",
   "rysquests.import.progress": "Imported progress of %s teams, %s quests.",
   "rysquests.progress.unknown_quest": "Unknown quest %s",
@@ -630,5 +629,18 @@
   "rysquests.import.patchouli": "Imported from Patchouli: %s guides, %s pages, %s structures, %s skipped",
   "rysquests.validate.issue.structure_shape": "Structure %s: layers differ in size",
   "rysquests.validate.issue.structure_symbol": "Structure %s: symbol %s is not in the mapping",
-  "rysquests.validate.issue.unknown_block": "Structure %s: unknown block %s"
+  "rysquests.validate.issue.unknown_block": "Structure %s: unknown block %s",
+  "rysquests.reward.error.not_done": "The quest is not done yet",
+  "rysquests.reward.error.no_right": "Your team role does not allow claiming rewards",
+  "rysquests.reward.error.pick": "Pick one of the rewards first",
+  "rysquests.reward.error.inventory_full": "No room in the inventory: the reward waits until you make some",
+  "rysquests.editor.error.conflict": "%s changed this chapter while you were editing it. Save again to save over their changes",
+  "rysquests.editor.error.conflict_files": "The chapter changed while you were editing it. Save again to save over those changes",
+  "rysquests.layout.error.stale": "the book changed while the map was being laid out, lay it out again",
+  "rysquests.layout.bake_needs_player": "Only a player can lay out the map: their client does it",
+  "rysquests.layout.bake_asked": "Your client is laying out the map; the server writes layout.json when it is done",
+  "rysquests.layout.no_baker": "The map cannot be laid out in this version of the book yet",
+  "rysquests.validate.issue.layout_stale": "The map layout is out of date: save the layout again (%s)",
+  "rysquests.validate.issue.requires_archived": "Quest %s waits for %s, which is in the archive: players will never open it",
+  "rysquests.validate.issue.requires_draft": "Quest %s waits for the draft %s: players will not open it until the draft is finished"
 }

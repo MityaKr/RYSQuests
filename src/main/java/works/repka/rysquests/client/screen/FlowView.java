@@ -402,7 +402,7 @@ final class FlowView implements BookView {
         float rightEdge = x + w - 13;
         if (submit > 0) {
             float bw = widths[2];
-            ui.button(buttonText, rightEdge - bw, cy - 17, bw, 34, 9, 13, Ui.SEMIBOLD, 14, Ui.Style.ACCENT, () -> QuestCard.send(QuestActionPayload.SUBMIT, quest, 0, List.of()));
+            ui.button(buttonText, rightEdge - bw, cy - 17, bw, 34, 9, 13, Ui.SEMIBOLD, 14, Ui.Style.ACCENT, () -> QuestCard.send(QuestActionPayload.SUBMIT, quest, index, List.of()));
             rightEdge -= bw + 12;
         }
         float lineRight = rightEdge;

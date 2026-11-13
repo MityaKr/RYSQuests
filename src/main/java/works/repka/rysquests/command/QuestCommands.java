@@ -49,9 +49,11 @@ import works.repka.rysquests.data.ShopOffer;
 import works.repka.rysquests.data.TaskDef;
 import works.repka.rysquests.dev.DevReports;
 import works.repka.rysquests.integration.ftbq.FtbqFiles;
-import works.repka.rysquests.integration.ftbq.FtbqImporter;
+import works.repka.rysquests.integration.ftbq.FtbqImportService;
 import works.repka.rysquests.integration.ftbq.FtbqProgress;
+import works.repka.rysquests.integration.ftbq.ImportReport;
 import works.repka.rysquests.integration.ftbq.ImportedPack;
+import works.repka.rysquests.network.LayoutBakeRequestPayload;
 import works.repka.rysquests.integration.patchouli.PatchouliImporter;
 import works.repka.rysquests.editor.EditorFiles;
 import works.repka.rysquests.editor.EditorFolder;
@@ -113,6 +115,7 @@ public final class QuestCommands {
                         .then(Commands.literal("report").executes(QuestCommands::devReport))
                         .then(Commands.literal("registry").executes(QuestCommands::devRegistry)))
                 .then(admin("reload").executes(QuestCommands::reload))
+                .then(admin("layout").then(Commands.literal("bake").executes(QuestCommands::layoutBake)))
                 .then(admin("validate").executes(QuestCommands::validate))
                 .then(walletBranch(admin("wallet"), false).then(walletBranch(Commands.literal("treasury"), true)))
                 .then(admin("shop").then(Commands.literal("reset").then(Commands.argument("players", EntityArgument.players())
@@ -135,6 +138,22 @@ public final class QuestCommands {
                                 .executes(context -> setProgress(context, false))))
                         .then(Commands.literal("complete").then(Commands.argument("quest", ResourceLocationArgument.id())
                                 .executes(context -> setProgress(context, true)))))));
+    }
+
+    /**
+     * Asks the operator's own client to lay the map out and send it back, so that the server writes layout.json beside the book:
+     * the server cannot lay the map out itself. For building a pack without opening the book.
+     */
+    private static int layoutBake(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.translatable("rysquests.layout.bake_needs_player"));
+            return 0;
+        }
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new LayoutBakeRequestPayload(BookHolder.current().book().layoutHash()));
+        source.sendSuccess(() -> Component.translatable("rysquests.layout.bake_asked"), false);
+        return 1;
     }
 
     /** Writes logs/rysquests-report.json and .csv, for tools as much as for people. */
@@ -383,20 +402,21 @@ public final class QuestCommands {
     /** Converts in the background, then reloads so that the new pack is picked up. */
     private static int importFtbq(CommandContext<CommandSourceStack> context, String namespace) {
         CommandSourceStack source = context.getSource();
-        MinecraftServer server = source.getServer();
-        Path quests = FMLPaths.CONFIGDIR.get().resolve("ftbquests").resolve("quests");
-        Path root = ImportedPack.root();
-        Util.backgroundExecutor().execute(() -> {
-            try {
-                FtbqImporter.Result result = FtbqImporter.convert(FtbqFiles.read(quests), namespace, FtbqFiles.readIds(root));
-                FtbqFiles.write(root, result);
-                server.execute(() -> {
-                    source.sendSuccess(() -> Component.translatable("rysquests.import.done", result.chapters(), result.quests(), result.notes().stream().filter(note -> !note.startsWith("Summary: ")).count()), false);
-                    server.getCommands().performPrefixedCommand(source, "reload");
-                });
-            } catch (IOException | RuntimeException e) {
-                LOGGER.warn("FTB Quests import failed", e);
-                server.execute(() -> source.sendFailure(Component.translatable("rysquests.import.failed", String.valueOf(e.getMessage()))));
+        FtbqImportService.run(source.getServer(), namespace, Set.of(), false, new FtbqImportService.Listener() {
+            @Override
+            public void progress(String phase, int done, int total) {
+            }
+
+            @Override
+            public void failed(FtbqFiles.Failure failure, int chaptersRead, int chaptersTotal) {
+                String where = failure.file().isEmpty() ? failure.reason()
+                        : FtbqImportService.folderName() + "/" + failure.file() + ":" + failure.line() + ": " + failure.reason();
+                source.sendFailure(Component.translatable("rysquests.import.failed", where));
+            }
+
+            @Override
+            public void done(ImportReport report) {
+                source.sendSuccess(() -> Component.translatable("rysquests.import.done", report.chapters(), report.quests(), report.hiddenQuests()), false);
             }
         });
         return 1;
