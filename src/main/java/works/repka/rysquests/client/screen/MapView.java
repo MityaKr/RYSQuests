@@ -679,13 +679,13 @@ final class MapView implements BookView {
             List<Quest> milestones = milestones(book, chapterId);
             if (!milestones.isEmpty()) {
                 pen += DetailPanel.GAP + 4;
-                long done = milestones.stream().filter(q -> status(q.id()) == QuestStatus.COMPLETED).count();
+                long done = milestones.stream().filter(q -> done(status(q.id()))).count();
                 pen += DetailPanel.rubric(u, bx, pen, bw, tr("rysquests.mapview.card.milestones"), Component.translatable("rysquests.count.of", done, milestones.size()).getString()) + 4;
                 for (Quest quest : milestones) {
                     QuestStatus st = status(quest.id());
                     ListRow row = ListRow.of(Component.translatable(quest.title()).getString()).icon(questIcon(quest)).look(ListRow.Look.FLAT).locked(st == QuestStatus.LOCKED)
                             .onClick(() -> flyToQuest(quest.id()));
-                    row = st == QuestStatus.COMPLETED ? row.right(Icons.Shape.CHECK, "", "state.ok") : st == QuestStatus.LOCKED ? row.right(tr("rysquests.mapview.card.locked")) : row.right(tr("rysquests.mapview.card.can_do"));
+                    row = done(st) ? row.right(Icons.Shape.CHECK, "", "state.ok") : st == QuestStatus.LOCKED ? row.right(tr("rysquests.mapview.card.locked")) : row.right(tr("rysquests.mapview.card.can_do"));
                     pen += row.render(u, bx - 8, pen, bw + 16);
                 }
             }
@@ -851,6 +851,11 @@ final class MapView implements BookView {
 
     // ================= data =================
 
+    /** Done, whether its rewards still wait or were taken (a quest without rewards is taken as soon as it is done). */
+    static boolean done(QuestStatus status) {
+        return status == QuestStatus.COMPLETED || status == QuestStatus.CLAIMED;
+    }
+
     static QuestStatus status(ResourceLocation id) {
         Quest quest = BookData.book().quests().get(id);
         return quest == null ? QuestStatus.LOCKED : BookState.status(quest);
@@ -895,7 +900,7 @@ final class MapView implements BookView {
                 continue;
             }
             QuestStatus st = status(quest.id());
-            if (st == QuestStatus.COMPLETED) {
+            if (done(st)) {
                 continue;
             }
             if (st != QuestStatus.LOCKED) {

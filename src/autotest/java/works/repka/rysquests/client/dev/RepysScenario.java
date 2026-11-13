@@ -237,23 +237,28 @@ final class RepysScenario {
             BookScreen.foldSidebarForTest(true);
         }, 30);
         step("unfold the sidebar", () -> BookScreen.foldSidebarForTest(false), 5);
-        shot("map_off_map_chapter", () -> {
-            BookScreen.selectForTest(ResourceLocation.parse("repys:a2_chronicle"), null);
-            BookScreen.mapFlyForTest(ResourceLocation.parse("repys:a2_chronicle"), 0, null);
-        }, 30);
+        // a chapter off the map opens as a list, as the sidebar does it (19b)
+        shot("list_off_map_chapter", () -> PanelShowcase.list(ResourceLocation.parse("repys:a2_chronicle"), 0, "ALL", null, false), 20);
+        step("back to the map", () -> BookScreen.showForTest(ViewMode.MAP), 10);
         // the quest panel with the pack's items, and its "Как сделать" into RYScope
         shot("panel_short", () -> {
             BookScreen.selectForTest(ClientBook.current().quests().get(SHORT[0]).chapter().orElseThrow(), SHORT[0]);
             BookScreen.mapFlyForTest(null, 0, SHORT[0]);
         }, 30);
         expect("recipe viewer connected", Recipes::available);
-        step("main button of the panel", () -> LOGGER.info("[autotest] main button of {}: {}", SHORT[0], RepysHooks.mainAction(SHORT[0])), 1);
+        step("main button of the panel", () -> LOGGER.info("[autotest] main button of {}: {}; of {}: {}", SHORT[0], RepysHooks.mainAction(SHORT[0]),
+                HERE, RepysHooks.mainAction(HERE)), 1);
+        // the next step has none of its item: the panel's main button leads to the recipe
+        shot("panel_how", () -> {
+            BookScreen.selectForTest(HERE_CHAPTER, HERE);
+            BookScreen.mapFlyForTest(null, 0, HERE);
+        }, 30);
         expect("the main button says how to make it", () -> {
-            String label = RepysHooks.mainAction(SHORT[0]);
+            String label = RepysHooks.mainAction(HERE);
             return label != null && label.startsWith("Как сделать");
         });
         step("press how to make it", () -> {
-            if (!RepysHooks.pressMainAction(SHORT[0])) {
+            if (!RepysHooks.pressMainAction(HERE)) {
                 fail("the main button did nothing");
             }
         }, 30);
@@ -406,9 +411,13 @@ final class RepysScenario {
         }, 60);
         step("two more wait for their rewards", () -> {
             mc().setScreen(null);
-            List<Quest> open = sortedQuests().stream().filter(quest -> quest.chapter().map(HERE_CHAPTER::equals).orElse(false))
+            // open quests of "Ток" first, then any other open quest of the book with a reward
+            List<Quest> open = sortedQuests().stream()
                     .filter(quest -> !ClientProgress.get(quest.id()).completed() && !quest.id().equals(HERE) && !quest.rewards().isEmpty())
-                    .filter(quest -> quest.requires().stream().allMatch(id -> ClientProgress.get(id).completed())).limit(2).toList();
+                    .filter(quest -> quest.chapter().isPresent() && !quest.id().getPath().startsWith("_"))
+                    .filter(quest -> quest.requires().stream().allMatch(id -> ClientProgress.get(id).completed()))
+                    .sorted(Comparator.comparing(quest -> quest.chapter().map(HERE_CHAPTER::equals).orElse(false) ? 0 : 1))
+                    .limit(2).toList();
             open.forEach(quest -> {
                 WAITING.add(quest.id());
                 command("rysquests progress @s complete " + quest.id());

@@ -527,7 +527,7 @@ final class AchievementsView implements BookView {
             count = tr("rysquests.achievements.all_levels");
             token = "state.ok";
         } else {
-            count = text("rysquests.count.of", Numbers.compact(progress(achievement)), Numbers.compact(next.amount()));
+            count = text("rysquests.count.of", amount(achievement, progress(achievement), true), withUnit(achievement, next.amount(), true));
             token = "text.secondary";
         }
         ui.labelFit(count, x, pen + Ui.lineHeight(11.5f) / 2f, w, 11.5f, Ui.REGULAR, ui.c(token));
@@ -593,7 +593,7 @@ final class AchievementsView implements BookView {
             } else if (next == null) {
                 state = tr("rysquests.achievements.all_levels");
             } else {
-                state = text("rysquests.achievements.level_state", best + 1, n, Sidebar.full(next.amount() - progress(achievement)));
+                state = text("rysquests.achievements.level_state", best + 1, n, withUnit(achievement, next.amount() - progress(achievement), false));
             }
             List<String> sub = u.wrap(state, textW, 12, Ui.REGULAR, 2);
             for (int i = 0; i < sub.size(); i++) {
@@ -617,11 +617,56 @@ final class AchievementsView implements BookView {
                 u.bar(bx, pen, bw, 6, 3, ratio(achievement), u.c("text.secondary"));
                 pen += 6 + 6;
                 int index = achievement.tiers().indexOf(next);
-                u.labelFit(text("rysquests.achievements.until_level", Sidebar.full(progress(achievement)), Sidebar.full(next.amount()), index + 1), bx, pen + 8, bw, 12, Ui.REGULAR, u.c("text.muted"));
+                u.labelFit(text("rysquests.achievements.until_level", amount(achievement, progress(achievement), false), withUnit(achievement, next.amount(), false), index + 1), bx, pen + 8, bw, 12, Ui.REGULAR, u.c("text.muted"));
                 pen += 16;
             }
             return pen - by;
         }, action);
+    }
+
+    /** How a vanilla statistic is counted for players: ticks as hours or minutes, centimetres as kilometres or metres, damage in tenths as points. */
+    private record Unit(double scale, @Nullable String key) {
+        static final Unit NONE = new Unit(1, null);
+    }
+
+    private static Unit unit(Achievement achievement) {
+        if (achievement.tiers().isEmpty()) {
+            return Unit.NONE;
+        }
+        works.repka.rysquests.data.Quest quest = BookData.book().quests().get(achievement.questId(achievement.tiers().get(0)));
+        if (quest == null || quest.tasks().isEmpty() || !(quest.tasks().get(0) instanceof works.repka.rysquests.task.StatTask stat)
+                || !stat.stat().equals(ResourceLocation.withDefaultNamespace("custom"))) {
+            return Unit.NONE;
+        }
+        String path = stat.entry().getPath();
+        int top = achievement.tiers().get(achievement.tiers().size() - 1).amount();
+        if (path.endsWith("_one_cm")) {
+            return top >= 100_000 ? new Unit(1e-5, "rysquests.unit.km") : new Unit(0.01, "rysquests.unit.m");
+        }
+        if (path.contains("time")) {
+            return top >= 72_000 ? new Unit(1 / 72_000.0, "rysquests.unit.h") : new Unit(1 / 1_200.0, "rysquests.unit.min");
+        }
+        if (path.startsWith("damage_")) {
+            return new Unit(0.1, null);
+        }
+        return Unit.NONE;
+    }
+
+    /** An amount of the achievement's counter in its units, without the unit: "18.4", "4.4k" on a card, "4 400" in the panel. */
+    private static String amount(Achievement achievement, long value, boolean compact) {
+        Unit unit = unit(achievement);
+        if (unit.scale() == 1) {
+            return compact ? Numbers.compact(value) : Sidebar.full(value);
+        }
+        double scaled = value * unit.scale();
+        return scaled >= 1000 ? (compact ? Numbers.compact(scaled) : Sidebar.full(Math.round(scaled))) : Numbers.trim(scaled);
+    }
+
+    /** The same with its unit: "50 км", "24 ч". */
+    private static String withUnit(Achievement achievement, long value, boolean compact) {
+        Unit unit = unit(achievement);
+        String number = amount(achievement, value, compact);
+        return unit.key() == null ? number : text(unit.key(), number);
     }
 
     /** One level (mockup {@code .tier}): its ring, "Уровень 2 · 10 000", the rewards, and its state on the right. @return its height */
@@ -634,11 +679,11 @@ final class AchievementsView implements BookView {
         ui.box(x, y, w, h, 10, ui.c("card.bg"), ui.c("panel.border"));
         float cy = y + h / 2f;
         AchievementRing.dot(ui, x + 12, cy - 7, 14, LevelSegments.token(index, n));
-        String status = got ? tr("rysquests.achievements.level_got") : current ? text("rysquests.count.of", Sidebar.full(progress(achievement)), Sidebar.full(tier.amount())) : "";
+        String status = got ? tr("rysquests.achievements.level_got") : current ? text("rysquests.count.of", amount(achievement, progress(achievement), false), withUnit(achievement, tier.amount(), false)) : "";
         float statusW = status.isEmpty() ? 0 : ui.width(status, 12, Ui.REGULAR) + 10;
         float textX = x + 12 + 14 + 10;
         float textW = x + w - 12 - statusW - textX;
-        ui.labelFit(text("rysquests.achievements.level_name", index + 1, Sidebar.full(tier.amount())), textX, y + 8 + Ui.lineHeight(13) / 2f, textW, 13, Ui.MEDIUM, ui.c("text.primary"));
+        ui.labelFit(text("rysquests.achievements.level_name", index + 1, withUnit(achievement, tier.amount(), false)), textX, y + 8 + Ui.lineHeight(13) / 2f, textW, 13, Ui.MEDIUM, ui.c("text.primary"));
         ui.labelFit(rewards(tier), textX, y + 8 + Ui.lineHeight(13) + Ui.lineHeight(11.5f) / 2f, textW, 11.5f, Ui.REGULAR, ui.c("text.muted"));
         if (!status.isEmpty()) {
             ui.labelRight(status, x + w - 12, cy, 12, Ui.REGULAR, ui.c(got ? "state.ok" : "text.muted"));

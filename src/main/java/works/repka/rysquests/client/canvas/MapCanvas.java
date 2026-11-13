@@ -660,7 +660,7 @@ public final class MapCanvas {
         boolean[] anyOpen = new boolean[nc];
         for (MapBook.Q quest : map.quests()) {
             QuestStatus st = status.apply(quest.id());
-            byte code = st == QuestStatus.COMPLETED ? DONE : st == QuestStatus.LOCKED ? LOCKED : OPEN;
+            byte code = st == QuestStatus.COMPLETED || st == QuestStatus.CLAIMED ? DONE : st == QuestStatus.LOCKED ? LOCKED : OPEN;
             state[quest.index()] = code;
             int c = quest.chapter();
             if (quest.optional()) {
