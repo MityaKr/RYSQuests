@@ -212,7 +212,7 @@ final class EditorSidebar {
         String count = EditorBook.tr("rysquests.ed.side.chapters", chapters);
         float countW = ui.width(count, 11, Ui.REGULAR);
         ui.labelRight(count, x + w - 8, cy, 11, Ui.REGULAR, ui.c("text.muted"));
-        String title = book.meta().epoch(number).map(BookMeta.Epoch::title).map(EditorBook.get()::text).orElse(Ui.roman(number));
+        String title = book.meta().epoch(number).map(BookMeta.Epoch::title).map(EditorBook.get()::text).orElse(net.minecraft.network.chat.Component.translatable("rysquests.ed.side.epoch_untitled").getString());
         ui.labelFitTip(title, pen, cy, x + w - 8 - countW - 6 - pen, 12.5f, Ui.SEMIBOLD, ui.c(open ? "text.primary" : "text.secondary"));
         ui.hit(x, y, 24, EPOCH_H, () -> unfolded.put(number, !open));
         ui.hit(x + 24, y, w - 24, EPOCH_H, () -> {

@@ -622,8 +622,10 @@ final class QuestPanel {
         if (quest.text().isEmpty()) {
             return y;
         }
-        String text = Component.translatable(quest.text().get()).getString();
-        if (text.isBlank()) {
+        String key = quest.text().get();
+        String text = Component.translatable(key).getString();
+        // a text key nobody translated ("quest.repys.….text") is not shown to the player as it is: no text is better than a key
+        if (text.isBlank() || text.equals(key) && key.indexOf(' ') < 0 && key.indexOf('.') > 0 && !BookRole.operator()) {
             return y;
         }
         TextBlock.Look look = new TextBlock.Look(DESC_PX, DESC_LH, ui.c("text.secondary"), ui.c("text.primary"));

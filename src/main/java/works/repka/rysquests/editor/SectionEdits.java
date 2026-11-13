@@ -174,6 +174,25 @@ public final class SectionEdits {
         return updateRow(s, row, target -> withWays(target, column.id(), replaced(target.ways(column), way, change.apply(target.ways(column).get(way)))));
     }
 
+    /**
+     * Moves a way to the same row's cell of another column, which is how its stage changes: the stage belongs to the column. Its
+     * texts keep their keys (they were built from the old column), it gets an id free in the new cell, and it stops being the best
+     * one when that cell already has one.
+     */
+    public static MatrixSection moveWayTo(MatrixSection s, int row, Column from, int way, Column to) {
+        if (from.id().equals(to.id())) {
+            return s;
+        }
+        Row target = s.rows().get(row);
+        Way moving = target.ways(from).get(way);
+        List<Way> there = target.ways(to);
+        String id = freshId("way_", there.stream().map(Way::id).toList());
+        boolean best = moving.best() && there.stream().noneMatch(Way::best);
+        Way moved = new Way(id, Optional.of(s.wayName(target, from, moving)), Optional.of(s.wayText(target, from, moving)), moving.icon(), moving.mark(),
+                best, moving.needs(), moving.links());
+        return updateRow(s, row, r -> withWays(withWays(r, from.id(), without(r.ways(from), way)), to.id(), plus(r.ways(to), moved)));
+    }
+
     /** Only one way of a cell is the best one. */
     public static MatrixSection markBest(MatrixSection s, int row, Column column, int way) {
         return updateRow(s, row, target -> {

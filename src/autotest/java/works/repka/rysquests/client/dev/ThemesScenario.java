@@ -115,7 +115,16 @@ final class ThemesScenario {
                     state.setup.run();
                 }, state.ticks);
                 expect(state.name + " is ready (" + pass + ")", state.ready);
-                step("point away", () -> moveMouse(1, 1), 3);
+                // the book's message on two screens, to see where it lies; out of the way on the others
+                boolean message = List.of("now", "shop_buy", "achievements").contains(state.name);
+                step("point away", () -> {
+                    moveMouse(1, 1);
+                    if (message) {
+                        ClientMessages.show("rysquests.reward.error.inventory_full", List.of(), false);
+                    } else {
+                        ClientMessages.dismiss();
+                    }
+                }, 3);
                 screenshot("themes_" + state.name + "_" + pass);
             }
         }

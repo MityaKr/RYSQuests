@@ -353,7 +353,18 @@ final class TabsEditorView extends EditorPage {
             put(matrix, SectionEdits.updateWay(matrix, row, c, 0, wy -> withNeeds(wy, needs)), tr("rysquests.ed.log.way_need", editor.text(nameKey)));
         }) + 12;
         pen += EdUi.label(ui, tr("rysquests.ed.tabs.stage"), bx, pen);
-        EdUi.select(ui, bx, pen, bw, c.stage().orElse(editor.text(c.title())), false, () -> { });
+        // the stage is the column's: choosing another moves the way to that column of the same row
+        float stageY = pen;
+        EdUi.select(ui, bx, pen, bw, editor.text(c.title()), choices.isOpen("way-stage"), () -> {
+            List<String> labels = matrix.columns().stream().map(col -> editor.text(col.title())).toList();
+            choices.toggle("way-stage", bx, stageY + EdUi.INPUT_H + 4, bw, labels, column, i -> {
+                if (i != column) {
+                    MatrixSection.Column to = matrix.columns().get(i);
+                    put(matrix, SectionEdits.moveWayTo(matrix, row, c, 0, to), tr("rysquests.ed.log.way_stage", editor.text(nameKey), labels.get(i)));
+                    column = i;
+                }
+            });
+        });
         pen += EdUi.INPUT_H + 12;
         EdUi.setting(ui, bx, pen, bw, tr("rysquests.ed.tabs.best"), null, way.best(),
                 () -> put(matrix, SectionEdits.markBest(matrix, row, c, 0), tr("rysquests.ed.log.way_best", editor.text(nameKey))));

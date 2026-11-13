@@ -193,14 +193,15 @@ final class ShopEditorView extends EditorPage {
         }) + 12;
         pen += EdUi.label(ui, tr("rysquests.ed.shop.opens"), bx, pen);
         float oy = pen;
-        String opens = offer.quest().map(q -> editor.view().quests().get(q)).map(q -> tr("rysquests.ed.shop.after_quest", q.title())).orElse(tr("rysquests.ed.shop.at_once"));
+        String opens = offer.quest().map(q -> editor.view().quests().get(q)).map(q -> tr("rysquests.ed.shop.after_quest", editor.text(q.title()))).orElse(tr("rysquests.ed.shop.at_once"));
         pen += EdUi.select(ui, bx, pen, bw, opens, choices.isOpen("offer-opens"), () -> {
-            List<Quest> milestones = editor.view().quests().values().stream().filter(q -> q.options().milestone() && q.options().live()).limit(60).toList();
+            List<Quest> points = opensAfter(editor.view(), offer.quest().orElse(null));
             List<String> labels = new ArrayList<>();
             labels.add(tr("rysquests.ed.shop.at_once"));
-            milestones.forEach(q -> labels.add(tr("rysquests.ed.shop.after_quest", q.title())));
-            choices.toggle("offer-opens", bx, oy + EdUi.INPUT_H + 4, bw, labels, 0, i -> editor.putOffer(with(offer, offer.title(), offer.icon(), offer.category(), offer.cost(),
-                    offer.gives(), offer.limit(), i == 0 ? Optional.empty() : Optional.of(milestones.get(i - 1).id())), tr("rysquests.ed.log.offer_opens", name(editor, offer))));
+            points.forEach(q -> labels.add(tr("rysquests.ed.shop.after_quest", editor.text(q.title()))));
+            int chosenIndex = offer.quest().map(id -> points.stream().map(Quest::id).toList().indexOf(id) + 1).orElse(0);
+            choices.toggle("offer-opens", bx, oy + EdUi.INPUT_H + 4, bw, labels, chosenIndex, i -> editor.putOffer(with(offer, offer.title(), offer.icon(), offer.category(), offer.cost(),
+                    offer.gives(), offer.limit(), i == 0 ? Optional.empty() : Optional.of(points.get(i - 1).id())), tr("rysquests.ed.log.offer_opens", name(editor, offer))));
         }) + 12;
         pen += EdUi.label(ui, tr("rysquests.ed.shop.limit"), bx, pen);
         List<Segments.Item> limits = List.of(Segments.item(tr("rysquests.ed.shop.limit.none")), Segments.item(tr("rysquests.ed.shop.limit.daily")),
@@ -228,6 +229,38 @@ final class ShopEditorView extends EditorPage {
             editor.removeOffer(offer.id(), tr("rysquests.ed.log.offer_removed", name(editor, offer)));
             chosen = null;
         });
+    }
+
+    /** At most this many points in the list "Открывается": it does not scroll. */
+    private static final int OPENS_MAX = 16;
+
+    /**
+     * What an offer can open after, from the data the book already has: the milestones, and for a chapter without one its last main
+     * quest, in book order; the offer's own quest always among them. A book without milestones (a new one, a carried over FTB book)
+     * so still has points to choose.
+     */
+    static List<Quest> opensAfter(QuestBook book, @Nullable ResourceLocation current) {
+        List<Quest> out = new ArrayList<>();
+        for (works.repka.rysquests.data.Chapter chapter : book.chapters().values()) {
+            if (!chapter.isStory() || chapter.hidden()) {
+                continue;
+            }
+            List<Quest> ordered = ChapterOrder.of(book, chapter.id()).stream().filter(q -> q.options().live()).toList();
+            List<Quest> milestones = ordered.stream().filter(q -> q.options().milestone()).toList();
+            if (!milestones.isEmpty()) {
+                out.addAll(milestones);
+            } else {
+                ordered.stream().filter(q -> !q.options().optional()).reduce((first, second) -> second).ifPresent(out::add);
+            }
+        }
+        if (out.size() > OPENS_MAX) {
+            out = new ArrayList<>(out.subList(0, OPENS_MAX));
+        }
+        Quest own = current == null ? null : book.quests().get(current);
+        if (own != null && out.stream().noneMatch(q -> q.id().equals(current))) {
+            out.addFirst(own);
+        }
+        return out;
     }
 
     private static String name(EditorBook editor, ShopOffer offer) {
