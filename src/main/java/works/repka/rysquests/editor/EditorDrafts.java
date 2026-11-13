@@ -96,6 +96,42 @@ public final class EditorDrafts {
         Files.deleteIfExists(file(folder, chapter));
     }
 
+    /** The file of the book-wide draft: its name has no '~', so it never reads as a chapter. */
+    static final String BOOK_FILE = "book_draft.json";
+
+    /** Writes the whole draft of the book, through a temporary file. */
+    public static void saveBook(Path folder, BookDraft draft, DynamicOps<JsonElement> ops) throws IOException {
+        Files.createDirectories(folder);
+        Path file = folder.resolve(BOOK_FILE);
+        Path temporary = file.resolveSibling(BOOK_FILE + ".tmp");
+        Files.writeString(temporary, GSON.toJson(BookDraft.CODEC.encodeStart(ops, draft).getOrThrow()) + "\n", StandardCharsets.UTF_8);
+        Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    /** The draft of the book; empty when there is none or it cannot be read any more. */
+    public static Optional<BookDraft> loadBook(Path folder, DynamicOps<JsonElement> ops) {
+        Path file = folder.resolve(BOOK_FILE);
+        if (!Files.isRegularFile(file)) {
+            return Optional.empty();
+        }
+        try {
+            return BookDraft.CODEC.parse(ops, JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8))).result();
+        } catch (IOException | RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * The draft was saved or thrown away. The file is renamed beside itself rather than deleted, so that work thrown away by mistake
+     * can still be found by hand.
+     */
+    public static void discardBook(Path folder) throws IOException {
+        Path file = folder.resolve(BOOK_FILE);
+        if (Files.isRegularFile(file)) {
+            Files.move(file, file.resolveSibling(BOOK_FILE + ".old"), StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
     /** {@code ns:a/b} is kept as {@code ns~a~b.json}: neither character is allowed in an id, so the name reads back. */
     static Path file(Path folder, ResourceLocation chapter) {
         return folder.resolve(chapter.getNamespace() + "~" + chapter.getPath().replace('/', '~') + SUFFIX);

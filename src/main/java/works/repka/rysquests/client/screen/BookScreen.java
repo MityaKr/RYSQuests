@@ -62,6 +62,7 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     private final EmptyBookView empty = new EmptyBookView(this);
     private final SearchPopover searchPopover = new SearchPopover(this);
     final BookEditors editors = new BookEditors(this);
+    final EditorPages editor = new EditorPages(this);
     @Nullable
     private BookView page;
     @Nullable
@@ -187,6 +188,9 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         if (page != null) {
             return page;
         }
+        if (editor.on()) {
+            return editor.view();
+        }
         BookTabs.Tab tab = BookTabs.current(BookData.book());
         return tab == null ? empty : view(tab.id());
     }
@@ -198,10 +202,15 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         return BookTabs.visible(BookData.book());
     }
 
+    @Override
+    public List<BookTabs.Tab> editorTabs() {
+        return editor.tabs();
+    }
+
     @Nullable
     @Override
     public BookTabs.Tab activeTab() {
-        return page != null ? null : BookTabs.current(BookData.book());
+        return page != null ? null : editor.on() ? editor.activeTab() : BookTabs.current(BookData.book());
     }
 
     @Override
@@ -227,11 +236,9 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
 
     @Override
     public void toggleEditor() {
-        if (BookState.inGuides() || BookState.customSection() != null) {
-            editors.openSection(null);
-        } else {
-            editors.openQuest();
-        }
+        BookTabs.Tab from = page == null && !editor.on() ? BookTabs.current(BookData.book()) : null;
+        closePage();
+        editor.toggle(from);
     }
 
     @Nullable
@@ -291,14 +298,7 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         }
         ui.shadow(x, y, w, h, 14, 1f);
         ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
-        if (editors.any()) {
-            if (searchBox != null) {
-                searchBox.visible = false;
-            }
-            editors.render(ui, x + 1, y + 1, w - 2, h - 2);
-        } else {
-            drawBook(ui, x + 1, y + 1, w - 2, h - 2);
-        }
+        drawBook(ui, x + 1, y + 1, w - 2, h - 2);
         settleFields();
         lastHovered = ui.hoveredStack;
         lastHoveredText = ui.hoveredText == null ? null : ui.hoveredText.getString();
@@ -331,7 +331,7 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         if (!bare) {
             searchPopover.render(ui, x, y, w, h, searchBox != null && searchBox.isFocused(), compact());
         }
-        if (body != loading && body != empty && body != page && !editors.any() && BookState.previewSection == null) {
+        if (body != loading && body != empty && body != page && !editor.on() && BookState.previewSection == null) {
             BookState.track();
         }
     }
@@ -365,12 +365,6 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
             sectionSearch.setWidth(Math.round((w - 29 - 13) / 2f));
             sectionSearch.render(ui.g, ui.mouseX / 2, ui.mouseY / 2, 0);
         }
-    }
-
-    /** The mod's mark and name, for the old editors that draw their own header. */
-    static void renderBrand(Ui ui, float x, float cy) {
-        ui.logo(x, cy - 13, 26);
-        ui.label("RYSQuests", x + 36, cy, 16, Ui.DISPLAY, ui.c("text.primary"));
     }
 
     // --- what the old views ask of the screen ---
@@ -425,49 +419,12 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         mapTab().map.focusSelected();
     }
 
-    void openSectionEditor(@Nullable SectionDef section) {
-        editors.openSection(section);
-    }
-
-    void closeSectionEditor() {
-        editors.section = null;
-    }
-
-    void openQuestEditor() {
-        editors.openQuest();
-    }
-
-    void closeQuestEditor() {
-        editors.quest = null;
-    }
-
-    void openPagesEditor(PagesSection pages) {
-        editors.openPages(pages);
-    }
-
-    void openNewPagesEditor(ResourceLocation id) {
-        editors.openNewPages(id);
-    }
-
-    void openEditor(GuideDraft draft, boolean isNew) {
-        editors.openGuide(draft, isNew);
-    }
-
+    /** The library's "+": a new guide in the editor's "Гайды". */
     void newGuide() {
-        editors.newGuide();
-    }
-
-    void closeEditor() {
-        editors.guide = null;
-    }
-
-    /** The section being edited, shown as players will see it. */
-    void renderSectionPreview(Ui ui, int x, int y, int w, int h) {
-        guidesTab().content().render(ui, x, y, w, h);
-    }
-
-    void scrollSectionPreview(double mouseX, double mouseY, double amount) {
-        guidesTab().content().scroll(mouseX, mouseY, amount);
+        EditorBook.active = true;
+        closePage();
+        EditorPages.current = EditorPages.GUIDES;
+        ((GuideEditorView) editor.page(EditorPages.GUIDES)).newGuide();
     }
 
     /** The server's answer to a trade. */
@@ -480,10 +437,12 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
 
     /** The server's answer to a save. */
     public static void onEditorResult(boolean ok, String reason, List<String> args) {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.editors.onResult(ok, reason, args);
-        }
         lastEditorResult = ok ? "" : reason;
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            EditorBook.get().onResult(screen, ok, reason, args);
+        } else if (EditorBook.get().saving()) {
+            EditorBook.get().onResult(null, ok, reason, args);
+        }
     }
 
     /** Opens the book on a quest, from a link in chat. */
@@ -513,15 +472,11 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         }
         int x = (int) Math.round(mouseX * 2);
         int y = (int) Math.round(mouseY * 2);
-        if (editors.any()) {
-            editors.pointer(mouseX * 2, mouseY * 2);
-        } else {
-            if (button == GLFW.GLFW_MOUSE_BUTTON_4 && goBack()) {
-                return true;
-            }
-            if (shown != null) {
-                shown.press(mouseX * 2, mouseY * 2, button);
-            }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_4 && goBack()) {
+            return true;
+        }
+        if (shown != null) {
+            shown.press(mouseX * 2, mouseY * 2, button);
         }
         List<Ui.Hit> list = button == 0 ? hits : button == 1 ? rightHits : List.of();
         for (int i = list.size() - 1; i >= 0; i--) {
@@ -557,9 +512,19 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         return BookState.back();
     }
 
+    /** The book closes: with edits in the editor's draft it asks first (picture 33b). */
+    @Override
+    public void onClose() {
+        if (dialog == null && editor.askBeforeClose(super::onClose)) {
+            return;
+        }
+        super.onClose();
+    }
+
     @Override
     public void removed() {
         views.values().forEach(BookView::closed);
+        editor.closed();
         if (page != null) {
             page.closed();
         }
@@ -568,10 +533,7 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
 
     @Override
     protected boolean onRelease(double mouseX, double mouseY, int button) {
-        if (editors.release(mouseX * 2, mouseY * 2)) {
-            return true;
-        }
-        if (!editors.any() && shown != null && shown.release(mouseX * 2, mouseY * 2, button)) {
+        if (shown != null && shown.release(mouseX * 2, mouseY * 2, button)) {
             return true;
         }
         return super.onRelease(mouseX, mouseY, button);
@@ -579,10 +541,6 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
 
     @Override
     protected boolean onDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (editors.any()) {
-            editors.drag(mouseX * 2, mouseY * 2);
-            return true;
-        }
         return shown != null && shown.drag(dragX * 2, dragY * 2) || super.onDrag(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -591,9 +549,7 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         if (dialog != null) {
             return true;
         }
-        if (editors.any()) {
-            editors.scroll(mouseX * 2, mouseY * 2, scrollY);
-        } else if (shown != null) {
+        if (shown != null) {
             shown.scroll(mouseX * 2, mouseY * 2, scrollY);
         }
         return true;
@@ -603,9 +559,6 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     public boolean charTyped(char c, int modifiers) {
         if (dialog != null) {
             return true;
-        }
-        if (editors.any()) {
-            return editors.typed(c);
         }
         if (typing()) {
             return super.charTyped(c, modifiers);
@@ -617,9 +570,6 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     public boolean keyPressed(int key, int scan, int modifiers) {
         if (dialog != null) {
             return dialog.keyPressed(key);
-        }
-        if (editors.any()) {
-            return editors.key(key);
         }
         if (searchBox != null && searchBox.isFocused()) {
             if (key != GLFW.GLFW_KEY_ESCAPE && searchPopover.key(key, true)) {
@@ -667,7 +617,7 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
             return true;
         }
         if (QuestKeys.OPEN_BOOK.matches(key, scan)) {
-            Minecraft.getInstance().setScreen(null);
+            onClose();
             return true;
         }
         if (QuestKeys.PIN.matches(key, scan) && BookState.quest != null) {
@@ -783,78 +733,6 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         return BookState.SECTION_PAGES.getOrDefault(section, 0);
     }
 
-    /** Opens the editor on a guide with a fixed id, so that repeated runs in the same test folder do not pile up. */
-    public static void editGuideForTest(ResourceLocation id) {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            Guide existing = BookData.book().guides().get(id);
-            screen.editors.openGuide(existing != null ? GuideDraft.of(existing) : GuideDraft.newGuide(id), existing == null);
-        }
-    }
-
-    public static int editorPagesForTest() {
-        return editorForTest().pagesForTest();
-    }
-
-    public static void editorSelectPageForTest(int index) {
-        editorForTest().selectPageForTest(index);
-    }
-
-    public static void editorAddPictureForTest(java.nio.file.Path file) {
-        editorForTest().addPicture(file);
-    }
-
-    public static String editorPageTextForTest() {
-        return editorForTest().pageTextForTest();
-    }
-
-    public static void editorUndoForTest() {
-        editorForTest().undoForTest();
-    }
-
-    private static SectionEditorView sectionEditorForTest() {
-        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.editors.section : null;
-    }
-
-    public static void openConstructorOnForTest(ResourceLocation section) {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.editors.openSection(BookData.book().sections().get(section));
-        }
-    }
-
-    public static void openConstructorForTest() {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.editors.openSection(null);
-        }
-    }
-
-    public static boolean constructorOpenForTest() {
-        return sectionEditorForTest() != null;
-    }
-
-    public static void newMatrixForTest() {
-        sectionEditorForTest().newFromTemplateForTest(MatrixSection.TEMPLATE);
-    }
-
-    public static void buildMatrixForTest(String title, List<String> rows, List<String> columns, ResourceLocation icon) {
-        sectionEditorForTest().buildMatrixForTest(title, rows, columns, icon);
-    }
-
-    public static void selectWayForTest(int row, int column, int way) {
-        sectionEditorForTest().selectWayForTest(row, column, way);
-    }
-
-    public static ResourceLocation constructorSectionForTest() {
-        return sectionEditorForTest().sectionIdForTest();
-    }
-
-    public static boolean constructorSavedForTest() {
-        return sectionEditorForTest().savedForTest();
-    }
-
-    public static void constructorSaveForTest() {
-        sectionEditorForTest().save();
-    }
-
     public static void shopTradeForTest(ResourceLocation offer, boolean treasury) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
             screen.shopView().tradeForTest(offer, treasury);
@@ -888,92 +766,6 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         }
     }
 
-    private static QuestEditorView questEditorForTest() {
-        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.editors.quest : null;
-    }
-
-    public static void openQuestEditorForTest() {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.editors.openQuest();
-        }
-    }
-
-    public static boolean questEditorOpenForTest() {
-        return questEditorForTest() != null;
-    }
-
-    public static void questNewChapterForTest(String title) {
-        questEditorForTest().newChapterForTest(title);
-    }
-
-    public static ResourceLocation questChapterForTest() {
-        return questEditorForTest().chapterForTest();
-    }
-
-    public static ResourceLocation questAddForTest(String title) {
-        return questEditorForTest().addQuestForTest(title);
-    }
-
-    public static void questItemTaskForTest(ResourceLocation item, int count) {
-        questEditorForTest().addItemTaskForTest(item, count);
-    }
-
-    public static void questCoinRewardForTest(int amount) {
-        questEditorForTest().addCoinRewardForTest(amount);
-    }
-
-    public static void questMoveForTest(ResourceLocation id, int x, int y) {
-        questEditorForTest().moveForTest(id, x, y);
-    }
-
-    public static void questLinkForTest(ResourceLocation from, ResourceLocation to) {
-        questEditorForTest().linkForTest(from, to);
-    }
-
-    public static void questEpochForTest(int epoch) {
-        questEditorForTest().chapterEpochForTest(epoch);
-    }
-
-    public static void questAutoLayoutForTest() {
-        questEditorForTest().autoLayoutForTest();
-    }
-
-    public static void questSelectForTest(ResourceLocation id) {
-        questEditorForTest().selectForTest(id);
-    }
-
-    public static void questLinkModeForTest(boolean on) {
-        questEditorForTest().linkModeForTest(on);
-    }
-
-    public static void questTabForTest(String name) {
-        questEditorForTest().tabForTest(name);
-    }
-
-    public static boolean questDirtyForTest() {
-        return questEditorForTest().dirtyForTest();
-    }
-
-    public static String questStatusForTest() {
-        return questEditorForTest().statusForTest();
-    }
-
-    public static void questSaveForTest() {
-        questEditorForTest().save();
-    }
-
-    public static float[] questRectForTest(ResourceLocation id) {
-        return questEditorForTest().rectForTest(id);
-    }
-
-    public static Quest questDraftForTest(ResourceLocation id) {
-        return questEditorForTest().questForTest(id);
-    }
-
-    public static boolean questLayoutReadyForTest() {
-        return questEditorForTest().layoutReadyForTest();
-    }
-
     public static boolean structureReadyForTest(ResourceLocation id) {
         return Minecraft.getInstance().screen instanceof BookScreen screen && screen.guidesTab().guidePage.structureForTest(id) != null && screen.guidesTab().guidePage.structureForTest(id).readyForTest();
     }
@@ -982,52 +774,6 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
             screen.guidesTab().guidePage.structureForTest(id).stepLayerForTest();
         }
-    }
-
-    public static void newGuideForTest() {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.editors.newGuide();
-        }
-    }
-
-    private static EditorView editorForTest() {
-        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.editors.guide : null;
-    }
-
-    public static boolean editorOpenForTest() {
-        return editorForTest() != null;
-    }
-
-    public static void writeGuideForTest(String title, ResourceLocation icon) {
-        editorForTest().writeGuideForTest(title, icon);
-    }
-
-    public static void writePageForTest(String title, String text) {
-        editorForTest().writeForTest(title, text);
-    }
-
-    public static void addPageForTest() {
-        editorForTest().addPageForTest();
-    }
-
-    public static void addImageForTest(ResourceLocation id, byte[] png) {
-        editorForTest().addImageForTest(id, png);
-    }
-
-    public static ResourceLocation editorIdForTest() {
-        return editorForTest().idForTest();
-    }
-
-    public static boolean editorSavedForTest() {
-        return editorForTest().savedForTest();
-    }
-
-    public static String editorStatusForTest() {
-        return editorForTest().statusForTest();
-    }
-
-    public static void editorSaveForTest() {
-        editorForTest().save();
     }
 
     @Nullable

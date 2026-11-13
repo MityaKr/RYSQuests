@@ -45,6 +45,15 @@ public record BookAssets(Map<String, Map<String, String>> texts, Map<ResourceLoc
         Set<String> namespaces = new HashSet<>();
         book.guides().keySet().forEach(id -> namespaces.add(id.getNamespace()));
         book.sections().keySet().forEach(id -> namespaces.add(id.getNamespace()));
+        // the editor writes the strings of chapters, quests, the book, offers and achievements into the lang of its own folder too
+        Path assets = root.resolve("assets");
+        if (Files.isDirectory(assets)) {
+            try (Stream<Path> folders = Files.list(assets)) {
+                folders.filter(Files::isDirectory).forEach(folder -> namespaces.add(folder.getFileName().toString()));
+            } catch (IOException e) {
+                LOGGER.warn("Could not list {}", assets, e);
+            }
+        }
         Map<String, Map<String, String>> texts = new HashMap<>();
         for (String namespace : namespaces) {
             Path lang = root.resolve("assets").resolve(namespace).resolve("lang");
@@ -69,6 +78,29 @@ public record BookAssets(Map<String, Map<String, String>> texts, Map<ResourceLoc
             addPages(guide.pages(), keys);
         }
         book.sections().values().forEach(section -> keys.addAll(section.textKeys()));
+        // what the book's editor writes besides guides and tabs (plan step 10)
+        book.meta().title().ifPresent(keys::add);
+        book.meta().epochs().forEach(epoch -> keys.add(epoch.title()));
+        for (Chapter chapter : book.chapters().values()) {
+            keys.add(chapter.title());
+            chapter.subtitle().ifPresent(keys::add);
+            chapter.groups().forEach(group -> keys.add(group.title()));
+        }
+        for (Quest quest : book.quests().values()) {
+            keys.add(quest.title());
+            quest.subtitle().ifPresent(keys::add);
+            quest.text().ifPresent(keys::add);
+        }
+        for (ShopOffer offer : book.offers().values()) {
+            offer.title().ifPresent(keys::add);
+            offer.category().ifPresent(keys::add);
+        }
+        for (Achievement achievement : book.achievements().values()) {
+            achievement.title().ifPresent(keys::add);
+            achievement.text().ifPresent(keys::add);
+            achievement.hint().ifPresent(keys::add);
+            achievement.category().ifPresent(keys::add);
+        }
         return keys;
     }
 

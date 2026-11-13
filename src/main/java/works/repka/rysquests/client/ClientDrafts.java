@@ -54,6 +54,19 @@ public final class ClientDrafts {
         EditorDrafts.discard(folder(), chapter);
     }
 
+    /** The book-wide draft of the editor (plan, section 6), written after every edit. */
+    public static void saveBook(works.repka.rysquests.editor.BookDraft draft) throws IOException {
+        EditorDrafts.saveBook(folder(), draft, ops());
+    }
+
+    public static Optional<works.repka.rysquests.editor.BookDraft> loadBook() {
+        return EditorDrafts.loadBook(folder(), ops());
+    }
+
+    public static void discardBook() throws IOException {
+        EditorDrafts.discardBook(folder());
+    }
+
     private static DynamicOps<JsonElement> ops() {
         return RegistryOps.create(JsonOps.INSTANCE, Minecraft.getInstance().level.registryAccess());
     }

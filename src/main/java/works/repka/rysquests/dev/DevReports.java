@@ -48,6 +48,7 @@ public final class DevReports {
     public static final String REGISTRY_JSON = "rysquests-registry.json";
     public static final String FUNNEL_PREFIX = "funnel:";
     public static final String MIGRATIONS = "migrations";
+    public static final String TEAMS = "teams";
     private static final int MAX_DEPTH = 256;
 
     public record Entry(String subject, String detail) {
@@ -105,6 +106,8 @@ public final class DevReports {
         sections.add(new Section("shop_cycles", shopCycles(book)));
         sections.add(new Section(MIGRATIONS, pendingMigrations(loaded.migrations(), standing)));
         sections.addAll(funnels(book, standing));
+        // how many teams the shares of the funnels are of, for "две команды стоят на ..." (picture 37b)
+        sections.add(new Section(TEAMS, List.of(new Entry("count", String.valueOf(standing.teams().size())))));
         return new Report(book.chapters().size(), book.quests().size(), sections);
     }
 
