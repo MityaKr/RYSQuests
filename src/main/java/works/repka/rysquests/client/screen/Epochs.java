@@ -65,7 +65,7 @@ final class Epochs {
 
     private static List<Epoch> build() {
         Map<Object, List<Chapter>> groups = new LinkedHashMap<>();
-        for (Chapter chapter : BookScreen.chapters()) {
+        for (Chapter chapter : BookData.chapters()) {
             groups.computeIfAbsent(chapter.epoch().<Object>map(number -> number).orElse(chapter.id()), key -> new ArrayList<>()).add(chapter);
         }
         if (orderedFor != ClientBook.current()) {

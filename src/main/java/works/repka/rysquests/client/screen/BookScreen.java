@@ -1,78 +1,48 @@
 package works.repka.rysquests.client.screen;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
-import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.client.ClientBook;
-import works.repka.rysquests.client.ClientProgress;
+import works.repka.rysquests.client.ClientConfig;
 import works.repka.rysquests.client.input.QuestKeys;
 import works.repka.rysquests.client.integration.Recipes;
-import works.repka.rysquests.data.BookMeta;
 import works.repka.rysquests.data.Chapter;
 import works.repka.rysquests.data.Guide;
 import works.repka.rysquests.data.MatrixSection;
 import works.repka.rysquests.data.PagesSection;
 import works.repka.rysquests.data.Quest;
-import works.repka.rysquests.data.QuestBook;
-import works.repka.rysquests.data.CardsSection;
 import works.repka.rysquests.data.SectionDef;
 import works.repka.rysquests.data.ViewMode;
 import works.repka.rysquests.network.QuestActionPayload;
-import works.repka.rysquests.progress.QuestLogic;
-import works.repka.rysquests.progress.QuestProgress;
-import works.repka.rysquests.progress.QuestStatus;
-import works.repka.rysquests.task.ItemTask;
 import works.repka.ryscore.ui.Draw;
 import works.repka.ryscore.ui.Field;
-import works.repka.ryscore.ui.Icons;
 import works.repka.ryscore.ui.Kit;
 import works.repka.ryscore.ui.ScaledScreen;
 
 /**
- * The quest book window. Two frames, both from the mockups: the flow has a rail of chapters and a reading column
- * ({@code design/Comfort.dc.html}), every other view a top bar ({@code design/Main.dc.html}).
+ * The quest book window (plan, sections 2 and 7): one frame for everything. The {@link BookHeader} on top, under it the body: the
+ * open tab's view ({@link BookTabs}), a page opened over it ({@link #openPage}), or one of the book's own states, loading
+ * ({@link LoadingView}) and empty ({@link EmptyBookView}). Over the body lie the closed-book line for operators
+ * ({@link ClosedBookLine}), the message line ({@link BookMessageLine}) and a question ({@link #ask}).
+ *
+ * <p>The screen keeps no page logic of its own: views come from {@link BookTabs}, numbers from {@link BookTallies}, lookups from
+ * {@link BookData}, and the old full-window editors from {@link BookEditors}. Small screens get the family's compact base 480×270.
  */
-public final class BookScreen extends ScaledScreen {
+public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     private static final float DIM = 0.6f;
     private static final float WINDOW_W = 0.9375f;
     private static final float WINDOW_H = 0.91f;
     private static final int WINDOW_MAX_W = 1760;
     private static final int WINDOW_MAX_H = 1040;
-    private static final int CARD_MIN_WINDOW = 1000;
-    private static final int[] NO_COLORS = new int[0];
-    private static final int NO_COUNT = -1;
-    private static final int SECTIONS_W = 84;
-    private static final int SECTION_ITEM_W = 70;
-    private static final int SECTION_ITEM_H = 60;
-    private static final int SECTION_STEP = 66;
-    private static final int RAIL_MIN = 64;
-    private static final int RAIL_MAX = 76;
-    private static final int SEARCH_MIN = 150;
-    private static final int FLOW_COLUMN_MAX = 600;
-    private static final float RAIL_SHARE = 0.05326f;
-    private static final float FLOW_COLUMN_SHARE = 0.41953f;
-    private static final int RAIL_STEP = 60;
-    private static final int CHAPTERS_W = 232;
-    private static final int CARD_W = 392;
-    private static final int CHAPTER_STEP = 51;
-    private static final int WHEEL = 48;
-    private static final long COUNT_REFRESH_MS = 500;
-    private static final List<ViewMode> TABS = List.of(ViewMode.MAP, ViewMode.LIST, ViewMode.TIMELINE, ViewMode.HOME, ViewMode.FLOW);
     @Nullable
     private static ItemStack lastHovered;
     @Nullable
@@ -81,147 +51,42 @@ public final class BookScreen extends ScaledScreen {
     private static String lastEditorResult;
     @Nullable
     private static String lastShopResult;
+    /** The first opening of a game session is on "Now", whatever the setting says (picture 32). */
+    private static boolean openedBefore;
 
     private final List<Ui.Hit> hits = new ArrayList<>();
     private final List<Ui.Hit> rightHits = new ArrayList<>();
     private final Kit.Hits kitHits = new Kit.Hits();
-    private final Map<ResourceLocation, List<Quest>> orderCache = new HashMap<>();
-    private final EnumMap<ViewMode, BookView> views = new EnumMap<>(ViewMode.class);
-    private final ReadingColumn reading = new ReadingColumn(this);
-    private final Guides guides = new Guides();
-    private final GuideLibraryView guideLibrary = new GuideLibraryView(this, guides);
-    private final GuidePageView guidePage = new GuidePageView(guides, new GuidePageView.Source() {
-        @Nullable
-        @Override
-        public Guide guide() {
-            return BookState.guide == null ? null : book().guides().get(BookState.guide);
-        }
-
-        @Override
-        public int page() {
-            return BookState.guidePage;
-        }
-
-        @Override
-        public void open(Guide guide, int page) {
-            BookState.openGuide(guide, page);
-        }
-
-        @Override
-        public boolean tracksReading() {
-            return true;
-        }
-
-        @Override
-        public String crumb() {
-            return Component.translatable("rysquests.section.guides").getString();
-        }
-
-        @Override
-        public void back() {
-            BookState.openLibrary();
-        }
-
-        @Override
-        public void edit(Guide guide, int page) {
-            openEditor(GuideDraft.of(guide), false);
-        }
-    });
-    private final GuidePageView pagesSection = new GuidePageView(guides, new GuidePageView.Source() {
-        @Nullable
-        @Override
-        public Guide guide() {
-            return BookState.customSection() instanceof PagesSection pages ? pages.asGuide() : null;
-        }
-
-        @Override
-        public int page() {
-            return BookState.customSection() instanceof PagesSection pages ? BookState.SECTION_PAGES.getOrDefault(pages.id(), 0) : 0;
-        }
-
-        @Override
-        public void open(Guide guide, int page) {
-            BookState.SECTION_PAGES.put(guide.id(), page);
-        }
-
-        @Override
-        public boolean tracksReading() {
-            return false;
-        }
-
-        @Nullable
-        @Override
-        public String crumb() {
-            return null;
-        }
-
-        @Override
-        public void back() {
-        }
-
-        @Override
-        public void edit(Guide guide, int page) {
-            if (BookState.customSection() instanceof PagesSection pages) {
-                openEditor(GuideDraft.of(pages), false);
-            }
-        }
-    });
+    private final Map<String, BookView> views = new HashMap<>();
+    private final LoadingView loading = new LoadingView();
+    private final EmptyBookView empty = new EmptyBookView(this);
+    final BookEditors editors = new BookEditors(this);
     @Nullable
-    private EditorView editor;
+    private BookView page;
     @Nullable
-    private SectionEditorView sectionEditor;
-    @Nullable
-    private QuestEditorView questEditor;
-    private final ShopView shop = new ShopView();
-    private final AchievementsView achievements = new AchievementsView();
-    private final MatrixView matrix = new MatrixView(this);
-    private final CardsView cards = new CardsView();
-    @Nullable
-    private Field sectionSearch;
-    private int sectionsW;
-    @Nullable
-    private QuestBook cachedFor;
+    private Kit.Dialog dialog;
     @Nullable
     private Field searchBox;
-    private long countsAt;
-    private int claimCount;
-    private List<ItemStack> claimStacks = List.of();
-    private boolean plainClaim;
-    private final Map<ResourceLocation, int[]> CHAPTER_COUNTS = new HashMap<>();
-    private int countsVersion = -1;
     @Nullable
-    private Object countsBook;
-    private int submitCount;
-    /** The chapter list on screen, in mockup pixels: x, y, width, height; null while no list is shown. */
+    private Field sectionSearch;
     @Nullable
-    private int[] chapterList;
+    private BookHeader header;
+    private int windowW;
     @Nullable
-    private Scroll chapterListScroll;
-    /** A press on the chapter list waits for the release: a click opens the chapter, a drag scrolls the list. */
-    @Nullable
-    private Ui.Hit pressedChapter;
-    private boolean pressedOnList;
-    private double pressX;
-    private double pressY;
-    private boolean draggingList;
-    private static final double DRAG_START = 3;
-    @Nullable
-    private Quest pickQuest;
-    private final Scroll chapterScroll = new Scroll();
-    private final Scroll railScroll = new Scroll();
-    private final Scroll cardScroll = new Scroll();
-    private int chaptersLeft;
-    private int chaptersRight;
-    private int cardLeft;
+    private BookView shown;
 
     public BookScreen() {
         super(Component.translatable("rysquests.book.title"));
-        views.put(ViewMode.FLOW, new FlowView(this));
-        views.put(ViewMode.MAP, new MapView(this));
-        views.put(ViewMode.HOME, new HomeView());
-        views.put(ViewMode.LIST, new ListView(this));
-        views.put(ViewMode.TIMELINE, new TimelineView());
-        views.put(ViewMode.DEV, new DevView());
+        useCompactBase();
+        if (!openedBefore || !ClientConfig.OPEN_WHERE_CLOSED.get()) {
+            BookTabs.byId(BookTabs.NOW).open().run();
+        }
+        openedBefore = true;
+    }
+
+    /** Opens the book: the K key, the button of the family's panel, the FTB sidebar button. */
+    public static void open() {
+        Minecraft.getInstance().setScreen(new BookScreen());
     }
 
     /** What is under the cursor, for the recipe viewer's keys. Empty when the book is closed. */
@@ -233,15 +98,18 @@ public final class BookScreen extends ScaledScreen {
     protected void init() {
         super.init();
         searchBox = new Field(80, 10);
-        searchBox.setHint(Component.translatable("rysquests.book.search"));
+        searchBox.setHint(Component.translatable("rysquests.header.search_hint"));
         searchBox.setValue(BookState.search);
         searchBox.setResponder(value -> BookState.search = value);
+        searchBox.visible = false;
         addWidget(searchBox);
         sectionSearch = new Field(80, 10);
         sectionSearch.setHint(Component.translatable("rysquests.guides.search"));
         sectionSearch.setValue(BookState.sectionSearch);
         sectionSearch.setResponder(value -> BookState.sectionSearch = value);
+        sectionSearch.visible = false;
         addWidget(sectionSearch);
+        header = new BookHeader(this, searchBox);
     }
 
     @Override
@@ -249,180 +117,138 @@ public final class BookScreen extends ScaledScreen {
         return false;
     }
 
-    private static QuestBook book() {
-        return ClientBook.current();
-    }
+    // --- pages, questions, views ---
 
-    private static Function<ResourceLocation, QuestProgress> progress() {
-        return ClientProgress::get;
-    }
-
-    /** Quests of the open chapter in dependency order; hidden ones appear once they unlock. */
-    List<Quest> visibleQuests() {
-        return BookState.chapter == null ? List.of() : questsOf(BookState.chapter);
-    }
-
-    private List<Quest> questsOf(ResourceLocation chapter) {
-        if (cachedFor != book()) {
-            cachedFor = book();
-            orderCache.clear();
+    /** Opens a page over the open tab: the settings, a first-run step. "Back" and Esc close it. */
+    void openPage(BookView view) {
+        if (page != null) {
+            page.closed();
         }
-        return orderCache.computeIfAbsent(chapter, id -> ChapterOrder.of(book(), id)).stream()
-                .filter(quest -> !quest.options().hidden() || QuestLogic.isUnlocked(quest, progress()))
-                .toList();
+        page = view;
     }
 
-    static List<Chapter> chapters() {
-        return book().chapters().values().stream().filter(chapter -> !chapter.hidden() && chapter.isStory()).toList();
-    }
-
-    /** Whether a quest belongs to what the book shows: chapters of other sections stay out of it for now. */
-    static boolean inStory(Quest quest) {
-        return quest.chapter().map(id -> book().chapters().get(id)).map(Chapter::isStory).orElse(true);
-    }
-
-    /** The chapter's number in the book, which the rail and the headings show as a roman numeral. */
-    static int chapterNumber(@Nullable ResourceLocation id) {
-        int index = 0;
-        for (Chapter chapter : chapters()) {
-            index++;
-            if (chapter.id().equals(id)) {
-                return index;
-            }
+    void closePage() {
+        if (page != null) {
+            page.closed();
+            page = null;
         }
-        return 0;
     }
 
-    /** Quests across the whole book that handing in all that is ready takes, as the server counts them; refreshed with the other counts. */
-    int readyToSubmit() {
-        refreshCounts();
-        return submitCount;
+    /** Asks a question over the book (picture 10). Wrap each answer in {@link #answer} so that it also closes the question. */
+    void ask(Kit.Dialog question) {
+        dialog = question;
     }
 
-    /** How many fitting items the player holds. */
-    static int held(ItemTask task) {
-        return countInInventory(task, Minecraft.getInstance().player.getInventory());
+    Runnable answer(Runnable action) {
+        return () -> {
+            dialog = null;
+            action.run();
+        };
     }
 
-    private static int countInInventory(ItemTask task, net.minecraft.world.entity.player.Inventory inventory) {
-        int have = 0;
-        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            ItemStack stack = inventory.getItem(slot);
-            if (!stack.isEmpty() && matches(task, stack)) {
-                have += stack.getCount();
-            }
+    /** The view of a tab, made once per open book. */
+    BookView view(String tab) {
+        return views.computeIfAbsent(tab, id -> BookTabs.byId(id).view().apply(this));
+    }
+
+    GuidesTab guidesTab() {
+        return (GuidesTab) view(BookTabs.GUIDES);
+    }
+
+    MapTab mapTab() {
+        return (MapTab) view(BookTabs.MAP);
+    }
+
+    ShopView shopView() {
+        return (ShopView) view(BookTabs.SHOP);
+    }
+
+    AchievementsView achievementsView() {
+        return (AchievementsView) view(BookTabs.ACHIEVEMENTS);
+    }
+
+    /** The window's width in mockup pixels, for views that change their layout with it. */
+    int windowWidth() {
+        return windowW;
+    }
+
+    /** What the body shows this frame. */
+    private BookView body() {
+        if (!ClientBook.received()) {
+            return loading;
         }
-        return have;
-    }
-
-    /** The server's own test, components included: what the book calls ready the server takes. */
-    private static boolean matches(ItemTask task, ItemStack stack) {
-        return task.matches(stack);
-    }
-
-    int readyToClaim() {
-        refreshCounts();
-        return claimCount;
-    }
-
-    private void refreshCounts() {
-        long now = System.currentTimeMillis();
-        if (now - countsAt <= COUNT_REFRESH_MS) {
-            return;
+        if (page != null) {
+            return page;
         }
-        countsAt = now;
-        int count = 0;
-        List<ItemStack> stacks = new ArrayList<>();
-        boolean plain = false;
-        Quest pick = null;
-        for (Quest quest : book().quests().values()) {
-            if (inStory(quest) && BookState.status(quest) == QuestStatus.COMPLETED) {
-                count++;
-                if (stacks.size() < 2) {
-                    stacks.addAll(QuestCard.rewardStacks(quest, 2 - stacks.size()));
-                }
-                plain |= QuestCard.hasUnclaimedPlain(quest);
-                if (pick == null && QuestCard.hasUnclaimedChoice(quest)) {
-                    pick = quest;
-                }
-            }
-        }
-        claimCount = count;
-        claimStacks = stacks;
-        int submit = 0;
-        for (Quest quest : book().quests().values()) {
-            if (quest.options().hidden() && !works.repka.rysquests.progress.QuestLogic.isUnlocked(quest, ClientProgress::get)) {
-                continue;
-            }
-            QuestStatus status = BookState.status(quest);
-            if ((status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS) && QuestCard.readyToSubmit(quest, ClientProgress.get(quest.id()))) {
-                submit++;
-            }
-        }
-        submitCount = submit;
-        plainClaim = plain;
-        pickQuest = pick;
+        BookTabs.Tab tab = BookTabs.current(BookData.book());
+        return tab == null ? empty : view(tab.id());
     }
 
-    /** Only choices are left: claiming everything can give nothing, so the button opens a quest to pick in. */
-    boolean onlyPicksLeft() {
-        refreshCounts();
-        return !plainClaim && pickQuest != null;
+    // --- the header's questions ---
+
+    @Override
+    public List<BookTabs.Tab> tabs() {
+        return BookTabs.visible(BookData.book());
     }
 
-    /** The bulk claim of every button: everything that needs no decision, or else the first quest that waits for one. */
-    void claimAll() {
-        refreshCounts();
-        if (onlyPicksLeft()) {
-            Quest quest = pickQuest;
-            BookState.select(quest);
-            ViewMode view = BookState.currentView();
-            if (view != ViewMode.MAP && view != ViewMode.FLOW && view != ViewMode.LIST) {
-                BookState.view = ViewMode.FLOW;
-            }
-            BookState.pickNudge = System.currentTimeMillis();
+    @Nullable
+    @Override
+    public BookTabs.Tab activeTab() {
+        return page != null ? null : BookTabs.current(BookData.book());
+    }
+
+    @Override
+    public void openTab(BookTabs.Tab tab) {
+        closePage();
+        tab.open().run();
+    }
+
+    @Override
+    public boolean settingsOpen() {
+        return page instanceof SettingsView;
+    }
+
+    @Override
+    public void toggleSettings() {
+        if (page instanceof SettingsView) {
+            closePage();
         } else {
-            QuestKeys.sendAll(QuestActionPayload.CLAIM_ALL);
-            countsAt = 0;
+            BookTabs.Tab tab = BookTabs.current(BookData.book());
+            openPage(new SettingsView(this, tab == null ? Component.translatable("rysquests.book.title").getString() : tab.label()));
         }
     }
 
-    /** The label of a bulk claim button: its own words, or "choose a reward" when only choices are left. */
-    String claimAllLabel(String own) {
-        return onlyPicksLeft() ? Component.translatable("rysquests.book.pick_reward").getString() : own;
-    }
-
-    /** What a locked quest still needs, in words. */
-    static Component waitingFor(Quest quest) {
-        QuestProgress own = ClientProgress.get(quest.id());
-        if (own.coolingDown()) {
-            long minutes = Math.max(1, (own.nextAt() - System.currentTimeMillis() + 59_999) / 60_000);
-            return Component.translatable("rysquests.flow.cooldown", minutes);
+    @Override
+    public void toggleEditor() {
+        if (BookState.inGuides() || BookState.customSection() != null) {
+            editors.openSection(null);
+        } else {
+            editors.openQuest();
         }
-        List<Quest> missing = quest.requires().stream()
-                .filter(id -> !ClientProgress.get(id).everDone())
-                .map(id -> book().quests().get(id))
-                .filter(java.util.Objects::nonNull)
-                .toList();
-        if (missing.isEmpty()) {
-            if (ClientProgress.isStageLocked(quest.id()) && quest.stageRequired().isPresent()) {
-                return Component.translatable("rysquests.flow.needs_stage", quest.stageRequired().get());
-            }
-            return Component.translatable("rysquests.flow.opens_after");
+    }
+
+    @Nullable
+    @Override
+    public EditorSession session() {
+        BookView current = shown;
+        return current instanceof EditorSession session ? session : null;
+    }
+
+    @Override
+    public void focusSearch() {
+        if (searchBox != null) {
+            searchBox.visible = true;
+            searchBox.setFocused(true);
+            setFocused(searchBox);
         }
-        Quest first = missing.getFirst();
-        return Component.translatable("rysquests.flow.waiting", shown(first) ? Component.translatable(first.title()) : Component.literal("???"));
     }
 
-    /** Whether the player may know the quest: a hidden one stays a secret until its dependencies are done. */
-    static boolean shown(Quest quest) {
-        return !quest.options().hidden() || QuestLogic.isUnlocked(quest, ClientProgress::get);
+    @Override
+    public void close() {
+        onClose();
     }
 
-    private BookView activeView() {
-        BookView view = views.get(BookState.currentView());
-        return view != null ? view : views.get(ViewMode.FLOW);
-    }
+    // --- drawing ---
 
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
@@ -436,252 +262,86 @@ public final class BookScreen extends ScaledScreen {
         hits.clear();
         rightHits.clear();
         kitHits.clear();
-        chapterList = null;
         Ui ui = new Ui(g, mouseX, mouseY, hits, rightHits, kitHits);
         int screenW = width * 2;
         int screenH = height * 2;
         int w = Math.min(WINDOW_MAX_W, Math.round(screenW * WINDOW_W));
         int h = Math.min(WINDOW_MAX_H, Math.round(screenH * WINDOW_H));
+        windowW = w;
         int x = (screenW - w) / 2;
         int y = (screenH - h) / 2;
-        Chapter opened = BookState.chapter == null ? null : book().chapters().get(BookState.chapter);
-        if (opened == null || !opened.isStory()) {
-            BookState.chapter = chapters().stream().findFirst().map(Chapter::id).orElse(null);
-        }
-        refreshCounts();
-        if (searchBox != null) {
-            boolean searchable = BookState.inStory() && (BookState.currentView() == ViewMode.MAP || BookState.currentView() == ViewMode.LIST);
-            searchBox.visible = searchable;
-            if (!searchable && searchBox.isFocused()) {
-                searchBox.setFocused(false);
-                setFocused(null);
-            }
-        }
+        BookState.ensureChapter();
         if (sectionSearch != null) {
-            boolean searchable = BookState.inGuides() && BookState.guidePage < 0 || BookState.customSection() instanceof MatrixSection table && !table.compact();
-            sectionSearch.visible = searchable;
-            if (!sectionSearch.getValue().equals(BookState.sectionSearch)) {
-                sectionSearch.setValue(BookState.sectionSearch);
-            }
-            if (!searchable && sectionSearch.isFocused()) {
-                sectionSearch.setFocused(false);
-                setFocused(null);
-            }
+            sectionSearch.visible = false;
         }
-        List<String> sections = BookState.sections();
-        boolean editing = editor != null || sectionEditor != null || questEditor != null;
-        sectionsW = editing || sections.size() < 2 ? 0 : SECTIONS_W;
-        ui.squareLeft = sectionsW > 0;
-        if (questEditor != null) {
-            if (sectionSearch != null) {
-                sectionSearch.visible = false;
+        ui.shadow(x, y, w, h, 14, 1f);
+        ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
+        if (editors.any()) {
+            if (searchBox != null) {
+                searchBox.visible = false;
             }
-            ui.shadow(x, y, w, h, 14, 1f);
-            ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
-            questEditor.render(ui, x + 1, y + 1, w - 2, h - 2);
-        } else if (editor != null) {
-            if (sectionSearch != null) {
-                sectionSearch.visible = false;
-            }
-            ui.shadow(x, y, w, h, 14, 1f);
-            ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
-            editor.render(ui, x + 1, y + 1, w - 2, h - 2);
-        } else if (sectionEditor != null) {
-            if (sectionSearch != null) {
-                sectionSearch.visible = false;
-            }
-            ui.shadow(x, y, w, h, 14, 1f);
-            ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
-            sectionEditor.render(ui, x + 1, y + 1, w - 2, h - 2);
-        } else if (!BookState.inStory()) {
-            renderGuidesFrame(ui, x, y, w, h);
-        } else if (BookState.currentView() == ViewMode.FLOW) {
-            renderFlowFrame(ui, x, y, w, h);
+            editors.render(ui, x + 1, y + 1, w - 2, h - 2);
         } else {
-            renderMainFrame(ui, x, y, w, h);
+            drawBook(ui, x + 1, y + 1, w - 2, h - 2);
         }
-        ui.squareLeft = false;
-        if (sectionsW > 0) {
-            renderSections(ui, sections, x + 1, y + 1, h - 2);
-        }
-        if (!editing && BookState.previewSection == null) {
-            BookState.track();
-        }
+        settleFields();
         lastHovered = ui.hoveredStack;
         lastHoveredText = ui.hoveredText == null ? null : ui.hoveredText.getString();
-        if (ui.hoveredStack != null) {
+        if (dialog != null) {
+            Kit.dialog(g, ui.theme, kitHits, dialog, mouseX, mouseY);
+        } else if (ui.hoveredStack != null) {
             g.renderTooltip(font, ui.hoveredStack, mouseX, mouseY);
         } else if (ui.hoveredText != null) {
             g.renderTooltip(font, ui.hoveredText, mouseX, mouseY);
         }
     }
 
-    // --- the rail of sections ---
-
-    private void renderSections(Ui ui, List<String> sections, int x, int y, int h) {
-        boolean flow = BookState.inStory() && BookState.currentView() == ViewMode.FLOW;
-        ui.fillCorners(x, y, SECTIONS_W, h, flow ? 15 : 13, ui.railBg(), true, false, false, true);
-        ui.rect(x + SECTIONS_W - 1, y, 1, h, ui.c("panel.border"));
-        float center = x + (SECTIONS_W - 1) / 2f;
-        ui.logo(center - 15, y + 14, 30);
-        String current = BookState.currentSection();
-        for (int i = 0; i < sections.size(); i++) {
-            renderSectionItem(ui, sections.get(i), sections.get(i).equals(current), center - SECTION_ITEM_W / 2f, y + 58 + i * SECTION_STEP);
+    private void drawBook(Ui ui, int x, int y, int w, int h) {
+        BookView body = body();
+        shown = body;
+        boolean bare = body == loading || body == empty || body.bareHeader();
+        if (header != null) {
+            header.render(ui, x, y, w, bare ? BookHeader.Mode.BARE : BookHeader.Mode.FULL, compact());
+        }
+        int top = y + BookHeader.HEIGHT;
+        if (!bare && ClosedBookLine.shown()) {
+            ClosedBookLine.render(ui, this, x, top, w);
+            top += ClosedBookLine.HEIGHT;
+        }
+        int bodyH = y + h - top;
+        body.render(ui, x, top, w, bodyH);
+        int[] area = body.messageArea(x, top, w, bodyH);
+        int[] line = area != null ? area : new int[] {x, top, w, bodyH};
+        ui.aboveItems(() -> BookMessageLine.render(ui, line));
+        if (body != loading && body != empty && body != page && !editors.any() && BookState.previewSection == null) {
+            BookState.track();
         }
     }
 
-    private void renderSectionItem(Ui ui, String section, boolean open, float x, float y) {
-        boolean over = ui.over(x, y, SECTION_ITEM_W, SECTION_ITEM_H);
-        if (open) {
-            ui.box(x, y, SECTION_ITEM_W, SECTION_ITEM_H, 10, ui.c("button.bg"), ui.c("button.border"));
-        } else if (over) {
-            ui.fill(x, y, SECTION_ITEM_W, SECTION_ITEM_H, 10, ui.c("slot.hover"));
-        }
-        int fg = ui.c(open ? "text.primary" : "text.muted");
-        float center = x + SECTION_ITEM_W / 2f;
-        SectionDef custom = ResourceLocation.tryParse(section) == null ? null : book().sections().get(ResourceLocation.parse(section));
-        if (custom != null) {
-            ui.item(custom.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY), center - 10, y + 11.5f, 20);
-        } else {
-            ui.sectionIcon(section, center - 10, y + 11.5f, 20, fg);
-        }
-        String name = Component.translatable(custom != null ? custom.shortTitle().orElse(custom.title()) : "rysquests.section." + section).getString();
-        ui.labelCentered(ui.fit(name, SECTION_ITEM_W - 4, 10.5f, Ui.REGULAR), center, y + 35.5f + 6.5f, 10.5f, Ui.REGULAR, fg);
-        int badge = section.equals(BookMeta.GUIDES) ? guides.neededCount() : 0;
-        if (badge > 0) {
-            String count = String.valueOf(badge);
-            float badgeW = Math.max(14, ui.width(count, 9.5f, Ui.SEMIBOLD) + 6);
-            float badgeX = x + SECTION_ITEM_W - 6 - badgeW;
-            ui.fill(badgeX, y + 6, badgeW, 14, 7, ui.c("accent"));
-            ui.labelCentered(count, badgeX + badgeW / 2f, y + 13, 9.5f, Ui.SEMIBOLD, ui.c("accent.text"));
-        }
-        ui.hit(x, y, SECTION_ITEM_W, SECTION_ITEM_H, () -> BookState.openSection(section));
-    }
-
-    /** The pencil beside a section's title, for operators. */
-    static void editButton(Ui ui, float x, float cy, SectionDef section) {
-        if (Minecraft.getInstance().player.hasPermissions(2)) {
-            boolean over = ui.over(x, cy - 15, 30, 30);
-            ui.box(x, cy - 15, 30, 30, 8, over ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
-            ui.icon(Icons.Shape.PENCIL, x + 9, cy - 6, 12, ui.c("button.fg"));
-            ui.tooltipIfOver(x, cy - 15, 30, 30, Component.translatable("rysquests.editor.edit"));
-            ui.hit(x, cy - 15, 30, 30, () -> {
-                if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-                    screen.openSectionEditor(section);
+    /** A text field that was not drawn this frame cannot keep the keyboard. */
+    private void settleFields() {
+        for (Field field : new Field[] {searchBox, sectionSearch}) {
+            if (field != null && !field.visible && field.isFocused()) {
+                field.setFocused(false);
+                if (getFocused() == field) {
+                    setFocused(null);
                 }
-            });
-        }
-    }
-
-    void openSectionEditor(@Nullable SectionDef section) {
-        sectionEditor = new SectionEditorView(this, section);
-    }
-
-    void closeSectionEditor() {
-        sectionEditor = null;
-    }
-
-    void openQuestEditor() {
-        questEditor = new QuestEditorView(this);
-    }
-
-    void closeQuestEditor() {
-        questEditor = null;
-    }
-
-    void openPagesEditor(PagesSection pages) {
-        sectionEditor = null;
-        openEditor(GuideDraft.of(pages), false);
-    }
-
-    void openNewPagesEditor(ResourceLocation id) {
-        sectionEditor = null;
-        openEditor(GuideDraft.newPages(id), true);
-    }
-
-    /** The section being edited, shown as players will see it. */
-    void renderSectionPreview(Ui ui, int x, int y, int w, int h) {
-        guideView().render(ui, x, y, w, h);
-    }
-
-    void scrollSectionPreview(double mouseX, double mouseY, double amount) {
-        guideView().scroll(mouseX, mouseY, amount);
-    }
-
-    private void openEditor(GuideDraft draft, boolean isNew) {
-        editor = new EditorView(this, guides, guidePage, draft, isNew);
-    }
-
-    /** A new guide goes into the namespace of the book. */
-    void newGuide() {
-        ResourceLocation any = book().chapters().keySet().stream().findFirst().orElse(ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "guide"));
-        int number = book().guides().size() + 1;
-        ResourceLocation id = any.withPath("guide_" + number);
-        while (book().guides().containsKey(id)) {
-            number++;
-            id = any.withPath("guide_" + number);
-        }
-        openEditor(GuideDraft.newGuide(id), true);
-    }
-
-    void closeEditor() {
-        editor = null;
-    }
-
-    /** The server's answer to a trade. */
-    public static void onShopResult(boolean ok, String reason) {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.shop.onResult(ok, reason);
-        }
-        lastShopResult = ok ? "" : reason;
-    }
-
-    /** The server's answer to a save. */
-    public static void onEditorResult(boolean ok, String reason, List<String> args) {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.editor != null) {
-            screen.editor.onResult(ok, reason);
-        }
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.sectionEditor != null) {
-            screen.sectionEditor.onResult(ok, reason);
-        }
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.questEditor != null) {
-            screen.questEditor.onResult(ok, reason, args);
-        }
-        lastEditorResult = ok ? "" : reason;
-    }
-
-    private void renderGuidesFrame(Ui ui, int x, int y, int w, int h) {
-        ui.shadow(x, y, w, h, 14, 1f);
-        ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
-        guideView().render(ui, x + 1 + sectionsW, y + 1, w - 2 - sectionsW, h - 2);
-    }
-
-    private BookView guideView() {
-        SectionDef custom = BookState.customSection();
-        if (custom == null) {
-            if (BookState.inShop()) {
-                return shop;
             }
-            if (BookState.inAchievements()) {
-                return achievements;
-            }
-            return BookState.guidePage >= 0 ? guidePage : guideLibrary;
         }
-        return switch (custom) {
-            case MatrixSection table -> matrix;
-            case CardsSection catalog -> cards;
-            case PagesSection pages -> pagesSection;
-        };
     }
 
-    /** The search field in the header of a section. @param hint the section's own hint, or null for the usual one */
+    /** The search field in the header of a section of the old guides views. @param hint the section's own hint, or null for the usual */
     void renderSectionSearch(Ui ui, float right, float cy, int w, @Nullable String hint) {
         float x = right - w;
         boolean focused = sectionSearch != null && sectionSearch.isFocused();
         ui.box(x, cy - 19, w, 38, 9, ui.c("input.bg"), focused ? ui.c("card.border") : ui.c("input.border"));
-        ui.icon(Icons.Shape.MAGNIFIER, x + 13, cy - 5, 10, ui.c("text.muted"));
+        ui.icon(works.repka.ryscore.ui.Icons.Shape.MAGNIFIER, x + 13, cy - 5, 10, ui.c("text.muted"));
         if (sectionSearch != null) {
+            sectionSearch.visible = true;
             sectionSearch.setHint(hint != null ? Component.literal(hint) : Component.translatable("rysquests.guides.search"));
+            if (!sectionSearch.getValue().equals(BookState.sectionSearch)) {
+                sectionSearch.setValue(BookState.sectionSearch);
+            }
             sectionSearch.setX(Math.round((x + 29) / 2f));
             sectionSearch.setY(Math.round(cy / 2f) - 5);
             sectionSearch.setWidth(Math.round((w - 29 - 13) / 2f));
@@ -689,322 +349,175 @@ public final class BookScreen extends ScaledScreen {
         }
     }
 
-    // --- the flow's frame ---
-
-    private void renderFlowFrame(Ui ui, int x, int y, int w, int h) {
-        ui.shadow(x, y, w, h, 16, 1f);
-        ui.box(x, y, w, h, 16, ui.flowBg(), ui.flowBorder());
-        int inner = w - 2 - sectionsW;
-        int railW = Mth.clamp(Math.round(inner * RAIL_SHARE), RAIL_MIN, RAIL_MAX);
-        int columnW = Math.min(FLOW_COLUMN_MAX, Math.round(inner * FLOW_COLUMN_SHARE));
-        int top = y + 1;
-        int height = h - 2;
-        int railX = x + 1 + sectionsW;
-        chaptersLeft = railX;
-        chaptersRight = railX + railW;
-        int columnX = railX + railW;
-        renderRail(ui, railX, top, railW, height);
-        activeView().render(ui, columnX, top, columnW, height);
-        cardLeft = columnX + columnW;
-        reading.render(ui, cardLeft, top, x + w - 1 - cardLeft, height);
-    }
-
-    private void renderRail(Ui ui, int x, int y, int w, int h) {
-        ui.fillCorners(x, y, w, h, 15, ui.railBg(), true, false, false, true);
-        ui.rect(x + w - 1, y, 1, h, ui.flowBorder());
-        float center = x + (w - 1) / 2f;
-        if (sectionsW == 0) {
-            ui.logo(center - 15, y + 14, 30);
-        }
-        int listTop = sectionsW == 0 ? y + 60 : y + 14;
-        int gearY = y + h - 14 - 50;
-        int listH = gearY - 10 - listTop;
-        List<Chapter> chapters = chapters();
-        railScroll.content(chapters.size() * RAIL_STEP, listH);
-        int railOffset = railScroll.offset();
-        chapterList = new int[] {x, listTop, w, listH};
-        chapterListScroll = railScroll;
-        ui.clip(x, listTop, w, listH);
-        for (int i = 0; i < chapters.size(); i++) {
-            int rowY = listTop + i * RAIL_STEP - railOffset;
-            if (rowY + 50 > listTop && rowY < listTop + listH) {
-                renderRailItem(ui, chapters.get(i), i + 1, center - 25, rowY);
-            }
-        }
-        ui.unclip();
-        boolean over = ui.over(center - 25, gearY, 50, 50);
-        ui.box(center - 25, gearY, 50, 50, 12, over ? ui.c("slot.hover") : 0, ui.flowBorder());
-        ui.icon(Icons.Shape.GEAR, center - 7, gearY + 18, 14, ui.c("text.muted"));
-        ui.hit(center - 25, gearY, 50, 50, this::openSettings);
-    }
-
-    private void renderRailItem(Ui ui, Chapter chapter, int number, float x, int y) {
-        boolean open = chapter.id().equals(BookState.chapter);
-        int[] counts = chapterCounts(chapter.id());
-        if (open) {
-            ui.box(x, y, 50, 50, 12, ui.c("slot.hover"), ui.mix("card.border", "text.dim", 0.14f));
-        } else if (ui.over(x, y, 50, 50)) {
-            ui.fill(x, y, 50, 50, 12, ui.c("slot.hover"));
-        }
-        boolean started = counts[0] > 0;
-        String fg = open ? "text.primary" : started ? "text.muted" : "text.dim";
-        String numeral = Ui.roman(number);
-        ui.labelCentered(ui.width(numeral, 15, Ui.DISPLAY) > 46 ? String.valueOf(number) : numeral, x + 25, y + 22, 15, Ui.DISPLAY, ui.c(fg));
-        float ratio = counts[1] == 0 ? 0 : (float) counts[0] / counts[1];
-        ui.fill(x + 12, y + 34.5f, 26, 3, 2, ui.c("slot.bg"));
-        if (ratio > 0) {
-            ui.fill(x + 12, y + 34.5f, 26 * ratio, 3, 2, ui.c(open && ratio < 1 ? "accent" : "state.ok"));
-        }
-        ui.tooltipIfOver(x, y, 50, 50, Component.translatable(chapter.title()));
-        ui.hit(x, y, 50, 50, () -> BookState.openChapter(chapter.id()));
-    }
-
-    private void openSettings() {
-        ModList.get().getModContainerById(RYSQuests.MODID).ifPresent((ModContainer container) ->
-                Minecraft.getInstance().setScreen(new ConfigurationScreen(container, this)));
-    }
-
-    // --- the frame of every other view ---
-
-    private void renderMainFrame(Ui ui, int x, int y, int w, int h) {
-        ui.shadow(x, y, w, h, 14, 1f);
-        ui.box(x, y, w, h, 14, ui.c("panel.bg"), ui.c("panel.border"));
-        ViewMode mode = BookState.currentView();
-        int innerX = x + 1 + sectionsW;
-        int innerW = w - 2 - sectionsW;
-        int top = y + 1;
-        int barH = mode == ViewMode.DEV ? 51 : mode == ViewMode.MAP || mode == ViewMode.LIST ? 61 : 59;
-        if (mode == ViewMode.DEV) {
-            ((DevView) views.get(ViewMode.DEV)).renderBar(ui, innerX, top, innerW, barH);
-        } else {
-            renderBar(ui, mode, innerX, top, innerW, barH);
-        }
-        int bodyY = top + barH;
-        int bodyH = h - 2 - barH;
-        cardLeft = x + w;
-        chaptersLeft = innerX;
-        chaptersRight = innerX;
-        if (mode == ViewMode.MAP || mode == ViewMode.LIST) {
-            renderChapters(ui, innerX, bodyY, CHAPTERS_W, bodyH);
-            chaptersRight = innerX + CHAPTERS_W;
-            int viewX = innerX + CHAPTERS_W;
-            int viewW = innerW - CHAPTERS_W;
-            if (mode == ViewMode.MAP) {
-                boolean card = w >= CARD_MIN_WINDOW;
-                if (card) {
-                    viewW -= CARD_W;
-                    cardLeft = viewX + viewW;
-                    renderCard(ui, cardLeft, bodyY, CARD_W, bodyH);
-                }
-            }
-            activeView().render(ui, viewX, bodyY, viewW, bodyH);
-        } else {
-            activeView().render(ui, innerX, bodyY, innerW, bodyH);
-        }
-    }
-
-    private void renderBar(Ui ui, ViewMode mode, int x, int y, int w, int barH) {
-        ui.fillCorners(x, y, w, barH, 13, ui.c("sidebar.bg"), true, true, false, false);
-        ui.rect(x, y + barH - 1, w, 1, ui.c("panel.border"));
-        float cy = y + (barH - 1) / 2f;
-        renderBrand(ui, x + 18, cy);
-        float tabsX = x + 161;
-        List<ViewMode> modes = new ArrayList<>(TABS);
-        if (Minecraft.getInstance().player.hasPermissions(2)) {
-            modes.add(ViewMode.DEV);
-        }
-        List<Kit.Tab> tabs = new ArrayList<>();
-        for (ViewMode tab : modes) {
-            tabs.add(new Kit.Tab(Component.translatable("rysquests.view." + tab.getSerializedName()).getString(), NO_COUNT, tab == mode, () -> BookState.view = tab));
-        }
-        float cursor = tabsX + Math.min(ui.tabsWidth(tabs), x + w - 18 - 34 - 14 - tabsX);
-        float right = x + w - 18;
-        renderClose(ui, right - 34, cy - 17);
-        right -= 34 + 14;
-        int members = ClientProgress.teamSize();
-        if (members > 1) {
-            String team = Component.translatable("rysquests.book.team", members).getString();
-            float chipW = ui.width(team, 12, Ui.REGULAR) + 38;
-            if (right - chipW - 14 >= cursor) {
-                ui.box(right - chipW, cy - 14.5f, chipW, 29, 9, ui.c("button.bg"), ui.c("button.border"));
-                ui.circle(right - chipW + 11, cy - 4, 8, ui.c("state.ok"));
-                ui.label(team, right - chipW + 27, cy, 12, Ui.REGULAR, ui.c("button.fg"));
-                right -= chipW + 14;
-            }
-        }
-        ui.tabs(tabs, tabsX, cy - 14, 28, cursor - tabsX);
-        float room = right - 14 - cursor;
-        if (mode == ViewMode.MAP || mode == ViewMode.LIST) {
-            if (room >= SEARCH_MIN) {
-                renderSearch(ui, right, cy, Math.round(Math.min(mode == ViewMode.LIST ? 286 : 266, room)));
-            } else if (searchBox != null) {
-                searchBox.visible = false;
-            }
-        } else if (mode == ViewMode.TIMELINE) {
-            ((TimelineView) views.get(ViewMode.TIMELINE)).renderSummary(ui, right, cy, room);
-        }
-    }
-
+    /** The mod's mark and name, for the old editors that draw their own header. */
     static void renderBrand(Ui ui, float x, float cy) {
         ui.logo(x, cy - 13, 26);
         ui.label("RYSQuests", x + 36, cy, 16, Ui.DISPLAY, ui.c("text.primary"));
     }
 
-    private void renderClose(Ui ui, float x, float y) {
-        boolean over = ui.over(x, y, 34, 34);
-        ui.box(x, y, 34, 34, 9, over ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
-        ui.icon(Icons.Shape.CROSS, x + 11, y + 11, 12, ui.c("button.fg"));
-        ui.hit(x, y, 34, 34, this::onClose);
+    // --- what the old views ask of the screen ---
+
+    /** Quests of the open chapter in dependency order; hidden ones appear once they unlock. */
+    List<Quest> visibleQuests() {
+        return BookState.chapter == null ? List.of() : BookTallies.questsOf(BookState.chapter);
     }
 
-    private void renderSearch(Ui ui, float right, float cy, int w) {
-        float x = right - w;
-        boolean focused = searchBox != null && searchBox.isFocused();
-        ui.box(x, cy - 18, w, 36, 9, ui.c("input.bg"), focused ? ui.c("card.border") : ui.c("input.border"));
-        ui.icon(Icons.Shape.MAGNIFIER, x + 13, cy - 5, 10, ui.c("text.muted"));
-        if (searchBox != null) {
-            int fieldX = Math.round((x + 29) / 2f);
-            searchBox.setX(fieldX);
-            searchBox.setY(Math.round(cy / 2f) - 5);
-            searchBox.setWidth(Math.round((w - 29 - 13) / 2f));
-            searchBox.setSpans(SearchIndex.spans(searchBox.getValue()), NO_COLORS);
-            searchBox.render(ui.g, ui.mouseX / 2, ui.mouseY / 2, 0);
-        }
-    }
-
-    private void renderChapters(Ui ui, int x, int y, int w, int h) {
-        ui.fillCorners(x, y, w, h, 13, ui.columnBg(), false, false, false, true);
-        ui.rect(x + w - 1, y, 1, h, ui.c("panel.border"));
-        ui.caps(Component.translatable("rysquests.book.chapters").getString(), x + 18, y + 21, ui.c("text.dim"));
-
-        int claim = claimCount;
-        int listTop = y + 40;
-        int blockH = claim > 0 ? 72 : 0;
-        int listH = y + h - 14 - blockH - (claim > 0 ? 8 : 0) - listTop;
-        List<Chapter> chapters = chapters();
-        chapterScroll.content(chapters.size() * CHAPTER_STEP, listH);
-        int chapterOffset = chapterScroll.offset();
-        chapterList = new int[] {x, listTop, w, listH};
-        chapterListScroll = chapterScroll;
-        ui.clip(x, listTop, w, listH);
-        int first = Math.max(0, chapterOffset / CHAPTER_STEP);
-        int last = Math.min(chapters.size(), first + listH / CHAPTER_STEP + 2);
-        for (int i = first; i < last; i++) {
-            renderChapterRow(ui, chapters.get(i), i + 1, x + 12, listTop + i * CHAPTER_STEP - chapterOffset, 207);
-        }
-        ui.unclip();
-        if (claim > 0) {
-            renderClaimBlock(ui, x + 12, y + h - 14 - 72, 207);
-        }
-    }
-
-    private void renderChapterRow(Ui ui, Chapter chapter, int number, int x, int y, int w) {
-        boolean open = chapter.id().equals(BookState.chapter);
-        if (open) {
-            ui.box(x, y, w, 45, 9, ui.c("button.bg"), ui.c("button.border"));
-        } else if (ui.over(x, y, w, 45)) {
-            ui.fill(x, y, w, 45, 9, ui.c("button.bg"));
-        }
-        int[] counts = chapterCounts(chapter.id());
-        String count = counts[0] + " / " + counts[1];
-        float countW = ui.width(count, 11.5f, Ui.REGULAR);
-        String title = Ui.roman(number) + " · " + Component.translatable(chapter.title()).getString();
-        ui.labelFit(title, x + 11, y + 17.5f, w - 22 - countW - 6, 12.5f, Ui.MEDIUM, ui.nameFg());
-        ui.labelRight(count, x + w - 11, y + 17.5f, 11.5f, Ui.REGULAR, ui.c("text.muted"));
-        float ratio = counts[1] == 0 ? 0 : (float) counts[0] / counts[1];
-        ui.bar(x + 11, y + 31, w - 22, 4, 2, ratio, ui.c(open && ratio < 1 ? "accent" : "state.ok"));
-        ui.hit(x, y, w, 45, () -> BookState.openChapter(chapter.id()));
-    }
-
-    private void renderClaimBlock(Ui ui, int x, int y, int w) {
-        ui.box(x, y, w, 72, 9, ui.c("slot.bg"), ui.c("slot.border"));
-        ui.label(Component.translatable("rysquests.book.rewards_waiting").getString(), x + 11, y + 18, 11.5f, Ui.REGULAR, ui.c("text.muted"));
-        for (int i = 0; i < claimStacks.size(); i++) {
-            ui.cell(claimStacks.get(i), x + 11 + i * 38, y + 31, 30, 30, 6, 16, ui.c("panel.bg"), ui.c("card.border"));
-        }
-        String label = onlyPicksLeft() ? Component.translatable("rysquests.book.pick_short").getString() : Component.translatable("rysquests.book.claim_short").getString();
-        float bw = ui.buttonWidth(label, 11.5f, Ui.SEMIBOLD, 10);
-        ui.button(label, x + w - 11 - bw, y + 32, bw, 28, 7, 11.5f, Ui.SEMIBOLD, 10, Ui.Style.ACCENT, this::claimAll);
-    }
-
-    private void renderCard(Ui ui, int x, int y, int w, int h) {
-        ui.fillCorners(x, y, w, h, 13, ui.c("card.bg"), false, false, true, false);
-        ui.rect(x, y, 1, h, ui.c("panel.border"));
-        Quest quest = BookState.quest == null ? null : book().quests().get(BookState.quest);
-        if (quest == null || !quest.chapter().equals(java.util.Optional.ofNullable(BookState.chapter))) {
-            return;
-        }
-        ui.clip(x, y, w, h);
-        int content = QuestCard.render(ui, quest, x + 1, y - cardScroll.offset(), w - 1);
-        ui.unclip();
-        cardScroll.content(content, h);
-    }
-
-    /** Done and total quests of a chapter as the book shows it; worked out once per progress version, not per row and frame. */
     int[] chapterCounts(ResourceLocation chapter) {
-        if (countsVersion != ClientProgress.version() || countsBook != book()) {
-            CHAPTER_COUNTS.clear();
-            countsVersion = ClientProgress.version();
-            countsBook = book();
-        }
-        // Main quests only: optional ones never hold a chapter back (review U4).
-        return CHAPTER_COUNTS.computeIfAbsent(chapter, id -> {
-            works.repka.rysquests.progress.BookCounts.Count main = works.repka.rysquests.progress.BookCounts.of(questsOf(id), ClientProgress::get).main();
-            return new int[] {main.done(), main.total()};
-        });
+        return BookTallies.mainCounts(chapter);
     }
 
-    /** The counts of the open book screen, for views that have no screen of their own. */
     static int[] countsOf(ResourceLocation chapter) {
-        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.chapterCounts(chapter) : new int[2];
+        return BookTallies.mainCounts(chapter);
+    }
+
+    int readyToSubmit() {
+        return BookTallies.readyToSubmit();
+    }
+
+    int readyToClaim() {
+        return BookTallies.readyToClaim();
+    }
+
+    boolean onlyPicksLeft() {
+        return BookTallies.onlyPicksLeft();
+    }
+
+    /** The bulk claim of every button: everything that needs no decision, or else the first quest that waits for one. */
+    void claimAll() {
+        Quest pick = BookTallies.onlyPicksLeft() ? BookTallies.pickQuest() : null;
+        if (pick != null) {
+            BookState.select(pick);
+            BookState.view = ViewMode.MAP;
+            BookState.pickNudge = System.currentTimeMillis();
+        } else {
+            QuestKeys.sendAll(QuestActionPayload.CLAIM_ALL);
+            BookTallies.invalidate();
+        }
+    }
+
+    /** The label of a bulk claim button: its own words, or "choose a reward" when only choices are left. */
+    String claimAllLabel(String own) {
+        return onlyPicksLeft() ? Component.translatable("rysquests.book.pick_reward").getString() : own;
+    }
+
+    /** The other view of the map's card: shows the path to the selected quest. */
+    void focusOnMap() {
+        BookState.section = Chapter.STORY;
+        BookState.view = ViewMode.MAP;
+        mapTab().map.focusSelected();
+    }
+
+    void openSectionEditor(@Nullable SectionDef section) {
+        editors.openSection(section);
+    }
+
+    void closeSectionEditor() {
+        editors.section = null;
+    }
+
+    void openQuestEditor() {
+        editors.openQuest();
+    }
+
+    void closeQuestEditor() {
+        editors.quest = null;
+    }
+
+    void openPagesEditor(PagesSection pages) {
+        editors.openPages(pages);
+    }
+
+    void openNewPagesEditor(ResourceLocation id) {
+        editors.openNewPages(id);
+    }
+
+    void openEditor(GuideDraft draft, boolean isNew) {
+        editors.openGuide(draft, isNew);
+    }
+
+    void newGuide() {
+        editors.newGuide();
+    }
+
+    void closeEditor() {
+        editors.guide = null;
+    }
+
+    /** The section being edited, shown as players will see it. */
+    void renderSectionPreview(Ui ui, int x, int y, int w, int h) {
+        guidesTab().content().render(ui, x, y, w, h);
+    }
+
+    void scrollSectionPreview(double mouseX, double mouseY, double amount) {
+        guidesTab().content().scroll(mouseX, mouseY, amount);
+    }
+
+    /** The server's answer to a trade. */
+    public static void onShopResult(boolean ok, String reason) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(BookTabs.SHOP) instanceof ShopView shop) {
+            shop.onResult(ok, reason);
+        }
+        lastShopResult = ok ? "" : reason;
+    }
+
+    /** The server's answer to a save. */
+    public static void onEditorResult(boolean ok, String reason, List<String> args) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.editors.onResult(ok, reason, args);
+        }
+        lastEditorResult = ok ? "" : reason;
+    }
+
+    /** Opens the book on a quest, from a link in chat. */
+    public static void openAt(ResourceLocation id) {
+        Quest quest = BookData.book().quests().get(id);
+        if (quest != null) {
+            BookState.select(quest);
+            BookState.view = ViewMode.MAP;
+            Minecraft.getInstance().setScreen(new BookScreen());
+        }
     }
 
     // --- input ---
 
+    private boolean typing() {
+        return searchBox != null && searchBox.isFocused() || sectionSearch != null && sectionSearch.isFocused();
+    }
+
     @Override
     protected boolean onClick(double mouseX, double mouseY, int button) {
+        if (dialog != null) {
+            kitHits.click(mouseX, mouseY, button);
+            return true;
+        }
         if (button == 0 && kitHits.click(mouseX, mouseY, button)) {
             return true;
         }
         int x = (int) Math.round(mouseX * 2);
         int y = (int) Math.round(mouseY * 2);
-        if (editor != null) {
-            editor.pointer(mouseX * 2, mouseY * 2);
-        }
-        if (sectionEditor != null) {
-            sectionEditor.pointer(mouseX * 2, mouseY * 2);
-        }
-        if (questEditor != null) {
-            questEditor.pointer(mouseX * 2, mouseY * 2);
-        }
-        if (button == GLFW.GLFW_MOUSE_BUTTON_4 && editor == null && sectionEditor == null && questEditor == null && BookState.back()) {
-            return true;
-        }
-        if (button == 0 && editor == null && sectionEditor == null && questEditor == null && onChapterList(x, y)) {
-            pressedOnList = true;
-            draggingList = false;
-            pressX = mouseX;
-            pressY = mouseY;
-            pressedChapter = null;
-            for (int i = hits.size() - 1; i >= 0 && pressedChapter == null; i--) {
-                Ui.Hit hit = hits.get(i);
-                if (x >= hit.x() && x < hit.x() + hit.w() && y >= hit.y() && y < hit.y() + hit.h()) {
-                    pressedChapter = hit;
-                }
+        if (editors.any()) {
+            editors.pointer(mouseX * 2, mouseY * 2);
+        } else {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_4 && goBack()) {
+                return true;
             }
-            return true;
+            if (shown != null) {
+                shown.press(mouseX * 2, mouseY * 2, button);
+            }
         }
         List<Ui.Hit> list = button == 0 ? hits : button == 1 ? rightHits : List.of();
         for (int i = list.size() - 1; i >= 0; i--) {
             Ui.Hit hit = list.get(i);
             if (x >= hit.x() && x < hit.x() + hit.w() && y >= hit.y() && y < hit.y() + hit.h()) {
+                boolean searching = searchBox != null && searchBox.isFocused();
                 hit.action().run();
-                if (searchBox != null) {
-                    searchBox.setFocused(false);
-                    setFocused(null);
-                }
                 if (sectionSearch != null) {
                     sectionSearch.setFocused(false);
+                }
+                if (searchBox != null && searching == searchBox.isFocused()) {
+                    searchBox.setFocused(false);
+                }
+                if (!typing()) {
                     setFocused(null);
                 }
                 return true;
@@ -1017,33 +530,30 @@ public final class BookScreen extends ScaledScreen {
         return super.onClick(mouseX, mouseY, button);
     }
 
-    @Override
-    public void removed() {
-        guidePage.closeStructures();
-        pagesSection.closeStructures();
-        super.removed();
+    /** Backspace and the mouse's back button: a page closes, otherwise the book goes back in its history. */
+    private boolean goBack() {
+        if (page != null) {
+            closePage();
+            return true;
+        }
+        return BookState.back();
     }
 
-    private boolean onChapterList(int x, int y) {
-        int[] list = chapterList;
-        return list != null && x >= list[0] && x < list[0] + list[2] && y >= list[1] && y < list[1] + list[3];
+    @Override
+    public void removed() {
+        views.values().forEach(BookView::closed);
+        if (page != null) {
+            page.closed();
+        }
+        super.removed();
     }
 
     @Override
     protected boolean onRelease(double mouseX, double mouseY, int button) {
-        if (pressedOnList && button == 0) {
-            pressedOnList = false;
-            if (!draggingList && pressedChapter != null) {
-                pressedChapter.action().run();
-            }
-            pressedChapter = null;
-            draggingList = false;
+        if (editors.release(mouseX * 2, mouseY * 2)) {
             return true;
         }
-        guidePage.releaseStructure();
-        pagesSection.releaseStructure();
-        if (questEditor != null) {
-            questEditor.release(mouseX * 2, mouseY * 2);
+        if (!editors.any() && shown != null && shown.release(mouseX * 2, mouseY * 2, button)) {
             return true;
         }
         return super.onRelease(mouseX, mouseY, button);
@@ -1051,138 +561,163 @@ public final class BookScreen extends ScaledScreen {
 
     @Override
     protected boolean onDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (pressedOnList) {
-            if (!draggingList && Math.hypot(mouseX - pressX, mouseY - pressY) > DRAG_START) {
-                draggingList = true;
-            }
-            if (draggingList && chapterListScroll != null) {
-                chapterListScroll.drag(dragY);
-            }
+        if (editors.any()) {
+            editors.drag(mouseX * 2, mouseY * 2);
             return true;
         }
-        if (questEditor != null) {
-            questEditor.drag(mouseX * 2, mouseY * 2);
-            return true;
-        }
-        if (editor != null) {
-            editor.drag(mouseX * 2, mouseY * 2);
-            return true;
-        }
-        if (sectionEditor != null) {
-            sectionEditor.drag(mouseX * 2, mouseY * 2);
-            return true;
-        }
-        if (guidePage.dragStructure(dragX, dragY) || pagesSection.dragStructure(dragX, dragY)) {
-            return true;
-        }
-        return BookState.inStory() && activeView().drag(dragX * 2, dragY * 2) || super.onDrag(mouseX, mouseY, button, dragX, dragY);
+        return shown != null && shown.drag(dragX * 2, dragY * 2) || super.onDrag(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override
     protected boolean onScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
-        double x = mouseX * 2;
-        if (questEditor != null) {
-            questEditor.scroll(x, mouseY * 2, scrollY);
-        } else if (editor != null) {
-            editor.scroll(x, mouseY * 2, scrollY);
-        } else if (sectionEditor != null) {
-            sectionEditor.scroll(x, mouseY * 2, scrollY);
-        } else if (!BookState.inStory()) {
-            guideView().scroll(x, mouseY * 2, scrollY);
-        } else if (x >= chaptersLeft && x < chaptersRight) {
-            if (BookState.currentView() == ViewMode.FLOW) {
-                railScroll.wheel(scrollY, RAIL_STEP);
-            } else {
-                chapterScroll.wheel(scrollY, CHAPTER_STEP);
-            }
-        } else if (x >= cardLeft) {
-            if (BookState.currentView() == ViewMode.FLOW) {
-                reading.scroll(scrollY, WHEEL);
-            } else {
-                cardScroll.wheel(scrollY, WHEEL);
-            }
-        } else {
-            activeView().scroll(x, mouseY * 2, scrollY);
+        if (dialog != null) {
+            return true;
+        }
+        if (editors.any()) {
+            editors.scroll(mouseX * 2, mouseY * 2, scrollY);
+        } else if (shown != null) {
+            shown.scroll(mouseX * 2, mouseY * 2, scrollY);
         }
         return true;
     }
 
     @Override
     public boolean charTyped(char c, int modifiers) {
-        if (questEditor != null) {
-            return questEditor.typed(c);
+        if (dialog != null) {
+            return true;
         }
-        if (sectionEditor != null) {
-            return sectionEditor.typed(c);
+        if (editors.any()) {
+            return editors.typed(c);
         }
-        return editor != null ? editor.typed(c) : super.charTyped(c, modifiers);
+        if (typing()) {
+            return super.charTyped(c, modifiers);
+        }
+        return shown != null && shown.typed(c) || super.charTyped(c, modifiers);
     }
 
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
-        if (questEditor != null) {
-            return questEditor.key(key);
+        if (dialog != null) {
+            return dialog.keyPressed(key);
         }
-        if (editor != null) {
-            return editor.key(key);
+        if (editors.any()) {
+            return editors.key(key);
         }
-        if (sectionEditor != null) {
-            return sectionEditor.key(key);
+        if (searchBox != null && searchBox.isFocused()) {
+            if (key == GLFW.GLFW_KEY_ENTER && !BookState.search.isBlank()) {
+                SearchIndex.find(BookState.search).stream().findFirst().ifPresent(quest -> {
+                    closePage();
+                    BookState.select(quest);
+                    BookState.view = BookState.mapMode;
+                });
+                searchBox.setFocused(false);
+                setFocused(null);
+                return true;
+            }
+            if (key == GLFW.GLFW_KEY_ESCAPE) {
+                searchBox.setFocused(false);
+                setFocused(null);
+                return true;
+            }
+            return super.keyPressed(key, scan, modifiers);
         }
-        boolean typing = searchBox != null && searchBox.isFocused() || sectionSearch != null && sectionSearch.isFocused();
-        if (typing && searchBox.isFocused() && key == GLFW.GLFW_KEY_ENTER && !BookState.search.isBlank()) {
-            SearchIndex.find(BookState.search).stream().findFirst().ifPresent(BookState::select);
-            searchBox.setFocused(false);
-            setFocused(null);
+        if (typing()) {
+            return super.keyPressed(key, scan, modifiers);
+        }
+        if (shown != null && shown.key(key)) {
             return true;
         }
-        if (key == GLFW.GLFW_KEY_F && hasControlDown() && searchBox != null && searchBox.visible) {
-            searchBox.setFocused(true);
-            setFocused(searchBox);
+        if (key == GLFW.GLFW_KEY_SLASH || key == GLFW.GLFW_KEY_F && hasControlDown()) {
+            focusSearch();
             return true;
         }
-        if (!typing) {
-            if ((BookState.inStory() ? activeView() : guideView()).key(key)) {
-                return true;
-            }
-            if (key == GLFW.GLFW_KEY_BACKSPACE && BookState.back()) {
-                return true;
-            }
-            if (QuestKeys.OPEN_BOOK.matches(key, scan)) {
-                Minecraft.getInstance().setScreen(null);
-                return true;
-            }
-            if (QuestKeys.PIN.matches(key, scan) && BookState.quest != null) {
-                togglePin(BookState.quest);
-                return true;
-            }
+        if (key == GLFW.GLFW_KEY_BACKSPACE && goBack()) {
+            return true;
+        }
+        if (key == GLFW.GLFW_KEY_ESCAPE && page != null) {
+            closePage();
+            return true;
+        }
+        if (QuestKeys.OPEN_BOOK.matches(key, scan)) {
+            Minecraft.getInstance().setScreen(null);
+            return true;
+        }
+        if (QuestKeys.PIN.matches(key, scan) && BookState.quest != null) {
+            BookData.togglePin(BookState.quest);
+            return true;
         }
         return super.keyPressed(key, scan, modifiers);
     }
 
-    static void togglePin(ResourceLocation quest) {
-        net.neoforged.neoforge.network.PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, quest, 0, List.of()));
-    }
+    // --- hooks for the in-game autotest ---
 
-    /** The other view of the map's card: shows the path to the selected quest. */
-    void focusOnMap() {
-        BookState.view = ViewMode.MAP;
-        ((MapView) views.get(ViewMode.MAP)).focusSelected();
-    }
-
-    /** Opens the book on a quest, from a link in chat. */
-    public static void openAt(ResourceLocation id) {
-        Quest quest = book().quests().get(id);
-        if (quest != null) {
-            BookState.select(quest);
-            BookState.view = ViewMode.FLOW;
-            Minecraft.getInstance().setScreen(new BookScreen());
+    /** Which body the book shows: "loading", "empty", "page" or the open tab's id. */
+    public static String bodyForTest() {
+        if (!(Minecraft.getInstance().screen instanceof BookScreen screen)) {
+            return "closed";
         }
+        BookView body = screen.body();
+        if (body == screen.loading) {
+            return "loading";
+        }
+        if (body == screen.empty) {
+            return "empty";
+        }
+        if (body == screen.page) {
+            return "page";
+        }
+        BookTabs.Tab tab = BookTabs.current(BookData.book());
+        return tab == null ? "none" : tab.id();
+    }
+
+    /** The ids of the tabs in the header. */
+    public static List<String> tabsForTest() {
+        return BookTabs.visible(BookData.book()).stream().map(BookTabs.Tab::id).toList();
+    }
+
+    public static void openTabForTest(String id) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.openTab(BookTabs.byId(id));
+        }
+    }
+
+    public static void toggleSettingsForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.toggleSettings();
+        }
+    }
+
+    public static boolean compactForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen && screen.compact();
+    }
+
+    public static void foldSidebarForTest(boolean fold) {
+        Sidebar.folded = fold;
+    }
+
+    public static void openEmptyPageForTest(boolean importWizard) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.openPage(importWizard ? new ImportWizardView(screen) : new NewBookView(screen));
+        }
+    }
+
+    public static void askToOpenForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            ClosedBookLine.askToOpen(screen);
+        }
+    }
+
+    public static void ftbForTest(@Nullable Boolean present) {
+        EmptyBookView.ftbForTest = present;
+    }
+
+    public static boolean dialogOpenForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen && screen.dialog != null;
     }
 
     public static boolean onlyPicksLeftForTest() {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.countsAt = 0;
+            BookTallies.invalidate();
             return screen.onlyPicksLeft();
         }
         return false;
@@ -1190,7 +725,7 @@ public final class BookScreen extends ScaledScreen {
 
     public static void claimAllForTest() {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.countsAt = 0;
+            BookTallies.invalidate();
             screen.claimAll();
         }
     }
@@ -1223,8 +758,8 @@ public final class BookScreen extends ScaledScreen {
     /** Opens the editor on a guide with a fixed id, so that repeated runs in the same test folder do not pile up. */
     public static void editGuideForTest(ResourceLocation id) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            Guide existing = book().guides().get(id);
-            screen.openEditor(existing != null ? GuideDraft.of(existing) : GuideDraft.newGuide(id), existing == null);
+            Guide existing = BookData.book().guides().get(id);
+            screen.editors.openGuide(existing != null ? GuideDraft.of(existing) : GuideDraft.newGuide(id), existing == null);
         }
     }
 
@@ -1249,18 +784,18 @@ public final class BookScreen extends ScaledScreen {
     }
 
     private static SectionEditorView sectionEditorForTest() {
-        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.sectionEditor : null;
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.editors.section : null;
     }
 
     public static void openConstructorOnForTest(ResourceLocation section) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.openSectionEditor(book().sections().get(section));
+            screen.editors.openSection(BookData.book().sections().get(section));
         }
     }
 
     public static void openConstructorForTest() {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.openSectionEditor(null);
+            screen.editors.openSection(null);
         }
     }
 
@@ -1294,19 +829,19 @@ public final class BookScreen extends ScaledScreen {
 
     public static void shopTradeForTest(ResourceLocation offer, boolean treasury) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.shop.tradeForTest(offer, treasury);
+            screen.shopView().tradeForTest(offer, treasury);
         }
     }
 
     public static void shopSelectForTest(ResourceLocation offer) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.shop.selectForTest(offer);
+            screen.shopView().selectForTest(offer);
         }
     }
 
     public static void shopHistoryForTest() {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.shop.showHistoryForTest();
+            screen.shopView().showHistoryForTest();
         }
     }
 
@@ -1321,17 +856,17 @@ public final class BookScreen extends ScaledScreen {
 
     public static void achievementSelectForTest(ResourceLocation id) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.achievements.selectForTest(id);
+            screen.achievementsView().selectForTest(id);
         }
     }
 
     private static QuestEditorView questEditorForTest() {
-        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.questEditor : null;
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.editors.quest : null;
     }
 
     public static void openQuestEditorForTest() {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.openQuestEditor();
+            screen.editors.openQuest();
         }
     }
 
@@ -1412,23 +947,23 @@ public final class BookScreen extends ScaledScreen {
     }
 
     public static boolean structureReadyForTest(ResourceLocation id) {
-        return Minecraft.getInstance().screen instanceof BookScreen screen && screen.guidePage.structureForTest(id) != null && screen.guidePage.structureForTest(id).readyForTest();
+        return Minecraft.getInstance().screen instanceof BookScreen screen && screen.guidesTab().guidePage.structureForTest(id) != null && screen.guidesTab().guidePage.structureForTest(id).readyForTest();
     }
 
     public static void structureLayerForTest(ResourceLocation id) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.guidePage.structureForTest(id).stepLayerForTest();
+            screen.guidesTab().guidePage.structureForTest(id).stepLayerForTest();
         }
     }
 
     public static void newGuideForTest() {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
-            screen.newGuide();
+            screen.editors.newGuide();
         }
     }
 
     private static EditorView editorForTest() {
-        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.editor : null;
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.editors.guide : null;
     }
 
     public static boolean editorOpenForTest() {
@@ -1481,7 +1016,7 @@ public final class BookScreen extends ScaledScreen {
     }
 
     public static void openGuideForTest(ResourceLocation id, int page) {
-        Guide guide = book().guides().get(id);
+        Guide guide = BookData.book().guides().get(id);
         if (guide != null) {
             BookState.openGuide(guide, page);
         }
@@ -1509,6 +1044,7 @@ public final class BookScreen extends ScaledScreen {
     }
 
     public static void showForTest(ViewMode view) {
+        BookState.section = Chapter.STORY;
         BookState.view = view;
     }
 
@@ -1518,13 +1054,13 @@ public final class BookScreen extends ScaledScreen {
     }
 
     public static void mapZoomForTest(float zoom) {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(ViewMode.MAP) instanceof MapView map) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map instanceof MapView map) {
             map.zoomForTest(zoom);
         }
     }
 
     public static int chapterScrollForTest() {
-        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.chapterScroll.position() : -1;
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.mapTab().sidebarScrollForTest() : -1;
     }
 
     @Nullable
@@ -1541,7 +1077,7 @@ public final class BookScreen extends ScaledScreen {
     /** A quest's node on the map in interface units (x, y, width, height), or null when it is not laid out. */
     @Nullable
     public static double[] mapNodeForTest(ResourceLocation quest) {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(ViewMode.MAP) instanceof MapView map) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map instanceof MapView map) {
             return map.nodeForTest(quest);
         }
         return null;
@@ -1552,19 +1088,19 @@ public final class BookScreen extends ScaledScreen {
     }
 
     public static void mapUnfoldForTest(boolean unfold) {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(ViewMode.MAP) instanceof MapView map) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map instanceof MapView map) {
             map.unfoldForTest(unfold);
         }
     }
 
     public static void mapFitForTest() {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(ViewMode.MAP) instanceof MapView map) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map instanceof MapView map) {
             map.fitForTest();
         }
     }
 
     public static String mapStatsForTest() {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.views.get(ViewMode.MAP) instanceof MapView map) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map instanceof MapView map) {
             return map.statsForTest();
         }
         return "no map";

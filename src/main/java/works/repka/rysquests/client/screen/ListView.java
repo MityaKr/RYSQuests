@@ -98,7 +98,7 @@ final class ListView implements BookView {
         Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
         if (chapter != null) {
             // The buttons keep their place in a narrow window: the heading gives way to them.
-            String title = Ui.roman(BookScreen.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
+            String title = Ui.roman(BookData.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
             float room = right - HEAD_GAP - x;
             ui.labelFit(title, x, cy, room, 16, Ui.DISPLAY, ui.c("text.primary"));
             String count = Ui.counted("rysquests.plural.quest", BookState.search.isBlank() ? screen.visibleQuests().size() : SearchIndex.find(BookState.search).size());
@@ -147,7 +147,7 @@ final class ListView implements BookView {
         Map<Group, List<Quest>> groups = new LinkedHashMap<>();
         for (Quest quest : SearchIndex.find(BookState.search)) {
             Chapter chapter = quest.chapter().map(id -> ClientBook.current().chapters().get(id)).orElse(null);
-            String title = chapter == null ? "" : Ui.roman(BookScreen.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
+            String title = chapter == null ? "" : Ui.roman(BookData.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
             groups.computeIfAbsent(new Group(title, "chip.mod.fg", ""), key -> new ArrayList<>()).add(quest);
         }
         return groups;
@@ -249,7 +249,7 @@ final class ListView implements BookView {
         }
         ui.hit(x, y, w, ROW_H, () -> BookState.select(quest));
         action(ui, quest, status, x + w - 13, y + 15);
-        ui.rightHit(x, y, w, ROW_H, () -> BookScreen.togglePin(quest.id()));
+        ui.rightHit(x, y, w, ROW_H, () -> BookData.togglePin(quest.id()));
     }
 
     private static float taskRatio(Quest quest, QuestProgress own, boolean finished) {
@@ -264,7 +264,7 @@ final class ListView implements BookView {
             return Component.translatable("rysquests.list.done_at", HomeView.ago(own.completedAt())).getString();
         }
         if (status == QuestStatus.LOCKED) {
-            return BookScreen.waitingFor(quest).getString();
+            return BookData.waitingFor(quest).getString();
         }
         return readyToSubmit(quest, own) ? Component.translatable("rysquests.home.in_inventory").getString() : quest.subtitle().map(key -> Component.translatable(key).getString()).orElse("");
     }
@@ -339,7 +339,7 @@ final class ListView implements BookView {
             return true;
         }
         if (key == GLFW.GLFW_KEY_SPACE && index >= 0) {
-            BookScreen.togglePin(shown.get(index).id());
+            BookData.togglePin(shown.get(index).id());
             return true;
         }
         return false;

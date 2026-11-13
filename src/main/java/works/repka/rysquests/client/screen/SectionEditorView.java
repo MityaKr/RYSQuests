@@ -525,7 +525,7 @@ final class SectionEditorView {
             List<Choice> out = new ArrayList<>();
             for (Quest quest : ClientBook.current().quests().values()) {
                 String name = tr(quest.title());
-                if (BookScreen.inStory(quest) && (query.isEmpty() || name.toLowerCase(Locale.ROOT).contains(query)) && out.size() < MAX_RESULTS) {
+                if (BookData.inStory(quest) && (query.isEmpty() || name.toLowerCase(Locale.ROOT).contains(query)) && out.size() < MAX_RESULTS) {
                     out.add(new Choice(name, "", quest.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY), () -> choose(chosen, quest.id())));
                 }
             }

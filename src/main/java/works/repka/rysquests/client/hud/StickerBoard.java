@@ -64,17 +64,20 @@ public final class StickerBoard {
         long now = System.currentTimeMillis();
         DONE.removeIf(done -> done.until < now);
         List<Sticker> stickers = new ArrayList<>();
-        for (var id : ClientProgress.pinned()) {
+        boolean pinnedShown = ClientConfig.HUD_PINNED.get();
+        for (var id : pinnedShown ? ClientProgress.pinned() : java.util.List.<net.minecraft.resources.ResourceLocation>of()) {
             Quest quest = ClientBook.current().quests().get(id);
             if (quest != null && !ClientProgress.get(id).completed()) {
                 stickers.add(new QuestSticker(quest));
             }
         }
-        for (String key : ClientProgress.pinnedWays()) {
+        for (String key : pinnedShown ? ClientProgress.pinnedWays() : java.util.List.<String>of()) {
             MatrixSection.findPinned(ClientBook.current(), key).ifPresent(pinned -> stickers.add(new WaySticker(key, pinned)));
         }
         stickers.sort(Comparator.comparingInt(Sticker::priority).reversed());
-        DONE.forEach(done -> stickers.add(done.card));
+        if (ClientConfig.COMPLETION_TOAST.get()) {
+            DONE.forEach(done -> stickers.add(done.card));
+        }
         if (stickers.isEmpty()) {
             return;
         }
@@ -90,7 +93,7 @@ public final class StickerBoard {
             }
         }
         int[] place = Anchors.place(Anchors.Element.PINNED_QUESTS, WIDTH / 2, (height + 1) / 2, MARGIN / 2, MARGIN / 2);
-        int x = place[0] * 2;
+        int x = ClientConfig.HUD_RIGHT.get() ? g.guiWidth() * 2 - WIDTH - MARGIN : place[0] * 2;
         int y = place[1] * 2;
         int headerColor = Draw.alpha(0xFFFFFFFF, 0.85f);
         ui.label(Component.translatable("rysquests.board.count", stickers.size()).getString(), x + 4, y + 7, 11, Ui.REGULAR, headerColor);

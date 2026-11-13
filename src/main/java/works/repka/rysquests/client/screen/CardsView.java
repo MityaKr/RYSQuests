@@ -116,7 +116,7 @@ final class CardsView implements BookView {
     }
 
     private static void renderHeader(Ui ui, CardsSection section, float x, float y, float w) {
-        BookScreen.editButton(ui, x + w * 0.62f, y + HEADER_H / 2f, section);
+        GuidesTab.editButton(ui, x + w * 0.62f, y + HEADER_H / 2f, section);
         ui.label(tr(section.title()), x, y + 12.5f, 19, Ui.DISPLAY, ui.c("text.primary"));
         section.subtitle().ifPresent(subtitle -> ui.labelFit(tr(subtitle), x, y + 25 + 7, w * 0.6f, 11.5f, Ui.REGULAR, ui.c("text.muted")));
         int withCondition = (int) section.cards().stream().filter(card -> card.done().isPresent()).count();

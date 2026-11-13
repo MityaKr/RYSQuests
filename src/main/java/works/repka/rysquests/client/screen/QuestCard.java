@@ -61,7 +61,7 @@ final class QuestCard {
 
     static String flowSummary(Quest quest, QuestProgress own, QuestStatus status) {
         if (status == QuestStatus.LOCKED) {
-            return BookScreen.waitingFor(quest).getString();
+            return BookData.waitingFor(quest).getString();
         }
         String key = status == QuestStatus.CLAIMED ? "rysquests.flow.summary_done" : "rysquests.flow.summary";
         return Component.translatable(key, tasksDone(quest, own), quest.tasks().size(), Ui.counted("rysquests.plural.quest", opens(quest))).getString();
@@ -272,7 +272,7 @@ final class QuestCard {
     static int canGive(TaskDef task) {
         var player = net.minecraft.client.Minecraft.getInstance().player;
         return switch (task) {
-            case ItemTask item when item.mode() == ItemTask.Mode.CONSUME -> BookScreen.held(item);
+            case ItemTask item when item.mode() == ItemTask.Mode.CONSUME -> BookData.held(item);
             case works.repka.rysquests.task.FluidTask fluid when fluid.mode() == ItemTask.Mode.CONSUME -> fluid.amountIn(player.getInventory());
             case works.repka.rysquests.task.XpTask xp when xp.consume() -> xp.have(player);
             default -> 0;
@@ -422,13 +422,13 @@ final class QuestCard {
     /** The line under the title, in markup: the quests it requires are links that open them. */
     private static String subtitle(Quest quest) {
         List<String> parts = new ArrayList<>();
-        parts.add(Component.translatable("rysquests.card.chapter", Ui.roman(BookScreen.chapterNumber(quest.chapter().orElse(null)))).getString());
+        parts.add(Component.translatable("rysquests.card.chapter", Ui.roman(BookData.chapterNumber(quest.chapter().orElse(null)))).getString());
         List<String> needs = new ArrayList<>();
         for (ResourceLocation id : quest.requires()) {
             Quest required = ClientBook.current().quests().get(id);
             if (required != null) {
                 // A hidden quest is not named before it opens, the same rule as on the map.
-                needs.add(BookScreen.shown(required) ? "[[quest:" + id + "]]" : "???");
+                needs.add(BookData.shown(required) ? "[[quest:" + id + "]]" : "???");
             }
         }
         if (!needs.isEmpty()) {
@@ -485,7 +485,7 @@ final class QuestCard {
         if (item.mode() == ItemTask.Mode.CRAFT) {
             return Component.translatable("rysquests.card.crafted", count).getString();
         }
-        int short_ = task.target() - value - BookScreen.held(item);
+        int short_ = task.target() - value - BookData.held(item);
         return short_ > 0 ? Component.translatable("rysquests.card.short", count, short_).getString() : Component.translatable("rysquests.card.ready", count).getString();
     }
 

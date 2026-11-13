@@ -342,8 +342,8 @@ final class GuideLibraryView implements BookView {
         Map<Integer, Integer> perChapter = new TreeMap<>();
         for (Quest quest : guides.referencing(guide.id())) {
             ResourceLocation chapter = quest.chapter().orElse(null);
-            if (BookScreen.inStory(quest) && BookScreen.chapterNumber(chapter) > 0) {
-                perChapter.merge(BookScreen.chapterNumber(chapter), 1, Integer::sum);
+            if (BookData.inStory(quest) && BookData.chapterNumber(chapter) > 0) {
+                perChapter.merge(BookData.chapterNumber(chapter), 1, Integer::sum);
             }
         }
         if (perChapter.isEmpty()) {
