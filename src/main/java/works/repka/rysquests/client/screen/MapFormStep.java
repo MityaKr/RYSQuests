@@ -301,10 +301,15 @@ final class MapFormStep {
         float cy = y + 11;
         String name = FirstRunParts.t(P + "form." + form.getSerializedName());
         ui.label(name, x, cy, 16, Ui.DISPLAY, ui.c("text.primary"));
+        float pen0 = x + ui.width(name, 16, Ui.DISPLAY) + 10;
         if (form == advised) {
-            FirstRunParts.tag(ui, FirstRunParts.t(P + "form.best"), x + ui.width(name, 16, Ui.DISPLAY) + 10, cy, true);
+            pen0 += FirstRunParts.tag(ui, FirstRunParts.t(P + "form.best"), pen0, cy, true) + 10;
         }
-        ui.labelRight(FirstRunParts.t(P + "form.players"), x + w, cy, 12, Ui.REGULAR, ui.c("text.muted"));
+        // the quiet hint gives way when the line is short (the compact layout), it never runs under the tag
+        String players = FirstRunParts.t(P + "form.players");
+        if (pen0 + ui.width(players, 12, Ui.REGULAR) <= x + w) {
+            ui.labelRight(players, x + w, cy, 12, Ui.REGULAR, ui.c("text.muted"));
+        }
         float pen = y + 22 + 10;
         float canvasH = Math.min(CANVAS_H, h - 22 - 10 - 10 - 80);
         ui.box(x, pen, w, canvasH, 12, ui.c("map.bg"), ui.c("panel.border"));

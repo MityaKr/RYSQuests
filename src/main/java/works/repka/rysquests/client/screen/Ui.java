@@ -292,6 +292,20 @@ public final class Ui {
         box(x, y, w, h, r, c(selected ? "tab.active.bg" : "card.bg"), selected ? c("text.secondary") : border);
     }
 
+    /** Text typed into a field: light on vanilla's black field, the page's text elsewhere. */
+    int inputText(String token) {
+        return theme.beveled() ? c("input.fg") : c(token);
+    }
+
+    /** The face of a small button (map tools, crumbs): vanilla's bevel, a box elsewhere. */
+    void face(float x, float y, float w, float h, float r, int fill, int border) {
+        if (theme.beveled()) {
+            Draw.bevel(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, fill, Draw.mix(fill, 0xFFFFFFFF, 0.55f), c("button.border"), 1, false);
+            return;
+        }
+        box(x, y, w, h, r, fill, border);
+    }
+
     /** The plate under an item: sunk into the card in vanilla, a dark slot with its border elsewhere. */
     void plate(float x, float y, float w, float h, float r) {
         if (theme.beveled()) {
@@ -316,13 +330,14 @@ public final class Ui {
         Draw.shadow(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, r / PER_GUI, strength);
     }
 
+    /** A circle stays round in every theme, vanilla too: coins, medals, rings, dots (picture 45). */
     public void circle(float x, float y, float size, int color) {
-        fill(x, y, size, size, size / 2f, color);
+        Draw.round(g, x / PER_GUI, y / PER_GUI, size / PER_GUI, size / PER_GUI, Math.max(SQUARE, size / 2f / PER_GUI), color);
     }
 
     /** A ring drawn as one shape, so that it stays even at any GUI scale: two stacked circles round apart. */
     void ring(float x, float y, float size, float stroke, int color) {
-        Draw.roundBorder(g, x / PER_GUI, y / PER_GUI, size / PER_GUI, size / PER_GUI, radius(size / 2f), color, stroke / PER_GUI);
+        Draw.roundBorder(g, x / PER_GUI, y / PER_GUI, size / PER_GUI, size / PER_GUI, Math.max(SQUARE, size / 2f / PER_GUI), color, stroke / PER_GUI);
     }
 
     public void bar(float x, float y, float w, float h, float r, float ratio, int color) {

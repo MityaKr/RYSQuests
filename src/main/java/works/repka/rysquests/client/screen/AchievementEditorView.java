@@ -231,7 +231,7 @@ final class AchievementEditorView extends EditorPage {
         float ix = x + w - 30 - 86;
         ui.box(ix, y + 7, 86, 30, 7, ui.c("input.bg"), ui.c("panel.border"));
         TextArea area = fields.area("ach-tier:" + a.id() + ":" + index, false, 13, Ui.SEMIBOLD, Sidebar.full(tier.amount()), value -> setAmount(a, index, value));
-        area.render(ui, ix + 10, y + 13, 66, 18, ui.c("text.primary"), "");
+        area.render(ui, ix + 10, y + 13, 66, 18, ui.inputText("text.primary"), "");
         ui.hit(ix, y + 7, 86, 30, () -> fields.click(area));
         boolean overX = ui.over(x + w - 22, y + 15, 16, 16);
         ui.icon(Icons.Shape.CROSS, x + w - 20, y + 15, 13, ui.c(overX ? "text.primary" : "text.dim"));

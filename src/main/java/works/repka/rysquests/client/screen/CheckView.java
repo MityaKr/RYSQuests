@@ -190,16 +190,22 @@ final class CheckView extends EditorPage {
         float px = x + 18;
         float pw = w - 36;
         float pen = y + 14;
-        ui.label(tr("rysquests.ed.check.issues_title"), px, pen + 10, 19, Ui.DISPLAY, ui.c("text.primary"));
-        ui.label(tr("rysquests.ed.check.issues_sub"), px, pen + 32, 12, Ui.REGULAR, ui.c("text.muted"));
         long errors = issues.stream().filter(i -> i.level() == EditorChecks.Level.ERROR).count();
         List<String> chips = List.of(tr("rysquests.ed.check.all", issues.size()), tr("rysquests.ed.check.only_errors", errors), tr("rysquests.ed.check.only_remarks", issues.size() - errors));
         float cw = EdUi.chipsWidth(ui, chips);
-        EdUi.chips(ui, px + pw - cw, pen + 4, chips, filter, i -> {
+        String title = tr("rysquests.ed.check.issues_title");
+        String sub = tr("rysquests.ed.check.issues_sub");
+        // the chips stand beside the title while both fit (the compact layout puts them on a line of their own under it)
+        boolean beside = Math.max(ui.width(title, 19, Ui.DISPLAY), ui.width(sub, 12, Ui.REGULAR)) + 16 + cw <= pw;
+        float textW = beside ? pw - cw - 16 : pw;
+        ui.labelFit(title, px, pen + 10, textW, 19, Ui.DISPLAY, ui.c("text.primary"));
+        ui.labelFit(sub, px, pen + 32, textW, 12, Ui.REGULAR, ui.c("text.muted"));
+        float chipsY = beside ? pen + 4 : pen + 46;
+        EdUi.chips(ui, beside ? px + pw - cw : px, chipsY, chips, filter, i -> {
             filter = i;
             chosen = 0;
         });
-        pen += 50;
+        pen += beside ? 50 : 84;
         List<EditorChecks.Issue> shownErrors = filter == 2 ? List.of() : issues.stream().filter(i -> i.level() == EditorChecks.Level.ERROR).toList();
         List<EditorChecks.Issue> shownWarns = filter == 1 ? List.of() : issues.stream().filter(i -> i.level() != EditorChecks.Level.ERROR).toList();
         if (issues.isEmpty()) {

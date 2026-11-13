@@ -155,7 +155,7 @@ final class EdUi {
         ui.box(x, y, w, h, 8, ui.c("input.bg"), ui.c(area.focused() ? "text.secondary" : "panel.border"));
         float lineH = multiline ? Math.round(px * 1.45f) : Math.round(px * 1.4f);
         float ty = multiline ? y + 8 : y + (h - lineH) / 2f;
-        area.render(ui, x + 10, ty, w - 20, multiline ? h - 16 : lineH, ui.c(multiline ? "text.secondary" : "text.primary"), hint);
+        area.render(ui, x + 10, ty, w - 20, multiline ? h - 16 : lineH, ui.inputText(multiline ? "text.secondary" : "text.primary"), hint);
         ui.hit(x, y, w, h, () -> fields.click(area));
         return h;
     }
@@ -457,7 +457,7 @@ final class EdUi {
     static float select(Ui ui, float x, float y, float w, String value, boolean open, Runnable toggle) {
         boolean over = ui.over(x, y, w, INPUT_H);
         ui.box(x, y, w, INPUT_H, 8, ui.c("input.bg"), ui.c(open || over ? "text.secondary" : "panel.border"));
-        ui.labelFitTip(value, x + 10, y + INPUT_H / 2f, w - 20 - 20, 13, Ui.REGULAR, ui.c("text.primary"));
+        ui.labelFitTip(value, x + 10, y + INPUT_H / 2f, w - 20 - 20, 13, Ui.REGULAR, ui.inputText("text.primary"));
         ui.icon(Icons.Shape.CHEVRON_DOWN, x + w - 10 - 14, y + 10, 14, ui.c("text.muted"));
         ui.hit(x, y, w, INPUT_H, toggle);
         return INPUT_H;

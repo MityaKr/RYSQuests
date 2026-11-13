@@ -142,7 +142,7 @@ final class NewBookView implements BookView {
         float fieldW = COLUMN - 46 - 10 - 10 - handW;
         float fy = y + 3;
         ui.box(fieldX, fy, fieldW, 40, 8, ui.c("input.bg"), ui.c(name.focused() ? "accent" : "panel.border"));
-        name.render(ui, fieldX + 11, fy + 11, fieldW - 22, 18, ui.c("text.primary"), FirstRunParts.t(P + "new.default_name"));
+        name.render(ui, fieldX + 11, fy + 11, fieldW - 22, 18, ui.inputText("text.primary"), FirstRunParts.t(P + "new.default_name"));
         ui.hit(fieldX, fy, fieldW, 40, () -> name.click(ui.mouseX, ui.mouseY));
         float hx = x + COLUMN - handW;
         float hy = y + 9;

@@ -182,6 +182,9 @@ final class DetailPanel {
         for (int i = 0; i < lines.size(); i++) {
             ui.label(lines.get(i), pen, ty + titleLine * i + titleLine / 2f, 18, Ui.DISPLAY, ui.c("text.primary"));
         }
+        if (!String.join(" ", lines).equals(title)) {
+            ui.tooltipIfOver(pen, ty, textW, lines.size() * titleLine, Component.literal(title));
+        }
         for (int i = 0; i < subLines.size(); i++) {
             ui.labelFit(subLines.get(i), pen, ty + lines.size() * titleLine + 3 + i * Ui.lineHeight(12) + Ui.lineHeight(12) / 2f, textW, 12, Ui.REGULAR, ui.c("text.muted"));
         }

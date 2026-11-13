@@ -251,10 +251,18 @@ final class MapView implements BookView {
         if (showPanel) {
             int px = x + w - PANEL_W;
             tools.add(new float[] {px, y, PANEL_W, h});
-            if (selected != null) {
-                questPanel(ui, selected, px, y, PANEL_W, h);
+            // in the compact layout the panel lies over the canvas: above the items of its nodes too
+            Runnable drawPanel = () -> {
+                if (selected != null) {
+                    questPanel(ui, selected, px, y, PANEL_W, h);
+                } else {
+                    chapterCard(ui, openChapter, px, y, PANEL_W, h);
+                }
+            };
+            if (compact) {
+                ui.aboveItems(drawPanel);
             } else {
-                chapterCard(ui, openChapter, px, y, PANEL_W, h);
+                drawPanel.run();
             }
         }
         if (selected == null) {
@@ -339,7 +347,7 @@ final class MapView implements BookView {
             chapterRoom = Math.max(30, ui.width(chapterTitle, 12, Ui.SEMIBOLD) - (needed - room));
         }
         float w = Math.min(needed, room);
-        ui.box(x, y, w, TB, 9, ui.c("button.bg"), ui.c("button.border"));
+        ui.face(x, y, w, TB, 9, ui.c("button.bg"), ui.c("button.border"));
         tools.add(new float[] {x, y, w, TB});
         float pen = x + 11;
         float cy = y + TB / 2f;
@@ -401,7 +409,7 @@ final class MapView implements BookView {
         toolButton(ui, right - PAD - TB, ty, Icons.Shape.PLUS, false, Component.translatable("rysquests.mapview.zoom_in"), () -> canvas.zoomBy(1.6));
         toolButton(ui, right - PAD - TB * 2 - TB_GAP, ty, Icons.Shape.MINUS, false, Component.translatable("rysquests.mapview.zoom_out"), () -> canvas.zoomBy(1 / 1.6));
         boolean over = ui.over(ix, ty, TB, TB);
-        ui.box(ix, ty, TB, TB, 9, over ? ui.mix("button.bg", "text.primary", 0.08f) : ui.c("button.bg"), ui.c(legendOpen ? "text.secondary" : "button.border"));
+        ui.face(ix, ty, TB, TB, 9, over ? ui.mix("button.bg", "text.primary", 0.08f) : ui.c("button.bg"), ui.c(legendOpen ? "text.secondary" : "button.border"));
         ui.info(ix + 5 + 2.5f, ty + 5 + 2.5f, 15, ui.c(legendOpen || over ? "text.primary" : "text.secondary"));
         ui.tooltipIfOver(ix, ty, TB, TB, Component.translatable("rysquests.mapview.legend_tip"));
         ui.hit(ix, ty, TB, TB, () -> legendOpen = !legendOpen);
@@ -410,7 +418,7 @@ final class MapView implements BookView {
 
     private void toolButton(Ui ui, float x, float y, Icons.Shape icon, boolean on, Component tip, Runnable action) {
         boolean over = ui.over(x, y, TB, TB);
-        ui.box(x, y, TB, TB, 9, over ? ui.mix("button.bg", "text.primary", 0.08f) : ui.c("button.bg"), ui.c(on ? "text.secondary" : "button.border"));
+        ui.face(x, y, TB, TB, 9, over ? ui.mix("button.bg", "text.primary", 0.08f) : ui.c("button.bg"), ui.c(on ? "text.secondary" : "button.border"));
         ui.icon(icon, x + 8, y + 8, 14, ui.c(over || on ? "text.primary" : "text.secondary"));
         ui.tooltipIfOver(x, y, TB, TB, tip);
         ui.hit(x, y, TB, TB, action);
@@ -425,7 +433,7 @@ final class MapView implements BookView {
         float mx = x + PAD;
         boolean over = ui.over(mx, my, mw, TB);
         ui.fill(mx - 2, my - 2, mw + 4, TB + 4, 11, ui.c("map.bg"));
-        ui.box(mx, my, mw, TB, 9, over ? ui.mix("button.bg", "text.primary", 0.08f) : ui.c("button.bg"), ui.c("button.border"));
+        ui.face(mx, my, mw, TB, 9, over ? ui.mix("button.bg", "text.primary", 0.08f) : ui.c("button.bg"), ui.c("button.border"));
         ui.icon(Icons.Shape.TARGET, mx + 10, my + 8, 14, ui.c(over ? "text.primary" : "text.secondary"));
         ui.label(mine, mx + 30, my + TB / 2f, 12, Ui.MEDIUM, ui.c(over ? "text.primary" : "text.secondary"));
         ui.hit(mx, my, mw, TB, () -> {

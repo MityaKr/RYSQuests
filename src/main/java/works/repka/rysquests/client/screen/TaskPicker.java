@@ -223,7 +223,7 @@ final class TaskPicker {
         TextArea area = page.fields.area("picker-search", false, 13, Ui.REGULAR, query, value -> query = value);
         ui.box(fx, y, fw, EdUi.INPUT_H, 8, ui.c("input.bg"), ui.c(area.focused() ? "text.secondary" : "panel.border"));
         ui.icon(Icons.Shape.MAGNIFIER, fx + 10, y + 10, 14, ui.c("text.muted"));
-        area.render(ui, fx + 32, y + 8, fw - 42, 18, ui.c("text.primary"), EditorBook.tr("rysquests.ed.picker.search"));
+        area.render(ui, fx + 32, y + 8, fw - 42, 18, ui.inputText("text.primary"), EditorBook.tr("rysquests.ed.picker.search"));
         ui.hit(fx, y, fw, EdUi.INPUT_H, () -> page.fields.click(area));
         float by = y + EdUi.INPUT_H + 6;
         float bw = EdUi.button(ui, EditorBook.tr("rysquests.ed.picker.from_hand"), Icons.Shape.HAND, fx, by, true, false, false, this::fromHand);

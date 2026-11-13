@@ -230,10 +230,18 @@ final class EditorMapView extends EditorPage implements QuestForm.Host, QuestTab
             int pw = panel ? compact ? QuestForm.COMPACT_WIDTH : QuestForm.WIDTH : 0;
             int cw = compact ? mw : mw - pw;
             renderCanvas(ui, mx, y, cw, h, book, compact);
-            if (selected != null) {
-                form.render(ui, x + w - pw, y, pw, h, selected, compact);
-            } else if (chapterForm && chapter != null) {
-                chapterPanel.render(ui, x + w - pw, y, pw, h, chapter);
+            // in the compact layout the form lies over the canvas: above the items of its nodes too
+            Runnable drawPanel = () -> {
+                if (selected != null) {
+                    form.render(ui, x + w - pw, y, pw, h, selected, compact);
+                } else if (chapterForm && chapter != null) {
+                    chapterPanel.render(ui, x + w - pw, y, pw, h, chapter);
+                }
+            };
+            if (compact) {
+                ui.aboveItems(drawPanel);
+            } else {
+                drawPanel.run();
             }
         }
         picker.render(ui, windowX + Math.min(sw + 60, Math.max(0, w - TaskPicker.W - 20)), y + 40);

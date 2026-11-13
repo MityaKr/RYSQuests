@@ -66,6 +66,12 @@ final class ImportWizardView implements BookView {
         return forms;
     }
 
+    /** The book's message stands over the row of buttons at the foot, not on "Дальше" (picture 48). */
+    @Override
+    public int[] messageArea(int x, int y, int w, int h) {
+        return new int[] {x, y, w, Math.round(h - FirstRunParts.ACT_H)};
+    }
+
     /** "Дальше: вид карты". */
     void next() {
         if (forms == null) {

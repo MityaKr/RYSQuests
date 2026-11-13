@@ -175,7 +175,7 @@ final class ShopEditorView extends EditorPage {
         ui.box(bx + bw - iw, pen, iw, EdUi.INPUT_H, 8, ui.c("input.bg"), ui.c("panel.border"));
         ui.circle(bx + bw - iw + 10, pen + 12.5f, 9, ui.c("coin"));
         TextArea priceArea = fields.area("offer-price:" + offer.id(), false, 13, Ui.REGULAR, String.valueOf(price(offer)), value -> setPrice(offer, value));
-        priceArea.render(ui, bx + bw - iw + 26, pen + 8, iw - 36, 18, ui.c("text.primary"), "");
+        priceArea.render(ui, bx + bw - iw + 26, pen + 8, iw - 36, 18, ui.inputText("text.primary"), "");
         ui.hit(bx + bw - iw, pen, iw, EdUi.INPUT_H, () -> fields.click(priceArea));
         pen += EdUi.INPUT_H + 12;
         pen += EdUi.label(ui, tr("rysquests.ed.shop.section_field"), bx, pen);
@@ -218,7 +218,7 @@ final class ShopEditorView extends EditorPage {
             ui.label(tr("rysquests.ed.shop.limit_count"), bx, pen + 17, 12.5f, Ui.REGULAR, ui.c("text.muted"));
             ui.box(bx + bw - 80, pen, 80, EdUi.INPUT_H, 8, ui.c("input.bg"), ui.c("panel.border"));
             TextArea countArea = fields.area("offer-limit:" + offer.id(), false, 13, Ui.REGULAR, String.valueOf(offer.limit().get().count()), value -> setLimitCount(offer, value));
-            countArea.render(ui, bx + bw - 70, pen + 8, 60, 18, ui.c("text.primary"), "");
+            countArea.render(ui, bx + bw - 70, pen + 8, 60, 18, ui.inputText("text.primary"), "");
             ui.hit(bx + bw - 80, pen, 80, EdUi.INPUT_H, () -> fields.click(countArea));
             pen += EdUi.INPUT_H;
         }

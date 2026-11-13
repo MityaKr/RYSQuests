@@ -236,7 +236,7 @@ final class QuestForm {
         float pen = y;
         boolean over = ui.over(x, pen, w, 20);
         ui.chevron(more, x, pen + 10, 13, ui.c("text.muted"));
-        ui.label(EdText.tr("rysquests.ed.quest.more"), x + 13 + 8, pen + 10, 12.5f, Ui.REGULAR, ui.c(over ? "text.primary" : "text.muted"));
+        ui.labelFitTip(EdText.tr("rysquests.ed.quest.more"), x + 13 + 8, pen + 10, w - 13 - 8, 12.5f, Ui.REGULAR, ui.c(over ? "text.primary" : "text.muted"));
         ui.hit(x, pen, w, 20, () -> more = !more);
         pen += 20;
         if (!more) {
