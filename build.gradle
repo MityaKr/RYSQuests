@@ -87,7 +87,7 @@ neoForge {
             systemProperty 'rysquests.autotest.tag', project.findProperty('tag') ?: ''
             // 'canvas' and 'map' read the books of RepYS and ATM10 on the client, without a server.
             systemProperty 'rysquests.autotest.repysBook', project.findProperty('repysBook') ?: project.file('../_fresh/book').absolutePath
-            systemProperty 'rysquests.autotest.repysLang', "${System.getProperty('user.home')}/curseforge/minecraft/Instances/RepYS/kubejs/assets/repys/lang/ru_ru.json"
+            systemProperty 'rysquests.autotest.repysLang', project.findProperty('repysLang') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/RepYS/kubejs/assets/repys/lang/ru_ru.json"
             systemProperty 'rysquests.autotest.atm10Quests', project.findProperty('atm10Quests') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/All the Mods 10 - ATM10/config/ftbquests/quests"
             // The size of the mockups in design/, so that screenshots can be laid over them.
             programArguments.addAll '--width', '1280', '--height', '800'
@@ -177,6 +177,12 @@ test {
     systemProperty 'rysquests.atm10Quests', project.findProperty('atm10Quests') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/All the Mods 10 - ATM10/config/ftbquests/quests"
     if (project.hasProperty('ftbqDir')) {
         systemProperty 'rysquests.ftbqDir', project.property('ftbqDir')
+        outputs.upToDateWhen { false }
+    }
+    // A copy of the RepYS book prepared for the new book (RepysBookDataTest); -PbakeLayout writes its layout.json first.
+    if (project.hasProperty('repysData')) {
+        systemProperty 'rysquests.repysData', project.property('repysData')
+        systemProperty 'rysquests.bakeLayout', project.hasProperty('bakeLayout') ? 'true' : 'false'
         outputs.upToDateWhen { false }
     }
 }
