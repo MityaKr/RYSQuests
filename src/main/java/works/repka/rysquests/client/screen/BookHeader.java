@@ -126,7 +126,8 @@ final class BookHeader {
     }
 
     private float renderBrand(Ui ui, float x, float cy, boolean compact) {
-        QuestBook book = BookData.book();
+        // in the editor the name and icon come from the draft: a new book's name shows as soon as it is typed
+        QuestBook book = host.session() != null ? EditorBook.get().view() : BookData.book();
         ItemStack icon = book.meta().icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
         if (!icon.isEmpty()) {
             ui.item(icon, x, cy - 14, 28);

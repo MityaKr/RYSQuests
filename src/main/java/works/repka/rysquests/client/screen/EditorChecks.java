@@ -107,7 +107,7 @@ final class EditorChecks {
             List<Quest> naming = story.stream().filter(q -> q.text().map(editor::text).filter(text -> text.toLowerCase(Locale.ROOT).contains(name.toLowerCase(Locale.ROOT))).isPresent()).toList();
             if (!naming.isEmpty()) {
                 Quest first = naming.getFirst();
-                out.add(new Issue(Level.WARN, tr("rysquests.ed.check.hidden_tab", naming.size(), name),
+                out.add(new Issue(Level.WARN, tr("rysquests.ed.check.hidden_tab", Plural.full("rysquests.ed.plural.texts_name", naming.size()), name),
                         tr("rysquests.ed.check.hidden_tab_sub", chapterTitle(book, first), first.title(), naming.size() - 1), first.id(),
                         tr("rysquests.ed.check.hidden_tab_detail", name),
                         List.of(new Fix(tr("rysquests.ed.check.fix.to_tabs"), null, Icons.Shape.LIST, () -> openTabs(section.id()), true))));
@@ -117,10 +117,10 @@ final class EditorChecks {
         List<Quest> empty = story.stream().filter(q -> q.tasks().isEmpty() && !q.options().page()).toList();
         if (!empty.isEmpty()) {
             Quest first = empty.getFirst();
-            out.add(new Issue(Level.WARN, tr("rysquests.ed.check.no_tasks", empty.size()),
+            out.add(new Issue(Level.WARN, tr("rysquests.ed.check.no_tasks", Plural.full("rysquests.plural.quest", empty.size())),
                     tr("rysquests.ed.check.no_tasks_sub", chapterTitle(book, first), first.title(), Math.max(0, empty.size() - 1)), first.id(),
                     tr("rysquests.ed.check.no_tasks_detail"),
-                    List.of(new Fix(tr("rysquests.ed.check.fix.make_pages", empty.size()), tr("rysquests.ed.check.fix.make_pages_sub"), Icons.Shape.BOOK, () -> makePages(empty), true),
+                    List.of(new Fix(Plural.full("rysquests.ed.check.fix.make_pages", empty.size()), tr("rysquests.ed.check.fix.make_pages_sub"), Icons.Shape.BOOK, () -> makePages(empty), true),
                             new Fix(tr("rysquests.ed.check.fix.show_first"), null, Icons.Shape.MAP, () -> showOnMap(first.id()), false))));
         }
         // remarks: two main quests of one name in a chapter
@@ -130,13 +130,13 @@ final class EditorChecks {
                 names.computeIfAbsent(quest.chapter().map(Object::toString).orElse("") + "\n" + quest.title().toLowerCase(Locale.ROOT), key -> new ArrayList<>()).add(quest);
             }
         }
-        names.values().stream().filter(list -> list.size() > 1).forEach(list -> out.add(new Issue(Level.WARN, tr("rysquests.ed.check.same_name", list.size(), list.getFirst().title()),
+        names.values().stream().filter(list -> list.size() > 1).forEach(list -> out.add(new Issue(Level.WARN, tr("rysquests.ed.check.same_name", Plural.full("rysquests.ed.plural.main_quest", list.size()), list.getFirst().title()),
                 tr("rysquests.ed.check.same_name_sub", chapterTitle(book, list.getFirst())), list.get(1).id(), tr("rysquests.ed.check.same_name_detail"),
                 List.of(new Fix(tr("rysquests.ed.check.fix.rename"), null, Icons.Shape.PENCIL, () -> showOnMap(list.get(1).id()), true)))));
         // remarks: quests hidden until the author looks (after an import)
         List<Quest> drafts = quests.values().stream().filter(q -> q.options().draft() && !q.options().archived()).toList();
         if (!drafts.isEmpty()) {
-            out.add(new Issue(Level.INFO, tr("rysquests.ed.check.drafts", drafts.size()), tr("rysquests.ed.check.drafts_sub"), drafts.getFirst().id(), tr("rysquests.ed.check.drafts_detail"),
+            out.add(new Issue(Level.INFO, Plural.full("rysquests.ed.check.drafts", drafts.size()), tr("rysquests.ed.check.drafts_sub"), drafts.getFirst().id(), tr("rysquests.ed.check.drafts_detail"),
                     List.of(new Fix(tr("rysquests.ed.check.fix.show_draft"), null, Icons.Shape.EYE, () -> undraft(drafts.getFirst().id()), true),
                             new Fix(tr("rysquests.ed.check.fix.show_first"), null, Icons.Shape.MAP, () -> showOnMap(drafts.getFirst().id()), false))));
         }
@@ -187,7 +187,7 @@ final class EditorChecks {
         EditorBook editor = EditorBook.get();
         Map<ResourceLocation, List<ResourceLocation>> byChapter = new HashMap<>();
         quests.forEach(q -> q.chapter().ifPresent(c -> byChapter.computeIfAbsent(c, key -> new ArrayList<>()).add(q.id())));
-        editor.edit("chapter:" + byChapter.keySet().iterator().next(), tr("rysquests.ed.log.pages", quests.size()), d -> {
+        editor.edit("chapter:" + byChapter.keySet().iterator().next(), Plural.full("rysquests.ed.log.pages", quests.size()), d -> {
             var out = d;
             for (var entry : byChapter.entrySet()) {
                 var work = out.chapters().containsKey(entry.getKey()) ? out.chapters().get(entry.getKey()) : editor.work(entry.getKey());

@@ -467,7 +467,7 @@ final class QuestTable {
         }
         ResourceLocation chapterId = quests.getFirst().chapter().orElse(chapter);
         String line = quests.size() == 1 ? EditorBook.tr("rysquests.ed.log.kind", editor.text(quests.getFirst().title()), EdText.kind(kind))
-                : EditorBook.tr("rysquests.ed.log.kind_many", quests.size(), EdText.kind(kind));
+                : EditorBook.tr("rysquests.ed.log.kind_many", Plural.full("rysquests.plural.quest", quests.size()), EdText.kind(kind));
         QuestBook view = editor.view();
         List<Row> rows = rows(view);
         editor.editChapter(chapterId, line, work -> {
@@ -521,7 +521,7 @@ final class QuestTable {
         List<works.repka.rysquests.data.Chapter> targets = EditorSidebar.ordered(book).stream().filter(c -> c.isStory() && !c.id().equals(chapter)).toList();
         page.choices.toggle("move", area[0] + 300, area[1], 260, targets.stream().map(c -> editor.text(c.title())).toList(), -1, index -> {
             ResourceLocation to = targets.get(index).id();
-            String line = EditorBook.tr("rysquests.ed.log.move", picked.size(), book.chapters().get(to).title());
+            String line = EditorBook.tr("rysquests.ed.log.move", Plural.full("rysquests.plural.quest", picked.size()), book.chapters().get(to).title());
             editor.edit(EditorBook.chapterScope(to), line, d -> {
                 BookDraft out = d;
                 BookDraft.Work from = editor.work(chapter);
@@ -543,7 +543,7 @@ final class QuestTable {
     private void archive(List<Quest> picked) {
         EditorBook editor = EditorBook.get();
         String line = picked.size() == 1 ? EditorBook.tr("rysquests.ed.log.archive", editor.text(picked.getFirst().title()))
-                : EditorBook.tr("rysquests.ed.log.archive_many", picked.size());
+                : EditorBook.tr("rysquests.ed.log.archive_many", Plural.full("rysquests.plural.quest", picked.size()));
         editor.editChapter(chapter, line, work -> {
             BookDraft.Work out = work;
             for (Quest quest : picked) {
@@ -573,7 +573,7 @@ final class QuestTable {
         List<ResourceLocation> targets = bulkReward ? List.copyOf(chosen) : List.of(editRow);
         bulkReward = false;
         String line = targets.size() == 1 ? EditorBook.tr("rysquests.ed.log.reward", editor.text(editor.quest(targets.getFirst()).title()), EdText.rewardShort(reward.get()))
-                : EditorBook.tr("rysquests.ed.log.reward_many", targets.size(), EdText.rewardShort(reward.get()));
+                : EditorBook.tr("rysquests.ed.log.reward_many", Plural.full("rysquests.ed.plural.quest_dat", targets.size()), EdText.rewardShort(reward.get()));
         editor.editChapter(chapter, line, work -> {
             BookDraft.Work out = work;
             for (ResourceLocation id : targets) {

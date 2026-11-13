@@ -188,8 +188,8 @@ final class MapFormPage {
     /** The line of reason under a form, in the author's words. */
     static String reason(QuestBook book, MapForms.Choice auto, MapForm form) {
         return switch (form) {
-            case SERPENTINE -> auto.chaptersWithEpoch() == auto.chapters() ? EditorBook.tr("rysquests.ed.form.why.serpentine_all", auto.chapters())
-                    : EditorBook.tr("rysquests.ed.form.why.serpentine_some", auto.chapters(), auto.chaptersWithEpoch());
+            case SERPENTINE -> auto.chaptersWithEpoch() == auto.chapters() ? EditorBook.tr("rysquests.ed.form.why.serpentine_all", Plural.full("rysquests.ed.form.chapters", auto.chapters()))
+                    : EditorBook.tr("rysquests.ed.form.why.serpentine_some", Plural.full("rysquests.ed.form.chapters", auto.chapters()), auto.chaptersWithEpoch());
             case SPIRAL -> {
                 String last = EditorSidebar.ordered(book).stream().filter(MapForms::onMap).reduce((a, b) -> b).map(Chapter::title).orElse("");
                 yield EditorBook.tr("rysquests.ed.form.why.spiral", last);
@@ -206,7 +206,7 @@ final class MapFormPage {
         long quests = book.quests().values().stream().filter(q -> q.options().live() && q.chapter().map(id -> book.chapters().containsKey(id) && MapForms.onMap(book.chapters().get(id))).orElse(false)).count();
         float pen = y + 28 + 10 + 8;
         ui.label(name, x, pen, 15, Ui.DISPLAY, ui.c("text.primary"));
-        ui.labelFit(EditorBook.tr("rysquests.ed.form.as_players", Ui.counted("rysquests.ed.form.chapters", (int) chapters), Sidebar.full(quests)),
+        ui.labelFit(EditorBook.tr("rysquests.ed.form.as_players", Ui.counted("rysquests.ed.form.chapters", (int) chapters), Plural.full("rysquests.plural.quest", quests)),
                 x + ui.width(name, 15, Ui.DISPLAY) + 10, pen, w - ui.width(name, 15, Ui.DISPLAY) - 10, 12, Ui.REGULAR, ui.c("text.muted"));
         pen += 14;
         float ph = Math.min(400, h - (pen - y) - 70);
