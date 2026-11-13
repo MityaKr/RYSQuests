@@ -229,8 +229,14 @@ final class MapView implements BookView {
         boolean showPanel = (selected != null || showCard) && !panelClosed;
         int canvasW = showPanel && !compact ? w - PANEL_W : w;
         canvas.setViewport(x, y, canvasW, h);
+        long now = System.currentTimeMillis();
+        if (canvas.flying()) {
+            flyingSeenAt = now;
+        }
         if (canvasW != lastCanvasW) {
-            if (lastCanvasW >= 0 && lastFlight != null && canvas.flying()) {
+            // the card of a chapter opens only when the flight has zoomed in far enough, often in its very last frame: a flight
+            // that has just ended is flown again into the narrower canvas too, or the chapter stays framed for the wider one
+            if (lastCanvasW >= 0 && lastFlight != null && now - flyingSeenAt < REFLY_AFTER_MS) {
                 lastFlight.run();
             }
             lastCanvasW = canvasW;
@@ -282,6 +288,9 @@ final class MapView implements BookView {
     @Nullable
     private Runnable lastFlight;
     private int lastCanvasW = -1;
+    /** When the canvas was last seen in flight. */
+    private long flyingSeenAt;
+    private static final long REFLY_AFTER_MS = 300;
 
     @Nullable
     private Quest selectedQuest(QuestBook book) {
