@@ -30,6 +30,7 @@ import works.repka.ryscore.ui.Type;
  * before it is drawn. Words of one style on one line are drawn as one string, and lines outside the clip are skipped.
  */
 final class TextBlock {
+    private static final float WARN_TEXT_X = 12 + 16 + 10;
     private static final float ICON_GAP = 4f;
     private static final char FORMAT = '§';
     private static final int CACHE_SIZE = 96;
@@ -106,10 +107,11 @@ final class TextBlock {
                 y += look.lineHeight / 2;
             } else if (paragraph.warning()) {
                 List<Item> inner = new ArrayList<>();
-                float bottom = flow(ui, paragraph, 12, y + 6, width - 16, look, text, key, new Format(), inner);
-                items.add(new WarningBox(0, y, width, bottom - y + 6));
+                // A callout (mockup .call): its own plate and border, a warning sign, the words in the body color.
+                float bottom = flow(ui, paragraph, WARN_TEXT_X, y + 10, width - WARN_TEXT_X - 12, look, text, key, new Format(), inner);
+                items.add(new WarningBox(0, y, width, bottom - y + 10));
                 items.addAll(inner);
-                y = bottom + 12;
+                y = bottom + 10 + 12;
             } else {
                 y = flow(ui, paragraph, 0, y, width, look, text, key, format, items);
             }
@@ -213,8 +215,8 @@ final class TextBlock {
         for (Item item : laid.items) {
             switch (item) {
                 case WarningBox box -> {
-                    ui.fill(x + box.x, y + box.y, box.w, box.h, 6, works.repka.ryscore.ui.Draw.alpha(warn, 0.12f));
-                    ui.rect(x + box.x, y + box.y, 3, box.h, warn);
+                    ui.box(x + box.x, y + box.y, box.w, box.h, 10, ui.c("callout.bg"), ui.c("callout.border"));
+                    ui.icon(works.repka.ryscore.ui.Icons.Shape.WARN, x + box.x + 12, y + box.y + 10 + (look.lineHeight - 16) / 2f, 16, warn);
                 }
                 case Underline line -> {
                     if (ui.rowVisible(y + line.y, 1)) {
@@ -223,7 +225,7 @@ final class TextBlock {
                 }
                 case Placed placed -> {
                     if (ui.rowVisible(y + placed.y, look.lineHeight)) {
-                        drawWord(ui, placed.word, x + placed.x, y + placed.y, look, warn, onItem);
+                        drawWord(ui, placed.word, x + placed.x, y + placed.y, look, ui.c("text.body"), onItem);
                     }
                 }
             }

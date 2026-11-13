@@ -38,7 +38,9 @@ final class LevelSegments {
             float sx = x + i * (segW + GAP);
             int color = ui.c(token(i, n));
             float fill = Math.clamp(fills[i], 0f, 1f);
-            ui.box(sx, y, segW, HEIGHT, 2, ui.c("slot.bg"), fill >= 1f ? color : ui.c("slot.border"));
+            // In the bevelled theme an empty segment is light with a border, so that dark silver stands out from it (picture 45).
+            int plate = ui.theme.beveled() ? ui.c("panel.bg") : ui.c("slot.bg");
+            ui.box(sx, y, segW, HEIGHT, 2, plate, fill >= 1f ? color : ui.c("slot.border"));
             if (fill > 0) {
                 ui.fill(sx + 1, y + 1, Math.max(1, (segW - 2) * fill), HEIGHT - 2, 1, color);
             }

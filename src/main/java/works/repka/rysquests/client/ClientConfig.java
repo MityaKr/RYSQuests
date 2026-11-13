@@ -31,6 +31,11 @@ public final class ClientConfig {
             .comment("Play a sound when a reward is taken.")
             .define("rewardSound", false);
 
+    /** The hint of the book's key on the first entry was shown and the book opened since (picture 31b): it never comes back. */
+    public static final ModConfigSpec.BooleanValue KEY_HINT_SHOWN = BUILDER
+            .comment("The hint of the book's key on the first entry is done with.")
+            .define("keyHintShown", false);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private ClientConfig() {
