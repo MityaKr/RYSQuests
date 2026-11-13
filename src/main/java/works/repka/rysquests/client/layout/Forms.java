@@ -149,7 +149,9 @@ final class Forms {
                         s += gaps[u];
                     }
                     if (e != prevEpoch && e > 0) {
-                        double mx = s - (prevEpoch != Integer.MIN_VALUE ? Math.max(gaps[u], chGap) / 2 : 10);
+                        // in the middle of the gap: the chapter before ended a chapter's gap and the epoch's gap ago
+                        double gapBefore = c == units.get(u)[0] && u > cuts[row] ? chGap + gaps[u] : chGap;
+                        double mx = s - (prevEpoch != Integer.MIN_VALUE ? gapBefore / 2 : 10);
                         double x1 = mirror ? w - mx : mx;
                         draft.marks.add(new CanvasLayout.Mark(e, (float) x1, (float) (yc - band / 2 - 2), (float) x1, (float) (yc + band / 2 + 2), true, mirror ? -1 : 1));
                     }
@@ -285,48 +287,121 @@ final class Forms {
 
     // ================= spiral =================
 
+    /** Between two turns of the spiral. */
+    private static final double SPIRAL_GAP = 22;
+    /** Between two chapters along the spiral. */
+    private static final double SPIRAL_STEP = 14;
+
+    /**
+     * The story wound inwards. The chapters of the last epoch wind on in a tighter band, as one with the rest (plan, picture 41),
+     * down to the book's finale in the very middle; the pitch grows over the turn before the wider band, so the turns run smooth and
+     * never touch. A book whose last chapter has no epoch winds that chapter alone to the middle.
+     */
     private static CanvasLayout spiral(MapBook book, Parts parts, Progress progress) {
         Draft draft = new Draft(book, parts);
         int nCh = book.chapters().size();
         int last = nCh - 1;
-        Local centre = parts.disc(book.chapters().get(last));
-        List<Wheels.Wheel> centreWheels = draft.wheels.get(last);
-        for (int k = 0; k < centreWheels.size(); k++) {
-            centreWheels.get(k).at(centre.x()[k], centre.y()[k]);
-        }
-        double rLast = Math.max(centre.extent(), book.chapters().get(last).quests().length == 0 ? 36 : 20);
+        int first = innerFirst(book);
         double band = Math.max(150, 2 * draft.maxR() + 16);
-        double rIn = rLast + 16 + band / 2;
-        Track.Spiral track = new Track.Spiral(rIn, band + 22, 0);
-        Packer.Grid grid = new Packer.Grid();
+        int finale = CanvasLayout.finale(book);
+        Wheels.Wheel centre = null;
+        for (Wheels.Wheel wheel : draft.wheels.get(last)) {
+            if (finale >= 0 && wheel.hub == finale) {
+                centre = wheel;
+            }
+        }
+        double innerR = 10;
+        for (int c = first; c <= last; c++) {
+            for (Wheels.Wheel wheel : draft.wheels.get(c)) {
+                innerR = Math.max(innerR, wheel.r);
+            }
+        }
+        double bandIn = Math.min(band, Math.max(84, 2 * innerR + 16));
+        double pitchIn = bandIn + SPIRAL_GAP;
+        double pitchOut = band + SPIRAL_GAP;
+        // the track starts in the very middle: the last chapter's band curls round the finale there and unwinds into the spiral
+        double r0 = 0;
         Packer.Tuning tuning = Packer.Tuning.of(parts.style());
-        double s = 0;
+        double[] widths = new double[nCh];
         double[][] seg = new double[nCh][];
-        for (int c = last - 1; c >= 0; c--) {
-            double s0 = s + 14;
+        // the inner epoch, packed again while the ramp to the wider band follows where the epoch ends
+        Track.Spiral track = new Track.Spiral(r0, pitchIn, 0);
+        Packer.Grid grid = new Packer.Grid();
+        double rampEnd = -1;
+        double trackRamp = -1;
+        double s = 0;
+        for (int pass = 0; pass < 6; pass++) {
+            trackRamp = rampEnd;
+            track = rampEnd < 0 ? new Track.Spiral(r0, pitchIn, 0)
+                    : new Track.Spiral(r0, pitchIn, 0, false, Math.max(0, rampEnd - 2 * Math.PI), rampEnd, pitchOut);
+            grid = new Packer.Grid();
+            if (centre != null) {
+                centre.at(0, 0);
+                grid.add(0, 0, centre.r);
+            }
+            s = 0;
+            for (int c = last; c >= first; c--) {
+                double s0 = c == last ? 0 : s + SPIRAL_STEP;
+                List<Wheels.Wheel> wheels = new ArrayList<>(draft.wheels.get(c));
+                wheels.remove(centre);
+                Collections.reverse(wheels);
+                double end = Packer.pack(book, wheels, track, bandIn, s0, grid, tuning);
+                double to = Math.max(end, s0 + least(book, c, 8));
+                if (c == last && last > 0) {
+                    // the curl round the middle reaches half a band out: the next chapter starts a whole turn out, clear of it
+                    to = Math.max(to, track.lengthAt(2 * Math.PI));
+                }
+                seg[c] = new double[] {s0, to};
+                widths[c] = bandIn;
+                s = seg[c][1];
+            }
+            if (first == 0 || bandIn >= band) {
+                break;
+            }
+            double next = track.angleAt(s + SPIRAL_STEP);
+            if (rampEnd >= 0 && Math.abs(next - rampEnd) < 0.01) {
+                break;
+            }
+            rampEnd = next;
+        }
+        progress.at(0.3);
+        // the outer chapters on the same track, from where the ramp has brought it to the wider band
+        double outerFrom = s + SPIRAL_STEP;
+        if (trackRamp >= 0) {
+            outerFrom = Math.max(outerFrom, track.lengthAt(trackRamp));
+        }
+        // a short inner part leaves the wide band near the middle: it starts where its inner edge clears the curl round the middle
+        if (first > 0) {
+            double clear = r0 + bandIn / 2 + SPIRAL_GAP + band / 2;
+            while (track.radius(track.angleAt(outerFrom)) < clear) {
+                outerFrom += 4;
+            }
+        }
+        for (int c = first - 1; c >= 0; c--) {
+            double s0 = c == first - 1 ? outerFrom : s + SPIRAL_STEP;
             List<Wheels.Wheel> wheels = new ArrayList<>(draft.wheels.get(c));
             Collections.reverse(wheels);
-            s = Packer.pack(book, wheels, track, band, s0, grid, tuning);
-            seg[c] = new double[] {s0, Math.max(s, s0 + least(book, c, 8))};
-            progress.at((double) (last - c) / Math.max(1, last));
+            double end = Packer.pack(book, wheels, track, band, s0, grid, tuning);
+            seg[c] = new double[] {s0, Math.max(end, s0 + least(book, c, 8))};
+            widths[c] = band;
+            s = seg[c][1];
+            progress.at(0.3 + 0.7 * (first - c) / Math.max(1, first));
         }
+        // the start of the book on the left
         double[] p = new double[2];
-        double rot = 0;
-        if (last > 0) {
-            track.at(seg[0][1], 0, p);
-            rot = Math.PI - StrictMath.atan2(p[1], p[0]);
-        }
-        Rotation rotation = new Rotation(rot);
-        for (int c = 0; c < last; c++) {
+        track.at(seg[0][1], 0, p);
+        Rotation rotation = new Rotation(Math.PI - StrictMath.atan2(p[1], p[0]));
+        for (int c = 0; c <= last; c++) {
             for (Wheels.Wheel wheel : draft.wheels.get(c)) {
                 rotation.apply(wheel);
             }
         }
-        double startAngle = last > 0 ? track.angleAt(seg[0][1]) : 0;
+        double startAngle = track.angleAt(seg[0][1]);
         int prevEpoch = Integer.MIN_VALUE;
-        for (int c = 0; c < last; c++) {
+        for (int c = 0; c <= last; c++) {
             double a = seg[c][0];
             double b = seg[c][1];
+            double width = widths[c];
             int n = Math.max(8, (int) ((b - a) / 6));
             float[] pts = new float[2 * (n + 1)];
             for (int k = 0; k <= n; k++) {
@@ -335,29 +410,47 @@ final class Forms {
                 pts[2 * k] = (float) p[0];
                 pts[2 * k + 1] = (float) p[1];
             }
-            draft.regions[c] = CanvasLayout.Region.band(pts, (float) band);
-            track.at((a + b) / 2, band / 4, p);
+            draft.regions[c] = CanvasLayout.Region.band(pts, (float) width);
+            track.at((a + b) / 2, width / 4, p);
             rotation.apply(p);
-            draft.labels[c] = new CanvasLayout.Label((float) p[0], (float) p[1], (float) (Math.min(b - a, band) * 0.8));
+            draft.labels[c] = new CanvasLayout.Label((float) p[0], (float) p[1], (float) (Math.min(b - a, width) * 0.85));
             int e = book.chapters().get(c).epoch();
             if (e != prevEpoch && e > 0) {
+                // in the middle of the gap between this chapter's outer end and the inner end of the one before it
+                double at = c > 0 ? (b + seg[c - 1][0]) / 2 : b + SPIRAL_STEP / 2;
+                double half = Math.max(width, c > 0 ? widths[c - 1] : 0) / 2 + 4;
                 double[] outer = new double[2];
                 double[] inner = new double[2];
-                track.at(b, band / 2 + 4, outer);
-                track.at(b, -band / 2 - 4, inner);
+                track.at(at, half, outer);
+                track.at(at, -half, inner);
                 rotation.apply(outer);
                 rotation.apply(inner);
-                double sweep = Math.toDegrees(startAngle - track.angleAt(b));
+                double sweep = Math.toDegrees(startAngle - track.angleAt(at));
                 double dist = Math.max(1, Math.hypot(outer[0], outer[1]));
                 int side = Math.abs(outer[1]) / dist > 0.8 ? (outer[1] > 0 ? 2 : -2) : (outer[0] > 0 ? 1 : -1);
                 draft.marks.add(new CanvasLayout.Mark(e, (float) outer[0], (float) outer[1], (float) inner[0], (float) inner[1], sweep < 350, side));
             }
             prevEpoch = e;
         }
-        draft.regions[last] = CanvasLayout.Region.disc(0, 0, (float) rLast);
-        draft.labels[last] = discLabel(0, 0, rLast);
         progress.at(1);
         return draft.finish(MapForm.SPIRAL);
+    }
+
+    /**
+     * The first chapter that winds in the tighter band: the first of the last epoch when that epoch has more than one chapter and
+     * is not the whole book, else the last chapter alone.
+     */
+    static int innerFirst(MapBook book) {
+        int last = book.chapters().size() - 1;
+        int epoch = book.chapters().get(last).epoch();
+        if (epoch <= 0) {
+            return last;
+        }
+        int first = last;
+        while (first > 0 && book.chapters().get(first - 1).epoch() == epoch) {
+            first--;
+        }
+        return first == 0 ? last : first;
     }
 
     // ================= generator =================
@@ -703,6 +796,10 @@ final class Forms {
                 if (quest.milestone()) {
                     kind[quest.index()] |= CanvasLayout.MILESTONE;
                 }
+            }
+            int finale = form == MapForm.SPIRAL ? CanvasLayout.finale(book) : -1;
+            if (finale >= 0) {
+                kind[finale] |= CanvasLayout.FINALE;
             }
             CanvasLayout.Region[] outRegions = new CanvasLayout.Region[regions.length];
             CanvasLayout.Label[] outLabels = new CanvasLayout.Label[labels.length];

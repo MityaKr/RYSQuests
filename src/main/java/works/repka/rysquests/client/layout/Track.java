@@ -37,6 +37,10 @@ abstract class Track {
         private final double pitch;
         private final double start;
         private final boolean square;
+        /** A ramp of the pitch: from {@code pitch} at the angle {@code rampFrom} to {@code pitch2} at {@code rampTo}, then on. */
+        private final double rampFrom;
+        private final double rampTo;
+        private final double pitch2;
         private double[] t = new double[1024];
         private double[] cum = new double[1024];
         private double[] px = new double[1024];
@@ -48,10 +52,22 @@ abstract class Track {
         }
 
         Spiral(double r0, double pitch, double start, boolean square) {
+            this(r0, pitch, start, square, Double.MAX_VALUE, Double.MAX_VALUE, pitch);
+        }
+
+        /**
+         * A spiral whose pitch grows evenly from {@code pitch} to {@code pitch2} between the angles {@code rampFrom} and
+         * {@code rampTo}: the spiral form winds its last epoch tighter, and a ramp over the turn before the wider band keeps every
+         * turn clear of the one inside it.
+         */
+        Spiral(double r0, double pitch, double start, boolean square, double rampFrom, double rampTo, double pitch2) {
             this.r0 = r0;
             this.pitch = pitch;
             this.start = start;
             this.square = square;
+            this.rampFrom = rampFrom;
+            this.rampTo = Math.max(rampFrom, rampTo);
+            this.pitch2 = pitch2;
             add(0, 0);
         }
 
@@ -71,7 +87,53 @@ abstract class Track {
         }
 
         double radius(double angle) {
-            return r0 + pitch * angle / (2 * Math.PI);
+            if (angle <= rampFrom) {
+                return r0 + pitch * angle / (2 * Math.PI);
+            }
+            double base = r0 + pitch * rampFrom / (2 * Math.PI);
+            double span = rampTo - rampFrom;
+            double x = Math.min(angle, rampTo) - rampFrom;
+            double ramp = span <= 0 ? 0 : (pitch * x + (pitch2 - pitch) * x * x / (2 * span)) / (2 * Math.PI);
+            double after = angle > rampTo ? pitch2 * (angle - rampTo) / (2 * Math.PI) : 0;
+            return base + ramp + after;
+        }
+
+        /** How fast the radius grows at the angle, per radian. */
+        private double growth(double angle) {
+            if (angle <= rampFrom) {
+                return pitch / (2 * Math.PI);
+            }
+            if (angle >= rampTo) {
+                return pitch2 / (2 * Math.PI);
+            }
+            return (pitch + (pitch2 - pitch) * (angle - rampFrom) / (rampTo - rampFrom)) / (2 * Math.PI);
+        }
+
+        /** The length along the spiral to the angle (from {@code start}). */
+        double lengthAt(double angle) {
+            if (angle <= 0) {
+                return 0;
+            }
+            double s = cum[n - 1];
+            while (t[n - 1] < angle) {
+                s += 64;
+                reach(s);
+            }
+            int lo = 0;
+            int hi = n - 1;
+            while (lo < hi) {
+                int mid = (lo + hi) >>> 1;
+                if (t[mid] < angle) {
+                    lo = mid + 1;
+                } else {
+                    hi = mid;
+                }
+            }
+            if (lo == 0 || t[lo] <= t[lo - 1]) {
+                return cum[lo];
+            }
+            double k = (angle - t[lo - 1]) / (t[lo] - t[lo - 1]);
+            return cum[lo - 1] + (cum[lo] - cum[lo - 1]) * k;
         }
 
         private void reach(double s) {
@@ -135,7 +197,7 @@ abstract class Track {
             double sn = StrictMath.sin(start + angle);
             if (square) {
                 double r = radius(angle);
-                double b = pitch / (2 * Math.PI);
+                double b = growth(angle);
                 double nx = r * c + b * sn;
                 double ny = r * sn - b * c;
                 double len = Math.hypot(nx, ny);

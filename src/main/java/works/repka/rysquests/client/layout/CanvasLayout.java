@@ -19,6 +19,8 @@ public final class CanvasLayout {
     /** Node kind bits. */
     public static final byte HUB = 1;
     public static final byte MILESTONE = 2;
+    /** The book's last quest, in the middle of the spiral. */
+    public static final byte FINALE = 4;
 
     public enum RegionKind {
         RECT, BAND, DISC
@@ -72,8 +74,38 @@ public final class CanvasLayout {
                     float dy = y - pts[1];
                     yield dx * dx + dy * dy <= pts[2] * pts[2];
                 }
-                case BAND -> distanceToLine(x, y) <= width / 2;
+                case BAND -> inBand(x, y);
             };
+        }
+
+        /**
+         * Whether the point lies in the band as it is drawn: within half its width of the centre line and not past its ends, which
+         * are cut square. The rounded ends a plain distance gives reach half a band's width into the next chapter along the same
+         * track: on the spiral the pointer over one chapter lit its neighbour.
+         */
+        private boolean inBand(float x, float y) {
+            int n = pts.length / 2;
+            if (n < 2) {
+                return n == 1 && Math.hypot(x - pts[0], y - pts[1]) <= width / 2;
+            }
+            float half = width / 2;
+            for (int i = 0; i + 1 < n; i++) {
+                float ax = pts[2 * i];
+                float ay = pts[2 * i + 1];
+                float dx = pts[2 * i + 2] - ax;
+                float dy = pts[2 * i + 3] - ay;
+                float l2 = dx * dx + dy * dy;
+                float t = l2 == 0 ? 0 : ((x - ax) * dx + (y - ay) * dy) / l2;
+                // past the first point of the line or the last one: outside the square end
+                if (i == 0 && t < 0 || i == n - 2 && t > 1) {
+                    continue;
+                }
+                t = Math.max(0, Math.min(1, t));
+                if (Math.hypot(x - (ax + t * dx), y - (ay + t * dy)) <= half) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /** Distance from the point to the band's centre line. */
@@ -212,6 +244,73 @@ public final class CanvasLayout {
 
     public boolean milestone(int quest) {
         return (kind[quest] & MILESTONE) != 0;
+    }
+
+    public boolean finale(int quest) {
+        return (kind[quest] & FINALE) != 0;
+    }
+
+    /**
+     * The book's finale: of the main quests of the last chapter on the map, one no main quest depends on, a milestone before others,
+     * then the end of the longest chain; -1 when the last chapter has no main quest. The spiral puts it in its middle.
+     */
+    public static int finale(MapBook book) {
+        if (book.chapters().isEmpty()) {
+            return -1;
+        }
+        MapBook.Chap last = book.chapters().getLast();
+        Map<Integer, Integer> depth = new HashMap<>();
+        int best = -1;
+        for (int q : last.quests()) {
+            MapBook.Q quest = book.quests().get(q);
+            if (quest.optional()) {
+                continue;
+            }
+            boolean sink = true;
+            for (int d : book.dependents(q)) {
+                if (!book.quests().get(d).optional()) {
+                    sink = false;
+                    break;
+                }
+            }
+            if (!sink) {
+                continue;
+            }
+            if (best < 0 || better(book, q, best, depth)) {
+                best = q;
+            }
+        }
+        return best;
+    }
+
+    private static boolean better(MapBook book, int a, int b, Map<Integer, Integer> depth) {
+        MapBook.Q qa = book.quests().get(a);
+        MapBook.Q qb = book.quests().get(b);
+        if (qa.milestone() != qb.milestone()) {
+            return qa.milestone();
+        }
+        int da = depth(book, a, depth, new java.util.HashSet<>());
+        int db = depth(book, b, depth, new java.util.HashSet<>());
+        return da != db ? da > db : qa.id().compareTo(qb.id()) > 0;
+    }
+
+    /** The longest chain of requirements up from the quest, inside its chapter. */
+    private static int depth(MapBook book, int q, Map<Integer, Integer> memo, java.util.Set<Integer> stack) {
+        Integer known = memo.get(q);
+        if (known != null) {
+            return known;
+        }
+        stack.add(q);
+        int best = 0;
+        int chapter = book.quests().get(q).chapter();
+        for (int r : book.quests().get(q).requires()) {
+            if (book.quests().get(r).chapter() == chapter && !stack.contains(r)) {
+                best = Math.max(best, depth(book, r, memo, stack) + 1);
+            }
+        }
+        stack.remove(q);
+        memo.put(q, best);
+        return best;
     }
 
     /** The box of the chapters of an epoch: {@code [minX, minY, maxX, maxY]}, or null when no chapter has it. */
@@ -358,7 +457,7 @@ public final class CanvasLayout {
             }
             turns.add(pts);
         }
-        return new CanvasLayout(baked.form(), baked.hash(), xs, ys, kinds(book), regions, labels, rings, marks, arms, turns);
+        return new CanvasLayout(baked.form(), baked.hash(), xs, ys, kinds(book, baked.form()), regions, labels, rings, marks, arms, turns);
     }
 
     private static Region region(List<Float> shape) {
@@ -394,7 +493,7 @@ public final class CanvasLayout {
     }
 
     /** Main quests and milestones, told from the book as the wheels tell them. */
-    static byte[] kinds(MapBook book) {
+    static byte[] kinds(MapBook book, MapForm form) {
         byte[] out = new byte[book.quests().size()];
         Wheels.Style style = Wheels.style(book);
         for (MapBook.Chap chapter : book.chapters()) {
@@ -408,6 +507,10 @@ public final class CanvasLayout {
             if (quest.milestone()) {
                 out[quest.index()] |= MILESTONE;
             }
+        }
+        int finale = form == MapForm.SPIRAL ? finale(book) : -1;
+        if (finale >= 0) {
+            out[finale] |= FINALE;
         }
         return out;
     }
