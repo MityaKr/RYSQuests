@@ -162,6 +162,10 @@ public final class MapLayouts {
             if (layout == null || !layout.hash().equals(map.hash()) || layout.form() != form) {
                 return null;
             }
+            // kept by an older version that put other chapters on the map for the same hash (epoch 0, ADR-51): lay out again
+            if (layout.decor().regions().size() != map.chapters().size()) {
+                return null;
+            }
             return CanvasLayout.fromBaked(map, layout);
         } catch (IOException | RuntimeException e) {
             LOGGER.debug("Could not read the kept map {}", file, e);
