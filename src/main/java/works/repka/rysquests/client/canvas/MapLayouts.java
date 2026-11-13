@@ -74,6 +74,9 @@ public final class MapLayouts {
 
     public static State get(QuestBook book, MapForm form) {
         MapBook map = mapOf(book);
+        if (pausedForTest) {
+            return new State(map, form, null, () -> 0.62);
+        }
         String key = key(map.hash(), form);
         CanvasLayout known = MEMORY.get(key);
         if (known != null) {
@@ -174,6 +177,13 @@ public final class MapLayouts {
         } catch (IOException | RuntimeException e) {
             LOGGER.debug("Could not keep the map {}", file, e);
         }
+    }
+
+    private static volatile boolean pausedForTest;
+
+    /** Holds every map on "Laying out the map", for the autotest's picture 49. */
+    public static void pauseForTest(boolean paused) {
+        pausedForTest = paused;
     }
 
     /** Forgets kept layouts in memory, for tests that lay out again. */

@@ -43,6 +43,11 @@ final class CanvasBooks {
     }
 
     static QuestBook repys(Path folder, Path lang) throws IOException {
+        return repys(folder, lang, null);
+    }
+
+    /** @param form the map form the book names, or null for the automatic one */
+    static QuestBook repys(Path folder, Path lang, String form) throws IOException {
         Map<String, String> names = new HashMap<>();
         if (Files.isRegularFile(lang)) {
             JsonParser.parseString(Files.readString(lang, StandardCharsets.UTF_8)).getAsJsonObject().entrySet().forEach(e -> names.put(e.getKey(), e.getValue().getAsString()));
@@ -64,6 +69,9 @@ final class CanvasBooks {
                 JsonArray epochs = new JsonArray();
                 REPYS_EPOCHS.forEach(epochs::add);
                 json.getAsJsonObject().add("epochs", epochs);
+                if (form != null) {
+                    json.getAsJsonObject().addProperty("map_form", form);
+                }
             }
         });
         return BookValidator.validate(BookParser.parse(files, JsonOps.INSTANCE), id -> true, JsonOps.INSTANCE).book();
@@ -91,8 +99,9 @@ final class CanvasBooks {
             object.remove("nbt");
             for (Map.Entry<String, JsonElement> entry : new ArrayList<>(object.entrySet())) {
                 JsonElement value = entry.getValue();
-                if ((entry.getKey().equals("title")) && value.isJsonPrimitive() && names.containsKey(value.getAsString())) {
-                    String text = names.get(value.getAsString());
+                if ((entry.getKey().equals("title") || entry.getKey().equals("subtitle")) && value.isJsonPrimitive() && names.containsKey(value.getAsString())) {
+                    // FTB Quests colours its titles with section signs; the book would show them as they are
+                    String text = names.get(value.getAsString()).replaceAll("§.", "");
                     if (text.length() > 4 && text.indexOf(". ") > 0 && text.indexOf(". ") < 4) {
                         text = text.substring(text.indexOf(". ") + 2);
                     }

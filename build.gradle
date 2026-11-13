@@ -75,7 +75,8 @@ neoForge {
             systemProperty 'rysquests.dev.brokenPack', project.file('examples/broken').absolutePath
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
             systemProperty 'rysquests.autotest.tag', project.findProperty('tag') ?: ''
-            // 'canvas' reads the books of RepYS and ATM10 on the client, without a server.
+            jvmArgument '-Xmx3G'
+            // 'canvas' and 'map' read the books of RepYS and ATM10 on the client, without a server.
             systemProperty 'rysquests.autotest.repysBook', project.findProperty('repysBook') ?: project.file('../_fresh/book').absolutePath
             systemProperty 'rysquests.autotest.repysLang', "${System.getProperty('user.home')}/curseforge/minecraft/Instances/RepYS/kubejs/assets/repys/lang/ru_ru.json"
             systemProperty 'rysquests.autotest.atm10Quests', project.findProperty('atm10Quests') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/All the Mods 10 - ATM10/config/ftbquests/quests"

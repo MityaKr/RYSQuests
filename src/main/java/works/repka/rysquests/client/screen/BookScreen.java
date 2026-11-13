@@ -1054,8 +1054,8 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     }
 
     public static void mapZoomForTest(float zoom) {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map instanceof MapView map) {
-            map.zoomForTest(zoom);
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.mapTab().map.zoomForTest(zoom);
         }
     }
 
@@ -1077,32 +1077,78 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     /** A quest's node on the map in interface units (x, y, width, height), or null when it is not laid out. */
     @Nullable
     public static double[] mapNodeForTest(ResourceLocation quest) {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map instanceof MapView map) {
-            return map.nodeForTest(quest);
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            return screen.mapTab().map.nodeForTest(quest);
         }
         return null;
     }
 
+    /** The old layered layout is gone; kept so that older scenarios still compile. */
     public static void mapLegacyLayoutForTest(boolean legacy) {
-        MapView.legacyLayoutForTest = legacy;
     }
 
+    /** Branches no longer fold on the canvas; kept so that older scenarios still compile. */
     public static void mapUnfoldForTest(boolean unfold) {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map instanceof MapView map) {
-            map.unfoldForTest(unfold);
-        }
     }
 
     public static void mapFitForTest() {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map instanceof MapView map) {
-            map.fitForTest();
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.mapTab().map.flyToBook();
         }
     }
 
     public static String mapStatsForTest() {
-        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map instanceof MapView map) {
-            return map.statsForTest();
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            return screen.mapTab().map.stateForTest();
         }
         return "no map";
+    }
+
+    /** The map's flights and toggles, for the map scenario. */
+    public static void mapFlyForTest(@Nullable ResourceLocation chapter, int epoch, @Nullable ResourceLocation quest) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            BookState.view = ViewMode.MAP;
+            MapView map = screen.mapTab().map;
+            if (quest != null) {
+                map.flyToQuest(quest);
+            } else if (chapter != null) {
+                map.flyToChapter(chapter);
+            } else if (epoch > 0) {
+                map.flyToEpoch(epoch);
+            } else {
+                map.flyToBook();
+            }
+        }
+    }
+
+    public static void mapSideForTest(boolean show) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.mapTab().map.canvas.setShowSide(show);
+        }
+    }
+
+    public static void mapLegendForTest(boolean open) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.mapTab().map.legendForTest(open);
+        }
+    }
+
+    /** A chapter's area on screen in mockup pixels, or null. */
+    @Nullable
+    public static float[] mapChapterForTest(ResourceLocation chapter) {
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.mapTab().map.chapterForTest(chapter) : null;
+    }
+
+    @Nullable
+    public static ResourceLocation mapHereForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.mapTab().map.hereForTest() : null;
+    }
+
+    public static boolean mapReadyForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen && screen.mapTab().map.canvas.layout() != null && !screen.mapTab().map.canvas.flying();
+    }
+
+    public static works.repka.rysquests.client.canvas.MapCanvas.Stats mapCanvasStatsForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.mapTab().map.canvas.stats() : null;
     }
 }

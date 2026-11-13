@@ -55,6 +55,11 @@ public final class ClientProgress {
         return lastChapter;
     }
 
+    /** Replaces the whole progress as a full packet would: the autotest's way to a made up progress for a book it gave the client. */
+    public static void receiveForTest(Map<ResourceLocation, QuestProgress> quests, Optional<ResourceLocation> last) {
+        receive(new ProgressPayload(true, quests, last));
+    }
+
     static void receive(ProgressPayload payload) {
         version++;
         if (payload.full()) {

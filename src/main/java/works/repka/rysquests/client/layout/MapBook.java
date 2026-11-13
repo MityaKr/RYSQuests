@@ -83,7 +83,9 @@ public final class MapBook {
 
     /** @param chapters in book order, as {@link QuestBook#chapters()} keeps them */
     public static MapBook of(BookMeta meta, List<Chapter> chapters, List<Quest> quests, String hash) {
-        List<Chapter> onMap = chapters.stream().filter(MapForms::onMap).toList();
+        // a chapter without an epoch in a book whose author set epochs is off the map, as the sidebar lists it under "Вне карты"
+        boolean authorEpochs = chapters.stream().anyMatch(chapter -> chapter.epoch().isPresent() && meta.authorEpoch(chapter.epoch()));
+        List<Chapter> onMap = chapters.stream().filter(MapForms::onMap).filter(chapter -> !authorEpochs || chapter.epoch().isPresent()).toList();
         Map<ResourceLocation, Integer> chapterAt = new HashMap<>();
         for (int i = 0; i < onMap.size(); i++) {
             chapterAt.put(onMap.get(i).id(), i);

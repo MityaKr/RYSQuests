@@ -134,13 +134,22 @@ final class Sidebar {
         if (chapter.offMap()) {
             return true;
         }
-        boolean epochs = BookData.chapters().stream().anyMatch(other -> other.epoch().isPresent());
-        return epochs && chapter.epoch().isEmpty();
+        return authorEpochs(BookData.book()) && chapter.epoch().isEmpty();
+    }
+
+    /**
+     * Whether the author gave the book epochs. Only then is a chapter without an epoch off the map; in a book whose epochs the FTB
+     * Quests import made from chapter groups (a galaxy), chapters without a group are a section of their own on the map. The canvas
+     * follows the same rule ({@code MapBook}).
+     */
+    static boolean authorEpochs(QuestBook book) {
+        return book.chapters().values().stream().anyMatch(other -> other.epoch().isPresent() && book.meta().authorEpoch(other.epoch()));
     }
 
     private static Model build(QuestBook book) {
         List<Chapter> chapters = BookData.chapters();
         boolean epochs = chapters.stream().anyMatch(chapter -> chapter.epoch().isPresent());
+        boolean authorEpochs = authorEpochs(book);
         ResourceLocation here = ClientProgress.lastChapter().filter(id -> chapters.stream().anyMatch(c -> c.id().equals(id))).orElse(null);
         if (here == null) {
             here = chapters.stream().filter(chapter -> !chapter.offMap() && BookTallies.chapter(chapter.id()).state() != BookTallies.State.DONE)
@@ -151,13 +160,14 @@ final class Sidebar {
         List<Entry> off = new ArrayList<>();
         int number = 0;
         for (Chapter chapter : chapters) {
-            boolean outside = chapter.offMap() || epochs && chapter.epoch().isEmpty();
+            boolean outside = chapter.offMap() || authorEpochs && chapter.epoch().isEmpty();
             BookTallies.Tally tally = BookTallies.chapter(chapter.id());
             Entry entry = new Entry(chapter, outside ? 0 : ++number, tally, chapter.id().equals(here));
             if (outside) {
                 off.add(entry);
             } else if (epochs) {
-                byEpoch.computeIfAbsent(chapter.epoch().get(), key -> new ArrayList<>()).add(entry);
+                // chapters without a section in a galaxy come last as their own section, number -1
+                byEpoch.computeIfAbsent(chapter.epoch().orElse(-1), key -> new ArrayList<>()).add(entry);
             } else {
                 flat.add(entry);
             }
@@ -165,7 +175,7 @@ final class Sidebar {
         BookMeta meta = book.meta();
         boolean numerals = meta.mapForm() != MapForm.GALAXY && !(meta.epochs().size() > 0 && meta.epochs().stream().allMatch(BookMeta.Epoch::imported));
         List<Group> groups = new ArrayList<>();
-        byEpoch.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(group -> {
+        byEpoch.entrySet().stream().sorted(Map.Entry.comparingByKey(java.util.Comparator.comparingInt(key -> key < 0 ? Integer.MAX_VALUE : key))).forEach(group -> {
             List<Entry> entries = group.getValue();
             BookTallies.Tally tally = BookTallies.Tally.EMPTY;
             boolean allDone = true;
@@ -178,7 +188,7 @@ final class Sidebar {
                 current |= entry.here();
             }
             BookTallies.State state = allDone ? BookTallies.State.DONE : allLocked ? BookTallies.State.LOCKED : BookTallies.State.OPEN;
-            String title = meta.epoch(group.getKey()).map(BookMeta.Epoch::title)
+            String title = group.getKey() < 0 ? Component.translatable("rysquests.canvas.no_section").getString() : meta.epoch(group.getKey()).map(BookMeta.Epoch::title)
                     .orElse(Component.translatable(entries.getFirst().chapter().title()).getString());
             groups.add(new Group(group.getKey(), title, List.copyOf(entries), tally, state, current));
         });

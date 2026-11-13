@@ -10,9 +10,9 @@ import works.repka.rysquests.data.ViewMode;
 import works.repka.ryscore.ui.Icons;
 
 /**
- * The "Map" tab as the frame holds it until the new map takes over (plan step 7): the {@link Sidebar} on the left, "Карта | Список"
- * above, and the old {@link MapView} or {@link ListView} with the old quest card on the right. The map screen replaces this class
- * (its line in {@link BookTabs}); the sidebar's listener below is where a chapter click reaches the map.
+ * The "Map" tab: the {@link Sidebar} on the left and, right of it, the map ({@link MapView}, the canvas with its tools and panel) or
+ * the list. On the map the sidebar flies: a chapter to its area, an epoch to its part, "Вся книга" to the whole book. A chapter off
+ * the map opens as a list. The list keeps the frame's toolbar and old quest card until its own screen takes over.
  */
 final class MapTab implements BookView {
     private static final int TOOLBAR_H = 46;
@@ -34,24 +34,39 @@ final class MapTab implements BookView {
         this.sidebar = new Sidebar(new Sidebar.Listener() {
             @Override
             public void chapter(ResourceLocation id) {
-                BookState.openChapter(id);
                 Chapter chapter = BookData.book().chapters().get(id);
                 if (chapter != null && Sidebar.isOffMap(chapter)) {
+                    BookState.openChapter(id);
                     BookState.view = ViewMode.LIST;
+                } else if (listMode()) {
+                    BookState.openChapter(id);
+                } else {
+                    map.flyToChapter(id);
                 }
             }
 
             @Override
             public void epoch(int number) {
-                Sidebar.model().groups().stream().filter(group -> group.number() == number).findFirst()
-                        .flatMap(group -> group.chapters().stream().findFirst())
-                        .ifPresent(entry -> BookState.openChapter(entry.chapter().id()));
+                if (listMode()) {
+                    Sidebar.model().groups().stream().filter(group -> group.number() == number).findFirst()
+                            .flatMap(group -> group.chapters().stream().findFirst())
+                            .ifPresent(entry -> BookState.openChapter(entry.chapter().id()));
+                } else {
+                    map.flyToEpoch(number);
+                }
             }
-        }, () -> BookState.chapter);
+
+            @Override
+            public void wholeBook() {
+                if (!listMode()) {
+                    map.flyToBook();
+                }
+            }
+        }, () -> listMode() ? BookState.chapter : map.selectedChapter());
     }
 
-    private BookView active() {
-        return BookState.currentView() == ViewMode.LIST ? list : map;
+    private static boolean listMode() {
+        return BookState.currentView() == ViewMode.LIST;
     }
 
     @Override
@@ -61,24 +76,23 @@ final class MapTab implements BookView {
         sidebar.render(ui, x, y, h, compact);
         int viewX = x + sideW;
         int viewW = w - sideW;
-        boolean listMode = BookState.currentView() == ViewMode.LIST;
-        ui.rect(viewX, y, viewW, TOOLBAR_H, listMode ? ui.c("panel.bg") : ui.mapBg());
-        Chapter open = BookState.chapter == null ? null : BookData.book().chapters().get(BookState.chapter);
-        boolean offMap = open != null && Sidebar.isOffMap(open);
-        Segments.Item mapItem = offMap
-                ? new Segments.Item(Component.translatable("rysquests.tab.map").getString(), Icons.Shape.MAP, true, Component.translatable("rysquests.map.off_map"))
-                : Segments.item(Component.translatable("rysquests.tab.map").getString(), Icons.Shape.MAP);
-        Segments.render(ui, viewX + 12, y + 12, List.of(mapItem, Segments.item(Component.translatable("rysquests.view.list").getString(), Icons.Shape.LIST)),
-                listMode ? 1 : 0, index -> BookState.view = index == 0 ? ViewMode.MAP : ViewMode.LIST);
+        cardLeft = Float.MAX_VALUE;
+        if (!listMode()) {
+            map.render(ui, viewX, y, viewW, h);
+            sidebar.renderOverlay(ui);
+            return;
+        }
+        ui.rect(viewX, y, viewW, TOOLBAR_H, ui.c("panel.bg"));
+        Segments.render(ui, viewX + 12, y + 12, List.of(Segments.item(Component.translatable("rysquests.tab.map").getString(), Icons.Shape.MAP),
+                Segments.item(Component.translatable("rysquests.view.list").getString(), Icons.Shape.LIST)), 1, index -> BookState.view = index == 0 ? ViewMode.MAP : ViewMode.LIST);
         int bodyY = y + TOOLBAR_H;
         int bodyH = h - TOOLBAR_H;
-        cardLeft = Float.MAX_VALUE;
-        if (!listMode && screen.windowWidth() >= CARD_MIN_WINDOW && !compact) {
+        if (screen.windowWidth() >= CARD_MIN_WINDOW && !compact) {
             viewW -= CARD_W;
             cardLeft = viewX + viewW;
             renderCard(ui, Math.round(cardLeft), y, CARD_W, h);
         }
-        active().render(ui, viewX, bodyY, viewW, bodyH);
+        list.render(ui, viewX, bodyY, viewW, bodyH);
         sidebar.renderOverlay(ui);
     }
 
@@ -99,21 +113,35 @@ final class MapTab implements BookView {
     public void scroll(double mouseX, double mouseY, double amount) {
         if (sidebar.contains(mouseX, mouseY)) {
             sidebar.scroll(mouseX, mouseY, amount);
+        } else if (!listMode()) {
+            map.scroll(mouseX, mouseY, amount);
         } else if (mouseX >= cardLeft) {
             cardScroll.wheel(amount, WHEEL);
         } else {
-            active().scroll(mouseX, mouseY, amount);
+            list.scroll(mouseX, mouseY, amount);
         }
     }
 
     @Override
+    public void press(double x, double y, int button) {
+        if (!listMode() && !sidebar.contains(x, y)) {
+            map.press(x, y, button);
+        }
+    }
+
+    @Override
+    public boolean release(double x, double y, int button) {
+        return !listMode() && map.release(x, y, button);
+    }
+
+    @Override
     public boolean drag(double deltaX, double deltaY) {
-        return active().drag(deltaX, deltaY);
+        return listMode() ? list.drag(deltaX, deltaY) : map.drag(deltaX, deltaY);
     }
 
     @Override
     public boolean key(int key) {
-        return active().key(key);
+        return listMode() ? list.key(key) : map.key(key);
     }
 
     @Nullable

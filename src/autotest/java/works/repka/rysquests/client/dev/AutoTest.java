@@ -167,6 +167,8 @@ public final class AutoTest {
             buildGuidesDesignScenario();
         } else if ("canvas".equals(scenario)) {
             buildCanvasScenario();
+        } else if ("map".equals(scenario)) {
+            buildMapScenario();
         } else if ("layout".equals(scenario)) {
             buildLayoutScenario();
         } else if ("team_a".equals(scenario)) {
@@ -178,6 +180,14 @@ public final class AutoTest {
             step("check scenario name", () -> fail("unknown scenario " + scenario), 0);
         }
         NeoForge.EVENT_BUS.addListener((ScreenEvent.Render.Post event) -> {
+            if (mapTiming && mc().screen instanceof BookScreen) {
+                works.repka.rysquests.client.canvas.MapCanvas.Stats stats = BookScreen.mapCanvasStatsForTest();
+                if (stats != null) {
+                    mapFrames++;
+                    mapNanos += stats.nanos();
+                    mapWorst = Math.max(mapWorst, stats.nanos());
+                }
+            }
             long now = System.nanoTime();
             if (lastFrame != 0) {
                 worstFrame = Math.max(worstFrame, now - lastFrame);
@@ -844,6 +854,164 @@ public final class AutoTest {
             canvasScreen.canvas.setLoading(() -> 0.62, () -> {});
         }, 10);
         screenshot("canvas_loading");
+    }
+
+    // --- the map screen in the book ---
+
+    private static boolean mapTiming;
+    private static long mapFrames;
+    private static long mapNanos;
+    private static long mapWorst;
+
+    /**
+     * The map tab of the real book screen, on RepYS (serpentine and spiral) and ATM10 (galaxy) given to the client with a made up
+     * progress: every picture of the map, 13 to 18, 22, 41, 43, 46, 47 and 49, with the canvas frame timed into the log.
+     */
+    private static void buildMapScenario() {
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("read the books of RepYS and ATM10", () -> {
+            try {
+                CANVAS_BOOKS[0] = CanvasBooks.repys(Path.of(System.getProperty("rysquests.autotest.repysBook")), Path.of(System.getProperty("rysquests.autotest.repysLang")));
+                CANVAS_BOOKS[1] = CanvasBooks.atm10(Path.of(System.getProperty("rysquests.autotest.atm10Quests")));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            for (int i = 0; i < 2; i++) {
+                CANVAS_MAPS[i] = works.repka.rysquests.client.layout.MapBook.of(CANVAS_BOOKS[i]);
+            }
+            works.repka.rysquests.client.layout.MapBook repys = CANVAS_MAPS[0];
+            CANVAS_HERE[0] = repys.quests().stream().map(works.repka.rysquests.client.layout.MapBook.Q::id)
+                    .filter(id -> id.getPath().equals("b03_e2_current/electric_mechanism")).findFirst().orElseThrow();
+            CANVAS_DONE.set(0, CanvasBooks.repysProgress(CANVAS_BOOKS[0], repys, CANVAS_HERE[0]));
+            CANVAS_DONE.set(1, CanvasBooks.atmProgress(CANVAS_BOOKS[1], CANVAS_MAPS[1]));
+        }, 1);
+        mapBook(0, ResourceLocation.parse("repys:b03_e2_current"));
+        step("mouse out of the way, no messages", () -> {
+            moveMouse(1, 1);
+            ClientMessages.dismiss();
+            ThemeManager.select("ryscore:slate");
+        }, 2);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("open the map tab", () -> {
+            BookScreen.openTabForTest("map");
+            BookScreen.showForTest(ViewMode.MAP);
+        }, 10);
+        expect("the map is laid out", BookScreen::mapReadyForTest);
+        mapShot("13_map_book", () -> {
+            // opening a screen puts the cursor in the middle of the window
+            moveMouse(1, 1);
+            BookScreen.mapFlyForTest(null, 0, null);
+        });
+        mapShot("14_map_book_collapsed", () -> BookScreen.foldSidebarForTest(true));
+        step("unfold the sidebar", () -> BookScreen.foldSidebarForTest(false), 5);
+        mapShot("15_map_hover_chapter", () -> pointAt(ResourceLocation.parse("repys:b05_e3_osmium")));
+        mapShot("15b_map_epoch", () -> {
+            moveMouse(1, 1);
+            BookScreen.mapFlyForTest(null, 2, null);
+        });
+        mapShot("16_map_chapter", () -> BookScreen.mapFlyForTest(ResourceLocation.parse("repys:b03_e2_current"), 0, null));
+        mapShot("17_map_close_quest", () -> BookScreen.mapFlyForTest(null, 0, CANVAS_HERE[0]));
+        mapShot("18_map_main_only_legend", () -> {
+            BookScreen.selectForTest(ResourceLocation.parse("repys:b03_e2_current"), null);
+            BookScreen.mapFlyForTest(null, 0, null);
+            BookScreen.mapSideForTest(false);
+            BookScreen.mapLegendForTest(true);
+        });
+        mapShot("22_map_route_to_goal", () -> {
+            BookScreen.mapLegendForTest(false);
+            BookScreen.mapSideForTest(true);
+            BookScreen.mapFlyForTest(ResourceLocation.parse("repys:b03_e2_current"), 0, null);
+            BookScreen.selectForTest(ResourceLocation.parse("repys:b03_e2_current"), ResourceLocation.parse("repys:b03_e2_current/heavy_engineering_block"));
+        });
+        step("log you are here", () -> LOGGER.info("[autotest] map here: {}", BookScreen.mapHereForTest()), 1);
+        // the compact layout: a window narrower than 1280
+        step("narrow the window", () -> {
+            org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc().getWindow().getWindow(), 1100, 680);
+        }, 20);
+        expect("the book is compact", BookScreen::compactForTest);
+        mapShot("46_small_screen_compact", () -> BookScreen.mapFlyForTest(null, 0, CANVAS_HERE[0]));
+        step("widen the window again", () -> {
+            org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc().getWindow().getWindow(), 1280, 800);
+        }, 20);
+        expect("the book is not compact", () -> !BookScreen.compactForTest());
+        // RepYS as a spiral
+        step("give RepYS as a spiral", () -> {
+            try {
+                CANVAS_BOOKS[0] = CanvasBooks.repys(Path.of(System.getProperty("rysquests.autotest.repysBook")), Path.of(System.getProperty("rysquests.autotest.repysLang")), "spiral");
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            ClientBook.overrideForTest(CANVAS_BOOKS[0], true);
+            BookScreen.selectForTest(ResourceLocation.parse("repys:b03_e2_current"), null);
+        }, 5);
+        expect("the spiral is laid out", BookScreen::mapReadyForTest);
+        mapShot("41_map_form_spiral", () -> BookScreen.mapFlyForTest(null, 0, null));
+        // ATM10 as a galaxy
+        mapBook(1, null);
+        step("open the map of ATM10", () -> {
+            BookScreen.selectForTest(null, null);
+            BookScreen.openTabForTest("map");
+            BookScreen.showForTest(ViewMode.MAP);
+        }, 10);
+        expect("the galaxy is laid out", BookScreen::mapReadyForTest);
+        mapShot("47_map_far_budget", () -> {
+            moveMouse(1, 1);
+            BookScreen.mapFlyForTest(null, 0, null);
+        });
+        step("check the frame budget", () -> LOGGER.info("[autotest] map budget: ATM10 whole book {} ms a frame on the CPU, the goal is 4",
+                String.format(java.util.Locale.ROOT, "%.2f", mapFrames == 0 ? 0 : mapNanos / 1e6 / mapFrames)), 1);
+        mapShot("43_map_form_galaxy", () -> pointAt(ResourceLocation.parse("atm:mekanism")));
+        step("hold the map on loading", () -> {
+            moveMouse(1, 1);
+            works.repka.rysquests.client.canvas.MapLayouts.pauseForTest(true);
+        }, 10);
+        screenshot("map_49_map_loading");
+        step("let the map go", () -> works.repka.rysquests.client.canvas.MapLayouts.pauseForTest(false), 10);
+        step("give the book back", () -> ClientBook.overrideForTest(null, null), 1);
+    }
+
+    /** Gives the client a book and its made up progress. */
+    private static void mapBook(int book, @org.jetbrains.annotations.Nullable ResourceLocation last) {
+        step("give the client book " + book, () -> {
+            ClientBook.overrideForTest(CANVAS_BOOKS[book], true);
+            Map<ResourceLocation, works.repka.rysquests.progress.QuestProgress> quests = new java.util.HashMap<>();
+            CANVAS_DONE.get(book).forEach(id -> quests.put(id, new works.repka.rysquests.progress.QuestProgress(List.of(), 1L, List.of())));
+            works.repka.rysquests.client.ClientProgress.receiveForTest(quests, Optional.ofNullable(last));
+        }, 5);
+    }
+
+    /** Points the real mouse at the middle of a chapter's area. */
+    private static void pointAt(ResourceLocation chapter) {
+        float[] area = BookScreen.mapChapterForTest(chapter);
+        if (area != null) {
+            moveMouse((area[0] + area[2] / 2) / 2, (area[1] + area[3] * 0.62) / 2);
+        }
+    }
+
+    /** Does something on the map, lets the flight end, shoots it and times the canvas. */
+    private static void mapShot(String name, Runnable action) {
+        step("map " + name, action, 25);
+        screenshot("map_" + name);
+        step("time " + name, () -> {
+            mapFrames = 0;
+            mapNanos = 0;
+            mapWorst = 0;
+            mapTiming = true;
+        }, 60);
+        step("log " + name, () -> {
+            mapTiming = false;
+            LOGGER.info("[autotest] map frame {}: canvas {} ms (worst {} ms) over {} frames; {}", name, String.format(java.util.Locale.ROOT, "%.2f", mapFrames == 0 ? 0 : mapNanos / 1e6 / mapFrames),
+                    String.format(java.util.Locale.ROOT, "%.2f", mapWorst / 1e6), mapFrames, BookScreen.mapStatsForTest());
+        }, 1);
     }
 
     /** Lays the book out in the form through the client's layouts and gives it to the canvas with the made up progress. */

@@ -1,737 +1,1006 @@
 package works.repka.rysquests.client.screen;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
+import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import net.minecraft.Util;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
-import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
-import works.repka.rysquests.client.layout.ChapterLayout;
-import works.repka.rysquests.client.layout.CollapsedBranches;
-import works.repka.rysquests.client.layout.LayeredLayout.Node;
-import works.repka.rysquests.client.layout.LayeredLayout.Placed;
+import works.repka.rysquests.client.canvas.MapCanvas;
+import works.repka.rysquests.client.canvas.MapLayouts;
+import works.repka.rysquests.client.layout.MapBook;
+import works.repka.rysquests.data.BookMeta;
 import works.repka.rysquests.data.Chapter;
+import works.repka.rysquests.data.MapForm;
 import works.repka.rysquests.data.Quest;
-import works.repka.rysquests.progress.QuestProgress;
+import works.repka.rysquests.data.QuestBook;
+import works.repka.rysquests.data.ViewMode;
 import works.repka.rysquests.progress.QuestStatus;
-import works.repka.ryscore.ui.Draw;
-import works.repka.ryscore.ui.Loading;
+import works.repka.ryscore.ui.Icons;
+import works.repka.ryscore.ui.Kit;
 
-/** The chapter as a graph, laid out automatically in the background. Only what is on screen is drawn. */
+/**
+ * The map ("Полотно", pictures 13 to 18, 22, 41 to 47, 49): the {@link MapCanvas} with the tools over it and the panel on the right.
+ * <ul>
+ *     <li>top left "Карта | Список" and the crumbs from the epoch level; top right the legend's help, "−" and "+";</li>
+ *     <li>bottom left "К моему квесту"; bottom right the legend line on the whole book, the minimap closer;</li>
+ *     <li>hovering a chapter shows its popover (15); the chapter level has the chapter's card (16); a selected quest its panel (17),
+ *     a locked one with its path lit on the canvas (22);</li>
+ *     <li>in the compact layout (46) the panel lies over the canvas and closes with its cross, the minimap and legend line give way.</li>
+ * </ul>
+ * Tools stand on solid plates over the canvas, so nodes and labels go under them. The sidebar is the {@link MapTab}'s, which calls
+ * {@link #flyToChapter}, {@link #flyToEpoch} and {@link #flyToBook}.
+ */
 final class MapView implements BookView {
-    private static final int NODE_W = 160;
-    private static final int NODE_H = 47;
-    private static final int ACTIVE_W = 228;
-    private static final int ACTIVE_H = 74;
-    private static final int GAP_X = 48;
-    private static final int GAP_Y = 24;
-    private static final int DOT_STEP = 24;
-    /** A group's dashed frame around its quests; its label sits on the top edge and reaches LABEL_ABOVE above it. */
-    private static final int FRAME_PAD_X = 12;
-    private static final int FRAME_PAD_TOP = 24;
-    private static final int FRAME_PAD_BOTTOM = 12;
-    private static final int LABEL_ABOVE = 10;
-    private static final int BLOCK_GAP = 20;
-    private static final ChapterLayout.Metrics METRICS = new ChapterLayout.Metrics(NODE_W, NODE_H, GAP_X, GAP_Y, FRAME_PAD_X, FRAME_PAD_TOP,
-            FRAME_PAD_BOTTOM, LABEL_ABOVE, BLOCK_GAP, (ACTIVE_W - NODE_W) / 2, (ACTIVE_H - NODE_H + 1) / 2);
-    private static final float MIN_ZOOM = 0.35f;
-    private static final float MAX_ZOOM = 1.6f;
-    private static final float DOTS_MIN_ZOOM = 0.6f;
-    private static final int MINIMAP_W = 152;
-    private static final int MINIMAP_H = 86;
-    private static final int MINIMAP_PAD = 8;
-    private static final int MARGIN_LEFT = 36;
-    private static final int MARGIN_TOP = 84;
-    private static final int MARGIN_END = 40;
-    private static final float LOCKED_OPACITY = 0.6f;
-
-    private record Layout(String key, Map<String, Placed> placed, CollapsedBranches.Result collapsed, int width, int height) {
-    }
-
-    /** The layout scenario's before and after: the layered layout this map used before ADR-44. Never set outside tests. */
-    static volatile boolean legacyLayoutForTest;
+    private static final int PAD = 12;
+    private static final int TB = 30;
+    private static final int TB_GAP = 6;
+    private static final int PANEL_W = DetailPanel.WIDTH;
+    private static final int POP_W = 244;
+    private static final int LEGEND_W = 250;
 
     private final BookScreen screen;
+    final MapCanvas canvas = new MapCanvas();
+    private final DetailPanel panel = new DetailPanel();
     @Nullable
-    private volatile Layout layout;
+    private MapLayouts.State state;
     @Nullable
-    private String requested;
-    private float zoom = 1f;
-    private float panX;
-    private float panY;
-    private boolean expandAll;
-    private Set<ResourceLocation> focusPath = Set.of();
-    private int viewX;
-    private int viewY;
-    private int viewW;
-    private int viewH;
-    private boolean recenter = true;
+    private MapBook map;
+    /** The chapter whose card shows on the chapter level. */
+    @Nullable
+    private ResourceLocation openChapter;
+    private int focusEpoch;
+    private boolean legendOpen;
+    private boolean panelClosed;
+    @Nullable
+    private ResourceLocation panelFor;
+    private final List<float[]> tools = new ArrayList<>();
+    private boolean pressedOnCanvas;
+    private double pointerX;
+    private double pointerY;
+    @Nullable
+    private ResourceLocation here;
+    private int hereVersion = Integer.MIN_VALUE;
+    @Nullable
+    private QuestBook hereBook;
+    @Nullable
+    private ResourceLocation routeFor;
+    private int routeVersion = Integer.MIN_VALUE;
 
     MapView(BookScreen screen) {
         this.screen = screen;
+        canvas.setListener(new MapCanvas.Listener() {
+            @Override
+            public void clicked(MapCanvas.Target target, int button) {
+                onCanvasClick(target, button);
+            }
+        });
+        canvas.setStatus(MapView::status, ClientProgress::version);
+        canvas.setInsets(56, 14, 54);
+        canvas.setMinimapFrom(MapCanvas.Level.EPOCH);
     }
 
-    private void requestLayout(List<Quest> quests) {
-        Set<String> done = new HashSet<>();
-        for (Quest quest : quests) {
-            if (ClientProgress.get(quest.id()).completed()) {
-                done.add(quest.id().toString());
-            }
-        }
-        // Which quests are shown is part of it: a linked or hidden quest opening elsewhere changes no done quest of this chapter.
-        String key = ClientBook.current().hash() + BookState.chapter + done.hashCode() + quests.stream().map(Quest::id).toList().hashCode() + expandAll + legacyLayoutForTest;
-        if (key.equals(requested)) {
+    // ================= the sidebar's side =================
+
+    void flyToBook() {
+        lastFlight = this::flyToBook;
+        openChapter = null;
+        focusEpoch = 0;
+        canvas.select(null);
+        BookState.quest = null;
+        canvas.flyToBook();
+    }
+
+    void flyToEpoch(int number) {
+        // the sidebar numbers a galaxy's chapters without a section -1; on the canvas they are epoch 0
+        int epoch = Math.max(0, number);
+        lastFlight = () -> flyToEpoch(epoch);
+        openChapter = null;
+        focusEpoch = epoch;
+        canvas.flyToEpoch(epoch);
+    }
+
+    void flyToChapter(ResourceLocation chapter) {
+        lastFlight = () -> flyToChapter(chapter);
+        openChapter = chapter;
+        focusEpoch = chapterEpoch(chapter);
+        BookState.openChapter(chapter);
+        BookState.quest = null;
+        panelClosed = false;
+        canvas.setOpenChapter(chapter);
+        canvas.flyToChapter(chapter);
+    }
+
+    void flyToQuest(ResourceLocation quest) {
+        Quest found = BookData.book().quests().get(quest);
+        if (found == null) {
             return;
         }
-        requested = key;
-        boolean foldDone = !expandAll;
-        ResourceLocation chapterId = BookState.chapter;
-        CompletableFuture.supplyAsync(() -> compute(key, quests, done, foldDone, chapterId), Util.backgroundExecutor())
-                .thenAcceptAsync(result -> {
-                    if (key.equals(requested)) {
-                        boolean chapterChanged = layout == null || !sameChapter(layout.key, key);
-                        layout = result;
-                        if (chapterChanged) {
-                            recenter = true;
-                        }
-                    }
-                }, Minecraft.getInstance());
+        lastFlight = () -> flyToQuest(quest);
+        BookState.select(found);
+        openChapter = found.chapter().orElse(null);
+        focusEpoch = openChapter == null ? 0 : chapterEpoch(openChapter);
+        panelClosed = false;
+        canvas.flyToQuest(quest);
     }
 
-    /**
-     * The chapter's quests and, after them, the quests of other chapters it links (ADR-46). A linked quest follows the
-     * same rule as the chapter's own hidden quests.
-     */
-    private List<Quest> withLinks(List<Quest> own) {
-        Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
-        if (chapter == null || chapter.links().isEmpty()) {
-            return own;
+    /** "Show on the map" from elsewhere: the selected quest in a close up. */
+    void focusSelected() {
+        if (BookState.quest != null) {
+            flyToQuest(BookState.quest);
         }
-        List<Quest> all = new ArrayList<>(own);
-        for (ResourceLocation id : chapter.links()) {
-            Quest linked = ClientBook.current().quests().get(id);
-            if (linked != null && !all.contains(linked) && BookData.inStory(linked)
-                    && (!linked.options().hidden() || works.repka.rysquests.progress.QuestLogic.isUnlocked(linked, ClientProgress::get))) {
-                all.add(linked);
-            }
-        }
-        return all;
     }
 
-    /** A quest linked from another chapter is not part of this chapter's groups. */
-    private static java.util.Optional<String> groupOf(Quest quest, @Nullable ResourceLocation chapter) {
-        return quest.chapter().filter(id -> id.equals(chapter)).isPresent() ? quest.group() : java.util.Optional.empty();
+    /** The chapter the sidebar marks: the open one, or none for the whole book. */
+    @Nullable
+    ResourceLocation selectedChapter() {
+        return canvas.level() == MapCanvas.Level.BOOK || canvas.level() == MapCanvas.Level.EPOCH && openChapter == null ? null : openChapter;
     }
 
-    private static boolean linked(Quest quest) {
-        return BookState.chapter != null && quest.chapter().filter(BookState.chapter::equals).isEmpty();
+    private int chapterEpoch(ResourceLocation chapter) {
+        Chapter found = BookData.book().chapters().get(chapter);
+        return found == null ? 0 : found.epoch().orElse(0);
     }
 
-    private static boolean sameChapter(String a, String b) {
-        int prefix = ClientBook.current().hash().length() + String.valueOf(BookState.chapter).length();
-        return a.length() >= prefix && b.length() >= prefix && a.substring(0, prefix).equals(b.substring(0, prefix));
-    }
-
-    private static Layout compute(String key, List<Quest> quests, Set<String> done, boolean foldDone, @Nullable ResourceLocation chapterId) {
-        List<Node> nodes = new ArrayList<>();
-        for (Quest quest : quests) {
-            var layout = quest.options().layout();
-            OptionalInt x = layout.fixedX().map(OptionalInt::of).orElse(OptionalInt.empty());
-            OptionalInt y = layout.fixedY().map(OptionalInt::of).orElse(OptionalInt.empty());
-            nodes.add(new Node(quest.id().toString(), quest.requires().stream().map(ResourceLocation::toString).toList(), x, y));
-        }
-        CollapsedBranches.Result collapsed = foldDone
-                ? CollapsedBranches.compute(nodes, done::contains)
-                : new CollapsedBranches.Result(Set.of(), Map.of());
-        List<ChapterLayout.Node> visible = new ArrayList<>();
-        for (int i = 0; i < quests.size(); i++) {
-            Quest quest = quests.get(i);
-            Node node = nodes.get(i);
-            if (!collapsed.hidden().contains(node.id())) {
-                visible.add(new ChapterLayout.Node(node.id(), node.requires(), groupOf(quest, chapterId), quest.options().optional(), node.fixedX(), node.fixedY()));
-            }
-        }
-        Chapter chapter = chapterId == null ? null : ClientBook.current().chapters().get(chapterId);
-        List<String> groupOrder = chapter == null ? List.of() : chapter.groups().stream().map(Chapter.Group::id).toList();
-        Map<String, Placed> placed = legacyLayoutForTest
-                ? works.repka.rysquests.client.layout.LayeredLayout.compute(nodes.stream().filter(node -> !collapsed.hidden().contains(node.id())).toList(),
-                        new works.repka.rysquests.client.layout.LayeredLayout.Metrics(NODE_W, NODE_H, GAP_X, GAP_Y, 1))
-                : ChapterLayout.compute(visible, groupOrder, METRICS);
-        int width = placed.values().stream().mapToInt(Placed::x).max().orElse(0) + NODE_W + FRAME_PAD_X;
-        int height = placed.values().stream().mapToInt(Placed::y).max().orElse(0) + NODE_H + FRAME_PAD_BOTTOM;
-        return new Layout(key, placed, collapsed, width, height);
-    }
+    // ================= drawing =================
 
     @Override
     public void render(Ui ui, int x, int y, int w, int h) {
-        viewX = x;
-        viewY = y;
-        viewW = w;
-        viewH = h;
-        List<Quest> quests = withLinks(screen.visibleQuests());
-        requestLayout(quests);
-        ui.rect(x, y, w, h, ui.mapBg());
-        ui.clip(x, y, w, h);
-        Layout current = layout;
-        if (current == null) {
-            Loading.render(ui.g, ui.theme, x / 2, y / 2, w / 2, h / 2, "rysquests.map.loading", quests.size());
-            ui.unclip();
-            return;
-        }
-        if (recenter) {
-            centerOn(current, firstInteresting(current, quests));
-            recenter = false;
-        }
-        clampPan(current);
-        renderDots(ui);
-        ui.g.pose().pushPose();
-        ui.g.pose().translate((x - panX * zoom) / 2f, (y - panY * zoom) / 2f, 0);
-        ui.g.pose().scale(zoom, zoom, 1f);
-        Map<ResourceLocation, Quest> byId = new HashMap<>();
-        quests.forEach(quest -> byId.put(quest.id(), quest));
-        Map<String, int[]> frames = groupFrames(current, quests);
-        renderGroups(ui, frames);
-        renderEdges(ui, current, quests, byId, frames);
-        Quest selected = null;
-        for (Quest quest : quests) {
-            Placed placed = current.placed.get(quest.id().toString());
-            if (placed != null && isOnScreen(placed)) {
-                if (quest.id().equals(BookState.quest)) {
-                    selected = quest;
-                } else {
-                    renderNode(ui, quest, placed, current);
+        QuestBook book = BookData.book();
+        state = MapLayouts.get(book);
+        map = state.map();
+        tools.clear();
+        if (state.ready()) {
+            if (canvas.layout() != state.layout()) {
+                canvas.setLayout(book, state.map(), state.layout());
+                canvas.setLoading(null, null);
+                if (openChapter != null) {
+                    canvas.setOpenChapter(openChapter);
                 }
             }
+        } else if (canvas.layout() != null || !loadingShown) {
+            canvas.setLayout(book, state.map(), null);
+            MapLayouts.State shown = state;
+            canvas.setLoading(() -> shown.progress().getAsDouble(), () -> BookState.view = ViewMode.LIST);
+            loadingShown = true;
         }
-        if (selected != null) {
-            renderActive(ui, selected, current.placed.get(selected.id().toString()));
+        if (state.ready()) {
+            loadingShown = false;
         }
-        ui.g.pose().popPose();
-        renderOverlay(ui, current, quests);
-        ui.unclip();
+        refreshHere(book);
+        Quest selected = selectedQuest(book);
+        canvas.select(selected == null ? null : selected.id());
+        refreshRoute(book, selected);
+        boolean compact = screen.compact();
+        MapCanvas.Level level = canvas.level();
+        if (level == MapCanvas.Level.BOOK && !canvas.flying()) {
+            openChapter = null;
+        }
+        canvas.setOpenChapter(openChapter);
+        canvas.setFocusEpoch(focusEpoch);
+        canvas.setMinimap(!compact);
+        boolean showCard = selected == null && openChapter != null && level.ordinal() >= MapCanvas.Level.CHAPTER.ordinal() && state.ready();
+        boolean showPanel = (selected != null || showCard) && !panelClosed;
+        int canvasW = showPanel && !compact ? w - PANEL_W : w;
+        canvas.setViewport(x, y, canvasW, h);
+        if (canvasW != lastCanvasW) {
+            if (lastCanvasW >= 0 && lastFlight != null && canvas.flying()) {
+                lastFlight.run();
+            }
+            lastCanvasW = canvasW;
+        }
+        canvas.render(ui.g, x, y, canvasW, h, ui.mouseX, ui.mouseY);
+        int toolsRight = showPanel && compact ? x + w - PANEL_W : x + canvasW;
+        drawTopLeft(ui, x, y, toolsRight - x, compact);
+        if (state.ready()) {
+            drawTopRight(ui, toolsRight, y);
+            drawBottom(ui, x, y, toolsRight - x, h, compact, level);
+            drawChapterPopover(ui, x, y, canvasW, h);
+            if (legendOpen) {
+                drawLegend(ui, toolsRight, y);
+            }
+        }
+        if (showPanel) {
+            int px = x + w - PANEL_W;
+            tools.add(new float[] {px, y, PANEL_W, h});
+            if (selected != null) {
+                questPanel(ui, selected, px, y, PANEL_W, h);
+            } else {
+                chapterCard(ui, openChapter, px, y, PANEL_W, h);
+            }
+        }
     }
+
+    private boolean loadingShown;
+    /** The last flight asked for: flown again when the canvas changes its width under it, as the panel opens or closes. */
+    @Nullable
+    private Runnable lastFlight;
+    private int lastCanvasW = -1;
 
     @Nullable
-    private static Quest firstInteresting(Layout current, List<Quest> quests) {
-        Quest selected = BookState.quest == null ? null : ClientBook.current().quests().get(BookState.quest);
-        if (selected != null && current.placed.containsKey(selected.id().toString())) {
-            return selected;
-        }
-        List<Quest> placed = quests.stream().filter(quest -> current.placed.containsKey(quest.id().toString()) && !linked(quest)).toList();
-        // With nothing left to do, the chapter opens at its first quest, where its main path starts.
-        return placed.stream()
-                .filter(quest -> {
-                    QuestStatus status = BookState.status(quest);
-                    return status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS || status == QuestStatus.COMPLETED;
-                })
-                .findFirst().orElse(placed.isEmpty() ? null : placed.getFirst());
-    }
-
-    private void centerOn(Layout current, @Nullable Quest quest) {
-        Placed placed = quest == null ? null : current.placed.get(quest.id().toString());
-        if (placed == null) {
-            panX = -MARGIN_LEFT;
-            panY = -MARGIN_TOP;
-            return;
-        }
-        // Across, the chapter reads from its start; up and down, the quest stands in the middle, with blocks on both sides of it.
-        panX = fits(placed.x() + (NODE_W + ACTIVE_W) / 2, viewW, MARGIN_LEFT) ? -MARGIN_LEFT : placed.x() + NODE_W / 2f - viewW / (2 * zoom);
-        panY = placed.y() + NODE_H / 2f - (viewH / zoom + MARGIN_TOP - MARGIN_END) / 2f;
-    }
-
-    /** Whether a position is on screen with the graph at its start, where the mockup has it. */
-    private boolean fits(int edge, int view, int margin) {
-        return edge + margin <= view / zoom - MARGIN_END;
-    }
-
-    private void clampPan(Layout current) {
-        panX = clampAxis(panX, current.width, viewW / zoom, MARGIN_LEFT);
-        panY = clampAxis(panY, current.height, viewH / zoom, MARGIN_TOP);
-    }
-
-    /** A graph that fits stands in the middle of the room between the margins, as the author asked (ADR-44). */
-    private static float clampAxis(float pan, int content, float visible, int startMargin) {
-        float low = -startMargin;
-        float high = content + MARGIN_END - visible;
-        if (high < low) {
-            return -(startMargin + (visible - startMargin - MARGIN_END - content) / 2f);
-        }
-        return Mth.clamp(pan, low, high);
-    }
-
-    private boolean isOnScreen(Placed placed) {
-        int extra = ACTIVE_W;
-        return placed.x() + NODE_W + extra >= panX && placed.x() - extra <= panX + viewW / zoom
-                && placed.y() + ACTIVE_H >= panY && placed.y() - ACTIVE_H <= panY + viewH / zoom;
-    }
-
-    private void renderDots(Ui ui) {
-        if (zoom < DOTS_MIN_ZOOM) {
-            return;
-        }
-        int color = ui.c("slot.border");
-        float step = DOT_STEP * zoom;
-        float startX = viewX + 11 - Mth.positiveModulo(panX * zoom, step);
-        float startY = viewY + 11 - Mth.positiveModulo(panY * zoom, step);
-        for (float px = startX; px < viewX + viewW; px += step) {
-            for (float py = startY; py < viewY + viewH; py += step) {
-                Draw.rect(ui.g, Math.round(px / 2f), Math.round(py / 2f), 1, 1, color);
-            }
-        }
-    }
-
-    /** The frame of each group that has quests on the map: x, y, width and height, the label above y. */
-    private static Map<String, int[]> groupFrames(Layout current, List<Quest> quests) {
-        Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
-        Map<String, int[]> frames = new java.util.LinkedHashMap<>();
-        if (chapter == null) {
-            return frames;
-        }
-        for (Chapter.Group group : chapter.groups()) {
-            int minX = Integer.MAX_VALUE;
-            int minY = Integer.MAX_VALUE;
-            int maxX = Integer.MIN_VALUE;
-            int maxY = Integer.MIN_VALUE;
-            for (Quest quest : quests) {
-                Placed placed = current.placed.get(quest.id().toString());
-                if (placed != null && groupOf(quest, chapter.id()).filter(group.id()::equals).isPresent()) {
-                    minX = Math.min(minX, placed.x());
-                    minY = Math.min(minY, placed.y());
-                    maxX = Math.max(maxX, placed.x() + NODE_W);
-                    maxY = Math.max(maxY, placed.y() + NODE_H);
-                }
-            }
-            if (minX != Integer.MAX_VALUE) {
-                frames.put(group.id(), new int[] {minX - FRAME_PAD_X, minY - FRAME_PAD_TOP, maxX - minX + FRAME_PAD_X * 2, maxY - minY + FRAME_PAD_TOP + FRAME_PAD_BOTTOM});
-            }
-        }
-        return frames;
-    }
-
-    private void renderGroups(Ui ui, Map<String, int[]> frames) {
-        Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
-        if (chapter == null) {
-            return;
-        }
-        for (Chapter.Group group : chapter.groups()) {
-            int[] frame = frames.get(group.id());
-            if (frame != null) {
-                int x = frame[0];
-                int y = frame[1];
-                ui.dashed(x, y, frame[2], frame[3], ui.c("card.border"));
-                String title = Component.translatable(group.title()).getString();
-                float titleW = ui.width(title, 11, Ui.REGULAR);
-                ui.rect(x + 8, y - LABEL_ABOVE, titleW + 12, 14, ui.mapBg());
-                ui.label(title, x + 14, y - 3, 11, Ui.REGULAR, ui.c("text.dim"));
-            }
-        }
-    }
-
-    private void renderEdges(Ui ui, Layout current, List<Quest> quests, Map<ResourceLocation, Quest> byId, Map<String, int[]> frames) {
-        Set<String> bundled = new HashSet<>();
-        for (Quest quest : quests) {
-            Placed to = current.placed.get(quest.id().toString());
-            if (to == null) {
-                continue;
-            }
-            String group = groupOf(quest, BookState.chapter).filter(frames::containsKey).orElse(null);
-            for (ResourceLocation dependency : quest.requires()) {
-                Placed from = current.placed.get(dependency.toString());
-                Quest source = byId.get(dependency);
-                if (from == null || source == null) {
-                    continue;
-                }
-                int[] frame = group == null || groupOf(source, BookState.chapter).filter(group::equals).isPresent() ? null : frames.get(group);
-                // A dependency from outside a group meets its frame once, instead of crossing the grid to every quest.
-                if (frame != null && frame[0] > from.x() + NODE_W) {
-                    if (bundled.add(dependency + ">" + group)) {
-                        renderBundle(ui, from, frame, bundleColor(ui, quests, group, dependency));
-                    }
-                } else {
-                    renderEdge(ui, from, to, edgeColor(ui, quest, dependency));
-                }
-            }
-        }
-    }
-
-    private int bundleColor(Ui ui, List<Quest> quests, String group, ResourceLocation dependency) {
-        List<Quest> members = quests.stream().filter(quest -> groupOf(quest, BookState.chapter).filter(group::equals).isPresent()).toList();
-        if (!focusPath.isEmpty() && !(focusPath.contains(dependency) && members.stream().anyMatch(quest -> focusPath.contains(quest.id())))) {
-            return ui.c("panel.border");
-        }
-        boolean dependencyDone = ClientProgress.get(dependency).everDone();
-        boolean allDone = members.stream().allMatch(quest -> ClientProgress.get(quest.id()).completed());
-        if (dependencyDone && allDone) {
-            return ui.c("slot.have.border");
-        }
-        return dependencyDone ? ui.c("accent") : ui.idleLine();
-    }
-
-    /**
-     * Out of the dependency, straight up or down in the gap right after it, then along to the side of the frame at its
-     * nearest height: the line leaves the main path at once instead of running through its quests.
-     */
-    private void renderBundle(Ui ui, Placed from, int[] frame, int color) {
-        int x1 = from.x() + NODE_W;
-        int y1 = from.y() + NODE_H / 2;
-        int x2 = frame[0];
-        int inset = FRAME_PAD_TOP;
-        int y2 = Mth.clamp(y1, frame[1] + inset, frame[1] + frame[3] - inset);
-        if (Math.max(x1, x2) < panX || Math.min(x1, x2) > panX + viewW / zoom) {
-            return;
-        }
-        int mid = Math.min(x1 + GAP_X / 2, x2 - 4);
-        ui.rect(x1, y1 - 1, Math.max(2, mid - x1), 2, color);
-        ui.rect(mid, Math.min(y1, y2) - 1, 2, Math.abs(y2 - y1) + 2, color);
-        ui.rect(mid, y2 - 1, Math.max(2, x2 - mid), 2, color);
-    }
-
-    private int edgeColor(Ui ui, Quest target, ResourceLocation dependency) {
-        if (!focusPath.isEmpty() && !(focusPath.contains(target.id()) && focusPath.contains(dependency))) {
-            return ui.c("panel.border");
-        }
-        boolean dependencyDone = ClientProgress.get(dependency).everDone();
-        boolean targetDone = ClientProgress.get(target.id()).completed();
-        if (dependencyDone && targetDone) {
-            return ui.c("slot.have.border");
-        }
-        return dependencyDone ? ui.c("accent") : ui.idleLine();
-    }
-
-    private void renderEdge(Ui ui, Placed from, Placed to, int color) {
-        int x1 = from.x() + NODE_W;
-        int y1 = from.y() + NODE_H / 2;
-        int x2 = to.x();
-        int y2 = to.y() + NODE_H / 2;
-        if (Math.max(x1, x2) < panX || Math.min(x1, x2) > panX + viewW / zoom) {
-            return;
-        }
-        int mid = x2 - GAP_X / 2;
-        ui.rect(x1, y1 - 1, Math.max(2, mid - x1), 2, color);
-        ui.rect(mid, Math.min(y1, y2) - 1, 2, Math.abs(y2 - y1) + 2, color);
-        ui.rect(mid, y2 - 1, Math.max(2, x2 - mid), 2, color);
-    }
-
-    private boolean faded(Quest quest) {
-        if (!focusPath.isEmpty() && !focusPath.contains(quest.id())) {
-            return true;
-        }
-        return !BookState.search.isBlank() && !SearchIndex.matches(quest);
-    }
-
-    private void addHit(Ui ui, Quest quest, float x, float y, float w, float h, Runnable click) {
-        float sx = viewX + (x - panX) * zoom;
-        float sy = viewY + (y - panY) * zoom;
-        ui.hit(sx, sy, w * zoom, h * zoom, click);
-        ui.rightHit(sx, sy, w * zoom, h * zoom, () -> BookData.togglePin(quest.id()));
-    }
-
-    private void renderNode(Ui ui, Quest quest, Placed placed, Layout current) {
-        QuestStatus status = BookState.status(quest);
-        boolean locked = status == QuestStatus.LOCKED;
-        boolean faint = locked || faded(quest);
-        int x = placed.x();
-        int y = placed.y();
-        int mapBg = ui.mapBg();
-        float opacity = faint ? LOCKED_OPACITY : 1f;
-        int border = status == QuestStatus.CLAIMED ? ui.doneBorder() : locked ? ui.c("card.border") : ui.c("panel.border");
-        boolean overNode = ui.over(viewX + (x - panX) * zoom, viewY + (y - panY) * zoom, NODE_W * zoom, NODE_H * zoom);
-        int bg = overNode ? ui.c("slot.hover") : ui.c("panel.bg");
-        ui.box(x, y, NODE_W, NODE_H, 9, Draw.mix(mapBg, bg, opacity), Draw.mix(mapBg, border, opacity));
-        float cy = y + NODE_H / 2f;
-        ItemStack icon = quest.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
-        ui.item(icon, x + 11, cy - 11, 22);
-        if (faint && !icon.isEmpty()) {
-            ui.veil(x + 11, cy - 11, 22, 22, 5, mapBg, 1f - opacity);
-        }
-        float textX = x + 11 + 22 + 8;
-        float textW = NODE_W - 11 - 22 - 8 - 11;
-        ui.labelFit(Component.translatable(quest.title()).getString(), textX, y + 9 + 7.5f, textW, 12, Ui.REGULAR, Draw.alpha(ui.nameFg(), opacity));
-        subline(ui, quest, status, current, textX, y + 25 + 6.5f, textW, opacity);
-        pinBadge(ui, quest, x + NODE_W, y);
-        addHit(ui, quest, x, y, NODE_W, NODE_H, () -> click(quest, current));
-    }
-
-    private static final int PIN_BADGE = 22;
-
-    /** A pinned quest wears a pin on its top right corner, as a card pinned to the board. */
-    private static void pinBadge(Ui ui, Quest quest, float right, float top) {
-        if (!ClientProgress.pinned().contains(quest.id())) {
-            return;
-        }
-        float x = right - PIN_BADGE + 7;
-        float y = top - 7;
-        ui.circle(x - 2, y - 2, PIN_BADGE + 4, ui.mapBg());
-        ui.circle(x, y, PIN_BADGE, ui.c("accent"));
-        ui.icon(works.repka.ryscore.ui.Icons.Shape.PIN, x + 5, y + 5, PIN_BADGE - 10, ui.c("accent.text"));
-    }
-
-    private void click(Quest quest, Layout current) {
-        BookState.select(quest);
-        if (current.collapsed.foldedInto().getOrDefault(quest.id().toString(), 0) > 0) {
-            expandAll = true;
-        }
-    }
-
-    private static void subline(Ui ui, Quest quest, QuestStatus status, Layout current, float x, float cy, float maxW, float opacity) {
-        int folded = current.collapsed.foldedInto().getOrDefault(quest.id().toString(), 0);
-        float px = 10.5f;
-        if (linked(quest)) {
-            // A link names the chapter the quest lives in; a click opens it there, and Backspace comes back.
-            String chapter = Ui.roman(BookData.chapterNumber(quest.chapter().orElse(null)));
-            String token = status == QuestStatus.CLAIMED ? "state.ok" : status == QuestStatus.LOCKED ? "text.muted" : "accent";
-            ui.labelFit(Component.translatable("rysquests.map.linked", chapter).getString(), x, cy, maxW, px, Ui.REGULAR, Draw.alpha(ui.c(token), opacity));
-            return;
-        }
-        if (status == QuestStatus.CLAIMED || folded > 0) {
-            int color = Draw.alpha(ui.c("state.ok"), opacity);
-            ui.check(x, cy - 5, 10, color);
-            String text = folded > 0 ? Component.translatable("rysquests.map.folded", folded).getString() : Component.translatable("rysquests.map.done").getString();
-            ui.labelFit(text, x + 13, cy, maxW - 13, px, Ui.REGULAR, color);
-            return;
-        }
-        if (status == QuestStatus.LOCKED) {
-            int color = Draw.alpha(ui.c("text.muted"), opacity);
-            ui.lock(x, cy - 5, 10, Draw.alpha(ui.mix("accent", "text.dim", 0.35f), opacity));
-            ui.labelFit(lockReason(quest), x + 13, cy, maxW - 13, px, Ui.REGULAR, color);
-            return;
-        }
-        if (status == QuestStatus.COMPLETED) {
-            ui.labelFit(Component.translatable("rysquests.map.claim").getString(), x, cy, maxW, px, Ui.REGULAR, Draw.alpha(ui.c("accent"), opacity));
-            return;
-        }
-        String text = quest.tasks().isEmpty()
-                ? Component.translatable("rysquests.map.page").getString()
-                : Component.translatable("rysquests.map.available", tasksDone(quest), quest.tasks().size()).getString();
-        ui.labelFit(text, x, cy, maxW, px, Ui.REGULAR, Draw.alpha(ui.c("text.muted"), opacity));
-    }
-
-    /** Why a quest on the map is closed, in words: what is still missing, a cooldown, or a stage. */
-    private static String lockReason(Quest quest) {
-        QuestProgress own = ClientProgress.get(quest.id());
-        if (own.coolingDown()) {
-            long minutes = Math.max(1, (own.nextAt() - System.currentTimeMillis() + 59_999) / 60_000);
-            return Component.translatable("rysquests.map.cooldown", minutes).getString();
-        }
-        long done = quest.requires().stream().filter(id -> ClientProgress.get(id).everDone()).count();
-        long needed = switch (quest.requiresMode()) {
-            case works.repka.rysquests.data.RequiresMode.AtLeast atLeast -> Math.min(atLeast.n(), quest.requires().size()) - done;
-            case works.repka.rysquests.data.RequiresMode.Named named -> named == works.repka.rysquests.data.RequiresMode.ANY ? (done > 0 ? 0 : 1) : quest.requires().size() - done;
-        };
-        if (needed <= 0) {
-            return Component.translatable("rysquests.map.needs_stage").getString();
-        }
-        return Component.translatable("rysquests.map.requires", needed).getString();
-    }
-
-    private static int tasksDone(Quest quest) {
-        return QuestCard.tasksDone(quest, ClientProgress.get(quest.id()));
-    }
-
-    private void renderActive(Ui ui, Quest quest, Placed placed) {
-        int x = placed.x() - (ACTIVE_W - NODE_W) / 2;
-        int y = placed.y() - (ACTIVE_H - NODE_H) / 2;
-        ui.shadow(x, y, ACTIVE_W, ACTIVE_H, 10, 0.4f);
-        ui.fill(x, y, ACTIVE_W, ACTIVE_H, 10, ui.c("card.bg"));
-        ui.strokeBold(x, y, ACTIVE_W, ACTIVE_H, 10, ui.c("accent"));
-        float cy = y + ACTIVE_H / 2f;
-        ItemStack icon = quest.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
-        ui.item(icon, x + 14, cy - 14, 28);
-        float textX = x + 14 + 28 + 10;
-        float textW = ACTIVE_W - 14 - 28 - 10 - 14;
-        String title = Component.translatable(quest.title()).getString();
-        List<String> lines = ui.wrap(title, textW, 12.5f, Ui.SEMIBOLD, 2);
-        QuestProgress own = ClientProgress.get(quest.id());
-        int total = quest.tasks().size();
-        int done = QuestCard.tasksDone(quest, own);
-        float blockH = lines.size() * 15 + 13 + 4 + 3;
-        float top = cy - blockH / 2f;
-        for (int i = 0; i < lines.size(); i++) {
-            ui.label(lines.get(i), textX, top + 7.5f + i * 15, 12.5f, Ui.SEMIBOLD, ui.c("text.primary"));
-        }
-        float subY = top + lines.size() * 15;
-        ui.labelFit(Component.translatable("rysquests.map.tasks", done, total).getString(), textX, subY + 6.5f, textW, 10.5f, Ui.REGULAR, ui.c("accent"));
-        ui.bar(textX, subY + 13 + 4, textW, 3, 2, total == 0 ? 0 : (float) done / total, ui.c("accent"));
-        pinBadge(ui, quest, x + ACTIVE_W, y);
-        addHit(ui, quest, x, y, ACTIVE_W, ACTIVE_H, () -> BookState.select(quest));
-    }
-
-    private void renderOverlay(Ui ui, Layout current, List<Quest> quests) {
-        Chapter chapter = BookState.chapter == null ? null : ClientBook.current().chapters().get(BookState.chapter);
-        float left = viewX + 16;
-        float cy = viewY + 21.5f;
-        if (chapter != null) {
-            String title = Ui.roman(BookData.chapterNumber(chapter.id())) + " · " + Component.translatable(chapter.title()).getString();
-            ui.label(title, left, cy, 15, Ui.DISPLAY, ui.c("text.primary"));
-            left += ui.width(title, 15, Ui.DISPLAY) + 10;
-        }
-        int[] counts = BookState.chapter == null ? new int[2] : screen.chapterCounts(BookState.chapter);
-        String count = counts[0] + " / " + counts[1];
-        ui.label(count, left, cy, 12.5f, Ui.REGULAR, ui.c("text.muted"));
-        left += ui.width(count, 12.5f, Ui.REGULAR) + 10;
-        // The chip says what a click does, not what is shown now (ADR-43).
-        String chip = Component.translatable(expandAll ? "rysquests.map.fold_done" : "rysquests.map.unfold_all").getString();
-        float chipW = ui.pill(chip, left, cy, 11, Ui.REGULAR, 8, 18, 9, ui.c("chip.mod.bg"), ui.c("chip.mod.fg"));
-        ui.hit(left, cy - 9, chipW, 18, () -> expandAll = !expandAll);
-        String hint = Component.translatable("rysquests.map.hint").getString();
-        ui.aboveItems(() -> {
-            ui.fill(viewX + 12, viewY + viewH - 30, ui.width(hint, 11, Ui.REGULAR) + 8, 18, 4, Draw.alpha(ui.mapBg(), 0.85f));
-            ui.label(hint, viewX + 16, viewY + viewH - 21, 11, Ui.REGULAR, ui.c("text.dim"));
-        });
-        renderMinimap(ui, current, quests);
-    }
-
-    private void renderMinimap(Ui ui, Layout current, List<Quest> quests) {
-        float x = viewX + viewW - MINIMAP_W - 14;
-        float y = viewY + viewH - MINIMAP_H - 14;
-        ui.box(x, y, MINIMAP_W, MINIMAP_H, 8, Draw.alpha(ui.c("panel.bg"), 0.9f), ui.c("card.border"));
-        // A dot is 6 wide: the last one has to end inside the box, not start at its edge.
-        float inner = MINIMAP_W - MINIMAP_PAD * 2f - 6;
-        float innerH = MINIMAP_H - MINIMAP_PAD * 2f - 6;
-        float scale = Math.min(inner / Math.max(1, current.width), innerH / Math.max(1, current.height));
-        for (Quest quest : quests) {
-            Placed placed = current.placed.get(quest.id().toString());
-            if (placed != null) {
-                int color = switch (BookState.status(quest)) {
-                    case CLAIMED -> ui.c("state.ok");
-                    case LOCKED -> ui.idleLine();
-                    default -> ui.c("accent");
-                };
-                ui.fill(x + MINIMAP_PAD + placed.x() * scale, y + MINIMAP_PAD + placed.y() * scale, 6, 6, 2, color);
-            }
-        }
-        float frameX = x + MINIMAP_PAD + panX * scale;
-        float frameY = y + MINIMAP_PAD + panY * scale;
-        float frameW = viewW / zoom * scale;
-        float frameH = viewH / zoom * scale;
-        float clippedX = Math.max(x + 3, frameX);
-        float clippedY = Math.max(y + 3, frameY);
-        float rightEdge = Math.min(x + MINIMAP_W - 3, frameX + frameW);
-        float bottomEdge = Math.min(y + MINIMAP_H - 3, frameY + frameH);
-        if (rightEdge > clippedX && bottomEdge > clippedY) {
-            ui.stroke(clippedX, clippedY, rightEdge - clippedX, bottomEdge - clippedY, 3, ui.c("accent"));
-        }
-        ui.hit(x, y, MINIMAP_W, MINIMAP_H, () -> {
-            panX = (ui.mouseX - x - MINIMAP_PAD) / scale - viewW / (2 * zoom);
-            panY = (ui.mouseY - y - MINIMAP_PAD) / scale - viewH / (2 * zoom);
-        });
-    }
-
-    /** Highlights the chain of dependencies leading to the selected quest and brings it to the middle. */
-    void focusSelected() {
-        focusPath = Set.of();
-        toggleFocus();
-    }
-
-    private void toggleFocus() {
-        if (!focusPath.isEmpty() || BookState.quest == null) {
-            focusPath = Set.of();
-            return;
-        }
-        Set<ResourceLocation> path = new HashSet<>();
-        Deque<ResourceLocation> open = new ArrayDeque<>();
-        open.add(BookState.quest);
-        while (!open.isEmpty()) {
-            ResourceLocation id = open.poll();
-            Quest quest = ClientBook.current().quests().get(id);
-            if (quest != null && path.add(id)) {
-                open.addAll(quest.requires());
-            }
-        }
-        focusPath = path;
-        Layout current = layout;
-        if (current != null) {
-            centerOn(current, ClientBook.current().quests().get(BookState.quest));
-        }
-    }
-
-    @Override
-    public void scroll(double mouseX, double mouseY, double amount) {
-        if (GLFW.glfwGetKey(Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS) {
-            float before = zoom;
-            zoom = Mth.clamp(zoom * (amount > 0 ? 1.15f : 1 / 1.15f), MIN_ZOOM, MAX_ZOOM);
-            float mx = (float) mouseX - viewX;
-            float my = (float) mouseY - viewY;
-            panX += mx / before - mx / zoom;
-            panY += my / before - my / zoom;
-        } else {
-            panY -= (float) (amount * 48 / zoom);
-        }
-    }
-
-    void zoomForTest(float value) {
-        zoom = Mth.clamp(value, MIN_ZOOM, MAX_ZOOM);
-    }
-
-    /** Where a node is on screen, in interface units, with the pan and zoom applied. */
-    @Nullable
-    double[] nodeForTest(ResourceLocation quest) {
-        Layout current = layout;
-        Placed placed = current == null ? null : current.placed.get(quest.toString());
-        if (placed == null) {
+    private Quest selectedQuest(QuestBook book) {
+        Quest quest = BookState.quest == null ? null : book.quests().get(BookState.quest);
+        if (quest == null || map == null || map.quest(quest.id()) < 0) {
             return null;
         }
-        double x = viewX + (placed.x() - panX) * zoom;
-        double y = viewY + (placed.y() - panY) * zoom;
-        return new double[] {x / 2, y / 2, NODE_W * zoom / 2, NODE_H * zoom / 2};
+        return quest;
     }
 
-    void unfoldForTest(boolean unfold) {
-        expandAll = unfold;
-    }
+    // --- tools ---
 
-    /** Zooms out until the whole chapter is on screen, as far as the zoom goes. */
-    void fitForTest() {
-        Layout current = layout;
-        if (current == null || viewW == 0) {
+    private void drawTopLeft(Ui ui, int x, int y, int w, boolean compact) {
+        Segments.Item mapItem = Segments.item(Component.translatable("rysquests.tab.map").getString(), Icons.Shape.MAP);
+        List<Segments.Item> items = List.of(mapItem, Segments.item(Component.translatable("rysquests.view.list").getString(), Icons.Shape.LIST));
+        float sx = x + PAD;
+        float sy = y + PAD;
+        float segW = Segments.width(items, 0);
+        ui.fill(sx - 2, sy - 2, segW + 4, Segments.HEIGHT + 4, 11, ui.c("map.bg"));
+        Segments.render(ui, sx, sy, items, 0, index -> {
+            if (index == 1) {
+                BookState.view = ViewMode.LIST;
+            }
+        });
+        tools.add(new float[] {sx, sy, segW, Segments.HEIGHT});
+        if (state == null || !state.ready()) {
             return;
         }
-        float fit = Math.min((viewW - 60f) / (current.width + MARGIN_LEFT + MARGIN_END), (viewH - 60f) / (current.height + MARGIN_TOP + MARGIN_END));
-        // Further out than a player can zoom: the picture is for judging the shape of the whole chapter.
-        zoom = Mth.clamp(fit, 0.08f, 1f);
-        panX = -MARGIN_LEFT;
-        panY = -MARGIN_TOP;
+        drawCrumbs(ui, sx + segW + TB_GAP, sy + (Segments.HEIGHT - TB) / 2f, x + w - (TB * 3 + TB_GAP * 2 + PAD * 2) - (sx + segW + TB_GAP), compact);
     }
 
-    /** The tallest column of the laid out chapter and the number of quests in it, for the layout scenario's log. */
-    String statsForTest() {
-        Layout current = layout;
-        if (current == null) {
-            return "no layout";
+    /** "Вся книга › II Индустрия › Ток": from the epoch level, each part pressable; squeezed in order when room is short. */
+    private void drawCrumbs(Ui ui, float x, float y, float room, boolean compact) {
+        MapCanvas.Level level = canvas.level();
+        if (level == MapCanvas.Level.BOOK) {
+            return;
         }
-        Map<Integer, Integer> columns = new HashMap<>();
-        current.placed.values().forEach(placed -> columns.merge(placed.x(), 1, Integer::sum));
-        return "quests " + current.placed.size() + ", tallest column " + columns.values().stream().mapToInt(Integer::intValue).max().orElse(0)
-                + ", size " + current.width + "x" + current.height;
+        int epoch = focusEpoch;
+        ResourceLocation chapter = level.ordinal() >= MapCanvas.Level.CHAPTER.ordinal() ? openChapter : null;
+        if (chapter != null) {
+            epoch = chapterEpoch(chapter);
+        }
+        if (epoch == 0 && chapter == null) {
+            return;
+        }
+        boolean galaxy = galaxy();
+        String whole = Component.translatable("rysquests.sidebar.whole_book").getString();
+        String epochFull = epoch == 0 ? "" : epochName(epoch, galaxy, false);
+        String epochShort = epoch == 0 ? "" : epochName(epoch, galaxy, true);
+        String chapterTitle = chapter == null ? "" : chapterTitle(chapter);
+        float px = 12;
+        float sep = 6 + 11 + 6;
+        boolean iconWhole = compact;
+        boolean shortEpoch = compact;
+        float needed = needed(ui, whole, iconWhole, shortEpoch ? epochShort : epochFull, chapterTitle, sep, px);
+        if (needed > room && !shortEpoch) {
+            shortEpoch = true;
+            needed = needed(ui, whole, iconWhole, epochShort, chapterTitle, sep, px);
+        }
+        if (needed > room && !iconWhole) {
+            iconWhole = true;
+            needed = needed(ui, whole, true, shortEpoch ? epochShort : epochFull, chapterTitle, sep, px);
+        }
+        String epochText = shortEpoch ? epochShort : epochFull;
+        float chapterRoom = Float.MAX_VALUE;
+        if (needed > room && !chapterTitle.isEmpty()) {
+            chapterRoom = Math.max(30, ui.width(chapterTitle, 12, Ui.SEMIBOLD) - (needed - room));
+        }
+        float w = Math.min(needed, room);
+        ui.box(x, y, w, TB, 9, ui.c("button.bg"), ui.c("button.border"));
+        tools.add(new float[] {x, y, w, TB});
+        float pen = x + 11;
+        float cy = y + TB / 2f;
+        // the whole book
+        float ww = iconWhole ? 13 : ui.width(whole, 12, Ui.MEDIUM);
+        boolean overWhole = ui.over(pen - 4, y, ww + 8, TB);
+        if (iconWhole) {
+            ui.icon(Icons.Shape.COMPASS, pen, cy - 6.5f, 13, ui.c(overWhole ? "text.primary" : "text.secondary"));
+            ui.tooltipIfOver(pen - 4, y, ww + 8, TB, Component.literal(whole));
+        } else {
+            ui.label(whole, pen, cy, 12, Ui.MEDIUM, ui.c(overWhole ? "text.primary" : "text.secondary"));
+        }
+        ui.hit(pen - 4, y, ww + 8, TB, this::flyToBook);
+        pen += ww + 6;
+        if (!epochText.isEmpty()) {
+            ui.icon(Icons.Shape.CHEVRON_RIGHT, pen, cy - 5.5f, 11, ui.c("text.muted"));
+            pen += 11 + 6;
+            float ew = ui.width(epochText, 12, chapter == null ? Ui.SEMIBOLD : Ui.MEDIUM);
+            int epochNumber = epoch;
+            if (chapter == null) {
+                ui.label(epochText, pen, cy, 12, Ui.SEMIBOLD, ui.c("text.primary"));
+            } else {
+                boolean over = ui.over(pen - 3, y, ew + 6, TB);
+                ui.label(epochText, pen, cy, 12, Ui.MEDIUM, ui.c(over ? "text.primary" : "text.secondary"));
+                ui.hit(pen - 3, y, ew + 6, TB, () -> flyToEpoch(epochNumber));
+                if (shortEpoch) {
+                    ui.tooltipIfOver(pen - 3, y, ew + 6, TB, Component.literal(epochFull));
+                }
+            }
+            pen += ew + 6;
+        }
+        if (!chapterTitle.isEmpty()) {
+            ui.icon(Icons.Shape.CHEVRON_RIGHT, pen, cy - 5.5f, 11, ui.c("text.muted"));
+            pen += 11 + 6;
+            if (chapterRoom == Float.MAX_VALUE) {
+                ui.label(chapterTitle, pen, cy, 12, Ui.SEMIBOLD, ui.c("text.primary"));
+            } else {
+                ui.labelFitTip(chapterTitle, pen, cy, chapterRoom, 12, Ui.SEMIBOLD, ui.c("text.primary"));
+            }
+        }
+    }
+
+    private static float needed(Ui ui, String whole, boolean iconWhole, String epoch, String chapter, float sep, float pad) {
+        float w = pad * 2 - 1 + (iconWhole ? 13 : ui.width(whole, 12, Ui.MEDIUM));
+        if (!epoch.isEmpty()) {
+            w += sep + ui.width(epoch, 12, chapter.isEmpty() ? Ui.SEMIBOLD : Ui.MEDIUM);
+        }
+        if (!chapter.isEmpty()) {
+            w += sep + ui.width(chapter, 12, Ui.SEMIBOLD);
+        }
+        return w;
+    }
+
+    private void drawTopRight(Ui ui, int right, int y) {
+        float ty = y + PAD;
+        float ix = right - PAD - TB * 3 - TB_GAP * 2;
+        // the group stands on a plate of the canvas colour: nodes and labels go under it
+        ui.fill(ix - 2, ty - 2, TB * 3 + TB_GAP * 2 + 4, TB + 4, 11, ui.c("map.bg"));
+        toolButton(ui, right - PAD - TB, ty, Icons.Shape.PLUS, false, Component.translatable("rysquests.mapview.zoom_in"), () -> canvas.zoomBy(1.6));
+        toolButton(ui, right - PAD - TB * 2 - TB_GAP, ty, Icons.Shape.MINUS, false, Component.translatable("rysquests.mapview.zoom_out"), () -> canvas.zoomBy(1 / 1.6));
+        boolean over = ui.over(ix, ty, TB, TB);
+        ui.box(ix, ty, TB, TB, 9, over ? ui.mix("button.bg", "text.primary", 0.08f) : ui.c("button.bg"), ui.c(legendOpen ? "text.secondary" : "button.border"));
+        works.repka.ryscore.ui.Draw.info(ui.g, Math.round((ix + 5) / 2), Math.round((ty + 5) / 2), ui.c(legendOpen || over ? "text.primary" : "text.secondary"));
+        ui.tooltipIfOver(ix, ty, TB, TB, Component.translatable("rysquests.mapview.legend_tip"));
+        ui.hit(ix, ty, TB, TB, () -> legendOpen = !legendOpen);
+        tools.add(new float[] {ix, ty, TB, TB});
+    }
+
+    private void toolButton(Ui ui, float x, float y, Icons.Shape icon, boolean on, Component tip, Runnable action) {
+        boolean over = ui.over(x, y, TB, TB);
+        ui.box(x, y, TB, TB, 9, over ? ui.mix("button.bg", "text.primary", 0.08f) : ui.c("button.bg"), ui.c(on ? "text.secondary" : "button.border"));
+        ui.icon(icon, x + 8, y + 8, 14, ui.c(over || on ? "text.primary" : "text.secondary"));
+        ui.tooltipIfOver(x, y, TB, TB, tip);
+        ui.hit(x, y, TB, TB, action);
+        tools.add(new float[] {x, y, TB, TB});
+    }
+
+    private void drawBottom(Ui ui, int x, int y, int w, int h, boolean compact, MapCanvas.Level level) {
+        // "К моему квесту"
+        String mine = Component.translatable("rysquests.mapview.mine").getString();
+        float mw = 10 + 14 + 6 + ui.width(mine, 12, Ui.MEDIUM) + 10;
+        float my = y + h - PAD - TB;
+        float mx = x + PAD;
+        boolean over = ui.over(mx, my, mw, TB);
+        ui.fill(mx - 2, my - 2, mw + 4, TB + 4, 11, ui.c("map.bg"));
+        ui.box(mx, my, mw, TB, 9, over ? ui.mix("button.bg", "text.primary", 0.08f) : ui.c("button.bg"), ui.c("button.border"));
+        ui.icon(Icons.Shape.TARGET, mx + 10, my + 8, 14, ui.c(over ? "text.primary" : "text.secondary"));
+        ui.label(mine, mx + 30, my + TB / 2f, 12, Ui.MEDIUM, ui.c(over ? "text.primary" : "text.secondary"));
+        ui.hit(mx, my, mw, TB, () -> {
+            if (here != null) {
+                Quest quest = BookData.book().quests().get(here);
+                openChapter = quest == null ? null : quest.chapter().orElse(null);
+                focusEpoch = openChapter == null ? 0 : chapterEpoch(openChapter);
+                canvas.flyToQuest(here);
+            }
+        });
+        tools.add(new float[] {mx, my, mw, TB});
+        // the legend line on the whole book; closer in its corner is the minimap's
+        // the compact layout keeps the legend and the side quests' switch in the help only (picture 46)
+        if (compact) {
+            return;
+        }
+        if (level == MapCanvas.Level.BOOK) {
+            drawLegendLine(ui, x + w - PAD, y + h - PAD - TB);
+        } else {
+            tools.add(new float[] {x + w - 12 - 172, y + h - 12 - 104, 172, 104});
+        }
+    }
+
+    /** One line: done, can do, locked, milestone; and while side quests are hidden, "побочные скрыты · показать". */
+    private void drawLegendLine(Ui ui, float right, float y) {
+        String[] words = {tr("rysquests.mapview.legend.done"), tr("rysquests.mapview.legend.open"), tr("rysquests.mapview.legend.locked"), tr("rysquests.mapview.legend.milestone")};
+        float w = 12;
+        for (String word : words) {
+            w += 12 + 5 + ui.width(word, 11.5f, Ui.REGULAR) + 12;
+        }
+        boolean hidden = !canvas.showSide();
+        String hiddenText = tr("rysquests.mapview.legend.side_hidden");
+        String show = tr("rysquests.mapview.legend.show");
+        float hiddenW = hidden ? 12 + ui.width(hiddenText, 11.5f, Ui.REGULAR) + 8 + ui.width(show, 11.5f, Ui.MEDIUM) + 12 : 0;
+        w += hiddenW;
+        float x = right - w;
+        ui.box(x, y, w, TB, 9, ui.c("sidebar.bg"), ui.c("panel.border"));
+        tools.add(new float[] {x, y, w, TB});
+        float pen = x + 12;
+        float cy = y + TB / 2f;
+        for (int i = 0; i < words.length; i++) {
+            legendSample(ui, i, pen + 6, cy, 1f);
+            pen += 12 + 5;
+            ui.label(words[i], pen, cy, 11.5f, Ui.REGULAR, ui.c("text.secondary"));
+            pen += ui.width(words[i], 11.5f, Ui.REGULAR) + 12;
+        }
+        if (hidden) {
+            ui.rect(pen, y + 1, 1, TB - 2, ui.c("panel.border"));
+            pen += 12;
+            ui.label(hiddenText, pen, cy, 11.5f, Ui.REGULAR, ui.c("text.primary"));
+            pen += ui.width(hiddenText, 11.5f, Ui.REGULAR) + 8;
+            float sw = ui.width(show, 11.5f, Ui.MEDIUM);
+            ui.label(show, pen, cy, 11.5f, Ui.MEDIUM, ui.c("link"));
+            ui.hit(pen - 2, y, sw + 4, TB, () -> canvas.setShowSide(true));
+        }
+    }
+
+    /** The node samples of the legend: 0 done, 1 can do, 2 locked, 3 milestone, 4 side quest, 5 you are here. */
+    private static void legendSample(Ui ui, int kind, float cx, float cy, float k) {
+        switch (kind) {
+            case 0 -> ui.circle(cx - 4 * k, cy - 4 * k, 8 * k, ui.c("map.node.done"));
+            case 1 -> {
+                ui.circle(cx - 3.6f * k, cy - 3.6f * k, 7.2f * k, ui.c("map.node.open"));
+                ui.circle(cx - 2.2f * k, cy - 2.2f * k, 4.4f * k, ui.c("slot.bg"));
+            }
+            case 2 -> {
+                ui.circle(cx - 3.6f * k, cy - 3.6f * k, 7.2f * k, ui.c("map.node.locked"));
+                ui.circle(cx - 2.6f * k, cy - 2.6f * k, 5.2f * k, ui.c("slot.border"));
+            }
+            case 3 -> {
+                ui.ring(cx - 6 * k, cy - 6 * k, 12 * k, 1, ui.c("map.node.locked"));
+                ui.circle(cx - 3 * k, cy - 3 * k, 6 * k, ui.c("map.node.locked"));
+                ui.circle(cx - 2 * k, cy - 2 * k, 4 * k, ui.c("slot.border"));
+            }
+            case 4 -> ui.circle(cx - 2.5f * k, cy - 2.5f * k, 5 * k, ui.c("scroll.thumb"));
+            default -> {
+                ui.ring(cx - 7.5f * k, cy - 7.5f * k, 15 * k, 2, ui.c("map.node.open"));
+                ui.circle(cx - 4 * k, cy - 4 * k, 8 * k, ui.c("map.node.open"));
+                ui.circle(cx - 3 * k, cy - 3 * k, 6 * k, ui.c("slot.bg"));
+            }
+        }
+    }
+
+    /** "Как читать карту" (picture 18): what each mark means, and the switch of side quests with the words of what it hides. */
+    private void drawLegend(Ui ui, int right, int y) {
+        int w = LEGEND_W;
+        String[] rows = {tr("rysquests.mapview.legend.done"), tr("rysquests.mapview.legend.open_long"), tr("rysquests.mapview.legend.locked_long"),
+                tr("rysquests.mapview.legend.milestone_long"), tr("rysquests.mapview.legend.side_long"), tr("rysquests.canvas.here")};
+        String note = tr("rysquests.mapview.legend.note");
+        List<String> noteLines = ui.wrap(note, w - 28, 11.5f, Ui.REGULAR, 4);
+        int h = 12 + 20 + 8 + rows.length * 26 + 8 + 30 + 4 + noteLines.size() * 16 + 12;
+        int x = right - PAD - w;
+        int top = y + 50;
+        int[] box = Kit.popover(ui.g, ui.theme, x / 2, top / 2, 1, 1, w / 2, h / 2, Kit.Side.BELOW, null, (g, bx, by, bw, bh) -> {
+        });
+        float px = box[0] * 2f;
+        float py = box[1] * 2f;
+        overPopover(ui, () -> {
+            float pen = py + 12;
+            ui.label(tr("rysquests.mapview.legend.title"), px + 14, pen + 10, 14, Ui.DISPLAY, ui.c("text.primary"));
+            pen += 20 + 8;
+            for (int i = 0; i < rows.length; i++) {
+                legendSample(ui, i, px + 14 + 9, pen + 13, 1.25f);
+                ui.label(rows[i], px + 14 + 28, pen + 13, 12, Ui.REGULAR, ui.c("text.secondary"));
+                pen += 26;
+            }
+            pen += 8;
+            ui.rect(px + 14, pen, w - 28, 1, ui.c("panel.border"));
+            String toggle = tr("rysquests.mapview.legend.side_toggle");
+            ui.label(toggle, px + 14, pen + 19, 12.5f, Ui.REGULAR, ui.c("text.body"));
+            float tx = px + w - 14 - 36;
+            boolean hot = ui.over(tx, pen + 9, 36, 20);
+            Kit.toggle(ui.g, ui.theme, Math.round(tx / 2), Math.round((pen + 9) / 2), canvas.showSide(), hot);
+            ui.hit(tx - 4, pen + 5, 44, 28, () -> canvas.setShowSide(!canvas.showSide()));
+            pen += 30 + 4;
+            for (String line : noteLines) {
+                ui.label(line, px + 14, pen + 8, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+                pen += 16;
+            }
+        });
+        tools.add(new float[] {px, py, w, h});
+    }
+
+    /** The popover of a hovered chapter (picture 15): name, epoch, main and side counts, and why it is locked. */
+    private void drawChapterPopover(Ui ui, int x, int y, int w, int h) {
+        MapCanvas.Target hover = canvas.hovered();
+        // on the whole book and the epoch a node is too small to mean itself: the pointer is over its chapter
+        if (hover.kind() != MapCanvas.Kind.CHAPTER && hover.kind() != MapCanvas.Kind.QUEST || hover.chapter() == null || canvas.level().ordinal() > MapCanvas.Level.EPOCH.ordinal()) {
+            return;
+        }
+        for (float[] tool : tools) {
+            if (ui.mouseX >= tool[0] && ui.mouseX < tool[0] + tool[2] && ui.mouseY >= tool[1] && ui.mouseY < tool[1] + tool[3]) {
+                return;
+            }
+        }
+        Chapter chapter = BookData.book().chapters().get(hover.chapter());
+        float[] area = canvas.chapterOnScreen(hover.chapter());
+        if (chapter == null || area == null) {
+            return;
+        }
+        BookTallies.Tally tally = BookTallies.chapter(chapter.id());
+        String title = Component.translatable(chapter.title()).getString();
+        int epoch = chapter.epoch().orElse(0);
+        String sub = epoch == 0 ? "" : epochName(epoch, galaxy(), false);
+        List<String> need = tally.state() == BookTallies.State.LOCKED ? neededChapters(chapter.id(), 2) : List.of();
+        // a chapter's name in running text is always in quotes (plan, section 1)
+        String needText = need.isEmpty() ? "" : Component.translatable("rysquests.mapview.closed_need",
+                String.join(", ", need.stream().map(name -> "«" + name.replace(" ✓", "") + "»").toList())).getString();
+        List<String> needLines = needText.isEmpty() ? List.of() : ui.wrap(needText, POP_W - 24, 11.5f, Ui.REGULAR, 3);
+        int ph = 10 + 20 + (sub.isEmpty() ? 0 : 16) + 6 + 18 + 6 + (tally.optionalTotal() > 0 ? 18 + 6 : 0) + needLines.size() * 16 + 10;
+        // beside the chapter's area, inside the canvas
+        int ax = Math.round(Math.max(x, area[0]));
+        int ay = Math.round(Math.max(y, area[1]));
+        int aw = Math.round(Math.min(x + w, area[0] + area[2]) - ax);
+        int ah = Math.round(Math.min(y + h, area[1] + area[3]) - ay);
+        int[] bounds = {x / 2, y / 2, w / 2, h / 2};
+        int[] box = Kit.popover(ui.g, ui.theme, ax / 2, Math.max(ay, ui.mouseY - 60) / 2, Math.max(1, aw) / 2, 1, POP_W / 2, ph / 2, Kit.Side.RIGHT, bounds, (g, bx, by, bw, bh) -> {
+        });
+        float px = box[0] * 2f;
+        float py = box[1] * 2f;
+        overPopover(ui, () -> {
+            float pen = py + 10;
+            ui.labelFit(title, px + 12, pen + 10, POP_W - 24, 14.5f, Ui.DISPLAY, ui.c("text.primary"));
+            pen += 20;
+            if (!sub.isEmpty()) {
+                ui.label(sub, px + 12, pen + 6, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+                pen += 16;
+            }
+            pen += 6;
+            pen = popRow(ui, px, pen, tr("rysquests.mapview.main"), tally.done(), tally.total(), true) + 6;
+            if (tally.optionalTotal() > 0) {
+                pen = popRow(ui, px, pen, tr("rysquests.mapview.side"), tally.optionalDone(), tally.optionalTotal(), false) + 6;
+            }
+            for (String line : needLines) {
+                ui.label(line, px + 12, pen + 8, 11.5f, Ui.REGULAR, ui.c("text.secondary"));
+                pen += 16;
+            }
+        });
+    }
+
+    /** Draws above the popover frame the core puts high over the window. */
+    private static void overPopover(Ui ui, Runnable drawing) {
+        ui.g.pose().pushPose();
+        ui.g.pose().translate(0, 0, 450);
+        drawing.run();
+        ui.g.pose().popPose();
+    }
+
+    private float popRow(Ui ui, float px, float y, String label, int done, int total, boolean main) {
+        float cy = y + 9;
+        ui.label(label, px + 12, cy, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+        float bx = px + 12 + 64 + 8;
+        float bw = POP_W - 24 - 64 - 8 - 60 - 8;
+        ui.bar(bx, cy - 2, bw, 4, 2, total == 0 ? 0 : done / (float) total, main ? ui.c("state.ok") : ui.c("text.muted"));
+        ui.labelRight(Component.translatable("rysquests.count.of", Sidebar.full(done), Sidebar.full(total)).getString(), px + POP_W - 12, cy, 11.5f, Ui.MEDIUM, ui.c("text.secondary"));
+        return y + 18;
+    }
+
+    // --- the panel on the right ---
+
+    /**
+     * The one place the quest panel plugs in: the quest panel of the "Now" screen replaces the old card here when it is merged. It
+     * closes back to the chapter's card.
+     */
+    private void questPanel(Ui ui, Quest quest, int x, int y, int w, int h) {
+        if (!quest.id().equals(panelFor)) {
+            panel.reset();
+            panelFor = quest.id();
+        }
+        panel.render(ui, x, y, w, h, (u, bx, by, bw) -> QuestCard.render(u, quest, Math.round(bx - DetailPanel.PAD_X), Math.round(by - DetailPanel.PAD_TOP), Math.round(bw + DetailPanel.PAD_X * 2 - 34)) - DetailPanel.PAD_TOP,
+                null);
+        closeCross(ui, x + w - 18 - 28, y + 12, () -> {
+            BookState.quest = null;
+            canvas.select(null);
+            canvas.setRoute(List.of());
+        });
+    }
+
+    private void closeCross(Ui ui, float x, float y, Runnable action) {
+        boolean over = ui.over(x, y, 28, 28);
+        ui.fill(x, y, 28, 28, 7, over ? ui.c("slot.hover") : ui.c("panel.bg"));
+        ui.icon(Icons.Shape.CROSS, x + 7, y + 7, 14, ui.c(over ? "text.primary" : "text.muted"));
+        ui.hit(x, y, 28, 28, action);
+    }
+
+    /** The chapter's card on the chapter level (picture 16): counts, milestones, links, the list link and "Продолжить: …". */
+    private void chapterCard(Ui ui, ResourceLocation chapterId, int x, int y, int w, int h) {
+        QuestBook book = BookData.book();
+        Chapter chapter = book.chapters().get(chapterId);
+        if (chapter == null) {
+            return;
+        }
+        if (!chapterId.equals(panelFor)) {
+            panel.reset();
+            panelFor = chapterId;
+        }
+        BookTallies.Tally tally = BookTallies.chapter(chapterId);
+        Quest next = nextQuest(book, chapterId);
+        DetailPanel.Action action = next == null ? null : DetailPanel.Action.button(Component.translatable("rysquests.mapview.card.continue", Component.translatable(next.title())).getString(), () -> flyToQuest(next.id()));
+        panel.render(ui, x, y, w, h, (u, bx, by, bw) -> {
+            float pen = by;
+            int epoch = chapter.epoch().orElse(0);
+            String rubric = Component.translatable("rysquests.mapview.card.rubric", String.format("%02d", map == null ? 0 : map.chapter(chapterId) + 1), epoch == 0 ? "" : epochName(epoch, galaxy(), false)).getString();
+            pen += DetailPanel.rubric(u, bx, pen, bw - 30, epoch == 0 ? rubric.replace(" · ", "") : rubric, null) + 10;
+            ItemStack icon = chapter.icon().map(TaskText::stackOf).orElse(null);
+            pen += DetailPanel.header(u, bx, pen, bw, icon, Component.translatable(chapter.title()).getString(), chapter.subtitle().map(s -> Component.translatable(s).getString()).orElse(null), null, false, null);
+            pen += 16;
+            pen = countRow(u, bx, pen, bw, tr("rysquests.mapview.main"), tally.done(), tally.total(), u.c("state.ok"));
+            if (tally.optionalTotal() > 0) {
+                pen = countRow(u, bx, pen + 4, bw, tr("rysquests.mapview.side"), tally.optionalDone(), tally.optionalTotal(), u.c("text.muted"));
+            }
+            List<Quest> milestones = milestones(book, chapterId);
+            if (!milestones.isEmpty()) {
+                pen += DetailPanel.GAP + 4;
+                long done = milestones.stream().filter(q -> status(q.id()) == QuestStatus.COMPLETED).count();
+                pen += DetailPanel.rubric(u, bx, pen, bw, tr("rysquests.mapview.card.milestones"), Component.translatable("rysquests.count.of", done, milestones.size()).getString()) + 4;
+                for (Quest quest : milestones) {
+                    QuestStatus st = status(quest.id());
+                    ListRow row = ListRow.of(Component.translatable(quest.title()).getString()).icon(questIcon(quest)).look(ListRow.Look.FLAT).locked(st == QuestStatus.LOCKED)
+                            .onClick(() -> flyToQuest(quest.id()));
+                    row = st == QuestStatus.COMPLETED ? row.right(Icons.Shape.CHECK, "", "state.ok") : st == QuestStatus.LOCKED ? row.right(tr("rysquests.mapview.card.locked")) : row.right(tr("rysquests.mapview.card.can_do"));
+                    pen += row.render(u, bx - 8, pen, bw + 16);
+                }
+            }
+            List<String> needs = neededChapters(chapterId, 2);
+            List<String> opens = openedChapters(chapterId, 3);
+            if (!needs.isEmpty() || !opens.isEmpty()) {
+                pen += DetailPanel.GAP + 4;
+                pen += DetailPanel.rubric(u, bx, pen, bw, tr("rysquests.mapview.card.links"), null) + 6;
+                if (!needs.isEmpty()) {
+                    pen = linkRow(u, bx, pen, bw, tr("rysquests.mapview.card.needs"), String.join(", ", needs));
+                }
+                if (!opens.isEmpty()) {
+                    pen = linkRow(u, bx, pen + 2, bw, tr("rysquests.mapview.card.opens"), String.join(", ", opens));
+                }
+            }
+            pen += DetailPanel.GAP + 6;
+            String asList = tr("rysquests.mapview.card.as_list");
+            float lw = u.width(asList, 12.5f, Ui.MEDIUM);
+            boolean over = u.over(bx, pen, lw, 18);
+            u.label(asList, bx, pen + 9, 12.5f, Ui.MEDIUM, over ? u.mix("link", "text.primary", 0.3f) : u.c("link"));
+            u.hit(bx, pen, lw, 18, () -> {
+                BookState.openChapter(chapterId);
+                BookState.view = ViewMode.LIST;
+            });
+            pen += 18;
+            return pen - by;
+        }, action);
+        closeCross(ui, x + w - 18 - 22, y + 10, () -> panelClosed = true);
+    }
+
+    private static float countRow(Ui ui, float x, float y, float w, String label, int done, int total, int color) {
+        float cy = y + 9;
+        ui.label(label, x, cy, 12.5f, Ui.REGULAR, ui.c("text.secondary"));
+        ui.labelRight(Component.translatable("rysquests.count.of", Sidebar.full(done), Sidebar.full(total)).getString(), x + w, cy, 12.5f, Ui.SEMIBOLD, ui.c("text.primary"));
+        ui.bar(x, y + 22, w, 6, 3, total == 0 ? 0 : done / (float) total, color);
+        return y + 30;
+    }
+
+    private static float linkRow(Ui ui, float x, float y, float w, String label, String value) {
+        List<String> lines = ui.wrap(value, w - 74, 12.5f, Ui.MEDIUM, 3);
+        ui.label(label, x, y + 9, 12.5f, Ui.REGULAR, ui.c("text.muted"));
+        float pen = y;
+        for (String line : lines) {
+            ui.label(line, x + 74, pen + 9, 12.5f, Ui.MEDIUM, ui.c("text.primary"));
+            pen += 18;
+        }
+        return pen;
+    }
+
+    // ================= input =================
+
+    @Override
+    public void press(double x, double y, int button) {
+        for (float[] tool : tools) {
+            if (x >= tool[0] && x < tool[0] + tool[2] && y >= tool[1] && y < tool[1] + tool[3]) {
+                pressedOnCanvas = false;
+                return;
+            }
+        }
+        if (legendOpen) {
+            legendOpen = false;
+        }
+        if (canvas.clickLoading(x, y)) {
+            pressedOnCanvas = false;
+            return;
+        }
+        pressedOnCanvas = canvas.mouseClicked(x, y, button);
+        pointerX = x;
+        pointerY = y;
     }
 
     @Override
     public boolean drag(double deltaX, double deltaY) {
-        panX -= (float) (deltaX / zoom);
-        panY -= (float) (deltaY / zoom);
-        return true;
+        if (!pressedOnCanvas) {
+            return false;
+        }
+        pointerX += deltaX;
+        pointerY += deltaY;
+        return canvas.mouseDragged(pointerX, pointerY, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean release(double x, double y, int button) {
+        if (!pressedOnCanvas) {
+            return false;
+        }
+        pressedOnCanvas = false;
+        return canvas.mouseReleased(x, y, button);
+    }
+
+    @Override
+    public void scroll(double mouseX, double mouseY, double amount) {
+        if (panel.contains(mouseX, mouseY) && inTools(mouseX, mouseY)) {
+            panel.scroll(amount);
+        } else {
+            canvas.mouseScrolled(mouseX, mouseY, amount);
+        }
+    }
+
+    private boolean inTools(double x, double y) {
+        for (float[] tool : tools) {
+            if (x >= tool[0] && x < tool[0] + tool[2] && y >= tool[1] && y < tool[1] + tool[3]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
     public boolean key(int key) {
-        if (key == GLFW.GLFW_KEY_F) {
-            toggleFocus();
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL || key == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ADD) {
+            canvas.zoomBy(1.6);
+            return true;
+        }
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_MINUS || key == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_SUBTRACT) {
+            canvas.zoomBy(1 / 1.6);
             return true;
         }
         return false;
+    }
+
+    private void onCanvasClick(MapCanvas.Target target, int button) {
+        if (button != 0) {
+            if (button == 1 && target.kind() == MapCanvas.Kind.QUEST && target.quest() != null) {
+                BookData.togglePin(target.quest());
+            }
+            return;
+        }
+        switch (target.kind()) {
+            case QUEST -> {
+                Quest quest = BookData.book().quests().get(target.quest());
+                if (quest != null) {
+                    BookState.select(quest);
+                    openChapter = target.chapter();
+                    focusEpoch = target.epoch();
+                    panelClosed = false;
+                }
+            }
+            case CHAPTER -> {
+                if (canvas.level().ordinal() < MapCanvas.Level.CHAPTER.ordinal() || !target.chapter().equals(openChapter)) {
+                    flyToChapter(target.chapter());
+                } else {
+                    BookState.quest = null;
+                    panelClosed = false;
+                }
+            }
+            case EPOCH -> {
+                openChapter = null;
+                focusEpoch = target.epoch();
+            }
+            default -> BookState.quest = null;
+        }
+    }
+
+    @Nullable
+    @Override
+    public int[] messageArea(int x, int y, int w, int h) {
+        return null;
+    }
+
+    // ================= data =================
+
+    static QuestStatus status(ResourceLocation id) {
+        Quest quest = BookData.book().quests().get(id);
+        return quest == null ? QuestStatus.LOCKED : BookState.status(quest);
+    }
+
+    /**
+     * "You are here", the next step by the plan's one rule: the nearest unfinished main quest of the chapter where the player last
+     * completed a quest; else the first unfinished main quest of the first unfinished chapter.
+     */
+    private void refreshHere(QuestBook book) {
+        int version = ClientProgress.version();
+        if (version == hereVersion && hereBook == book) {
+            return;
+        }
+        hereVersion = version;
+        hereBook = book;
+        here = null;
+        if (map == null) {
+            return;
+        }
+        Optional<ResourceLocation> last = ClientProgress.lastChapter().filter(id -> map.chapter(id) >= 0);
+        if (last.isPresent()) {
+            here = nextMain(book, last.get());
+        }
+        if (here == null) {
+            for (MapBook.Chap chapter : map.chapters()) {
+                here = nextMain(book, chapter.id());
+                if (here != null) {
+                    break;
+                }
+            }
+        }
+        canvas.setHere(here);
+    }
+
+    /** The first main quest of the chapter not done yet, one that can be done before one that cannot. */
+    @Nullable
+    private static ResourceLocation nextMain(QuestBook book, ResourceLocation chapter) {
+        ResourceLocation fallback = null;
+        for (Quest quest : ChapterOrder.of(book, chapter)) {
+            if (quest.options().optional() || !quest.options().live()) {
+                continue;
+            }
+            QuestStatus st = status(quest.id());
+            if (st == QuestStatus.COMPLETED) {
+                continue;
+            }
+            if (st != QuestStatus.LOCKED) {
+                return quest.id();
+            }
+            if (fallback == null) {
+                fallback = quest.id();
+            }
+        }
+        return fallback;
+    }
+
+    @Nullable
+    private static Quest nextQuest(QuestBook book, ResourceLocation chapter) {
+        ResourceLocation id = nextMain(book, chapter);
+        return id == null ? null : book.quests().get(id);
+    }
+
+    /** A locked quest's path: its unfinished quests before it in an order that can be walked, the goal last (picture 22). */
+    private void refreshRoute(QuestBook book, @Nullable Quest selected) {
+        ResourceLocation goal = selected != null && status(selected.id()) == QuestStatus.LOCKED ? selected.id() : null;
+        int version = ClientProgress.version();
+        if (java.util.Objects.equals(goal, routeFor) && version == routeVersion) {
+            return;
+        }
+        routeFor = goal;
+        routeVersion = version;
+        canvas.setRoute(goal == null ? List.of() : route(book, goal));
+    }
+
+    static List<ResourceLocation> route(QuestBook book, ResourceLocation goal) {
+        List<ResourceLocation> out = new ArrayList<>();
+        walk(book, goal, new HashSet<>(), out);
+        return out;
+    }
+
+    private static void walk(QuestBook book, ResourceLocation id, Set<ResourceLocation> seen, List<ResourceLocation> out) {
+        if (!seen.add(id) || status(id) == QuestStatus.COMPLETED) {
+            return;
+        }
+        Quest quest = book.quests().get(id);
+        if (quest == null) {
+            return;
+        }
+        for (ResourceLocation r : quest.requires()) {
+            walk(book, r, seen, out);
+        }
+        out.add(id);
+    }
+
+    private static List<Quest> milestones(QuestBook book, ResourceLocation chapter) {
+        return ChapterOrder.of(book, chapter).stream().filter(q -> q.options().milestone() && !q.options().optional() && q.options().live()).toList();
+    }
+
+    /** Chapters this one needs, most links first, finished ones with the check left to the caller's words. */
+    private List<String> neededChapters(ResourceLocation chapter, int limit) {
+        return crossChapters(chapter, true, limit);
+    }
+
+    private List<String> openedChapters(ResourceLocation chapter, int limit) {
+        return crossChapters(chapter, false, limit);
+    }
+
+    private List<String> crossChapters(ResourceLocation chapter, boolean needs, int limit) {
+        QuestBook book = BookData.book();
+        Map<ResourceLocation, Integer> counts = new LinkedHashMap<>();
+        for (Quest quest : book.quests().values()) {
+            if (!quest.options().live() || quest.chapter().isEmpty()) {
+                continue;
+            }
+            for (ResourceLocation r : quest.requires()) {
+                Quest other = book.quests().get(r);
+                if (other == null || other.chapter().isEmpty()) {
+                    continue;
+                }
+                ResourceLocation from = other.chapter().get();
+                ResourceLocation to = quest.chapter().get();
+                if (from.equals(to)) {
+                    continue;
+                }
+                if (needs && to.equals(chapter)) {
+                    counts.merge(from, 1, Integer::sum);
+                } else if (!needs && from.equals(chapter)) {
+                    counts.merge(to, 1, Integer::sum);
+                }
+            }
+        }
+        Map<ResourceLocation, Integer> order = new HashMap<>();
+        List<ResourceLocation> all = new ArrayList<>(book.chapters().keySet());
+        for (int i = 0; i < all.size(); i++) {
+            order.put(all.get(i), i);
+        }
+        return counts.entrySet().stream()
+                .filter(e -> map == null || map.chapter(e.getKey()) >= 0)
+                .filter(e -> needs || order.getOrDefault(e.getKey(), 0) > order.getOrDefault(chapter, 0))
+                .sorted(Map.Entry.<ResourceLocation, Integer>comparingByValue().reversed().thenComparing(e -> order.getOrDefault(e.getKey(), 0)))
+                .limit(limit)
+                .map(e -> chapterTitle(e.getKey()) + (BookTallies.chapter(e.getKey()).state() == BookTallies.State.DONE ? " ✓" : ""))
+                .toList();
+    }
+
+    private boolean galaxy() {
+        return canvas.layout() != null && canvas.layout().form == MapForm.GALAXY;
+    }
+
+    private static String chapterTitle(ResourceLocation id) {
+        Chapter chapter = BookData.book().chapters().get(id);
+        return chapter == null ? id.getPath() : Component.translatable(chapter.title()).getString();
+    }
+
+    /** "II Индустрия", or the numeral alone when short; a galaxy's sections have names only. */
+    private static String epochName(int epoch, boolean galaxy, boolean shortForm) {
+        String title = BookData.book().meta().epoch(epoch).map(BookMeta.Epoch::title).map(t -> Component.translatable(t).getString()).orElse("");
+        if (galaxy) {
+            return title.isEmpty() ? Ui.roman(epoch) : title;
+        }
+        return shortForm || title.isEmpty() ? Ui.roman(epoch) : Ui.roman(epoch) + " " + title;
+    }
+
+    private static String tr(String key) {
+        return Component.translatable(key).getString();
+    }
+
+    // ================= for tests =================
+
+    String stateForTest() {
+        return canvas.level() + " " + canvas.stats() + " chapter " + openChapter + " epoch " + focusEpoch + " quest " + BookState.quest + " here " + here;
+    }
+
+    void zoomForTest(float scale) {
+        canvas.zoomBy(scale / canvas.scale());
+    }
+
+    @Nullable
+    double[] nodeForTest(ResourceLocation quest) {
+        float[] at = canvas.questOnScreen(quest);
+        return at == null ? null : new double[] {at[0] / 2 - 6, at[1] / 2 - 6, 12, 12};
+    }
+
+    void legendForTest(boolean open) {
+        legendOpen = open;
+    }
+
+    @Nullable
+    float[] chapterForTest(ResourceLocation chapter) {
+        return canvas.chapterOnScreen(chapter);
+    }
+
+    @Nullable
+    ResourceLocation hereForTest() {
+        return here;
+    }
+
+    private static ItemStack questIcon(Quest quest) {
+        return quest.icon().map(TaskText::stackOf).orElseGet(() -> quest.tasks().isEmpty() ? ItemStack.EMPTY : TaskText.icon(quest.tasks().getFirst()));
     }
 }

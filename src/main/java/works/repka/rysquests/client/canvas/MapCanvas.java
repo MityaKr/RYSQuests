@@ -116,6 +116,7 @@ public final class MapCanvas {
     private int openChapter = -1;
     private int focusEpoch = 0;
     private boolean minimap = true;
+    private Level minimapFrom = Level.CHAPTER;
     private float insetTop = 44;
     private float insetBottom = 12;
     private float insetSide = 14;
@@ -253,6 +254,35 @@ public final class MapCanvas {
         focusEpoch = epoch;
     }
 
+    /** The level from which the minimap shows: the chapter by default, the epoch as picture 15b has it. */
+    public void setMinimapFrom(Level level) {
+        minimapFrom = level;
+    }
+
+    /** What the pointer was over in the last frame. */
+    public Target hovered() {
+        return lastHover;
+    }
+
+    /** A chapter's box on screen in mockup pixels {@code {x, y, w, h}}, or null when it is not on the canvas. */
+    @Nullable
+    public float[] chapterOnScreen(ResourceLocation chapter) {
+        if (layout == null || map == null || map.chapter(chapter) < 0) {
+            return null;
+        }
+        CanvasLayout.Region region = layout.regions[map.chapter(chapter)];
+        float[] a = screenOf(region.minX(), region.minY());
+        float[] b = screenOf(region.maxX(), region.maxY());
+        return new float[] {a[0], a[1], b[0] - a[0], b[1] - a[1]};
+    }
+
+    /** A quest's centre on screen in mockup pixels, or null when it is not on the canvas. */
+    @Nullable
+    public float[] questOnScreen(ResourceLocation quest) {
+        int q = index(quest);
+        return q < 0 ? null : screenOf(layout.x[q], layout.y[q]);
+    }
+
     public void setMinimap(boolean show) {
         minimap = show;
     }
@@ -335,6 +365,17 @@ public final class MapCanvas {
 
     public double scale() {
         return camera.scale;
+    }
+
+    /**
+     * Tells the canvas the rectangle it is about to be drawn in, so that a flight planned before the next frame frames for it: the
+     * map's panel opening narrows the canvas.
+     */
+    public void setViewport(int x, int y, int w, int h) {
+        vx = x;
+        vy = y;
+        vw = Math.max(1, w);
+        vh = Math.max(1, h);
     }
 
     /** Where a canvas point is in the rectangle now, in mockup pixels. */
@@ -505,7 +546,7 @@ public final class MapCanvas {
         counts[0] = drawn[0];
         counts[2] = drawn[1];
         int labels = drawLabels(g, t, f, level);
-        if (minimap && (level == Level.CHAPTER || level == Level.CLOSE)) {
+        if (minimap && level.ordinal() >= minimapFrom.ordinal()) {
             drawMinimap(g, t);
         }
         g.disableScissor();
