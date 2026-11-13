@@ -88,24 +88,24 @@ public final class CanvasLayout {
             if (n < 2) {
                 return n == 1 && Math.hypot(x - pts[0], y - pts[1]) <= width / 2;
             }
-            float half = width / 2;
+            // the nearest point of the centre line decides: past the first point or the last one, the point is beyond a square end
+            double best = Double.MAX_VALUE;
+            boolean beyond = false;
             for (int i = 0; i + 1 < n; i++) {
                 float ax = pts[2 * i];
                 float ay = pts[2 * i + 1];
                 float dx = pts[2 * i + 2] - ax;
                 float dy = pts[2 * i + 3] - ay;
                 float l2 = dx * dx + dy * dy;
-                float t = l2 == 0 ? 0 : ((x - ax) * dx + (y - ay) * dy) / l2;
-                // past the first point of the line or the last one: outside the square end
-                if (i == 0 && t < 0 || i == n - 2 && t > 1) {
-                    continue;
-                }
-                t = Math.max(0, Math.min(1, t));
-                if (Math.hypot(x - (ax + t * dx), y - (ay + t * dy)) <= half) {
-                    return true;
+                float raw = l2 == 0 ? 0 : ((x - ax) * dx + (y - ay) * dy) / l2;
+                float t = Math.max(0, Math.min(1, raw));
+                double d = Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+                if (d < best) {
+                    best = d;
+                    beyond = i == 0 && raw < 0 || i == n - 2 && raw > 1;
                 }
             }
-            return false;
+            return !beyond && best <= width / 2;
         }
 
         /** Distance from the point to the band's centre line. */

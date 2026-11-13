@@ -87,5 +87,17 @@ class SpiralCentreTest {
         assertFalse(a.contains(120, 30), "the neighbour's area is its own");
         assertFalse(a.contains(-5, 0), "before the start");
         assertTrue(a.distanceToLine(110, 0) <= 50, "the plain distance still reaches round the end");
+        // along an arc: a point of the chapter before, short of this band's start, is not in it
+        float[] arc = new float[2 * 21];
+        for (int i = 0; i <= 20; i++) {
+            double angle = Math.PI / 2 * i / 20;
+            arc[2 * i] = (float) (300 * Math.cos(angle));
+            arc[2 * i + 1] = (float) (300 * Math.sin(angle));
+        }
+        CanvasLayout.Region curved = CanvasLayout.Region.band(arc, 150);
+        double back = -14.0 / 300;
+        assertFalse(curved.contains((float) (300 * Math.cos(back)), (float) (300 * Math.sin(back))), "short of the start along the arc");
+        assertFalse(curved.contains((float) (340 * Math.cos(back)), (float) (340 * Math.sin(back))), "short of the start, off the middle line");
+        assertTrue(curved.contains((float) (260 * Math.cos(0.05)), (float) (260 * Math.sin(0.05))));
     }
 }

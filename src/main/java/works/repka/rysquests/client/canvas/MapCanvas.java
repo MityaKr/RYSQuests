@@ -76,7 +76,10 @@ public final class MapCanvas {
     static final double EPOCH_FROM = 1.2;
     static final double CHAPTER_FROM = 2.7;
     static final double CLOSE_FROM = 4.2;
-    private static final double MAX_SCALE = 7;
+    /** How close the wheel and "+" go: tiles grow to their largest and the nodes keep drawing apart. */
+    private static final double MAX_SCALE = 12;
+    /** How close a flight frames on its own: a small chapter is not blown up past this. */
+    private static final double FRAME_MAX = 7;
     /** Room for an epoch's plate over the top row of chapters, in mockup pixels. */
     private static final float EPOCH_LABEL_ROOM = 28;
     private static final int MAX_ICONS = 150;
@@ -710,7 +713,7 @@ public final class MapCanvas {
         double h = Math.max(1, y1 - y0);
         float planW = planWidth > 0 ? planWidth : vw;
         double s = Math.max(minScale, Math.min((planW - 2 * insetSide) / w, (vh - top - insetBottom) / h));
-        s = Math.min(s, MAX_SCALE);
+        s = Math.min(s, FRAME_MAX);
         // framed in the middle of the planned rectangle, which shares the left edge of this one
         double cx = (x0 + x1) / 2 + (vw - planW) / 2 / s;
         // the tools take the top of the view: what is framed sits below them
@@ -1067,7 +1070,8 @@ public final class MapCanvas {
     /** The least reach of a node: a dot of the whole book is a pixel or two, a pointer is not that exact. */
     private static final float MIN_HIT = 7;
     /** The farthest any node reaches: half the largest tile, its milestone frame and the spare room. */
-    private static final float MAX_HIT = 48 / 2f + 4.5f + HIT_SPARE + 1;
+    private static final float TILE_MAX = 76;
+    private static final float MAX_HIT = TILE_MAX / 2 + 10 + HIT_SPARE + 1;
 
     /**
      * How far a point lies from a node in the node's own terms, under 1 on it: a tile takes its whole square and a little round
@@ -1110,7 +1114,7 @@ public final class MapCanvas {
     private float tilePx(boolean hub, boolean milestone) {
         double s = camera.scale;
         double world = milestone ? 12 : hub ? 9.5 : 6.8;
-        return (float) Math.min(milestone ? 48 : hub ? 42 : 30, world * s);
+        return (float) Math.min(milestone ? TILE_MAX : hub ? 66 : 48, world * s);
     }
 
     private int[] drawNodes(GuiGraphics g, Theme t, Frame f, Level level) {
@@ -1233,8 +1237,8 @@ public final class MapCanvas {
             if (iconCount < MAX_ICONS) {
                 ItemStack icon = icon(q);
                 if (!icon.isEmpty()) {
-                    float iconSize = size * 0.68f;
-                    item(g, icon, px - iconSize / 2, py - iconSize / 2, iconSize);
+                    float iconSize = crisp(size * 0.68f);
+                    item(g, icon, Math.round((px - iconSize / 2) / PER_GUI) * PER_GUI, Math.round((py - iconSize / 2) / PER_GUI) * PER_GUI, iconSize);
                     iconCount++;
                     if (st == LOCKED) {
                         fill(g, x0 + 1.5f, y0 + 1.5f, size - 3, size - 3, radius, Draw.alpha(back, 0.62f));
@@ -1810,6 +1814,14 @@ public final class MapCanvas {
 
     private static void icon(GuiGraphics g, Icons.Shape shape, float x, float y, float size, int color) {
         Icons.draw(g, shape, x / PER_GUI, y / PER_GUI, size / PER_GUI, color);
+    }
+
+    /**
+     * An item's size that draws its pixels whole: a multiple of 16 mockup pixels, half its own size at GUI scale 2 and up from there,
+     * so the closest view shows the item sharp and not stretched by a fraction.
+     */
+    private static float crisp(float size) {
+        return size < 16 ? size : (float) Math.floor(size / 16) * 16;
     }
 
     private static void item(GuiGraphics g, ItemStack stack, float x, float y, float size) {

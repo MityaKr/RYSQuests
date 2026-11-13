@@ -154,6 +154,14 @@ final class MapFixChecks {
             LOGGER.info("[autotest] fb1 tile edge: half {} px, hit {}", half, target.quest());
         }, 2);
         expect("fb1 the corner of a tile is its quest", () -> edge[0]);
+        // the closest view: "+" goes on past the old limit, items stay sharp
+        step("fb1 zoom in to the limit", () -> BookScreen.mapZoomForTest(20f), 40);
+        screenshot("map_fb1_closest");
+        expect("fb1 the closest view is past the old limit", () -> {
+            double scale = BookScreen.mapCanvasForTest().scale();
+            LOGGER.info("[autotest] fb1 closest scale {}", scale);
+            return scale > 10;
+        });
         // 6: the spiral's centre, the last epoch winding to the finale
         step("fb1 the last epoch", () -> BookScreen.mapFlyForTest(null, 9, null), 40);
         screenshot("map_fb1_creation_epoch");
