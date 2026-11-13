@@ -116,6 +116,8 @@ public final class PanelShowcase implements BookView {
         BookState.openChapter(chapter);
         QuestListView.showChapter();
         BookState.quest = quest;
+        // the canvas map flies to the quest, as "Показать на карте" does
+        MapView.showNext(quest);
     }
 
     /** The list: a chapter (chapter given), an epoch (epoch above 0) or the whole book, with a filter and a quest selected. */

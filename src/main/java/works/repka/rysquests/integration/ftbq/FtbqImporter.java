@@ -203,9 +203,11 @@ public final class FtbqImporter {
         // FTB keys the file's title by its id written as sixteen hex digits ("file.0000000000000001.title"); older packs wrote "file.1"
         // or kept the title in data.snbt. Without any of them the book is still named, so its key never shows.
         String titleKey = "book." + namespace + ".title";
-        if (!translate(titleKey, "file.0000000000000001.title") && !translate(titleKey, "file.1.title")) {
-            lang.computeIfAbsent(ENGLISH, key -> new LinkedHashMap<>()).put(titleKey, string(source.data(), "title").map(FtbqImporter::gameFormatting).orElse("FTB Quests"));
+        if (!translate(titleKey, "file.0000000000000001.title")) {
+            translate(titleKey, "file.1.title");
         }
+        lang.computeIfAbsent(ENGLISH, key -> new LinkedHashMap<>()).putIfAbsent(titleKey,
+                string(source.data(), "title").map(FtbqImporter::gameFormatting).orElse("FTB Quests"));
         itemId(source.data().get("icon")).ifPresent(icon -> book.addProperty("icon", icon));
         book.add("chapter_order", order);
         // Chapter groups become the sections of the book. They are marked as the import's, so that the automatic map form
@@ -274,7 +276,7 @@ public final class FtbqImporter {
         out.addProperty("id", id);
         out.addProperty("chapter", chapterId);
         out.addProperty("title", keyBase + ".title");
-        translateRequired(keyBase + ".title", "quest." + hex + ".title", hex);
+        translateRequired(keyBase + ".title", "quest." + hex + ".title", untitled(hex));
         if (translate(keyBase + ".subtitle", "quest." + hex + ".quest_subtitle")) {
             out.addProperty("subtitle", keyBase + ".subtitle");
         }
@@ -640,10 +642,29 @@ public final class FtbqImporter {
         return found;
     }
 
+    /**
+     * A text every player sees something for: English, the language the game falls back to, always gets one. A pack can title a
+     * quest in a few languages only (ATM10 does it in Norwegian and Polish), and without English the rest saw the key.
+     */
     private void translateRequired(String ourKey, String ftbKey, String fallback) {
-        if (!translate(ourKey, ftbKey)) {
-            lang.computeIfAbsent(ENGLISH, key -> new LinkedHashMap<>()).put(ourKey, fallback);
+        translate(ourKey, ftbKey);
+        lang.computeIfAbsent(ENGLISH, key -> new LinkedHashMap<>()).putIfAbsent(ourKey, fallback);
+    }
+
+    /** What a quest without an English title is called: the start of its description, else its id, as FTB leaves it to the task. */
+    private String untitled(String hex) {
+        String text = translation(ENGLISH, "quest." + hex + ".quest_desc").orElse("");
+        String plain = text.replaceAll("§[0-9a-fk-or]", "").replaceAll("\\{[^}]*}", "").strip();
+        int end = plain.indexOf('\n');
+        plain = end < 0 ? plain : plain.substring(0, end).strip();
+        if (plain.isEmpty()) {
+            return hex;
         }
+        if (plain.length() <= 48) {
+            return plain;
+        }
+        int cut = plain.lastIndexOf(' ', 48);
+        return plain.substring(0, cut > 20 ? cut : 48) + "…";
     }
 
     private Optional<String> translation(String locale, String key) {

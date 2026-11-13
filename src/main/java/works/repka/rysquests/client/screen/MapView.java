@@ -115,7 +115,7 @@ final class MapView implements BookView {
     // ================= the sidebar's side =================
 
     void flyToBook() {
-        lastFlight = this::flyToBook;
+        lastFlight = canvas::flyToBook;
         openChapter = null;
         focusEpoch = 0;
         canvas.select(null);
@@ -126,14 +126,15 @@ final class MapView implements BookView {
     void flyToEpoch(int number) {
         // the sidebar numbers a galaxy's chapters without a section -1; on the canvas they are epoch 0
         int epoch = Math.max(0, number);
-        lastFlight = () -> flyToEpoch(epoch);
+        lastFlight = () -> canvas.flyToEpoch(epoch);
         openChapter = null;
         focusEpoch = epoch;
         canvas.flyToEpoch(epoch);
     }
 
     void flyToChapter(ResourceLocation chapter) {
-        lastFlight = () -> flyToChapter(chapter);
+        // flown again only as a camera move: a quest selected meanwhile stays selected
+        lastFlight = () -> canvas.flyToChapter(chapter);
         openChapter = chapter;
         focusEpoch = chapterEpoch(chapter);
         BookState.openChapter(chapter);
@@ -148,7 +149,7 @@ final class MapView implements BookView {
         if (found == null) {
             return;
         }
-        lastFlight = () -> flyToQuest(quest);
+        lastFlight = () -> canvas.flyToQuest(quest);
         BookState.select(found);
         openChapter = found.chapter().orElse(null);
         focusEpoch = openChapter == null ? 0 : chapterEpoch(openChapter);
