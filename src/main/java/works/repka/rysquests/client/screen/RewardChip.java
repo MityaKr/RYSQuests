@@ -29,6 +29,7 @@ final class RewardChip {
     private final String number;
     @Nullable
     private final ItemStack stack;
+    private boolean real;
     private final int count;
     @Nullable
     private final Icons.Shape glyph;
@@ -43,6 +44,13 @@ final class RewardChip {
     }
 
     static RewardChip item(ItemStack stack, int count, String name) {
+        RewardChip chip = new RewardChip(Kind.ITEM, name, null, stack, count, null);
+        chip.real = true;
+        return chip;
+    }
+
+    /** An item standing for something else (a chest for random loot): drawn like an item, but no tooltip or recipe of its own. */
+    static RewardChip picture(ItemStack stack, int count, String name) {
         return new RewardChip(Kind.ITEM, name, null, stack, count, null);
     }
 
@@ -81,6 +89,9 @@ final class RewardChip {
             case ITEM -> {
                 ui.box(x + 4, cy - 14, 28, 28, 6, ui.c("slot.bg"), ui.c("slot.border"));
                 ui.item(stack, x + 8, cy - 10, 20);
+                if (real) {
+                    ui.interactive(stack, x + 4, cy - 14, 28, 28);
+                }
                 if (count > 1) {
                     ui.count(count, x + 31, cy + 16);
                 }

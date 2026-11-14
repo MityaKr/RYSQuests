@@ -171,6 +171,7 @@ final class TaskRow {
         }
         if (item != null) {
             ui.item(item, iconX + 4, cy - 12, 24);
+            ui.interactive(item, iconX, cy - ICON / 2f, ICON, ICON);
             if (count > 1) {
                 ui.count(count, iconX + ICON - 1, cy + ICON / 2f + 2);
             }

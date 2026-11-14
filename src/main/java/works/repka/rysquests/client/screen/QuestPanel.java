@@ -1148,7 +1148,7 @@ final class QuestPanel {
                     Ui.counted(shared ? "rysquests.qpanel.plural.coin_team" : "rysquests.qpanel.plural.coin", currency.amount()));
             case TitleReward title -> RewardChip.glyph(Icons.Shape.FLAG, t("rysquests.qpanel.title", Component.translatable(title.id()).getString()));
             case StageReward stage -> RewardChip.glyph(Icons.Shape.KEY, t("rysquests.qpanel.stage", stage.stage()));
-            case LootTableReward loot -> RewardChip.item(new ItemStack(Items.CHEST), 1, t("rysquests.qpanel.loot"));
+            case LootTableReward loot -> RewardChip.picture(new ItemStack(Items.CHEST), 1, t("rysquests.qpanel.loot"));
             case CommandReward command -> RewardChip.glyph(Icons.Shape.SPARK, t("rysquests.qpanel.special"));
             case ScriptReward script -> RewardChip.glyph(Icons.Shape.SPARK, t("rysquests.qpanel.special"));
             default -> RewardChip.glyph(Icons.Shape.SPARK, t("rysquests.qpanel.special"));
@@ -1183,6 +1183,8 @@ final class QuestPanel {
                 ui.box(cx + 5, mid - 14, 28, 28, 6, ui.c("slot.bg"), ui.c("slot.border"));
                 ui.item(stack, cx + 9, mid - 10, 20);
                 ui.count(item.count(), cx + 5 + 27, mid + 16);
+                // the card is clicked to pick the reward: the item gives its tooltip and usages only
+                ui.hoverItem(stack, cx + 5, mid - 14, 28, 28);
                 name = stack.getHoverName().getString();
             } else {
                 name = phrase(candidate, false);
@@ -1229,6 +1231,14 @@ final class QuestPanel {
                 ui.item(stack, pen2 + 4, pen + 4, 18);
                 ui.count(item.count(), pen2 + size - 1, pen + size + 2);
                 name = stack.getHoverName().getString() + (item.count() > 1 ? " ×" + item.count() : "");
+                if (ui.over(pen2, pen, size, size)) {
+                    // the game's tooltip of the item with its chance under it, and its recipe on a click
+                    ui.interactive(stack, pen2, pen, size, size);
+                    ui.hoveredNote = Component.literal(chance).withStyle(net.minecraft.ChatFormatting.GRAY);
+                    pen2 += step;
+                    continue;
+                }
+                ui.interactive(stack, pen2, pen, size, size);
             } else if (option instanceof CurrencyReward) {
                 ui.circle(pen2 + 7.5f, pen + 7.5f, 11, ui.c("coin"));
                 name = phrase(option, false);

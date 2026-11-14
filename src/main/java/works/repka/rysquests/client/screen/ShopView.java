@@ -148,6 +148,16 @@ final class ShopView implements BookView {
         return offer.icon().map(TaskText::stackOf).orElseGet(() -> stackOf(goods(offer)));
     }
 
+    /** The offer's icon when it is the goods themselves, empty when the offer has a picture of its own (a kit, a set). */
+    private static ItemStack goodsIcon(ShopOffer offer) {
+        return picture(offer) ? ItemStack.EMPTY : stackOf(goods(offer));
+    }
+
+    /** The icon is a picture when it is set and differs from the goods (a crate for a stack of ingots); the goods' own item is not. */
+    private static boolean picture(ShopOffer offer) {
+        return offer.icon().filter(icon -> !goods(offer).item().filter(icon::equals).isPresent()).isPresent();
+    }
+
     static String name(ShopOffer offer) {
         return offer.title().map(ShopView::tr).orElseGet(() -> stackOf(goods(offer)).getHoverName().getString());
     }
@@ -589,7 +599,7 @@ final class ShopView implements BookView {
 
     private void renderCard(Ui ui, ShopOffer offer, boolean selected, float x, float y, float w) {
         ShopOffer.Entry goods = goods(offer);
-        GridCard card = GridCard.of(name(offer)).icon(icon(offer), goods.amount()).selected(selected).onClick(() -> select(offer));
+        GridCard card = GridCard.of(name(offer)).icon(icon(offer), goods.amount()).picture(picture(offer)).selected(selected).onClick(() -> select(offer));
         if (offer.isSale()) {
             long have = paying(stackOf(goods));
             int rounds = (int) Math.min(MAX_TIMES, have / Math.max(1, goods.amount()));
@@ -696,6 +706,7 @@ final class ShopView implements BookView {
             if (!stack.isEmpty()) {
                 ui.box(whatX, cy - 12, 24, 24, 5, ui.c("slot.bg"), ui.c("slot.border"));
                 ui.item(stack, whatX + 4, cy - 8, 16);
+                ui.interactive(stack, whatX, cy - 12, 24, 24);
                 textX += 24 + 8;
             }
             String amount = (line.delta() > 0 ? "+" : "−") + Sidebar.full(Math.abs(line.delta()));
@@ -938,6 +949,7 @@ final class ShopView implements BookView {
             String category = offer.category().map(ShopView::tr).orElse("");
             String sub = category.isEmpty() ? limitLong(offer) : category + " · " + limitLong(offer);
             float headH = DetailPanel.header(u, bx, pen, bw, icon(offer), name(offer), sub, null, false, null);
+            u.interactive(goodsIcon(offer), bx, pen, 46, 46);
             u.count(goods(offer).amount() * times, bx + 45, pen + 48);
             pen += headH + DetailPanel.GAP;
             Need need = need(offer);
@@ -1135,6 +1147,7 @@ final class ShopView implements BookView {
             String sub = tr("rysquests.shop.sale_word") + (category.isEmpty() ? "" : " · " + category) + " · " + limitLong(offer);
             String title = name(offer) + (goods.amount() > 1 ? " ×" + goods.amount() : "");
             float headH = DetailPanel.header(u, bx, pen, bw, icon(offer), title, sub, null, false, null);
+            u.interactive(goodsIcon(offer), bx, pen, 46, 46);
             u.count(goods.amount(), bx + 45, pen + 48);
             pen += headH + DetailPanel.GAP;
             pen += stepperRow(u, bx, pen, bw, tr("rysquests.shop.times"), max, true) + DetailPanel.GAP;

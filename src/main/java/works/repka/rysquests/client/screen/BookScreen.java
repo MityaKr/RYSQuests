@@ -45,6 +45,7 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     private static final int WINDOW_MAX_H = 1040;
     @Nullable
     private static ItemStack lastHovered;
+    private static List<float[]> itemSpots = List.of();
     @Nullable
     private static String lastHoveredText;
     @Nullable
@@ -306,9 +307,14 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         }
         settleFields();
         lastHovered = ui.hoveredStack;
+        itemSpots = List.copyOf(ui.itemSpots);
         lastHoveredText = ui.hoveredText == null ? null : ui.hoveredText.getString();
         if (dialog != null) {
             Kit.dialog(g, ui.theme, kitHits, dialog, mouseX, mouseY);
+        } else if (ui.hoveredStack != null && ui.hoveredNote != null) {
+            List<Component> lines = new ArrayList<>(getTooltipFromItem(Minecraft.getInstance(), ui.hoveredStack));
+            lines.add(ui.hoveredNote);
+            g.renderTooltip(font, lines, ui.hoveredStack.getTooltipImage(), ui.hoveredStack, mouseX, mouseY);
         } else if (ui.hoveredStack != null) {
             g.renderTooltip(font, ui.hoveredStack, mouseX, mouseY);
         } else if (ui.hoveredText != null) {
@@ -635,6 +641,11 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     // --- hooks for the in-game autotest ---
 
     /** Which body the book shows: "loading", "empty", "page" or the open tab's id. */
+    /** Items drawn last frame with their tooltip and recipe keys, in the book's coordinates: x, y, w, h, 1 for hover only. */
+    public static List<float[]> itemSpotsForTest() {
+        return itemSpots;
+    }
+
     public static String bodyForTest() {
         if (!(Minecraft.getInstance().screen instanceof BookScreen screen)) {
             return "closed";

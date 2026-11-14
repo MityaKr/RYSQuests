@@ -47,6 +47,7 @@ final class GridCard {
     private Runnable buttonAction;
     private boolean selected;
     private boolean off;
+    private boolean picture;
     @Nullable
     private Runnable click;
     @Nullable
@@ -115,6 +116,12 @@ final class GridCard {
     }
 
     /** Faded to half: closed for now. */
+    /** The icon stands for the card (a kit in the shop) rather than being an item to look up: no tooltip or usages of its own. */
+    GridCard picture(boolean on) {
+        picture = on;
+        return this;
+    }
+
     GridCard off(boolean on) {
         off = on;
         return this;
@@ -150,6 +157,10 @@ final class GridCard {
         if (icon != null) {
             ui.plate(x, y, ICON, ICON, 6);
             ui.item(icon, x + 6, y + 6, 28);
+            // the card selects its offer on a click; the item gives its tooltip, its usages and the recipe keys
+            if (!picture) {
+                ui.hoverItem(icon, x + 6, y + 6, 28, 28);
+            }
             if (count > 1) {
                 ui.count(count, x + ICON - 1, y + ICON + 2);
             }

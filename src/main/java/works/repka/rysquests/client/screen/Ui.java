@@ -61,6 +61,11 @@ public final class Ui {
     ItemStack hoveredStack;
     @Nullable
     Component hoveredText;
+    /** A line under the game's tooltip of {@link #hoveredStack}: the chance of a random reward. */
+    @Nullable
+    Component hoveredNote;
+    /** Where items with a tooltip and the recipe keys were drawn this frame: x, y, w, h and 1 for hover only (autotest). */
+    final List<float[]> itemSpots = new java.util.ArrayList<>();
     /** Set while the rail of sections touches the window's left edge: the columns beside it have square corners there. */
     boolean squareLeft;
     private final ArrayDeque<int[]> clipStack = new ArrayDeque<>();
@@ -620,8 +625,32 @@ public final class Ui {
         }
         if (over(x, y, w, h)) {
             hoveredStack = stack;
+            hoveredNote = null;
+        }
+        if (centerShown(x, y, w, h)) {
+            itemSpots.add(new float[] {x, y, w, h, 0});
         }
         hit(x, y, w, h, () -> Recipes.showRecipes(stack));
+    }
+
+    /**
+     * An item on something clicked for another reason (a shop card selects its offer, a reward card is picked): the game's
+     * tooltip, the usages on the right button and the recipe keys of RYScope, but the left click stays the card's.
+     */
+    void hoverItem(ItemStack stack, float x, float y, float w, float h) {
+        if (!stack.isEmpty() && over(x, y, w, h)) {
+            hoveredStack = stack;
+            hoveredNote = null;
+        }
+        if (!stack.isEmpty() && centerShown(x, y, w, h)) {
+            itemSpots.add(new float[] {x, y, w, h, 1});
+        }
+    }
+
+    private boolean centerShown(float x, float y, float w, float h) {
+        float cx = x + w / 2f;
+        float cy = y + h / 2f;
+        return cx >= clipLeft && cx < clipRight && cy >= clipTop && cy < clipBottom;
     }
 
     /** Fades what is under it towards a color, which is how the mockups' opacity looks on an item. */
