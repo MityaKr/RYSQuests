@@ -24,6 +24,7 @@ import works.repka.rysquests.shop.ShopLimits;
 
 /** Quest progress of all teams, saved with the world. */
 public final class ProgressStore extends SavedData {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ProgressStore.class);
     private static final String NAME = "rysquests_progress";
     private static final String TEAMS = "teams";
     private static final String ARCHIVE = "archive";
@@ -101,45 +102,45 @@ public final class ProgressStore extends SavedData {
 
     static ProgressStore load(CompoundTag tag, HolderLookup.Provider registries) {
         ProgressStore store = new ProgressStore();
-        CODEC.parse(NbtOps.INSTANCE, tag.get(TEAMS)).result().ifPresent(saved ->
+        CODEC.parse(NbtOps.INSTANCE, tag.get(TEAMS)).resultOrPartial(LOGGER::error).ifPresent(saved ->
                 saved.forEach((team, quests) -> store.teams.put(team, new HashMap<>(quests))));
         if (tag.contains(ARCHIVE)) {
-            CODEC.parse(NbtOps.INSTANCE, tag.get(ARCHIVE)).result().ifPresent(saved ->
+            CODEC.parse(NbtOps.INSTANCE, tag.get(ARCHIVE)).resultOrPartial(LOGGER::error).ifPresent(saved ->
                     saved.forEach((team, quests) -> store.archive.put(team, new HashMap<>(quests))));
         }
         if (tag.contains(PINNED)) {
-            PINNED_CODEC.parse(NbtOps.INSTANCE, tag.get(PINNED)).result().ifPresent(store.pinned::putAll);
+            PINNED_CODEC.parse(NbtOps.INSTANCE, tag.get(PINNED)).resultOrPartial(LOGGER::error).ifPresent(store.pinned::putAll);
         }
         if (tag.contains(MEMBERS)) {
-            MEMBERS_CODEC.parse(NbtOps.INSTANCE, tag.get(MEMBERS)).result().ifPresent(store.members::putAll);
+            MEMBERS_CODEC.parse(NbtOps.INSTANCE, tag.get(MEMBERS)).resultOrPartial(LOGGER::error).ifPresent(store.members::putAll);
         }
         if (tag.contains(APPLIED)) {
-            Codec.STRING.listOf().parse(NbtOps.INSTANCE, tag.get(APPLIED)).result().ifPresent(store.applied::addAll);
+            Codec.STRING.listOf().parse(NbtOps.INSTANCE, tag.get(APPLIED)).resultOrPartial(LOGGER::error).ifPresent(store.applied::addAll);
         }
         if (tag.contains(GUIDE_PAGES)) {
-            GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(GUIDE_PAGES)).result().ifPresent(saved ->
+            GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(GUIDE_PAGES)).resultOrPartial(LOGGER::error).ifPresent(saved ->
                     saved.forEach((player, pages) -> store.guidePages.put(player, new HashSet<>(pages))));
         }
         if (tag.contains(PINNED_WAYS)) {
-            GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(PINNED_WAYS)).result().ifPresent(store.pinnedWays::putAll);
+            GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(PINNED_WAYS)).resultOrPartial(LOGGER::error).ifPresent(store.pinnedWays::putAll);
         }
         if (tag.contains(TITLES)) {
-            GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(TITLES)).result().ifPresent(saved -> saved.forEach((player, owned) -> store.titles.put(player, new HashSet<>(owned))));
+            GUIDE_PAGES_CODEC.parse(NbtOps.INSTANCE, tag.get(TITLES)).resultOrPartial(LOGGER::error).ifPresent(saved -> saved.forEach((player, owned) -> store.titles.put(player, new HashSet<>(owned))));
         }
         if (tag.contains(ACTIVE_TITLE)) {
-            Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.STRING).parse(NbtOps.INSTANCE, tag.get(ACTIVE_TITLE)).result().ifPresent(store.activeTitles::putAll);
+            Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.STRING).parse(NbtOps.INSTANCE, tag.get(ACTIVE_TITLE)).resultOrPartial(LOGGER::error).ifPresent(store.activeTitles::putAll);
         }
         if (tag.contains(WALLETS)) {
-            WALLETS_CODEC.parse(NbtOps.INSTANCE, tag.get(WALLETS)).result().ifPresent(saved -> saved.forEach((owner, money) -> store.wallets.put(owner, new HashMap<>(money))));
+            WALLETS_CODEC.parse(NbtOps.INSTANCE, tag.get(WALLETS)).resultOrPartial(LOGGER::error).ifPresent(saved -> saved.forEach((owner, money) -> store.wallets.put(owner, new HashMap<>(money))));
         }
         if (tag.contains(SHOP_USAGE)) {
-            USAGE_CODEC.parse(NbtOps.INSTANCE, tag.get(SHOP_USAGE)).result().ifPresent(saved -> saved.forEach((owner, usage) -> store.shopUsage.put(owner, new HashMap<>(usage))));
+            USAGE_CODEC.parse(NbtOps.INSTANCE, tag.get(SHOP_USAGE)).resultOrPartial(LOGGER::error).ifPresent(saved -> saved.forEach((owner, usage) -> store.shopUsage.put(owner, new HashMap<>(usage))));
         }
         if (tag.contains(SHOP_HISTORY)) {
-            HISTORY_CODEC.parse(NbtOps.INSTANCE, tag.get(SHOP_HISTORY)).result().ifPresent(saved -> saved.forEach((owner, lines) -> store.shopHistory.put(owner, new ArrayList<>(lines))));
+            HISTORY_CODEC.parse(NbtOps.INSTANCE, tag.get(SHOP_HISTORY)).resultOrPartial(LOGGER::error).ifPresent(saved -> saved.forEach((owner, lines) -> store.shopHistory.put(owner, new ArrayList<>(lines))));
         }
         if (tag.contains(LAST_CHAPTER)) {
-            LAST_CHAPTER_CODEC.parse(NbtOps.INSTANCE, tag.get(LAST_CHAPTER)).result().ifPresent(store.lastChapters::putAll);
+            LAST_CHAPTER_CODEC.parse(NbtOps.INSTANCE, tag.get(LAST_CHAPTER)).resultOrPartial(LOGGER::error).ifPresent(store.lastChapters::putAll);
         }
         return store;
     }
