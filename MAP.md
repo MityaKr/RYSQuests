@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-17. Руками не править: после структурных правок пересобрать.
 
-Java: 324 файлов, 59052 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 326 файлов, 59153 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -17,7 +17,7 @@ Java: 324 файлов, 59052 строк. Переводы: `examples/example_pa
 - `gradle/` — 2 файлов
 - `run-a/` — 19 файлов
 - `run-b/` — 13 файлов
-- `src/` — 477 файлов
+- `src/` — 479 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -318,7 +318,7 @@ Java: 324 файлов, 59052 строк. Переводы: `examples/example_pa
 - `NextStep` 80 — The next step on "Now", one rule for every book (plan, section 3, "Now"): the nearest unfinished main quest of the chapter where the player last completed a quest; when there is no…
 - `ProgressRemap` 97 — Progress is kept by the position of a task or a reward.
 - `ProgressService` 1106 — Server-side quest rules.
-- `ProgressStore` 396 — Quest progress of all teams, saved with the world.
+- `ProgressStore` 413 — Quest progress of all teams, saved with the world.
 - `QuestLogic` 102 — Status rules shared by the server and the client's display.
 - `QuestPath` 217 — The way to a quest that is still closed (plan, section 3, "Closed quest"; pictures 21b, 22): every unfinished quest it still needs, in an order in which each comes after what it ne…
 - `QuestProgress` 62 — Progress of one quest: value per task, completion time (0 while open), indexes of claimed rewards, for a repeatable quest the time it becomes available again, and how many times it…
@@ -413,15 +413,17 @@ Java: 324 файлов, 59052 строк. Переводы: `examples/example_pa
 **migrate** (1)
 - `MigrationEngineTest` 103
 
-**progress** (9)
+**progress** (11)
 - `AchievementTest` 72
 - `CommandPlaceholdersTest` 21
 - `FullTasksOpenQuestTest` 115 — RepYS, «Тертиевая эссенция»: the server's record of the quest held its one task done (tasks [1]) but no completion, a record taken over from FTB Quests, which counts tasks of a que…
 - `GuidePagesStoreTest` 36
+- `ProgressStoreLoadTest` 35 — One broken record in the save loses only itself: the rest of the progress loads, and is not written over with nothing.
 - `QuestLogicTest` 79
 - `QuestPathTest` 140 — The way to a closed quest and the next step on "Now" (plan, section 3).
 - `RepeatableRoundTest` 75 — Repeatable quests between rounds (ADR-46): what they opened stays open, and a new round clears every member.
 - `ReviewFixesTest` 95 — The fixes the review asked for that live in shared rules: optional quests, craft mode, and progress that follows its task.
+- `TeamLeaveCopyTest` 49 — Leaving a team with a copy of its progress never gives back the rewards the player already took in it.
 - `TeamRewardsTest` 40
 
 **shop** (1)
