@@ -1042,7 +1042,7 @@
   "rysquests.shop.on": "on",
   "rysquests.shop.coins_word": "coins",
   "rysquests.shop.sell_tip": "Selling takes surplus production. Items are taken from the inventory, coins arrive at once",
-  "rysquests.shop.history_tip": "Your own operations. What other members spent from the treasury is not shown. Your coins come from rewards for everyone, sales and achievements; the treasury gets rewards given once per team, and any member can pay from it",
+  "rysquests.shop.history_tip": "Your own operations. What other members spent from the treasury is not shown. Your coins come from rewards for everyone, sales and achievements; the treasury gets rewards given once per team, and only members with the \"Spend the team treasury\" right can pay from it",
   "rysquests.shop.limit_short.daily": "%s of %s today",
   "rysquests.shop.limit_short.weekly": "%s of %s this week",
   "rysquests.shop.limit_short.never": "%s of %s in total",
