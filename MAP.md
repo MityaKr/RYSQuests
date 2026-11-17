@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-17. Руками не править: после структурных правок пересобрать.
 
-Java: 379 файлов, 69142 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 382 файлов, 69976 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -17,7 +17,7 @@ Java: 379 файлов, 69142 строк. Переводы: `examples/example_pa
 - `gradle/` — 2 файлов
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
-- `src/` — 560 файлов
+- `src/` — 563 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -25,8 +25,8 @@ Java: 379 файлов, 69142 строк. Переводы: `examples/example_pa
 **(корень)** (1)
 - `ImportShowcase` 36 — What the server says at the end of an FTB import, without importing anything: the report and the failure of the ATM10 run of the "first" scenario, for the screenshots of the wizard…
 
-**dev** (16)
-- `AutoTest` 2984 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
+**dev** (17)
+- `AutoTest` 2986 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
 - `CanvasBooks` 277 — The two books of the canvas scenario, read on the client without a server: RepYS from its files with the titles of its lang file, and ATM10 carried over from FTB Quests by the impo…
 - `CanvasTestScreen` 104 — A bare screen around the canvas for the canvas scenario: the canvas sits where the map area of the mockups is (1280×800 at GUI scale 2), so that screenshots lie over pictures 13 to…
 - `EditorScenario` 334 — The acceptance of the book's editor (plan step 10), in two runs on the same world: book_editor: a book from nothing, its first chapter typed into the table, quests linked (a circle…
@@ -37,6 +37,7 @@ Java: 379 файлов, 69142 строк. Переводы: `examples/example_pa
 - `RepysScenario` 603 — The new book on a copy of the real pack (run-repys: the mods of RepYS, its kubejs with the book from _audit/book2/repys-data).
 - `ShopDeliveryScenario` 236 — A trade paid in parts (shop plan, step M4; RYSQuests 0.2.7).
 - `ShopDispenserScenario` 258 — The dispenser "Выдача" (shop plan, step M7; RYSQuests 0.2.7) on a copy of RepYS.
+- `ShopEditorScenario` 115 — The editor's shop since 0.2.7 (shop plan, step M9; ADR-58) on the real RepYS book, as an operator: a new offer becomes a delivery of the held iron, its count is typed in thousands,…
 - `ShopReceiverScenario` 228 — The intake block "Приёмщик" (shop plan, step M6; RYSQuests 0.2.7) on a copy of RepYS.
 - `ShopSchematicScenario` 152 — The shop gives a Create schematic with its file, once per team (shop plan, steps M1 and M2; RYSQuests 0.2.6).
 - `ShopTrophyScenario` 230 — A boss trophy opens for the whole team after the first kill of the boss (shop plan, step M3; RYSQuests 0.2.7).
@@ -169,17 +170,17 @@ Java: 379 файлов, 69142 строк. Переводы: `examples/example_pa
 - `Chips` 45 — The row of filter chips the section screens share.
 - `ClosedBookLine` 50 — "Книга закрыта для игроков" (picture 08, plan section 4): a narrow line under the header while the book is closed, for operators only.
 - `DetailPanel` 223 — The detail panel on the right: a quest, a chapter, an offer, an achievement, an issue of the check (mockup .panel, pictures 11, 16, 17, 25, 28).
-- `DispenserScreen` 619 — The window of the dispenser (shop plan, section 4.2, mockup 06): on the left the trades a dispenser can buy, with a search; on the right where the coins come from, where the goods …
+- `DispenserScreen` 644 — The window of the dispenser (shop plan, section 4.2, mockup 06): on the left the trades a dispenser can buy, with a search; on the right where the coins come from, where the goods …
 - `EdText` 170 — Tasks, rewards and types of quests in the editor's plain words (pictures 33, 34, 35b): "Получить: Медная катушка ×1", "25 опыта".
 - `EdUi` 562 — The small pieces the editor's pages share, at the sizes of the mockups (ui.css): an input (.inp), a field with its label (.fld), buttons (.btn, .btn.sm, .tb), the dashed "+" button…
-- `EditorBook` 691 — The editor's draft on this client (plan, section 6): one for the book, whatever editor page is open.
+- `EditorBook` 689 — The editor's draft on this client (plan, section 6): one for the book, whatever editor page is open.
 - `EditorChecks` 242 — What "Проверка" finds in the draft (pictures 37, 37b), in the author's words, each with ways to fix it: errors a player runs into (a link to a page that is not there, a quest waiti…
 - `EditorMapView` 708 — The editor's "Карта" (pictures 33, 33c, 34, 35, 35b, 09, 46e): the sidebar, and in the middle either the canvas of the draft or the chapter as a table, with the quest's or the chap…
 - `EditorPage` 118 — A page of the editor: a view of the book whose unsaved work is the editor's draft (EditorBook), so that the header shows "Сохранить · N", undo and "Открыть игрокам" over it (pictur…
 - `EditorPages` 207 — The editor inside the book (plan, section 6): one mode with the author's tabs Карта · Гайды · Магазин · Достижения · Вкладки · Проверка, entered and left by the one "Редактор" togg…
 - `EditorSession` 23 — The editor's unsaved work, as the header shows it in editor mode (pictures 09, 10, 33): "Редактор" pressed, "Открыть игрокам" while the book is closed, undo, and the one amber butt…
 - `EditorSidebar` 394 — The editor's contents on the left (pictures 33, 35, 09; mockup sidebar(editor=True)): the same rows as the player's Sidebar at its sizes, but over the draft and with what the autho…
-- `EditorTesting` 298 — Hooks of the in-game autotest into the editor of the book (EditorPages): what a test needs to drive it without hunting for pixels.
+- `EditorTesting` 334 — Hooks of the in-game autotest into the editor of the book (EditorPages): what a test needs to drive it without hunting for pixels.
 - `EmptyBookView` 207 — A book without quests (pictures 03, 04, 05, plan section 2): one title everywhere, "Квестов пока нет", and a line for the role.
 - `EmptyFilter` 42 — A filter left nothing (picture 25d, plan section 2): where the grid or list was, one line of text and a link that brings "All" back.
 - `Epochs` 108 — The book as eras for the timeline: chapters that share an epoch, and each chapter without one on its own.
@@ -222,7 +223,7 @@ Java: 379 файлов, 69142 строк. Переводы: `examples/example_pa
 - `SearchPopover` 500 — The window of results under the search field (plan, section 3, pictures 30, 30b): groups of quests, items, guides, offers and achievements, three rows each and "ещё N" for the rest…
 - `Segments` 105 — A segmented switch: "Map | List", "Buy | Sell | History", "Slate | Glass | Vanilla".
 - `SettingsView` 188 — The book's settings as a page of their own (picture 32, plan section 3): one column, no sidebar, "Назад: Сейчас" above.
-- `ShopEditorView` 510 — The editor's "Магазин" (picture 39): the offers as the player's grid with "+ Товар" last, "Купить | Продать" and the same "Раздел" as the player has; on the right the chosen offer:…
+- `ShopEditorView` 713 — The editor's "Магазин" (picture 39): the offers as the player's grid with "+ Товар" last, "Купить | Продать" and the same "Раздел" as the player has; on the right the chosen offer:…
 - `ShopView` 1537 — The shop (plan, section 3, pictures 25 to 27b, 46c).
 - `SideList` 80 — The plain left column of a page that is not the map (mockup .side, pictures 23, 24, 28): a rubric on top, rows with a count, group rubrics, a footer.
 - `Sidebar` 569 — The book's contents on the left (mockup .side, pictures 13, 14, 14b, 19, 42, 43): "Вся книга" with the count of main quests, epochs that fold, each with its chapters, numbers, a ch…
@@ -269,7 +270,7 @@ Java: 379 файлов, 69142 строк. Переводы: `examples/example_pa
 - `RewardDef` 30 — One reward of a quest as written in the book.
 - `SectionDef` 50 — A custom section of the book: one file in rysquests/sections/, built from a template.
 - `SectionValidator` 157 — Checks custom sections.
-- `ShopOffer` 233 — A trade of the shop: one file in rysquests/shop/.
+- `ShopOffer` 246 — A trade of the shop: one file in rysquests/shop/.
 - `StructureDef` 71 — A build shown in 3D on a page: one file in rysquests/structures/, its id taken from the path.
 - `TaskDef` 28 — One task of a quest as written in the book.
 - `TeamMode` 20 — Who gets a reward in a team: every member, or only the first to claim it.
@@ -279,12 +280,13 @@ Java: 379 файлов, 69142 строк. Переводы: `examples/example_pa
 - `DevExamplePack` 92 — Development-only packs that serve the example books straight from the source tree.
 - `DevReports` 300 — Machine-readable reports about the book, for pack authors and for tools.
 
-**editor** (7)
+**editor** (8)
 - `BookDraft` 291 — Everything the editor changed in the book and has not saved yet (plan, section 6): whole chapters with their quests, the book's settings, shop offers, achievements, guides, the aut…
 - `EditorDrafts` 145 — Unsaved work of the quest editor, kept on disk between sessions so that closing the game loses nothing (plan, section 6).
-- `EditorFiles` 506 — Writes what the editor saves into a folder laid out like a pack.
+- `EditorFiles` 505 — Writes what the editor saves into a folder laid out like a pack.
 - `EditorFolder` 54 — The folder the editor writes to.
 - `EditorService` 391 — Saves what an author made in the book.
+- `OfferEdits` 249 — What the editor's "Магазин" (picture 39, ADR-58) changes in a trade, with no screen in it, so that the tests can check that every edit keeps what it does not touch: the line of the…
 - `QuestEdits` 225 — Changes to quests as new immutable values.
 - `SectionEdits` 237 — Changes to a section as new immutable values.
 
@@ -443,10 +445,11 @@ Java: 379 файлов, 69142 строк. Переводы: `examples/example_pa
 **dev** (1)
 - `DevExamplePackTest` 56
 
-**editor** (5)
+**editor** (6)
 - `BookDraftTest` 127 — The editor's draft of the whole book (plan, section 6): edits land in it, it lays over the book, and it outlives the game on disk.
 - `EditorFilesTest` 139
 - `EditorVersionTest` 75 — The version the editor's save is checked by, so that two operators do not overwrite each other, and the drafts on disk.
+- `OfferEditsTest` 194 — The editor's shop since 0.2.7 (shop plan, step M9; ADR-58): every edit keeps what it does not touch, a delivery and the line of the closed card are edited by the rules the book che…
 - `QuestEditsTest` 143
 - `SectionEditsTest` 152
 
