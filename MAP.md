@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-17. Руками не править: после структурных правок пересобрать.
 
-Java: 331 файлов, 60564 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 333 файлов, 61109 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -17,7 +17,7 @@ Java: 331 файлов, 60564 строк. Переводы: `examples/example_pa
 - `gradle/` — 2 файлов
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
-- `src/` — 485 файлов
+- `src/` — 487 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -25,8 +25,8 @@ Java: 331 файлов, 60564 строк. Переводы: `examples/example_pa
 **(корень)** (1)
 - `ImportShowcase` 36 — What the server says at the end of an FTB import, without importing anything: the report and the failure of the ATM10 run of the "first" scenario, for the screenshots of the wizard…
 
-**dev** (12)
-- `AutoTest` 2976 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
+**dev** (13)
+- `AutoTest` 2978 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
 - `CanvasBooks` 277 — The two books of the canvas scenario, read on the client without a server: RepYS from its files with the titles of its lang file, and ATM10 carried over from FTB Quests by the impo…
 - `CanvasTestScreen` 104 — A bare screen around the canvas for the canvas scenario: the canvas sits where the map area of the mockups is (1280×800 at GUI scale 2), so that screenshots lie over pictures 13 to…
 - `EditorScenario` 334 — The acceptance of the book's editor (plan step 10), in two runs on the same world: book_editor: a book from nothing, its first chapter typed into the table, quests linked (a circle…
@@ -36,6 +36,7 @@ Java: 331 файлов, 60564 строк. Переводы: `examples/example_pa
 - `QuestMenuScenario` 82 — The quest's menu "⋯" in the head of its panel (the author's note on 0.2.0): its lines for an operator, "Завершить" completes the quest without its tasks and leaves the reward to ta…
 - `RepysScenario` 603 — The new book on a copy of the real pack (run-repys: the mods of RepYS, its kubejs with the book from _audit/book2/repys-data).
 - `ShopSchematicScenario` 152 — The shop gives a Create schematic with its file, once per team (shop plan, steps M1 and M2; RYSQuests 0.2.6).
+- `ShopTrophyScenario` 230 — A boss trophy opens for the whole team after the first kill of the boss (shop plan, step M3; RYSQuests 0.2.7).
 - `ThemesScenario` 333 — Plan step 12: every screen of the book in the themes slate, glass and vanilla at the size of the mockups, and once more in the compact layout (a window of 1100×700, the base 480×27…
 - `UpgradeSnapshot` 65 — What a player keeps across an update, as the client sees it: quests done and claimed, pins, the wallet, the shop's history and the active title.
 
@@ -128,7 +129,7 @@ Java: 331 файлов, 60564 строк. Переводы: `examples/example_pa
 - `BookHeader` 315 — The header of the book (mockup .head, pictures 03, 08, 11, 32, 46): the book's icon and name ("Квесты" and the mod's icon when the book names none), the tabs with the badge on "Now…
 - `BookMessageLine` 147 — The book's message line (picture 48, plan section 3): the server's answer or refusal as one line over the bottom edge of the page, with a red border, its words, its actions and a c…
 - `BookRole` 42 — Who looks at the book.
-- `BookScreen` 996 — The quest book window (plan, sections 2 and 7): one frame for everything.
+- `BookScreen` 1001 — The quest book window (plan, sections 2 and 7): one frame for everything.
 - `BookState` 291 — What the book shows.
 - `BookTabs` 135 — The tabs of the book, in the order of the header: Now, Map, Guides, Shop, Achievements (plan, section 2).
 - `BookTallies` 211 — The numbers the frame and the sidebar show: rewards waiting (the badge of "Now"), quests ready to hand in, and per chapter its main quests done and the chapter's state.
@@ -192,7 +193,7 @@ Java: 331 файлов, 60564 строк. Переводы: `examples/example_pa
 - `Segments` 105 — A segmented switch: "Map | List", "Buy | Sell | History", "Slate | Glass | Vanilla".
 - `SettingsView` 188 — The book's settings as a page of their own (picture 32, plan section 3): one column, no sidebar, "Назад: Сейчас" above.
 - `ShopEditorView` 510 — The editor's "Магазин" (picture 39): the offers as the player's grid with "+ Товар" last, "Купить | Продать" and the same "Раздел" as the player has; on the right the chosen offer:…
-- `ShopView` 1330 — The shop (plan, section 3, pictures 25 to 27b, 46c).
+- `ShopView` 1367 — The shop (plan, section 3, pictures 25 to 27b, 46c).
 - `SideList` 80 — The plain left column of a page that is not the map (mockup .side, pictures 23, 24, 28): a rubric on top, rows with a count, group rubrics, a footer.
 - `Sidebar` 569 — The book's contents on the left (mockup .side, pictures 13, 14, 14b, 19, 42, 43): "Вся книга" with the count of main quests, epochs that fold, each with its chapters, numbers, a ch…
 - `StructureBlock` 195 — A build on a page, from the structure block of design/GuidePage.dc.html: turned with the mouse, shown layer by layer.
@@ -238,7 +239,7 @@ Java: 331 файлов, 60564 строк. Переводы: `examples/example_pa
 - `RewardDef` 30 — One reward of a quest as written in the book.
 - `SectionDef` 50 — A custom section of the book: one file in rysquests/sections/, built from a template.
 - `SectionValidator` 157 — Checks custom sections.
-- `ShopOffer` 151 — A trade of the shop: one file in rysquests/shop/.
+- `ShopOffer` 172 — A trade of the shop: one file in rysquests/shop/.
 - `StructureDef` 71 — A build shown in 3D on a page: one file in rysquests/structures/, its id taken from the path.
 - `TaskDef` 28 — One task of a quest as written in the book.
 - `TeamMode` 20 — Who gets a reward in a team: every member, or only the first to claim it.
@@ -343,7 +344,7 @@ Java: 331 файлов, 60564 строк. Переводы: `examples/example_pa
 **shop** (3)
 - `ShopCycles` 87 — Finds chains of trades that end up with more than they started with, the classic way of printing money: buy a stack and sell it back for more.
 - `ShopLimits` 46 — Counts trades against limits, which reset at midnight of the server's own clock (ADR-37).
-- `ShopService` 382 — Makes trades.
+- `ShopService` 391 — Makes trades.
 
 **stage** (1)
 - `Stages` 57 — All stage providers.
@@ -429,7 +430,8 @@ Java: 331 файлов, 60564 строк. Переводы: `examples/example_pa
 - `TeamRoundOwedTest` 192 — A repeatable quest in a team (ADR-52): the first member to take all their rewards starts the next round, and what the others have not taken of the finished round stays theirs until…
 - `TeamShopLimitsTest` 186 — A trade "once per team" stays bought however players move between teams: leaving, buying alone and coming back never buys it twice for one team (the same kind of hole as the reward…
 
-**shop** (3)
+**shop** (4)
+- `BossTrophyTest` 241 — A boss trophy opens for the whole team after the first kill of the boss by any member (shop plan, step M3, the author's decision).
 - `ShopComponentsTest` 137 — A trade gives an item with components as it is (a Create schematic with its file), and only what the player gets has them.
 - `ShopTest` 113
 - `TreasuryRightTest` 81 — The team's treasury is spent only with the team's right to it (ADR-52); putting money in needs none.
