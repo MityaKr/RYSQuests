@@ -353,8 +353,24 @@ public final class ProgressStore extends SavedData {
         setDirty();
     }
 
+    /**
+     * A copy of a team's progress for a player who leaves it. The rewards the player took for themselves stay taken: in a team they
+     * live in the player's own record, and copying the team's over it alone would let leaving and joining again pay them twice.
+     */
     public void copyTeam(UUID from, UUID to) {
-        teams.put(to, new HashMap<>(team(from)));
+        Map<ResourceLocation, QuestProgress> copy = new HashMap<>(team(from));
+        Map<ResourceLocation, QuestProgress> own = teams.get(to);
+        if (own != null) {
+            own.forEach((quest, mine) -> {
+                if (!mine.claimed().isEmpty()) {
+                    QuestProgress shared = copy.getOrDefault(quest, QuestProgress.EMPTY);
+                    Set<Integer> claimed = new java.util.TreeSet<>(shared.claimed());
+                    claimed.addAll(mine.claimed());
+                    copy.put(quest, shared.withClaimed(List.copyOf(claimed)));
+                }
+            });
+        }
+        teams.put(to, copy);
         setDirty();
     }
 
