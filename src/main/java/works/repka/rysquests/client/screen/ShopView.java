@@ -198,7 +198,7 @@ final class ShopView implements BookView {
     }
 
     private boolean payFromTreasury(ShopOffer offer) {
-        return fromTreasury && ClientShop.inTeam() && !offer.isSale();
+        return fromTreasury && ClientShop.spendTreasury() && !offer.isSale();
     }
 
     private static String lockedLine(ShopOffer offer) {
@@ -970,7 +970,8 @@ final class ShopView implements BookView {
                 pen += DetailPanel.GAP - 6;
             }
             pen += stepperRow(u, bx, pen, bw, tr("rysquests.shop.quantity"), max, false) + DetailPanel.GAP;
-            if (ClientShop.inTeam()) {
+            // Without the team's right to spend the treasury there is nothing to choose: the player pays from their own wallet.
+            if (ClientShop.spendTreasury()) {
                 float cy = pen + Segments.HEIGHT / 2f;
                 u.label(tr("rysquests.shop.pay_from"), bx, cy, 12.5f, Ui.REGULAR, u.c("text.muted"));
                 List<Segments.Item> wallets = List.of(Segments.item(text("rysquests.shop.pay_own", Numbers.compact(ClientShop.balance(currency)))),

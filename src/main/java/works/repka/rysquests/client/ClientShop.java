@@ -29,6 +29,11 @@ public final class ClientShop {
         return state.inTeam();
     }
 
+    /** Whether the player's role in the team lets them pay from its treasury. */
+    public static boolean spendTreasury() {
+        return state.inTeam() && state.spendTreasury();
+    }
+
     public static int used(ResourceLocation offer) {
         return state.used().getOrDefault(offer.toString(), 0);
     }

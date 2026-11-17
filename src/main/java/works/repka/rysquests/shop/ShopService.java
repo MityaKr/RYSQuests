@@ -19,6 +19,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
+import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.ProgressMode;
 import works.repka.rysquests.data.ShopOffer;
@@ -53,6 +54,22 @@ public final class ShopService {
         return !team(player).equals(player.getUUID());
     }
 
+    /** The right of a team mod (RYSTeams) to pay from the team's treasury. Putting money into it needs no right. */
+    public static final String SPEND_TREASURY = "spend_treasury";
+
+    /** Whether a trade takes money from the treasury: a purchase paid from it, not a sale that puts money in. */
+    static boolean spendsTreasury(ShopOffer offer, boolean treasury) {
+        return treasury && offer.cost().stream().anyMatch(ShopOffer.Entry::isCurrency);
+    }
+
+    /**
+     * Whether a player may pay from their team's treasury. Asked by id alone, so that it holds for a player who is not online or
+     * has no screen open: a shop block pays on its owner's behalf.
+     */
+    public static boolean maySpendTreasury(UUID player) {
+        return TeamsApi.get().can(player, SPEND_TREASURY);
+    }
+
     public static void handle(ServerPlayer player, ShopTradePayload payload) {
         ShopOffer offer = BookHolder.current().book().offers().get(payload.offer());
         // A closed book is not sent to players, its shop included.
@@ -74,6 +91,9 @@ public final class ShopService {
         ProgressStore store = ProgressStore.get(server);
         if (treasury && !inTeam(player)) {
             return "rysquests.shop.error.no_team";
+        }
+        if (spendsTreasury(offer, treasury) && !maySpendTreasury(player.getUUID())) {
+            return "rysquests.shop.error.no_right";
         }
         if (offer.stage().filter(stage -> !Stages.has(player, stage)).isPresent()) {
             return "rysquests.shop.error.locked";
@@ -319,6 +339,6 @@ public final class ShopService {
             });
         }
         PacketDistributor.sendToPlayer(player, new ShopStatePayload(Map.copyOf(store.balances(player.getUUID())), inTeam(player) ? Map.copyOf(store.balances(team)) : Map.of(),
-                inTeam(player), used, List.copyOf(store.shopHistory(player.getUUID()))));
+                inTeam(player), used, List.copyOf(store.shopHistory(player.getUUID())), inTeam(player) && maySpendTreasury(player.getUUID())));
     }
 }

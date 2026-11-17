@@ -490,6 +490,7 @@
   "rysquests.shop.done": "Готово",
   "rysquests.shop.error.unknown": "Такой сделки нет",
   "rysquests.shop.error.no_team": "Ты не в команде",
+  "rysquests.shop.error.no_right": "Твоя роль в команде не даёт тратить казну",
   "rysquests.shop.error.locked": "Сделка ещё закрыта",
   "rysquests.shop.error.limit": "Лимит исчерпан",
   "rysquests.shop.error.not_enough": "Не хватает средств",

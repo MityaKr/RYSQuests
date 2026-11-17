@@ -485,6 +485,7 @@
   "rysquests.shop.done": "Done",
   "rysquests.shop.error.unknown": "No such trade",
   "rysquests.shop.error.no_team": "You are not in a team",
+  "rysquests.shop.error.no_right": "Your team role does not allow spending the treasury",
   "rysquests.shop.error.locked": "The trade is still locked",
   "rysquests.shop.error.limit": "The limit is used up",
   "rysquests.shop.error.not_enough": "Not enough funds",
