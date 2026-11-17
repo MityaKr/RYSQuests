@@ -9,7 +9,8 @@ $java = (Get-Command java.exe).Source
 $utf = [Text.UTF8Encoding]::new($false)
 $coreVersion = ((Get-Content "$root\gradle.properties" | Where-Object { $_ -like 'ryscore_version=*' }) -split '=')[1].Trim()
 $coreJar = "$root\..\RYSCore\repo\works\repka\ryscore\ryscore-neoforge\$coreVersion\ryscore-neoforge-$coreVersion.jar"
-$teamsJar = "$root\..\RYSTeams\build\libs\rysteams-neoforge-1.21.1-0.1.0.jar"
+$teamsVersion = ((Get-Content "$root\..\RYSTeams\gradle.properties" | Where-Object { $_ -like 'mod_version=*' }) -split '=')[1].Trim()
+$teamsJar = "$root\..\RYSTeams\build\libs\rysteams-neoforge-1.21.1-$teamsVersion.jar"
 
 .\gradlew.bat autotestClasses prepareDedicatedServerRun prepareTeamClientARun prepareTeamClientBRun --console=plain | Select-String -Pattern '^BUILD|error:'
 

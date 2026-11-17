@@ -1,0 +1,23 @@
+{
+  "id": "teamtest:daily",
+  "chapter": "teamtest:main",
+  "title": "Daily quest",
+  "icon": "minecraft:apple",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Done"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:apple",
+      "count": 1
+    }
+  ],
+  "repeatable": {
+    "cooldown_minutes": 0
+  }
+}

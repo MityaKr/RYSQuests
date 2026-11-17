@@ -546,10 +546,13 @@ public final class AutoTest {
         expect("got the reward for each and the single one", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 1);
         teamScreens("a");
         addShopOnServerSteps();
+        addTreasuryLeaderSteps();
+        addRoundLeaderSteps();
         addEditorOnServerSteps();
         step("import FTB progress where the other player took the reward", AutoTest::writeFtbqPartyFile, 5);
         step("run the import", () -> command("rysquests import ftbq progress"), 20);
-        expect("the leader has not taken what the other player took", () -> ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().isEmpty());
+        // FTB's party file is named by the owner's id, which is our own team's id; a team of RYSTeams has an id of its own.
+        expect("the leader has not taken what the other player took", () -> USE_RYSTEAMS || ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().isEmpty());
         // the publication lock: a closed book does not reach a player, an operator keeps it with the line "closed"
         expect("the other player is ready for the lock", () -> ClientProgress.get(TEAM_READY).completed());
         step("close the book to players", () -> PacketDistributor.sendToServer(new works.repka.rysquests.network.PublishPayload(false)), 40);
@@ -627,9 +630,11 @@ public final class AutoTest {
         expect("got only the reward for each", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 0);
         teamScreens("b");
         addShopMemberSteps();
+        addTreasuryMemberSteps();
+        addRoundMemberSteps();
         // the book's editor names a new guide itself (guide_1); it saves no pictures and no sections of the old constructor
         expect("the saved guide reached the other player", () -> serverGuide() != null);
-        expect("the import knows this player took the reward", () -> ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().contains(0));
+        expect("the import knows this player took the reward", () -> USE_RYSTEAMS || ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().contains(0));
         step("try to save without rights", () -> PacketDistributor.sendToServer(new EditorSavePayload(Optional.of(serverGuide()), Optional.empty(), "en_us", Map.of(), Map.of(), List.of())), 20);
         expect("the server refused", () -> "rysquests.editor.error.denied".equals(BookScreen.lastEditorResultForTest()));
         step("say ready for the lock", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CHECK, TEAM_READY, 0, List.of())), 20);
@@ -640,7 +645,7 @@ public final class AutoTest {
         expect("the book came back when it opened", () -> ClientBook.current().meta().published() && ClientBook.current().quests().containsKey(TEAM_QUEST));
         step("log the progress after the lock", () -> LOGGER.info("[autotest] after the lock: shared {}, imported {}", ClientProgress.get(TEAM_QUEST), ClientProgress.get(TEAM_IMPORTED)), 20);
         // the FTB import of the leader replaced the team's progress with the file's: the imported quest is what the team has now
-        expect("and the progress with it", () -> ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().contains(0));
+        expect("and the progress with it", () -> USE_RYSTEAMS || ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().contains(0));
         step("leave the server", () -> {}, 5);
     }
 
@@ -1505,6 +1510,71 @@ public final class AutoTest {
         expect("the achievement is reached on the server", () -> ClientProgress.get(TEAM_ACHIEVEMENT).completed() && ClientAchievements.owns(TEAM_TITLE));
     }
 
+    private static final ResourceLocation TEAM_DAILY = ResourceLocation.parse("teamtest:daily");
+
+    /**
+     * A repeatable quest in a team (ADR-52), the leader's side: it finishes round one and takes it first, so the other player has
+     * not taken theirs when round two starts; then it waits until the other player takes round two first and takes what is left.
+     */
+    private static void addRoundLeaderSteps() {
+        int[] base = new int[1];
+        step("count the apples before", () -> {
+            base[0] = count(Items.APPLE);
+            LOGGER.info("[autotest] apples before the daily quest: {}", base[0]);
+        }, 0);
+        step("finish round one of the daily quest", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CHECK, TEAM_DAILY, 0, List.of())), 20);
+        expect("round one is done", () -> ClientProgress.get(TEAM_DAILY).completed());
+        step("take round one first", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_DAILY, 0, List.of())), 20);
+        step("log the daily quest after round one", () -> LOGGER.info("[autotest] daily after round one: {}, apples {}", ClientProgress.get(TEAM_DAILY), count(Items.APPLE)), 0);
+        expect("round one paid, round two started", () -> count(Items.APPLE) == base[0] + 1 && !ClientProgress.get(TEAM_DAILY).completed() && ClientProgress.get(TEAM_DAILY).times() == 1);
+        // The other player takes round two first: round three starts, and round two waits here as done.
+        expect("round two waits for this player after the other started round three", () -> ClientProgress.get(TEAM_DAILY).completed()
+                && ClientProgress.get(TEAM_DAILY).times() == 2 && ClientProgress.get(TEAM_DAILY).claimed().isEmpty());
+        step("take round two late", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_DAILY, 0, List.of())), 20);
+        expect("round two paid late, the team's round three shows", () -> count(Items.APPLE) == base[0] + 2 && !ClientProgress.get(TEAM_DAILY).completed());
+        step("try to take it again", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_DAILY, 0, List.of())), 20);
+        expect("nothing is paid twice", () -> count(Items.APPLE) == base[0] + 2);
+    }
+
+    /** The other player's side of the daily quest: round one waits for them although round two has started. */
+    private static void addRoundMemberSteps() {
+        expect("round one waits for this player while the team is on round two", () -> ClientProgress.get(TEAM_DAILY).completed()
+                && ClientProgress.get(TEAM_DAILY).times() == 1 && ClientProgress.get(TEAM_DAILY).claimed().isEmpty());
+        step("take round one late", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_DAILY, 0, List.of())), 20);
+        expect("round one paid late, the team's round two shows", () -> count(Items.APPLE) == 1 && !ClientProgress.get(TEAM_DAILY).completed());
+        step("try to take it again", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_DAILY, 0, List.of())), 20);
+        expect("nothing is paid twice", () -> count(Items.APPLE) == 1);
+        step("finish round two", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CHECK, TEAM_DAILY, 0, List.of())), 20);
+        expect("round two is done", () -> ClientProgress.get(TEAM_DAILY).completed());
+        step("take round two first", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_DAILY, 0, List.of())), 20);
+        expect("round two paid, round three started", () -> count(Items.APPLE) == 2 && !ClientProgress.get(TEAM_DAILY).completed() && ClientProgress.get(TEAM_DAILY).times() == 2);
+    }
+
+    /** The treasury needs RYSTeams' right "spend_treasury": the leader has it by default. */
+    private static void addTreasuryLeaderSteps() {
+        if (!USE_RYSTEAMS) {
+            return;
+        }
+        step("fill the treasury", () -> command("rysquests wallet treasury add TestA coin 50"), 20);
+        expect("the leader may pay from the treasury", () -> ClientShop.treasury("coin") == 50 && ClientShop.spendTreasury());
+        step("buy bread from the treasury", () -> tradeFrom(TEAM_BREAD, true), 15);
+        expect("the treasury paid", () -> ClientShop.treasury("coin") == 45);
+    }
+
+    /** A plain member has no right to the treasury by default: the book does not offer it and the server refuses. */
+    private static void addTreasuryMemberSteps() {
+        if (!USE_RYSTEAMS) {
+            return;
+        }
+        expect("the treasury is filled, but not for this player", () -> ClientShop.treasury("coin") == 45 && !ClientShop.spendTreasury());
+        step("try to pay from the treasury", () -> {
+            BookScreen.clearShopResultForTest();
+            tradeFrom(TEAM_BREAD, true);
+        }, 15);
+        expect("the server refuses without the right", () -> "rysquests.shop.error.no_right".equals(BookScreen.lastShopResultForTest()));
+        expect("the treasury is untouched", () -> ClientShop.treasury("coin") == 45);
+    }
+
     private static void addShopMemberSteps() {
         expect("coins reached the other player", () -> ClientShop.balance("coin") == 100);
         expect("the team limit is shared", () -> ClientShop.used(TEAM_ONCE) == 1);
@@ -1541,7 +1611,11 @@ public final class AutoTest {
     private static final ResourceLocation SHOP_WHEAT = ResourceLocation.parse("example:wheat");
 
     private static void trade(ResourceLocation offer) {
-        PacketDistributor.sendToServer(new ShopTradePayload(offer, 1, false));
+        tradeFrom(offer, false);
+    }
+
+    private static void tradeFrom(ResourceLocation offer, boolean treasury) {
+        PacketDistributor.sendToServer(new ShopTradePayload(offer, 1, treasury));
     }
 
     /** Buying and selling, and that leaving the world does not bring a used limit back. */
