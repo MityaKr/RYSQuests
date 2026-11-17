@@ -1,0 +1,344 @@
+{
+  "template": "matrix",
+  "title": "Атлас сборки",
+  "short_title": "Атлас",
+  "subtitle": "9 эпох · 6 направлений · ты в эпохе II",
+  "icon": "minecraft:map",
+  "compact": true,
+  "spoilers": "dim",
+  "groups": [
+    "tech",
+    "energy",
+    "store",
+    "magic",
+    "nature",
+    "final"
+  ],
+  "columns": [
+    {
+      "id": "I",
+      "title": "I",
+      "hint": "Create"
+    },
+    {
+      "id": "II",
+      "title": "II",
+      "hint": "Индустрия",
+      "stage": "minecraft:story/mine_stone"
+    },
+    {
+      "id": "III",
+      "title": "III",
+      "hint": "Машины",
+      "stage": "minecraft:end/kill_dragon"
+    },
+    {
+      "id": "IV",
+      "title": "IV",
+      "hint": "Энергия",
+      "stage": "minecraft:end/kill_dragon"
+    },
+    {
+      "id": "V",
+      "title": "V",
+      "hint": "Магия",
+      "stage": "minecraft:end/kill_dragon"
+    },
+    {
+      "id": "VI",
+      "title": "VI",
+      "hint": "Oritech",
+      "stage": "minecraft:end/kill_dragon"
+    },
+    {
+      "id": "VII",
+      "title": "VII",
+      "hint": "Плазма",
+      "stage": "minecraft:end/kill_dragon"
+    },
+    {
+      "id": "VIII",
+      "title": "VIII",
+      "hint": "Звёзды",
+      "stage": "minecraft:end/kill_dragon"
+    },
+    {
+      "id": "IX",
+      "title": "IX",
+      "hint": "Творение",
+      "stage": "minecraft:end/kill_dragon"
+    }
+  ],
+  "rows": [
+    {
+      "id": "tech",
+      "title": "Техника",
+      "cells": {
+        "I": [
+          {
+            "id": "m0",
+            "name": "Clock",
+            "icon": "minecraft:clock",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          },
+          {
+            "id": "m1",
+            "name": "Gold Ingot",
+            "icon": "minecraft:gold_ingot",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "II": [
+          {
+            "id": "m0",
+            "name": "Iron Block",
+            "icon": "minecraft:iron_block",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          },
+          {
+            "id": "m1",
+            "name": "Copper Ingot",
+            "icon": "minecraft:copper_ingot",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "III": [
+          {
+            "id": "m0",
+            "name": "Emerald",
+            "icon": "minecraft:emerald",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "VI": [
+          {
+            "id": "m0",
+            "name": "Diamond",
+            "icon": "minecraft:diamond",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "VII": [
+          {
+            "id": "m0",
+            "name": "Amethyst Shard",
+            "icon": "minecraft:amethyst_shard",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ]
+      },
+      "group": "tech"
+    },
+    {
+      "id": "energy",
+      "title": "Энергия",
+      "cells": {
+        "I": [
+          {
+            "id": "m0",
+            "name": "Oak Log",
+            "icon": "minecraft:oak_log",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "II": [
+          {
+            "id": "m0",
+            "name": "Glowstone Dust",
+            "icon": "minecraft:glowstone_dust",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "IV": [
+          {
+            "id": "m0",
+            "name": "Redstone",
+            "icon": "minecraft:redstone",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          },
+          {
+            "id": "m1",
+            "name": "Redstone Block",
+            "icon": "minecraft:redstone_block",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          },
+          {
+            "id": "m2",
+            "name": "Glowstone",
+            "icon": "minecraft:glowstone",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "VII": [
+          {
+            "id": "m0",
+            "name": "Blaze Powder",
+            "icon": "minecraft:blaze_powder",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "VIII": [
+          {
+            "id": "m0",
+            "name": "Nether Star",
+            "icon": "minecraft:nether_star",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ]
+      },
+      "group": "energy"
+    },
+    {
+      "id": "store",
+      "title": "Хранение",
+      "cells": {
+        "I": [
+          {
+            "id": "m0",
+            "name": "Chest",
+            "icon": "minecraft:chest",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "III": [
+          {
+            "id": "m0",
+            "name": "Ender Chest",
+            "icon": "minecraft:ender_chest",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "IV": [
+          {
+            "id": "m0",
+            "name": "Shulker Box",
+            "icon": "minecraft:shulker_box",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          },
+          {
+            "id": "m1",
+            "name": "Lapis Block",
+            "icon": "minecraft:lapis_block",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ]
+      },
+      "group": "store"
+    },
+    {
+      "id": "magic",
+      "title": "Магия",
+      "cells": {
+        "V": [
+          {
+            "id": "m0",
+            "name": "Poppy",
+            "icon": "minecraft:poppy",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          },
+          {
+            "id": "m1",
+            "name": "Enchanted Book",
+            "icon": "minecraft:enchanted_book",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          },
+          {
+            "id": "m2",
+            "name": "Ender Eye",
+            "icon": "minecraft:ender_eye",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          },
+          {
+            "id": "m3",
+            "name": "Redstone",
+            "icon": "minecraft:redstone",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "VI": [
+          {
+            "id": "m0",
+            "name": "Prismarine Shard",
+            "icon": "minecraft:prismarine_shard",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ]
+      },
+      "group": "magic"
+    },
+    {
+      "id": "nature",
+      "title": "Природа",
+      "cells": {
+        "I": [
+          {
+            "id": "m0",
+            "name": "Wheat",
+            "icon": "minecraft:wheat",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "II": [
+          {
+            "id": "m0",
+            "name": "Honeycomb",
+            "icon": "minecraft:honeycomb",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "V": [
+          {
+            "id": "m0",
+            "name": "Bee Nest",
+            "icon": "minecraft:bee_nest",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          },
+          {
+            "id": "m1",
+            "name": "Oak Sapling",
+            "icon": "minecraft:oak_sapling",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ]
+      },
+      "group": "nature"
+    },
+    {
+      "id": "final",
+      "title": "Финал",
+      "cells": {
+        "VII": [
+          {
+            "id": "m0",
+            "name": "End Crystal",
+            "icon": "minecraft:end_crystal",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "VIII": [
+          {
+            "id": "m0",
+            "name": "Dragon Egg",
+            "icon": "minecraft:dragon_egg",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          },
+          {
+            "id": "m1",
+            "name": "Nether Star",
+            "icon": "minecraft:nether_star",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ],
+        "IX": [
+          {
+            "id": "m0",
+            "name": "Beacon",
+            "icon": "minecraft:beacon",
+            "text": "Основа эпохи и поставщик схем для всего, что дальше."
+          }
+        ]
+      },
+      "group": "final"
+    }
+  ]
+}

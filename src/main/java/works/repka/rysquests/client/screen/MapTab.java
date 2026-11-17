@@ -43,6 +43,10 @@ final class MapTab implements BookView {
                 QuestListView.showEpoch(number);
                 if (!listMode()) {
                     map.flyToEpoch(number);
+                    // an epoch whose reward waits opens its card on the way (ADR-60)
+                    if (EpochCards.waiting(number)) {
+                        map.openEpochCard(number);
+                    }
                 }
             }
 

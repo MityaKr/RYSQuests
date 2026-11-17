@@ -278,6 +278,24 @@ public final class MapCanvas {
         focusEpoch = epoch;
     }
 
+    /** Which epochs have a reward waiting (ADR-60): their plates carry its mark. */
+    private java.util.function.IntPredicate epochReward = epoch -> false;
+
+    public void setEpochReward(java.util.function.IntPredicate waiting) {
+        epochReward = waiting;
+    }
+
+    /** Where the plate of an epoch was drawn in the last frame, {x0, y0, x1, y1} in mockup pixels; null when it was not drawn. */
+    @Nullable
+    public float[] epochPlate(int epoch) {
+        for (float[] box : epochBoxes) {
+            if ((int) box[4] == epoch) {
+                return new float[] {box[0], box[1], box[2], box[3]};
+            }
+        }
+        return null;
+    }
+
     /** The level from which the minimap shows: the chapter by default, the epoch as picture 15b has it. */
     public void setMinimapFrom(Level level) {
         minimapFrom = level;
@@ -1430,7 +1448,8 @@ public final class MapCanvas {
             float numW = Draw.labelWidth(numeral, 12.5f, Type.Weight.DISPLAY) * PER_GUI;
             float titleW = title.isEmpty() ? 0 : Draw.labelWidth(title, 12.5f, Type.Weight.MEDIUM) * PER_GUI;
             float markW = est == CH_LOCKED || est == CH_DONE ? 16 : 0;
-            float w = 18 + numW + (titleW > 0 ? 7 + titleW : 0) + markW;
+            boolean reward = epochReward.test(e);
+            float w = 18 + numW + (titleW > 0 ? 7 + titleW : 0) + markW + (reward ? 18 : 0);
             float h = 22;
             float ex;
             float ey;
@@ -1456,6 +1475,10 @@ public final class MapCanvas {
                 label(g, title, pen, ey, 12.5f, Type.Weight.MEDIUM, est == CH_LOCKED ? t.c("text.muted") : t.c("text.secondary"));
                 pen += titleW + 5;
             }
+            if (reward) {
+                icon(g, Icons.Shape.SPARK, pen, ey - 6, 12, t.c("coin"));
+                pen += 18;
+            }
             if (est == CH_DONE) {
                 icon(g, Icons.Shape.CHECK, pen, ey - 6, 12, t.c("state.ok"));
             } else if (est == CH_LOCKED) {
@@ -1479,11 +1502,17 @@ public final class MapCanvas {
             return false;
         }
         String numeral = roman(mark.epoch());
-        float w = Math.max(20, Draw.labelWidth(numeral, 11, Type.Weight.DISPLAY) * PER_GUI + 10);
+        boolean reward = epochReward.test(mark.epoch());
+        float textW = Draw.labelWidth(numeral, 11, Type.Weight.DISPLAY) * PER_GUI;
+        float w = Math.max(20, textW + 10 + (reward ? 14 : 0));
         float h = 16;
         fill(g, x1 - w / 2, y1 - h / 2, w, h, 5, t.c("button.bg"));
         border(g, x1 - w / 2, y1 - h / 2, w, h, 5, t.c("button.border"), 1);
-        label(g, numeral, x1 - Draw.labelWidth(numeral, 11, Type.Weight.DISPLAY), y1, 11, Type.Weight.DISPLAY, t.c("text.secondary"));
+        float textX = reward ? x1 - w / 2 + 5 : x1 - textW / 2;
+        label(g, numeral, textX, y1, 11, Type.Weight.DISPLAY, t.c("text.secondary"));
+        if (reward) {
+            icon(g, Icons.Shape.SPARK, textX + textW + 3, y1 - 5, 10, t.c("coin"));
+        }
         labelBoxes.add(new float[] {x1 - w / 2, y1 - h / 2, x1 + w / 2, y1 + h / 2});
         epochBoxes.add(new float[] {x1 - w / 2, y1 - h / 2, x1 + w / 2, y1 + h / 2, mark.epoch()});
         return true;

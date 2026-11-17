@@ -118,17 +118,10 @@ public final class ProgressService {
      * rewards still wait for the player shows first, while the team's next round goes on.
      */
     private static QuestProgress viewFor(ServerPlayer player, ResourceLocation quest, QuestProgress teamProgress) {
-        QuestProgress owed = ProgressStore.get(player.server).owed(player.getUUID(), quest);
-        if (owed != null) {
-            return TeamRewards.owedView(owed, teamProgress);
-        }
-        UUID team = team(player);
-        if (team.equals(player.getUUID())) {
-            return teamProgress;
-        }
-        List<Integer> own = ProgressStore.get(player.server).get(player.getUUID(), quest).claimed();
-        Quest definition = book().quests().get(quest);
-        return teamProgress.withClaimed(definition == null ? own : TeamRewards.claimedBy(definition, teamProgress.claimed(), own));
+        ProgressStore store = ProgressStore.get(player.server);
+        boolean alone = team(player).equals(player.getUUID());
+        List<Integer> own = alone ? List.of() : store.get(player.getUUID(), quest).claimed();
+        return TeamRewards.memberView(book().quests().get(quest), teamProgress, own, store.owed(player.getUUID(), quest), alone);
     }
 
     private static Function<ResourceLocation, QuestProgress> lookup(ServerPlayer player) {
@@ -630,6 +623,18 @@ public final class ProgressService {
                     Feedback.refuse(player, result.refusal());
                 }
             }
+            case QuestActionPayload.CLAIM_EPOCH -> {
+                if (book().isEpochReward(quest.id())) {
+                    tickEpoch(player, quest);
+                    Claim result = claim(player, quest, payload.choices(), false);
+                    if (result.given()) {
+                        Feedback.reward(player);
+                    }
+                    if (result.refusal() != null) {
+                        Feedback.refuse(player, result.refusal());
+                    }
+                }
+            }
             case QuestActionPayload.PIN -> togglePin(player, quest);
             case QuestActionPayload.RESET -> {
                 // checked here, whatever the client shows: only an operator resets a quest, so that rewards cannot be taken twice
@@ -655,7 +660,8 @@ public final class ProgressService {
     }
 
     private static void readGuidePage(ServerPlayer player, ResourceLocation guideId, int index) {
-        Guide guide = book().guides().get(guideId);
+        // the book's own pages "О книге" are read as a guide of their own (ADR-60)
+        Guide guide = book().guideOrAbout(guideId).orElse(null);
         if (guide == null || index < 0 || index >= guide.pages().size()) {
             return;
         }
@@ -696,6 +702,13 @@ public final class ProgressService {
 
     /** Gives everything that needs no decision: a choice stays unclaimed until the player opens its quest and picks. */
     private static void claimAll(ServerPlayer player) {
+        // An epoch passed gives its reward with the rest: its ticks are made first (ADR-60).
+        for (ResourceLocation id : book().meta().epochRewards().keySet()) {
+            Quest epoch = book().quests().get(id);
+            if (epoch != null && QuestLogic.isLive(epoch)) {
+                tickEpoch(player, epoch);
+            }
+        }
         Function<ResourceLocation, QuestProgress> progress = lookup(player);
         List<Quest> ready = book().quests().values().stream()
                 .filter(quest -> QuestLogic.isLive(quest) && QuestLogic.status(quest, progress) == QuestStatus.COMPLETED)
@@ -837,6 +850,16 @@ public final class ProgressService {
         List<Integer> values = before.taskValues(quest.tasks().size());
         values.set(index, 1);
         apply(player, Map.of(quest.id(), finish(quest, before, values)));
+    }
+
+    /** Ticks what an epoch's quest still lacks, when ticks are all it lacks and the epoch is passed (ADR-60). */
+    private static void tickEpoch(ServerPlayer player, Quest quest) {
+        QuestProgress before = ProgressStore.get(player.server).get(team(player), quest.id());
+        if (before.completed() || !isOpen(player, quest)) {
+            return;
+        }
+        EpochRewards.ticked(quest, before.taskValues(quest.tasks().size()))
+                .ifPresent(values -> apply(player, Map.of(quest.id(), finish(quest, before, values))));
     }
 
     private static final String INVENTORY_FULL = "rysquests.reward.error.inventory_full";

@@ -369,6 +369,13 @@ final class Sidebar {
             pen += 6 - 7;
         }
         float stateW = renderCount(ui, group.tally(), group.state(), x + w - 8, cy, true);
+        // the epoch's reward waits (ADR-60): its mark before the count, the name gives way
+        if (group.number() > 0 && EpochCards.waiting(group.number())) {
+            stateW += 14 + 6;
+            float mx = x + w - 8 - stateW;
+            ui.icon(Icons.Shape.SPARK, mx, cy - 7, 14, ui.c("coin"));
+            ui.tooltipIfOver(mx - 3, cy - 10, 20, 20, net.minecraft.network.chat.Component.translatable("rysquests.epoch.sidebar_tip"));
+        }
         ui.labelFit(group.title(), pen, cy, x + w - 8 - stateW - 6 - pen, 12.5f, Ui.SEMIBOLD, fg);
         ui.hit(x, y, 24, EPOCH_H, () -> UNFOLDED.put(group.number(), !open));
         ui.hit(x + 24, y, w - 24, EPOCH_H, () -> {

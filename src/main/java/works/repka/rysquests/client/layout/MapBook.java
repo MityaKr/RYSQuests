@@ -81,18 +81,42 @@ public final class MapBook {
         return of(book.meta(), List.copyOf(book.chapters().values()), List.copyOf(book.quests().values()), book.layoutHash());
     }
 
+    /**
+     * Chapters whose live quests are all rewards of epochs (ADR-60): a chapter that only keeps them is a service one, with nothing
+     * of its own to show. A chapter without any live quest is not one of them: a new book starts with such a chapter.
+     */
+    public static java.util.Set<ResourceLocation> rewardsOnly(BookMeta meta, java.util.Collection<Quest> quests) {
+        Map<ResourceLocation, Integer> rewards = meta.epochRewards();
+        if (rewards.isEmpty()) {
+            return java.util.Set.of();
+        }
+        java.util.Set<ResourceLocation> withRewards = new java.util.HashSet<>();
+        java.util.Set<ResourceLocation> withOthers = new java.util.HashSet<>();
+        for (Quest quest : quests) {
+            if (quest.options().live() && quest.chapter().isPresent()) {
+                (rewards.containsKey(quest.id()) ? withRewards : withOthers).add(quest.chapter().get());
+            }
+        }
+        withRewards.removeAll(withOthers);
+        return withRewards;
+    }
+
     /** @param chapters in book order, as {@link QuestBook#chapters()} keeps them */
     public static MapBook of(BookMeta meta, List<Chapter> chapters, List<Quest> quests, String hash) {
         // a chapter without an epoch in a book whose author set epochs is off the map, as the sidebar lists it under "Вне карты"
         boolean authorEpochs = chapters.stream().anyMatch(chapter -> chapter.epoch().isPresent() && meta.authorEpoch(chapter.epoch()));
-        List<Chapter> onMap = chapters.stream().filter(MapForms::onMap).filter(chapter -> !authorEpochs || chapter.epoch().isPresent()).toList();
+        java.util.Set<ResourceLocation> onlyRewards = rewardsOnly(meta, quests);
+        List<Chapter> onMap = chapters.stream().filter(MapForms::onMap).filter(chapter -> !authorEpochs || chapter.epoch().isPresent())
+                .filter(chapter -> !onlyRewards.contains(chapter.id())).toList();
         Map<ResourceLocation, Integer> chapterAt = new HashMap<>();
         for (int i = 0; i < onMap.size(); i++) {
             chapterAt.put(onMap.get(i).id(), i);
         }
         Map<Integer, List<Quest>> byChapter = new HashMap<>();
+        Map<ResourceLocation, Integer> rewards = meta.epochRewards();
         for (Quest quest : quests) {
-            if (!quest.options().live()) {
+            // an epoch's reward stands at its epoch, not in its chapter (ADR-60)
+            if (!quest.options().live() || rewards.containsKey(quest.id())) {
                 continue;
             }
             Integer at = quest.chapter().map(chapterAt::get).orElse(null);

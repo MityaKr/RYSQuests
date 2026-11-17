@@ -70,7 +70,7 @@ final class BookTallies {
     private BookTallies() {
     }
 
-    /** Quests of a chapter in dependency order, hidden ones once they unlock. */
+    /** Quests of a chapter in dependency order, hidden ones once they unlock; an epoch's reward shows at its epoch instead (ADR-60). */
     static List<Quest> questsOf(ResourceLocation chapter) {
         if (orderBook != BookData.book()) {
             orderBook = BookData.book();
@@ -78,6 +78,7 @@ final class BookTallies {
         }
         return ORDER.computeIfAbsent(chapter, id -> ChapterOrder.of(BookData.book(), id)).stream()
                 .filter(quest -> !quest.options().hidden() || QuestLogic.isUnlocked(quest, ClientProgress::get))
+                .filter(quest -> !BookData.book().isEpochReward(quest.id()))
                 .toList();
     }
 
@@ -184,7 +185,9 @@ final class BookTallies {
         int submit = 0;
         for (Quest quest : BookData.book().quests().values()) {
             QuestStatus status = BookState.status(quest);
-            if (BookData.inStory(quest) && status == QuestStatus.COMPLETED) {
+            // an epoch passed waits for its reward like a quest done, though its ticks are made only when it is taken (ADR-60)
+            boolean epochWaits = status != QuestStatus.COMPLETED && EpochCards.waits(quest);
+            if (BookData.inStory(quest) && (status == QuestStatus.COMPLETED || epochWaits)) {
                 count++;
                 if (stacks.size() < 2) {
                     stacks.addAll(QuestFacts.rewardStacks(quest, 2 - stacks.size()));

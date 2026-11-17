@@ -43,7 +43,10 @@ final class GuideCheck {
 
     private static List<DevReports.Entry> check(QuestBook book) {
         List<DevReports.Entry> entries = new ArrayList<>();
-        for (Guide guide : book.guides().values()) {
+        List<Guide> guides = new ArrayList<>(book.guides().values());
+        // the book's own pages "О книге" are checked as a guide (ADR-60)
+        book.aboutGuide().filter(about -> !book.guides().containsKey(about.id())).ifPresent(guides::add);
+        for (Guide guide : guides) {
             String subject = guide.id().toString();
             key(subject, guide.title(), entries);
             guide.category().ifPresent(category -> key(subject, category, entries));

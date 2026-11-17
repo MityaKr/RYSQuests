@@ -16,7 +16,7 @@ import works.repka.ryscore.ui.Icons;
 
 /**
  * The "Guides" tab (plan, section 3, pictures 23, 24): on the left the topics of the library and, as a group of their own, the
- * author's tabs (cards and pages; matrices only for operators); beside them the library or the author's tab. A page of a guide draws
+ * author's tabs (cards, pages and matrices); beside them the library or the author's tab. A page of a guide draws
  * its own column, the list of its pages, with the way back to the library on top.
  */
 final class GuidesTab implements BookView {

@@ -73,6 +73,10 @@ public final class QuestNotices {
         if (mate && !ClientConfig.TEAM_QUEST_TOASTS.get()) {
             return;
         }
+        // an epoch's reward is completed by taking it on its card (ADR-60): the player has just seen it
+        if (book.isEpochReward(quest.id())) {
+            return;
+        }
         int epoch = epochOf(book, quest);
         if (epoch > 0) {
             epoch(book, quest, epoch);

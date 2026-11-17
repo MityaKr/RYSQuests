@@ -12,7 +12,6 @@ import org.jetbrains.annotations.Nullable;
 import works.repka.ryscore.ui.Icons;
 import works.repka.rysquests.data.Chapter;
 import works.repka.rysquests.data.Guide;
-import works.repka.rysquests.data.MatrixSection;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.SectionDef;
@@ -95,9 +94,10 @@ final class EditorChecks {
                 }
             }
         }
-        // remarks: texts that name a tab players do not see
+        // remarks: texts that name a tab players do not see, one left out of the book's list of tabs (matrices are shown since ADR-60)
+        List<String> listed = book.meta().sections();
         for (SectionDef section : book.sections().values()) {
-            if (!(section instanceof MatrixSection)) {
+            if (listed.isEmpty() || listed.contains(section.id().toString())) {
                 continue;
             }
             String name = editor.text(section.title());

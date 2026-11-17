@@ -67,6 +67,11 @@ final class GuidePageView implements BookView {
 
         /** Opens the editor on what is shown. */
         void edit(Guide guide, int page);
+
+        /** Whether the editor can open what is shown: the pencil is there only then. */
+        default boolean editable() {
+            return true;
+        }
     }
 
     private final Guides guides;
@@ -238,7 +243,7 @@ final class GuidePageView implements BookView {
         }
         String crumb = text("rysquests.guides.page_crumb", tr(guide.title()), index + 1, guide.pages().size());
         ui.labelFit(crumb, pen, cy, x + w - pen - 40, 12, Ui.REGULAR, ui.c("text.muted"));
-        if (BookRole.operator()) {
+        if (BookRole.operator() && source.editable()) {
             float px = x + w - 30;
             boolean over = ui.over(px, cy - 15, 30, 30);
             ui.box(px, cy - 15, 30, 30, 8, over ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));

@@ -110,6 +110,24 @@ final class TeamRewards {
         return null;
     }
 
+    /**
+     * What the book shows one member of a quest, the server's claims and the client alike: an owed round, else the team's record
+     * with the rewards the member took themselves and those only one of the team takes, else the record itself when the member's
+     * progress is their own.
+     *
+     * @param definition the quest, or null when the book no longer has it
+     * @param alone      the member's progress is not shared: their own row is the team's
+     */
+    static QuestProgress memberView(@Nullable Quest definition, QuestProgress team, List<Integer> own, @Nullable QuestProgress owed, boolean alone) {
+        if (owed != null) {
+            return owedView(owed, team);
+        }
+        if (alone) {
+            return team;
+        }
+        return team.withClaimed(definition == null ? own : claimedBy(definition, team.claimed(), own));
+    }
+
     /** How the book shows an owed round: done, with the member's rewards of it, while the team's next round goes on underneath. */
     static QuestProgress owedView(QuestProgress owed, QuestProgress team) {
         return new QuestProgress(owed.tasks(), owed.completedAt(), owed.claimed(), 0, team.times());

@@ -179,7 +179,7 @@ final class NowView implements BookView {
             List<ResourceLocation> pinned = ClientProgress.pinned();
             for (ResourceLocation id : pinned) {
                 Quest quest = book.quests().get(id);
-                if (quest != null && BookData.shown(quest) && !ClientProgress.get(id).completed() && quest != hero) {
+                if (quest != null && BookData.shown(quest) && !ClientProgress.get(id).completed() && quest != hero && !book.isEpochReward(id)) {
                     work.add(quest);
                 }
             }
@@ -211,6 +211,13 @@ final class NowView implements BookView {
                             can.add(quest);
                         }
                     }
+                }
+            }
+            // epochs passed wait for their reward like quests done (ADR-60)
+            for (int epoch : EpochCards.waitingEpochs()) {
+                Quest quest = EpochCards.questOf(epoch);
+                if (quest != null && !claim.contains(quest)) {
+                    claim.add(quest);
                 }
             }
         }
@@ -417,6 +424,11 @@ final class NowView implements BookView {
             int limit = allClaims || claims <= CLAIM_ROWS + 1 ? claims : CLAIM_ROWS;
             for (int i = 0; i < limit; i++) {
                 Quest quest = lists.claim.get(i);
+                int epoch = BookData.book().epochOf(quest.id());
+                if (epoch > 0) {
+                    pen += epochRow(quest, epoch, compact).render(ui, x, pen, w) + ROW_GAP;
+                    continue;
+                }
                 ListRow row = row(quest, shown, compact).sub(claimSub(quest));
                 if (QuestFacts.hasUnclaimedChoice(quest)) {
                     row.link(t(compact ? "rysquests.now.pick_short" : "rysquests.now.pick_link"), () -> choose(quest));
@@ -450,7 +462,8 @@ final class NowView implements BookView {
             }
         }
         if (intro) {
-            Guide guide = BookData.book().guides().values().stream().findFirst().orElse(null);
+            // the pages "О книге" when the book has them, else its first guide (ADR-60)
+            Guide guide = BookData.book().aboutGuide().orElseGet(() -> BookData.book().guides().values().stream().findFirst().orElse(null));
             if (guide != null) {
                 pen += 4;
                 pen += rubric(ui, t("rysquests.now.guide_start"), null, null, x, pen, w) + ROW_GAP;
@@ -487,6 +500,23 @@ final class NowView implements BookView {
         return ListRow.of(QuestFacts.plain(Component.translatable(quest.title()).getString())).icon(QuestFacts.icon(quest))
                 .selected(shown == quest && chosen != null).look(compact ? ListRow.Look.TIGHT : ListRow.Look.CARD)
                 .onClick(() -> choose(quest)).onRightClick(() -> BookData.togglePin(quest.id()));
+    }
+
+    /** An epoch's reward among the rewards to take (ADR-60): its card on the map takes it, where a choice is made too. */
+    private ListRow epochRow(Quest quest, int epoch, boolean compact) {
+        Runnable open = () -> screen.showEpochReward(epoch);
+        String sub = t("rysquests.epoch.now_sub") + " · " + (QuestFacts.hasUnclaimedChoice(quest) ? t("rysquests.now.choice_of", choiceSize(quest)) : QuestPanel.rewardsSummary(quest));
+        return ListRow.of(EpochCards.title(epoch)).icon(QuestFacts.icon(quest)).look(compact ? ListRow.Look.TIGHT : ListRow.Look.CARD).sub(sub)
+                .link(t("rysquests.now.claim_link"), open).onClick(open);
+    }
+
+    private static int choiceSize(Quest quest) {
+        for (int i = 0; i < quest.rewards().size(); i++) {
+            if (quest.rewards().get(i) instanceof ChoiceReward choice && !ClientProgress.get(quest.id()).claimed().contains(i)) {
+                return choice.of().size();
+            }
+        }
+        return 0;
     }
 
     /** "Ток · 25 опыта и 1 монета", "веха главы · награда на выбор из 4". */

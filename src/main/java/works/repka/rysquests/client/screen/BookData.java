@@ -28,9 +28,22 @@ final class BookData {
         return ClientBook.current();
     }
 
-    /** The chapters the book shows, in book order: story chapters that are not hidden. */
+    @Nullable
+    private static QuestBook chaptersOf;
+    private static List<Chapter> chapters = List.of();
+
+    /**
+     * The chapters the book shows, in book order: story chapters that are not hidden, and not a chapter that only keeps the rewards
+     * of epochs, which show at their epochs on the map (ADR-60).
+     */
     static List<Chapter> chapters() {
-        return book().chapters().values().stream().filter(chapter -> !chapter.hidden() && chapter.isStory()).toList();
+        QuestBook book = book();
+        if (chaptersOf != book) {
+            java.util.Set<ResourceLocation> service = works.repka.rysquests.client.layout.MapBook.rewardsOnly(book.meta(), book.quests().values());
+            chapters = book.chapters().values().stream().filter(chapter -> !chapter.hidden() && chapter.isStory() && !service.contains(chapter.id())).toList();
+            chaptersOf = book;
+        }
+        return chapters;
     }
 
     /** Whether a quest belongs to what the book shows: chapters of other sections stay out of it. */

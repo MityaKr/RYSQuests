@@ -31,6 +31,7 @@ public final class BookHash {
         for (BookMeta.Epoch epoch : meta.epochs()) {
             out.append("epoch ").append(epoch.imported()).append('\n');
         }
+        Map<ResourceLocation, Integer> rewards = meta.epochRewards();
         Map<ResourceLocation, Chapter> story = new HashMap<>();
         for (Chapter chapter : chapters) {
             if (!chapter.isStory()) {
@@ -42,7 +43,8 @@ public final class BookHash {
                     .append(" links ").append(chapter.links()).append('\n');
         }
         quests.stream()
-                .filter(quest -> quest.options().live() && quest.chapter().map(story::containsKey).orElse(false))
+                // an epoch's reward stands at its epoch, not in its chapter (ADR-60)
+                .filter(quest -> quest.options().live() && quest.chapter().map(story::containsKey).orElse(false) && !rewards.containsKey(quest.id()))
                 .sorted(Comparator.comparing(Quest::id))
                 .forEach(quest -> out.append("quest ").append(quest.id()).append(' ').append(quest.chapter().get()).append(' ').append(quest.group().orElse(""))
                         .append(" requires ").append(quest.requires()).append(' ').append(quest.requiresMode())

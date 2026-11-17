@@ -110,6 +110,32 @@ public record QuestBook(
         return layout.filter(baked -> baked.fits(this));
     }
 
+    /** The pages "О книге": the guide the book names, or its own pages as a guide. Empty when the book has none or names a guide it lacks. */
+    public Optional<Guide> aboutGuide() {
+        return meta.about().flatMap(about -> about.guide().isPresent()
+                ? Optional.ofNullable(guides.get(about.guide().get()))
+                : about.pages().isEmpty() ? Optional.empty() : Optional.of(about.ownGuide()));
+    }
+
+    /** A guide of the book by its id, the book's own pages "О книге" included. */
+    public Optional<Guide> guideOrAbout(ResourceLocation id) {
+        Guide guide = guides.get(id);
+        if (guide != null) {
+            return Optional.of(guide);
+        }
+        return id.equals(BookMeta.About.OWN) ? aboutGuide() : Optional.empty();
+    }
+
+    /** The number of the epoch whose reward this quest is, from 1, or 0 when it is an ordinary quest. */
+    public int epochOf(ResourceLocation quest) {
+        return meta.epochRewards().getOrDefault(quest, 0);
+    }
+
+    /** Whether the quest is an epoch's reward: shown at its epoch on the map, never as a card of its chapter. */
+    public boolean isEpochReward(ResourceLocation quest) {
+        return epochOf(quest) > 0;
+    }
+
     public Wire wire() {
         return new Wire(meta, List.copyOf(chapters.values()), List.copyOf(quests.values()), List.copyOf(guides.values()), List.copyOf(sections.values()), assets, List.copyOf(offers.values()), List.copyOf(achievements.values()), List.copyOf(structures.values()), layout);
     }

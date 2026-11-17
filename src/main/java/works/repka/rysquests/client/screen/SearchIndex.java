@@ -199,7 +199,8 @@ final class SearchIndex {
         Map<ResourceLocation, int[]> uses = new LinkedHashMap<>();
         for (Quest quest : book.quests().values()) {
             boolean story = quest.chapter().map(id -> book.chapters().get(id)).map(Chapter::isStory).orElse(false);
-            if (quest.options().hidden() || !story) {
+            // an epoch's reward is found at its epoch on the map, not as a quest (ADR-60)
+            if (quest.options().hidden() || !story || book.isEpochReward(quest.id())) {
                 continue;
             }
             String title = Component.translatable(quest.title()).getString();

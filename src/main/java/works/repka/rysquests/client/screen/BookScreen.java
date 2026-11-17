@@ -235,6 +235,40 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     }
 
     @Override
+    public boolean hasAbout() {
+        return AboutView.guide() != null;
+    }
+
+    @Override
+    public boolean aboutOpen() {
+        return page instanceof AboutView;
+    }
+
+    @Override
+    public boolean aboutUnread() {
+        return AboutView.unread();
+    }
+
+    /** The book's name in the header: the pages "О книге" over the tab, or back from them (ADR-60). */
+    @Override
+    public void toggleAbout() {
+        if (page instanceof AboutView) {
+            closePage();
+        } else if (hasAbout()) {
+            BookTabs.Tab tab = BookTabs.current(BookData.book());
+            openPage(new AboutView(this, tab == null ? Component.translatable("rysquests.book.title").getString() : tab.label()));
+        }
+    }
+
+    /** "Забрать" of an epoch's reward on "Сейчас": the map at the epoch with its card open (ADR-60). */
+    void showEpochReward(int epoch) {
+        closePage();
+        BookState.section = Chapter.STORY;
+        BookState.view = ViewMode.MAP;
+        mapTab().map.showEpochReward(epoch);
+    }
+
+    @Override
     public void toggleEditor() {
         BookTabs.Tab from = page == null && !editor.on() ? BookTabs.current(BookData.book()) : null;
         closePage();
@@ -408,7 +442,11 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     /** The bulk claim of every button: everything that needs no decision, or else the first quest that waits for one. */
     void claimAll() {
         Quest pick = BookTallies.onlyPicksLeft() ? BookTallies.pickQuest() : null;
-        if (pick != null) {
+        int epoch = pick == null ? 0 : BookData.book().epochOf(pick.id());
+        if (epoch > 0) {
+            // an epoch's choice is made on its card
+            showEpochReward(epoch);
+        } else if (pick != null) {
             BookState.select(pick);
             BookState.view = ViewMode.MAP;
             BookState.pickNudge = System.currentTimeMillis();
@@ -759,6 +797,69 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
             BookTallies.invalidate();
             screen.claimAll();
         }
+    }
+
+    /** The book's name in the header pressed: the pages "О книге" open or close. */
+    public static void toggleAboutForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.toggleAbout();
+        }
+    }
+
+    /** The page of "О книге" open over the tab, or -1 when they are not open. */
+    public static int aboutPageForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen && screen.page instanceof AboutView about ? about.pageForTest() : -1;
+    }
+
+    public static boolean aboutUnreadForTest() {
+        return AboutView.unread();
+    }
+
+    /** The map at an epoch with its reward card open, as "Сейчас" opens it. */
+    public static void showEpochRewardForTest(int epoch) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            screen.showEpochReward(epoch);
+        }
+    }
+
+    /** The epoch whose reward card is open on the map, 0 for none. */
+    public static int epochCardForTest() {
+        return Minecraft.getInstance().screen instanceof BookScreen screen ? screen.mapTab().map.epochCardForTest() : 0;
+    }
+
+    /** Where the reward of an epoch stands for this player: LOCKED, READY or CLAIMED, or "" without one. */
+    public static String epochRewardStateForTest(int epoch) {
+        Quest quest = EpochCards.questOf(epoch);
+        return quest == null ? "" : EpochCards.state(quest).name();
+    }
+
+    /** Picks an option of a choice in the open epoch card and presses "Забрать награду". */
+    public static void claimEpochForTest(int epoch, int reward, int option) {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen) {
+            Quest quest = EpochCards.questOf(epoch);
+            if (quest != null) {
+                EpochCards cards = screen.mapTab().map.epochCardsForTest();
+                if (reward >= 0) {
+                    cards.pickForTest(reward, option);
+                }
+                cards.claim(quest);
+            }
+        }
+    }
+
+    /** The chapters the sidebar and the tallies show, by id. */
+    public static List<ResourceLocation> shownChaptersForTest() {
+        return BookData.chapters().stream().map(Chapter::id).toList();
+    }
+
+    /** The quests a chapter shows as cards, by id. */
+    public static List<ResourceLocation> chapterQuestsForTest(ResourceLocation chapter) {
+        return BookTallies.questsOf(chapter).stream().map(Quest::id).toList();
+    }
+
+    /** The author's tabs inside "Гайды" as this player sees them, by id. */
+    public static List<String> authorSectionsForTest() {
+        return BookTabs.authorSections(BookData.book()).stream().map(section -> section.id().toString()).toList();
     }
 
     @Nullable

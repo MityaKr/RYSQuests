@@ -1,0 +1,20 @@
+{
+  "id": "chronicle:industry/coil",
+  "chapter": "chronicle:industry",
+  "title": "Медная катушка",
+  "icon": "minecraft:copper_ingot",
+  "requires": [
+    "chronicle:mech/mechanism"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

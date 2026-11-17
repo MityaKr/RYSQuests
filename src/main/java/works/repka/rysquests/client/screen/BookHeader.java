@@ -57,6 +57,24 @@ final class BookHeader {
         void focusSearch();
 
         void close();
+
+        /** Whether the book has pages "О книге" (ADR-60): its name in the header is then a button that opens them. */
+        default boolean hasAbout() {
+            return false;
+        }
+
+        /** Whether the pages "О книге" are open over the tab: the name is pressed and no tab is lit. */
+        default boolean aboutOpen() {
+            return false;
+        }
+
+        /** Not a page of "О книге" read yet: a dot lights on the name. */
+        default boolean aboutUnread() {
+            return false;
+        }
+
+        default void toggleAbout() {
+        }
     }
 
     /** What the header shows. */
@@ -91,7 +109,7 @@ final class BookHeader {
             ui.label(title, pen + 28 + 9, cy, 15, Ui.DISPLAY, ui.c("text.primary"));
             pen += 28 + 9 + ui.width(title, 15, Ui.DISPLAY);
         } else {
-            pen = renderBrand(ui, pen, cy, compact);
+            pen = renderBrand(ui, pen, cy, compact, mode == Mode.FULL && host.session() == null && host.hasAbout());
         }
         float right = x + w - PAD_RIGHT;
         right = iconButton(ui, Icons.Shape.CROSS, right - BUTTON, cy, false, Component.translatable("rysquests.header.close"), host::close) - 8;
@@ -125,7 +143,45 @@ final class BookHeader {
         renderTabs(ui, pen + GAP, y, right - GAP + 8 - (pen + GAP), session != null);
     }
 
-    private float renderBrand(Ui ui, float x, float cy, boolean compact) {
+    /**
+     * The book's icon and name. With pages "О книге" (mockup _audit/chronicle/01_about_brand, ADR-60) they are one button with an
+     * "i", pressed while the pages are open, with a dot until a page of them is read; in the compact header the icon alone.
+     */
+    private float renderBrand(Ui ui, float x, float cy, boolean compact, boolean about) {
+        if (about) {
+            float end = brandEnd(ui, x, compact);
+            float bx = x - 8;
+            float bw = end + (compact ? 8 : 8 + 14 + 8) - bx;
+            boolean over = ui.over(bx, cy - 20, bw, 40);
+            boolean open = host.aboutOpen();
+            if (open || over) {
+                ui.fill(bx, cy - 20, bw, 40, 9, ui.c(open ? "tab.active.bg" : "button.bg"));
+            }
+            float pen = drawBrand(ui, x, cy, compact);
+            if (!compact) {
+                ui.info(pen + 8, cy - 7, 14, ui.c(open || over ? "text.secondary" : "text.dim"));
+            }
+            if (host.aboutUnread()) {
+                ui.circle(x + 28 - 3, cy - 14 - 3, 7, ui.c("text.primary"));
+            }
+            ui.tooltipIfOver(bx, cy - 20, bw, 40, Component.translatable("rysquests.about.button_tip"));
+            ui.hit(bx, cy - 20, bw, 40, host::toggleAbout);
+            return bx + bw - 8;
+        }
+        return drawBrand(ui, x, cy, compact);
+    }
+
+    /** Where the icon and name end, measured as {@link #drawBrand} draws them. */
+    private float brandEnd(Ui ui, float x, boolean compact) {
+        if (compact) {
+            return x + 28;
+        }
+        QuestBook book = host.session() != null ? EditorBook.get().view() : BookData.book();
+        String title = book.meta().title().map(key -> Component.translatable(key).getString()).orElse(Component.translatable("rysquests.book.title").getString());
+        return x + 28 + 9 + ui.width(ui.fit(title, 180, 15, Ui.DISPLAY), 15, Ui.DISPLAY);
+    }
+
+    private float drawBrand(Ui ui, float x, float cy, boolean compact) {
         // in the editor the name and icon come from the draft: a new book's name shows as soon as it is typed
         QuestBook book = host.session() != null ? EditorBook.get().view() : BookData.book();
         ItemStack icon = book.meta().icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
@@ -152,7 +208,7 @@ final class BookHeader {
         if (tabs.isEmpty() || room <= 0) {
             return;
         }
-        BookTabs.Tab active = host.settingsOpen() ? null : host.activeTab();
+        BookTabs.Tab active = host.settingsOpen() || host.aboutOpen() ? null : host.activeTab();
         QuestBook book = BookData.book();
         float[] widths = new float[tabs.size()];
         float text = 0;

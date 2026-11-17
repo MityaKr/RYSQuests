@@ -164,8 +164,8 @@ final class EditorPages {
         String namespace = EditorBook.namespace(book.data());
         String titleKey = "book." + namespace + ".title";
         works.repka.rysquests.data.BookMeta base = book.draft().meta().orElse(book.base().meta());
-        BookMeta named = new BookMeta(base.progressMode(), base.defaultView(), base.defaultTheme(), Optional.of(titleKey), base.icon(), base.chapterOrder(),
-                base.hud(), base.sections(), epochs ? List.of(new BookMeta.Epoch(EditorBook.tr("rysquests.ed.new_book.epoch"), false)) : base.epochs(), form, false);
+        BookMeta named = base.withTitleAndIcon(Optional.of(titleKey), base.icon())
+                .withEpochs(epochs ? List.of(new BookMeta.Epoch(EditorBook.tr("rysquests.ed.new_book.epoch"), false)) : base.epochs()).withMapForm(form).withPublished(false);
         book.edit("meta", EditorBook.tr("rysquests.ed.log.book_title", title), d -> d.withMeta(named).withText(titleKey, title));
         var chapter = book.addChapter(EditorBook.tr("rysquests.ed.new_book.chapter"), epochs ? Optional.of(1) : Optional.empty());
         map().openTable(chapter);

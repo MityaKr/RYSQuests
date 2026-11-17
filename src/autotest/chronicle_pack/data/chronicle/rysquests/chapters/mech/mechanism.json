@@ -1,0 +1,22 @@
+{
+  "id": "chronicle:mech/mechanism",
+  "chapter": "chronicle:mech",
+  "title": "Латунный механизм",
+  "icon": "minecraft:clock",
+  "requires": [
+    "chronicle:mech/alloy"
+  ],
+  "milestone": true,
+  "tasks": [
+    {
+      "type": "rysquests:checkbox"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 50
+    }
+  ],
+  "text": "Ключ к следующей эпохе."
+}

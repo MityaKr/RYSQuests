@@ -1,0 +1,18 @@
+{
+  "id": "chronicle:mech/alloy",
+  "chapter": "chronicle:mech",
+  "title": "Андезитовый сплав",
+  "icon": "minecraft:polished_andesite",
+  "tasks": [
+    {
+      "type": "rysquests:checkbox"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ],
+  "text": "Основа почти всего в Create."
+}

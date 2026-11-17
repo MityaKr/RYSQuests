@@ -1,0 +1,58 @@
+{
+  "id": "chronicle:start/ii_industry",
+  "chapter": "chronicle:start",
+  "title": "II. Индустрия",
+  "icon": "minecraft:redstone",
+  "requires": [
+    "chronicle:mech/mechanism"
+  ],
+  "milestone": true,
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Эпоха открыта"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 300
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 3
+    },
+    {
+      "type": "rysquests:choice",
+      "of": [
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:diamond_pickaxe",
+          "count": 1
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:iron_block",
+          "count": 8
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:redstone_block",
+          "count": 4
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:gold_ingot",
+          "count": 16
+        }
+      ]
+    },
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:book",
+      "count": 1
+    }
+  ],
+  "text": "Латунный механизм уже умеет собирать, теперь научи его проводить ток. Открывается ветка «Ток»."
+}

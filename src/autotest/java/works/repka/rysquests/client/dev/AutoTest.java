@@ -216,6 +216,8 @@ public final class AutoTest {
             EditorScenario.build(false);
         } else if ("book_editor_restart".equals(scenario)) {
             EditorScenario.build(true);
+        } else if ("chronicle".equals(scenario)) {
+            ChronicleScenario.build();
         } else if ("team_a".equals(scenario)) {
             buildTeamLeaderScenario();
         } else if ("team_b".equals(scenario)) {

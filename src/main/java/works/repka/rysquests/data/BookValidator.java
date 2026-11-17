@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -47,6 +48,8 @@ public final class BookValidator {
         chapters.values().forEach(chapter -> checkChapter(chapter, chapters, quests, issues));
         checkChapterOrder(chapters, quests, issues);
         checkHiddenDependencies(quests, issues);
+        checkEpochRewards(raw.meta(), quests, issues);
+        checkAbout(raw.meta(), guides, issues);
 
         List<Quest> valid = quests.values().stream().filter(quest -> !broken.contains(quest.id())).toList();
         List<Chapter> ordered = orderChapters(raw.meta(), chapters, issues);
@@ -62,6 +65,54 @@ public final class BookValidator {
             issues.add(new Issue(Severity.WARNING, "layout_stale", "book", book.layout().get().hash()));
         }
         return new Result(book, new BookReport(List.copyOf(issues)));
+    }
+
+    /**
+     * The quests that are rewards of epochs (ADR-60): each must exist, be named by one epoch only and reach players, or the epoch
+     * shows no reward.
+     */
+    private static void checkEpochRewards(BookMeta meta, Map<ResourceLocation, Quest> quests, List<Issue> issues) {
+        Map<ResourceLocation, Integer> first = new HashMap<>();
+        for (int i = 0; i < meta.epochs().size(); i++) {
+            Optional<ResourceLocation> named = meta.epochs().get(i).quest();
+            if (named.isEmpty()) {
+                continue;
+            }
+            ResourceLocation id = named.get();
+            String epoch = String.valueOf(i + 1);
+            Quest quest = quests.get(id);
+            if (quest == null) {
+                issues.add(error("epoch_unknown_quest", id, epoch));
+            } else if (first.containsKey(id)) {
+                issues.add(error("epoch_quest_twice", id, first.get(id) + ", " + epoch));
+            } else if (!quest.options().live()) {
+                issues.add(warning("epoch_quest_hidden", id, epoch));
+            }
+            first.putIfAbsent(id, i + 1);
+        }
+    }
+
+    /** The pages "О книге" (ADR-60): the guide named must be in the book, the book's own pages need ids of their own. */
+    private static void checkAbout(BookMeta meta, Map<ResourceLocation, Guide> guides, List<Issue> issues) {
+        if (meta.about().isEmpty()) {
+            return;
+        }
+        BookMeta.About about = meta.about().get();
+        if (about.guide().isPresent()) {
+            if (!guides.containsKey(about.guide().get())) {
+                issues.add(error("about_unknown_guide", about.guide().get(), ""));
+            }
+            return;
+        }
+        if (about.pages().isEmpty()) {
+            issues.add(warning("about_empty", BookMeta.About.OWN, ""));
+        }
+        Set<String> ids = new HashSet<>();
+        for (Guide.Page page : about.pages()) {
+            if (!ids.add(page.id())) {
+                issues.add(error("duplicate_guide_page", BookMeta.About.OWN, page.id()));
+            }
+        }
     }
 
     /** A quest that waits for a draft or an archived quest never opens for players, who are sent neither. */

@@ -8,7 +8,6 @@ import java.util.function.Predicate;
 import net.minecraft.network.chat.Component;
 import works.repka.rysquests.data.BookMeta;
 import works.repka.rysquests.data.Chapter;
-import works.repka.rysquests.data.MatrixSection;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.SectionDef;
 import works.repka.rysquests.data.ViewMode;
@@ -121,14 +120,13 @@ final class BookTabs {
     }
 
     /**
-     * The author's own tabs (cards, pages, matrices), which live inside "Guides" as a group of their own (plan, section 2). Matrices
-     * are for the author: a player does not see them (plan, section 8).
+     * The author's own tabs (cards, pages, matrices), which live inside "Guides" as a group of their own (plan, section 2). Players
+     * see the matrices too since 0.2.7 (ADR-60): the book's texts send them to "Атлас сборки" and "Атлас добычи". Only an operator
+     * edits them.
      */
     static List<SectionDef> authorSections(QuestBook book) {
-        boolean operator = BookRole.operator();
         return book.sections().values().stream()
                 .filter(section -> allowed(book, section.id().toString()))
-                .filter(section -> operator || !(section instanceof MatrixSection))
                 .toList();
     }
 }

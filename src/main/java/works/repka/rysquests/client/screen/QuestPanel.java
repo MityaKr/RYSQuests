@@ -1135,7 +1135,7 @@ final class QuestPanel {
 
     /** A plain reward as a chip; null for one that shows nothing (a choice or a random is drawn on its own). */
     @Nullable
-    private static RewardChip chip(RewardDef reward, boolean shared) {
+    static RewardChip chip(RewardDef reward, boolean shared) {
         return switch (reward) {
             case ItemReward item -> {
                 ItemStack stack = QuestFacts.stack(item);
@@ -1256,7 +1256,7 @@ final class QuestPanel {
     }
 
     /** A reward in words, for the claim button and options that are not items: "25 опыта", "1 монету", "Стальной слиток ×32". */
-    private static String phrase(RewardDef reward, boolean accusative) {
+    static String phrase(RewardDef reward, boolean accusative) {
         return switch (reward) {
             case ItemReward item -> QuestFacts.stack(item).getHoverName().getString() + (item.count() > 1 ? " ×" + Numbers.compact(item.count()) : "");
             case XpReward xp -> xp.levels().isPresent() ? Ui.counted("rysquests.qpanel.plural.level", xp.levels().get()) + " " + t("rysquests.qpanel.xp_word")
@@ -1314,6 +1314,12 @@ final class QuestPanel {
         for (ResourceLocation id : book.unlocks().getOrDefault(quest.id(), List.of())) {
             Quest next = book.quests().get(id);
             if (next == null || !works.repka.rysquests.progress.QuestLogic.isLive(next)) {
+                continue;
+            }
+            int epoch = book.epochOf(next.id());
+            if (epoch > 0) {
+                // an epoch's reward is no card of its own (ADR-60): it is named as the epoch's
+                names.add("**" + t("rysquests.qpanel.opens_epoch", Ui.roman(epoch)) + "**");
                 continue;
             }
             String name = BookData.shown(next) ? "**«" + QuestFacts.plain(Component.translatable(next.title()).getString()) + "»**" : "???";

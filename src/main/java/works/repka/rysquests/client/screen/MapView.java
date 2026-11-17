@@ -86,6 +86,9 @@ final class MapView implements BookView {
     @Nullable
     private ResourceLocation openChapter;
     private int focusEpoch;
+    /** The epoch whose reward card is open over the canvas (ADR-60), 0 for none. */
+    private int epochCard;
+    private final EpochCards epochCards = new EpochCards();
     private boolean legendOpen;
     private boolean panelClosed;
     @Nullable
@@ -109,6 +112,7 @@ final class MapView implements BookView {
             }
         });
         canvas.setStatus(MapView::status, ClientProgress::version);
+        canvas.setEpochReward(EpochCards::waiting);
         canvas.setInsets(56, 14, 54);
         canvas.setMinimapFrom(MapCanvas.Level.EPOCH);
         canvas.setShowSide(ClientConfig.MAP_SIDE_QUESTS.get());
@@ -148,6 +152,25 @@ final class MapView implements BookView {
         openChapter = null;
         focusEpoch = epoch;
         canvas.flyToEpoch(epoch);
+    }
+
+    /** Opens the reward card of an epoch beside its plate: from the sidebar, "Сейчас" and a click on the plate. */
+    void openEpochCard(int epoch) {
+        epochCard = EpochCards.questOf(epoch) == null ? 0 : epoch;
+    }
+
+    /** "Забрать" of an epoch's reward elsewhere in the book: the map flies to the epoch and opens its card. */
+    void showEpochReward(int epoch) {
+        flyToEpoch(epoch);
+        openEpochCard(epoch);
+    }
+
+    int epochCardForTest() {
+        return epochCard;
+    }
+
+    EpochCards epochCardsForTest() {
+        return epochCards;
     }
 
     void flyToChapter(ResourceLocation chapter) {
@@ -276,6 +299,7 @@ final class MapView implements BookView {
                 drawTopRight(ui, toolsAt, y);
                 drawBottom(ui, x, y, toolsAt - x, h, compact, level);
                 drawChapterPopover(ui, x, y, canvasW, h);
+                drawEpochCard(ui, x, y, canvasW, h);
                 if (legendOpen) {
                     drawLegend(ui, toolsAt, y);
                 }
@@ -679,6 +703,29 @@ final class MapView implements BookView {
         });
     }
 
+    /** The reward card of an epoch (mockup 04_epoch_reward, ADR-60), under the epoch's plate, or in the corner when the plate is away. */
+    private void drawEpochCard(Ui ui, int x, int y, int w, int h) {
+        if (epochCard <= 0 || EpochCards.questOf(epochCard) == null) {
+            epochCard = 0;
+            return;
+        }
+        int epoch = epochCard;
+        int cardH = Math.round(epochCards.height(ui, epoch));
+        float[] plate = canvas.epochPlate(epoch);
+        int ax = plate == null ? x + PAD : Math.round(plate[0]);
+        int ay = plate == null ? y + PAD + TB + TB_GAP : Math.round(plate[1]);
+        int aw = plate == null ? 2 : Math.round(plate[2] - plate[0]);
+        int ah = plate == null ? 2 : Math.round(plate[3] - plate[1]);
+        int[] bounds = {x / 2, y / 2, w / 2, h / 2};
+        int[] box = Kit.popover(ui.g, ui.theme, ax / 2, ay / 2, Math.max(1, aw / 2), Math.max(1, ah / 2), EpochCards.WIDTH / 2, (cardH + 1) / 2, Kit.Side.BELOW, bounds,
+                (g, bx, by, bw, bh) -> {
+                });
+        float px = box[0] * 2f;
+        float py = box[1] * 2f;
+        overPopover(ui, () -> epochCards.render(ui, epoch, px, py));
+        tools.add(new float[] {px, py, EpochCards.WIDTH, cardH});
+    }
+
     /** Draws above the popover frame the core puts high over the window. */
     private static void overPopover(Ui ui, Runnable drawing) {
         ui.g.pose().pushPose();
@@ -813,6 +860,8 @@ final class MapView implements BookView {
         if (legendOpen) {
             legendOpen = false;
         }
+        // a press beside the epoch's card closes it; a press on another plate opens that one on release
+        epochCard = 0;
         if (canvas.clickLoading(x, y)) {
             pressedOnCanvas = false;
             return;
@@ -902,6 +951,7 @@ final class MapView implements BookView {
             case EPOCH -> {
                 openChapter = null;
                 focusEpoch = target.epoch();
+                openEpochCard(target.epoch());
             }
             default -> BookState.quest = null;
         }

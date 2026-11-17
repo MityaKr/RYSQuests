@@ -28,6 +28,11 @@ public record QuestActionPayload(int action, ResourceLocation quest, int value, 
     public static final int RESET = 8;
     /** The quest's menu, "Завершить": the quest is completed without its tasks. Operators only. */
     public static final int COMPLETE = 9;
+    /**
+     * The reward of an epoch, taken on the map (ADR-60): {@code quest} is the epoch's quest, {@code choices} as for
+     * {@link #CLAIM}. The checkboxes the quest still lacks are ticked first, when they are all it lacks.
+     */
+    public static final int CLAIM_EPOCH = 10;
     /** Quest id for actions that apply to the whole book. */
     public static final ResourceLocation ALL = ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "all");
 

@@ -20,8 +20,8 @@ import works.repka.rysquests.data.SectionDef;
 import works.repka.rysquests.editor.SectionEdits;
 
 /**
- * The editor's "Вкладки" (picture 40): the sidebar lists the book's tabs as players see them, the author's tabs inside "Гайды", and the
- * matrices "Атлас сборки" and "Атлас добычи" that stay the author's working tables; under them "Новая вкладка: Карточки, Страницы,
+ * The editor's "Вкладки" (picture 40): the sidebar lists the book's tabs as players see them and the author's tabs inside "Гайды", the
+ * matrices "Атлас сборки" and "Атлас добычи" among them (players see them since ADR-60); under them "Новая вкладка: Карточки, Страницы,
  * Матрица". A matrix is edited cell by cell with the chosen way on the right and "Сделать страницей гайда" at its foot; a tab of
  * cards card by card; a tab of pages opens in "Гайды".
  */
@@ -112,23 +112,16 @@ final class TabsEditorView extends EditorPage {
             }) + 1;
         }
         pen += 10;
-        List<SectionDef> inside = book.sections().values().stream().filter(s -> !(s instanceof MatrixSection)).toList();
+        // matrices stand with the other tabs inside "Гайды": players see them since 0.2.7 (ADR-60)
+        List<SectionDef> inside = List.copyOf(book.sections().values());
         ui.caps(tr("rysquests.ed.tabs.inside"), x + 14, pen + 7, ui.c("text.dim"));
         pen += 20;
         for (SectionDef def : inside) {
             boolean shown = allowed.isEmpty() || allowed.contains(def.id().toString());
             ResourceLocation id = def.id();
-            pen += row(ui, def instanceof CardsSection ? Icons.Shape.LIST : Icons.Shape.FLAG, editor.text(def.title()), px, pen, pw, id.equals(section), shown ? Icons.Shape.EYE : null,
+            Icons.Shape glyph = def instanceof CardsSection || def instanceof MatrixSection ? Icons.Shape.LIST : Icons.Shape.FLAG;
+            pen += row(ui, glyph, editor.text(def.title()), px, pen, pw, id.equals(section), shown ? Icons.Shape.EYE : null,
                     () -> select(id)) + 1;
-        }
-        pen += 10;
-        ui.caps(tr("rysquests.ed.tabs.editor_only"), x + 14, pen + 7, ui.c("text.dim"));
-        pen += 20;
-        for (SectionDef def : book.sections().values()) {
-            if (def instanceof MatrixSection) {
-                ResourceLocation id = def.id();
-                pen += row(ui, Icons.Shape.LIST, editor.text(def.title()), px, pen, pw, id.equals(section), null, () -> select(id)) + 1;
-            }
         }
         pen += 10;
         ui.caps(tr("rysquests.ed.tabs.new"), x + 14, pen + 7, ui.c("text.dim"));

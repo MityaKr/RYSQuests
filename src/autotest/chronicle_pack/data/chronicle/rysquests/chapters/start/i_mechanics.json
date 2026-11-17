@@ -1,0 +1,56 @@
+{
+  "id": "chronicle:start/i_mechanics",
+  "chapter": "chronicle:start",
+  "title": "I. Механика",
+  "icon": "minecraft:andesite",
+  "requires": [],
+  "milestone": true,
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Эпоха открыта"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 300
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 3
+    },
+    {
+      "type": "rysquests:choice",
+      "of": [
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:iron_pickaxe",
+          "count": 1
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:iron_ingot",
+          "count": 32
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:copper_ingot",
+          "count": 32
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:shield",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:paper",
+      "count": 1
+    }
+  ],
+  "text": "Когда-то кто-то построил машину, способную творить миры. Начни с андезита: из него собирается всё первое."
+}

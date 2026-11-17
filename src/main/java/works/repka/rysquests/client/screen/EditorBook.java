@@ -174,9 +174,7 @@ final class EditorBook {
                 offer.cost(), offer.gives(), offer.limit(), offer.stage(), offer.stageTitle(), offer.quest(), offer.lockText().map(this::text), offer.delivery())).toList();
         List<Achievement> achievements = book.achievements().values().stream().map(a -> new Achievement(a.id(), a.title().map(key -> text(key)),
                 a.text().map(key -> text(key)), a.hint(), a.icon(), a.category(), a.hidden(), a.tiers(), a.archived())).toList();
-        BookMeta meta = book.meta().title().map(this::text).map(text -> new BookMeta(book.meta().progressMode(), book.meta().defaultView(), book.meta().defaultTheme(),
-                Optional.of(text), book.meta().icon(), book.meta().chapterOrder(), book.meta().hud(), book.meta().sections(), book.meta().epochs(), book.meta().mapForm(),
-                book.meta().published())).orElse(book.meta());
+        BookMeta meta = book.meta().title().map(this::text).map(text -> book.meta().withTitleAndIcon(Optional.of(text), book.meta().icon())).orElse(book.meta());
         return QuestBook.create(meta, chapters, quests, List.copyOf(book.guides().values()), List.copyOf(book.sections().values()), book.hash())
                 .withAssets(book.assets()).withOffers(offers).withAchievements(achievements).withStructures(List.copyOf(book.structures().values())).withLayout(book.layout());
     }

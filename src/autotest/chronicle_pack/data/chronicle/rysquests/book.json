@@ -1,0 +1,31 @@
+{
+  "progress_mode": "solo",
+  "default_view": "map",
+  "default_theme": "ryscore:slate",
+  "title": "Летопись",
+  "icon": "minecraft:nether_star",
+  "chapter_order": [
+    "chronicle:mech",
+    "chronicle:industry",
+    "chronicle:start"
+  ],
+  "sections": [
+    "story",
+    "guides",
+    "chronicle:atlas",
+    "shop",
+    "achievements"
+  ],
+  "epochs": [
+    {
+      "title": "Механика",
+      "quest": "chronicle:start/i_mechanics"
+    },
+    {
+      "title": "Индустрия",
+      "quest": "chronicle:start/ii_industry"
+    }
+  ],
+  "map_form": "serpentine",
+  "about": "chronicle:about"
+}
