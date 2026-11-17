@@ -85,6 +85,17 @@ public final class ReceiverBlock extends BaseEntityBlock {
     }
 
     @Override
+    protected boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    /** The lamp or the buffer's fill, as the window's setting says. */
+    @Override
+    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        return level.getBlockEntity(pos) instanceof ReceiverBlockEntity receiver ? receiver.signal() : 0;
+    }
+
+    @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof ReceiverBlockEntity receiver) {
             receiver.broken();

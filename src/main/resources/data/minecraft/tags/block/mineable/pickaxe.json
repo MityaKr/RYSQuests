@@ -1,5 +1,6 @@
 {
   "values": [
-    "rysquests:shop_receiver"
+    "rysquests:shop_receiver",
+    "rysquests:shop_dispenser"
   ]
 }

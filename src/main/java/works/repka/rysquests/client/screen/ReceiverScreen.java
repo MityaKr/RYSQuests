@@ -20,6 +20,7 @@ import works.repka.ryscore.ui.Field;
 import works.repka.ryscore.ui.Icons;
 import works.repka.ryscore.ui.Kit;
 import works.repka.ryscore.ui.ScaledScreen;
+import works.repka.rysquests.block.ComparatorMode;
 import works.repka.rysquests.block.ModBlocks;
 import works.repka.rysquests.block.ReceiverMenu;
 import works.repka.rysquests.block.ReceiverProgram;
@@ -135,7 +136,13 @@ public final class ReceiverScreen extends ScaledScreen implements MenuAccess<Rec
     // --- what the server is asked ---
 
     private void ask(ResourceLocation program, Optional<ResourceLocation> offer, boolean treasury, boolean reset) {
-        PacketDistributor.sendToServer(new ReceiverConfigPayload(menu.containerId, program, offer, treasury, reset));
+        PacketDistributor.sendToServer(new ReceiverConfigPayload(menu.containerId, program, offer, treasury, reset, view().comparator(), view().notices()));
+    }
+
+    /** The block's own settings: what a comparator reads, whether the owner hears when it stops. */
+    private void askBlock(ComparatorMode comparator, boolean notify) {
+        ReceiverView view = view();
+        PacketDistributor.sendToServer(new ReceiverConfigPayload(menu.containerId, view.program(), view.offer(), view.treasury(), false, comparator, notify));
     }
 
     private void choose(ShopOffer offer) {
@@ -231,7 +238,14 @@ public final class ReceiverScreen extends ScaledScreen implements MenuAccess<Rec
         int bodyH = H - HEAD - FOOT;
         ui.rect(x + LEFT, bodyTop, 1, bodyH, ui.c("panel.border"));
         renderList(ui, x, bodyTop, LEFT, bodyH);
-        renderRight(ui, x + LEFT + 1 + RIGHT_PAD_X, bodyTop + RIGHT_PAD_Y, W - LEFT - 1 - RIGHT_PAD_X * 2);
+        float rightX = x + LEFT + 1 + RIGHT_PAD_X;
+        float rightW = W - LEFT - 1 - RIGHT_PAD_X * 2;
+        float end = renderRight(ui, rightX, bodyTop + RIGHT_PAD_Y, rightW);
+        // The block's own settings stand at the bottom of the column, below whatever the mode shows.
+        float settingsY = Math.max(end + GAP, bodyTop + bodyH - RIGHT_PAD_Y - BlockSettings.height());
+        ReceiverView shown = view();
+        BlockSettings.render(ui, rightX, settingsY, rightW, shown.comparator(), tr("rysquests.receiver.comparator.fill"), shown.notices(),
+                mode -> askBlock(mode, view().notices()), () -> askBlock(view().comparator(), !view().notices()));
         renderFooter(ui, x, y + H - FOOT);
         hovered = ui.hoveredStack;
         if (ui.hoveredStack != null) {
@@ -342,7 +356,8 @@ public final class ReceiverScreen extends ScaledScreen implements MenuAccess<Rec
         }
     }
 
-    private void renderRight(Ui ui, float x, float y, float w) {
+    /** @return where the column's content ends */
+    private float renderRight(Ui ui, float x, float y, float w) {
         float pen = y;
         pen += modeRow(ui, x, pen, w) + GAP;
         ShopOffer offer = selected();
@@ -351,13 +366,9 @@ public final class ReceiverScreen extends ScaledScreen implements MenuAccess<Rec
         }
         if (offer == null) {
             ui.label(tr("rysquests.receiver.pick"), x, pen + 10, 12.5f, Ui.REGULAR, ui.c("text.muted"));
-            return;
+            return pen + 20;
         }
-        if (selling()) {
-            renderSale(ui, offer, x, pen, w);
-        } else {
-            renderDelivery(ui, offer, x, pen, w);
-        }
+        return selling() ? renderSale(ui, offer, x, pen, w) : renderDelivery(ui, offer, x, pen, w);
     }
 
     /** "Режим" and its switch: sell, deliver, and the greyed "trial" kept for later (plan, section 4.7). @return its height */
@@ -391,7 +402,7 @@ public final class ReceiverScreen extends ScaledScreen implements MenuAccess<Rec
         return Segments.HEIGHT;
     }
 
-    private void renderSale(Ui ui, ShopOffer offer, float x, float y, float w) {
+    private float renderSale(Ui ui, ShopOffer offer, float x, float y, float w) {
         ReceiverView view = view();
         List<String> names = new ArrayList<>();
         List<String> amounts = new ArrayList<>();
@@ -425,13 +436,13 @@ public final class ReceiverScreen extends ScaledScreen implements MenuAccess<Rec
         ui.hit(x + w - resetW - 4, pen - 4, resetW + 8, rubricH + 8, () -> ask(view.program(), view.offer(), view.treasury(), true));
         pen += rubricH + 6;
         String earned = (view.earned() > 0 ? "+" : "") + ShopView.money(currency(), view.earned());
-        summary(ui, x, pen, w, List.of(
+        return pen + summary(ui, x, pen, w, List.of(
                 new String[] {tr("rysquests.receiver.accepted"), text("rysquests.receiver.pieces", Sidebar.full(view.accepted())), null},
                 new String[] {tr("rysquests.receiver.lots"), Sidebar.full(view.lots()), null},
                 new String[] {tr(view.treasury() ? "rysquests.receiver.earned_treasury" : "rysquests.receiver.earned"), earned, view.earned() > 0 ? "state.ok" : null}));
     }
 
-    private void renderDelivery(Ui ui, ShopOffer offer, float x, float y, float w) {
+    private float renderDelivery(Ui ui, ShopOffer offer, float x, float y, float w) {
         Map<String, Long> delivered = delivered(offer);
         float pen = y;
         pen += DetailPanel.rubric(ui, x, pen, w, text("rysquests.receiver.delivery_title", ShopView.name(offer)), percent(offer) + "%") + 10;
@@ -455,7 +466,8 @@ public final class ReceiverScreen extends ScaledScreen implements MenuAccess<Rec
                 new String[] {tr("rysquests.receiver.takes"), tr("rysquests.receiver.delivery.takes_value"), null},
                 new String[] {tr("rysquests.receiver.delivery.row_full"), tr("rysquests.receiver.delivery.row_full_value"), null},
                 new String[] {tr("rysquests.receiver.delivery.when_full"), tr("rysquests.receiver.delivery.when_full_value"), null})) + GAP;
-        note(ui, x, pen, w, tr("rysquests.receiver.trial_note"));
+        // A long delivery leaves the note out: the block's settings below need the room.
+        return offer.deliveryRows().size() > 3 ? pen : pen + note(ui, x, pen, w, tr("rysquests.receiver.trial_note"));
     }
 
     /** Rows of a label and a value on the status plate (mockup {@code .sum}). @return its height */
@@ -473,8 +485,8 @@ public final class ReceiverScreen extends ScaledScreen implements MenuAccess<Rec
         return h;
     }
 
-    /** A plate with the round "i" and a few lines (mockup {@code .note}). */
-    private static void note(Ui ui, float x, float y, float w, String line) {
+    /** A plate with the round "i" and a few lines (mockup {@code .note}). @return its height */
+    private static float note(Ui ui, float x, float y, float w, String line) {
         float textX = x + 12 + 15 + 10;
         float lineH = Math.round(12.5f * 1.45f);
         List<String> lines = ui.wrap(line, w - (textX - x) - 12, 12.5f, Ui.REGULAR, 4);
@@ -484,6 +496,7 @@ public final class ReceiverScreen extends ScaledScreen implements MenuAccess<Rec
         for (int i = 0; i < lines.size(); i++) {
             ui.label(lines.get(i), textX, y + 8 + i * lineH + lineH / 2f, 12.5f, Ui.REGULAR, ui.c("text.secondary"));
         }
+        return h;
     }
 
     private void renderFooter(Ui ui, int x, int y) {

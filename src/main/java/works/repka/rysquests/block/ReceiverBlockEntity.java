@@ -32,6 +32,8 @@ import works.repka.rysquests.data.ShopOffer;
 public final class ReceiverBlockEntity extends BlockEntity implements MenuProvider {
     private final Receiver receiver = new Receiver();
     private @Nullable ReceiverMarket market;
+    /** The status the lamp, the comparator and the notices last showed; null until the block first looked after loading. */
+    private @Nullable ReceiverStatus shown;
 
     /** No slots: every insertion goes straight to the receiver, an honest simulation included. Nothing ever comes out. */
     private final IItemHandler handler = new IItemHandler() {
@@ -135,15 +137,28 @@ public final class ReceiverBlockEntity extends BlockEntity implements MenuProvid
         }
     }
 
+    /** Shows the status: the lamp, the comparator and, on a change, the owner's notice (decision on question 17 of the plan). */
     private void showLamp() {
-        if (level == null || level.isClientSide) {
+        if (!(level instanceof ServerLevel server)) {
             return;
         }
         BlockState state = getBlockState();
-        ReceiverLamp lamp = receiver.status().lamp();
+        ReceiverStatus status = receiver.status();
+        ReceiverLamp lamp = status.lamp();
         if (state.hasProperty(ReceiverBlock.LAMP) && state.getValue(ReceiverBlock.LAMP) != lamp) {
             level.setBlock(worldPosition, state.setValue(ReceiverBlock.LAMP, lamp), Block.UPDATE_CLIENTS);
         }
+        if (status != shown) {
+            shown = status;
+            level.updateNeighbourForOutputSignal(worldPosition, state.getBlock());
+            BlockNotices.status(server, worldPosition, "receiver", receiver.owner(), status, Optional.ofNullable(receiver.offerId()), receiver.notifies());
+        }
+    }
+
+    /** What a comparator next to the block reads. */
+    int signal() {
+        ReceiverMarket shop = market();
+        return shop == null ? 0 : receiver.signal(shop);
     }
 
     // --- owner and access ---
@@ -210,7 +225,7 @@ public final class ReceiverBlockEntity extends BlockEntity implements MenuProvid
         receiver.buffer().forEach((item, count) -> buffer.put(BuiltInRegistries.ITEM.getKey(item).toString(), count));
         return new ReceiverView(receiver.owner() == null ? ReceiverView.NOBODY : receiver.owner(), receiver.ownerName(), inTeam, receiver.programId(),
                 Optional.ofNullable(receiver.offerId()), receiver.treasury(), currency, wallet, treasury, buffer, receiver.accepted(), receiver.lots(), receiver.earned(),
-                receiver.status());
+                receiver.status(), receiver.comparator(), receiver.notifies());
     }
 
     /**
@@ -218,7 +233,8 @@ public final class ReceiverBlockEntity extends BlockEntity implements MenuProvid
      * it, the treasury needs an owner in a team. What the buffer holds of a trade that is no longer chosen is sold if it makes whole
      * lots, and the rest drops on top of the block.
      */
-    void configure(ServerPlayer player, ResourceLocation program, Optional<ResourceLocation> offer, boolean treasury, boolean reset) {
+    void configure(ServerPlayer player, ResourceLocation program, Optional<ResourceLocation> offer, boolean treasury, boolean reset, ComparatorMode comparator,
+            boolean notify) {
         ReceiverMarket shop = market();
         ReceiverProgram mode = ReceiverProgram.Registry.get(program);
         if (shop == null || mode == null || !mayUse(player)) {
@@ -234,6 +250,14 @@ public final class ReceiverBlockEntity extends BlockEntity implements MenuProvid
             dropBuffer();
         }
         receiver.configure(program, chosen, toTreasury);
+        receiver.setComparator(comparator);
+        if (notify != receiver.notifies()) {
+            receiver.setNotify(notify);
+            // The switch is part of what the notices know: turned off, a waiting notice is dropped.
+            if (level instanceof ServerLevel server) {
+                BlockNotices.status(server, worldPosition, "receiver", receiver.owner(), receiver.status(), Optional.ofNullable(receiver.offerId()), notify);
+            }
+        }
         if (reset) {
             receiver.resetCounters();
         }
@@ -248,6 +272,9 @@ public final class ReceiverBlockEntity extends BlockEntity implements MenuProvid
             receiver.settle(shop, now());
         }
         dropBuffer();
+        if (level instanceof ServerLevel server) {
+            BlockNotices.removed(server, worldPosition, receiver.owner());
+        }
     }
 
     private void dropBuffer() {
@@ -265,6 +292,8 @@ public final class ReceiverBlockEntity extends BlockEntity implements MenuProvid
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         receiver.load(tag.getCompound("receiver"));
+        // A loaded block shows what it saved without telling the owner again: only a change after this is news.
+        shown = receiver.status();
     }
 
     @Override

@@ -42,8 +42,10 @@ public final class RYSQuestsClient {
         modBus.addListener(RYSQuestsClient::onClientSetup);
         modBus.addListener(QuestKeys::register);
         modBus.addListener(StickerBoard::register);
-        modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) ->
-                event.register(works.repka.rysquests.block.ModBlocks.RECEIVER_MENU.get(), works.repka.rysquests.client.screen.ReceiverScreen::new));
+        modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) -> {
+            event.register(works.repka.rysquests.block.ModBlocks.RECEIVER_MENU.get(), works.repka.rysquests.client.screen.ReceiverScreen::new);
+            event.register(works.repka.rysquests.block.ModBlocks.DISPENSER_MENU.get(), works.repka.rysquests.client.screen.DispenserScreen::new);
+        });
         modBus.addListener((RegisterClientReloadListenersEvent event) -> event.registerReloadListener((ResourceManagerReloadListener) manager -> ClientAssets.applyLanguage()));
         ModNetwork.setClientBookHandler(ClientBook::receive);
         ModNetwork.setClientProgressHandler(ClientProgress::receive);
@@ -56,6 +58,7 @@ public final class RYSQuestsClient {
         ModNetwork.setClientShopHandlers(ClientShop::receive, payload -> BookScreen.onShopResult(payload.ok(), payload.reason()));
         ModNetwork.setClientEditorResultHandler(payload -> BookScreen.onEditorResult(payload.ok(), payload.reason(), payload.args()));
         ModNetwork.setClientMessageHandler(ClientMessages::receive);
+        ModNetwork.setClientBlockNoticeHandler(works.repka.rysquests.client.screen.BlockStopNotice::show);
         ModNetwork.setClientLayoutBakeHandler(ClientLayout::onBakeRequest);
         works.repka.rysquests.client.canvas.MapLayouts.register();
         ModNetwork.setClientImportHandlers(ClientImport::receiveProgress, ClientImport::receiveReport, ClientImport::receiveError);

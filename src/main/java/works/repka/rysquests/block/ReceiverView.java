@@ -19,9 +19,12 @@ import net.minecraft.resources.ResourceLocation;
  * @param wallet the owner's own coins, in the trade's currency
  * @param treasuryBalance the coins of the owner's team's treasury
  * @param buffer what the buffer holds, by item id
+ * @param comparator what a comparator next to the block reads
+ * @param notices whether the owner hears when the block stops
  */
 public record ReceiverView(UUID owner, String ownerName, boolean ownerInTeam, ResourceLocation program, Optional<ResourceLocation> offer, boolean treasury,
-        String currency, long wallet, long treasuryBalance, Map<String, Long> buffer, long accepted, long lots, long earned, ReceiverStatus status) {
+        String currency, long wallet, long treasuryBalance, Map<String, Long> buffer, long accepted, long lots, long earned, ReceiverStatus status,
+        ComparatorMode comparator, boolean notices) {
     public static final UUID NOBODY = new UUID(0, 0);
 
     public static final StreamCodec<FriendlyByteBuf, ReceiverView> STREAM_CODEC = StreamCodec.of(ReceiverView::write, ReceiverView::read);
@@ -43,12 +46,14 @@ public record ReceiverView(UUID owner, String ownerName, boolean ownerInTeam, Re
         buf.writeVarLong(view.lots);
         buf.writeVarLong(view.earned);
         buf.writeEnum(view.status);
+        buf.writeEnum(view.comparator);
+        buf.writeBoolean(view.notices);
     }
 
     private static ReceiverView read(FriendlyByteBuf buf) {
         return new ReceiverView(UUIDUtil.STREAM_CODEC.decode(buf), buf.readUtf(), buf.readBoolean(), buf.readResourceLocation(), buf.readOptional(FriendlyByteBuf::readResourceLocation),
                 buf.readBoolean(), buf.readUtf(), buf.readVarLong(), buf.readVarLong(), COUNTS.decode(buf), buf.readVarLong(), buf.readVarLong(), buf.readVarLong(),
-                buf.readEnum(ReceiverStatus.class));
+                buf.readEnum(ReceiverStatus.class), buf.readEnum(ComparatorMode.class), buf.readBoolean());
     }
 
     public boolean owned() {

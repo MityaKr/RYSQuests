@@ -30,6 +30,7 @@ import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import works.repka.rysquests.block.ComparatorMode;
 import works.repka.rysquests.block.ReceiverBlock;
 import works.repka.rysquests.block.ReceiverBlockEntity;
 import works.repka.rysquests.block.ReceiverMenu;
@@ -170,7 +171,7 @@ final class ShopReceiverScenario {
 
     private static void configure(ResourceLocation program, ResourceLocation offer) {
         if (mc().player.containerMenu instanceof ReceiverMenu menu) {
-            PacketDistributor.sendToServer(new ReceiverConfigPayload(menu.containerId, program, Optional.of(offer), false, false));
+            PacketDistributor.sendToServer(new ReceiverConfigPayload(menu.containerId, program, Optional.of(offer), false, false, ComparatorMode.STATE, true));
         }
     }
 

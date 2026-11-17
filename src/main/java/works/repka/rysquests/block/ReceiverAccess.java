@@ -36,4 +36,16 @@ public final class ReceiverAccess {
         // The same test the trade's core makes: a player whose team is themselves has no treasury.
         return owner != null && !team.apply(owner).equals(owner);
     }
+
+    /**
+     * Whether a dispenser may pay from the treasury (shop plan, section 4.4): the owner is in a team, and whoever switches it on has the
+     * right to spend it. Once it is on, the trade's core asks the owner's own right at every purchase, so an owner who loses the right
+     * or leaves the team stops the block at once.
+     *
+     * @param wasOn the block pays from the treasury already, so the setting is only kept
+     * @param askerHasRight the player who changes the settings may spend the treasury
+     */
+    public static boolean mayPayFromTreasury(@Nullable UUID owner, UnaryOperator<UUID> team, boolean wasOn, boolean askerHasRight) {
+        return mayChooseTreasury(owner, team) && (wasOn || askerHasRight);
+    }
 }

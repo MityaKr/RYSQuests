@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "rysquests:block/shop_dispenser_top",
+    "bottom": "rysquests:block/shop_dispenser_bottom",
+    "side": "rysquests:block/shop_dispenser_side_off"
+  }
+}

@@ -68,6 +68,16 @@ class ReceiverTest {
         }
 
         @Override
+        public TradeCore.Outcome buy(UUID who, ShopOffer offer, int times, boolean treasury, TradeSink to) {
+            return core.trade(offer, Trader.owner(who, null, treasury), times, true, TradeSource.NONE, to, 1);
+        }
+
+        @Override
+        public @Nullable String checkBuy(UUID who, ShopOffer offer, boolean treasury, TradeSink to) {
+            return core.check(offer, Trader.owner(who, null, treasury), 1, true, TradeSource.NONE, to).problem();
+        }
+
+        @Override
         public TradeCore.Delivered deliver(UUID who, ShopOffer offer, TradeSource from, boolean simulate) {
             return core.deliver(offer, Trader.owner(who, null, false), from, simulate);
         }
@@ -413,5 +423,43 @@ class ReceiverTest {
         for (ReceiverStatus status : ReceiverStatus.values()) {
             assertEquals(status.takes(), status == ReceiverStatus.WORKING || status == ReceiverStatus.WAITING);
         }
+    }
+
+    @Test
+    void theComparatorReadsTheLampOrTheBufferAndBothSettingsAreSaved() {
+        Receiver receiver = receiver(ReceiverPrograms.SELL, sellWheat(), false);
+        assertEquals(ComparatorMode.STATE, receiver.comparator());
+        assertTrue(receiver.notifies());
+        assertEquals(15, receiver.signal(market));
+
+        receiver.setComparator(ComparatorMode.FILL);
+        assertEquals(0, receiver.signal(market));
+        // 16 wheat of a buffer of 256 lots of 16: a sliver, which a chest shows as 1.
+        receiver.insert(market, wheat(16), false, 1);
+        assertEquals(1, receiver.signal(market));
+        for (int i = 0; i < 64; i++) {
+            receiver.insert(market, wheat(64), false, 2);
+        }
+        assertEquals(15, receiver.signal(market));
+
+        receiver.setNotify(false);
+        Receiver loaded = new Receiver();
+        loaded.load(receiver.save());
+        assertEquals(ComparatorMode.FILL, loaded.comparator());
+        assertFalse(loaded.notifies());
+
+        Receiver old = new Receiver();
+        old.load(new CompoundTag());
+        assertEquals(ComparatorMode.STATE, old.comparator());
+        assertTrue(old.notifies());
+    }
+
+    @Test
+    void theRefusalsOfThePurchaseHaveTheirOwnLamps() {
+        assertEquals(ReceiverStatus.NO_RIGHT, ReceiverStatus.of("rysquests.shop.error.no_right"));
+        assertEquals(ReceiverLamp.RED, ReceiverStatus.NO_RIGHT.lamp());
+        assertEquals(ReceiverStatus.NO_SPACE, ReceiverStatus.of("rysquests.shop.error.no_space"));
+        assertEquals("rysquests.dispenser.status.budget", ReceiverStatus.BUDGET.key("dispenser"));
+        assertEquals("rysquests.receiver.status.working", ReceiverStatus.WORKING.key());
     }
 }

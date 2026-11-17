@@ -84,7 +84,7 @@ public final class ReceiverMenu extends AbstractContainerMenu {
     /** New settings from the window: only for the window that is open now, and only when the player may still use the block. */
     public static void handleConfig(ServerPlayer player, ReceiverConfigPayload payload) {
         if (player.containerMenu instanceof ReceiverMenu menu && menu.containerId == payload.containerId() && menu.entity != null && menu.stillValid(player)) {
-            menu.entity.configure(player, payload.program(), payload.offer(), payload.treasury(), payload.reset());
+            menu.entity.configure(player, payload.program(), payload.offer(), payload.treasury(), payload.reset(), payload.comparator(), payload.notices());
             // The answer goes at once: the window waits for it to show the new mode.
             menu.sinceLook = LOOK_EVERY;
             menu.broadcastChanges();

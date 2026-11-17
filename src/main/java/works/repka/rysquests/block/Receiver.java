@@ -37,6 +37,8 @@ public final class Receiver {
     private ResourceLocation program = ReceiverPrograms.SELL.id();
     private @Nullable ResourceLocation offer;
     private boolean treasury;
+    private ComparatorMode comparator = ComparatorMode.STATE;
+    private boolean notify = true;
     private final Map<Item, Long> buffer = new LinkedHashMap<>();
     private long accepted;
     private long lots;
@@ -80,6 +82,49 @@ public final class Receiver {
 
     public ReceiverStatus status() {
         return status;
+    }
+
+    /** What a comparator next to the block reads. */
+    public ComparatorMode comparator() {
+        return comparator;
+    }
+
+    public void setComparator(ComparatorMode comparator) {
+        this.comparator = comparator;
+    }
+
+    /** Whether the owner hears when the block stops. */
+    public boolean notifies() {
+        return notify;
+    }
+
+    public void setNotify(boolean notify) {
+        this.notify = notify;
+    }
+
+    /**
+     * The comparator's level: the lamp, or how full the buffer is, as a chest's fill is read. The buffer of a sale holds up to
+     * {@link #BUFFER_LOTS} lots of each item; a delivery keeps no buffer, so its fill is always 0.
+     */
+    public int signal(ReceiverMarket market) {
+        if (comparator == ComparatorMode.STATE) {
+            return status.signal();
+        }
+        ShopOffer trade = offer(market);
+        if (trade == null || buffer.isEmpty()) {
+            return 0;
+        }
+        long room = 0;
+        long held = 0;
+        for (ShopOffer.Entry entry : trade.cost()) {
+            if (!entry.isCurrency()) {
+                room += entry.amount() * BUFFER_LOTS;
+            }
+        }
+        for (long count : buffer.values()) {
+            held += count;
+        }
+        return room <= 0 ? 0 : ComparatorMode.fillSignal((double) held / room);
     }
 
     public long accepted() {
@@ -263,6 +308,8 @@ public final class Receiver {
             tag.putString("offer", offer.toString());
         }
         tag.putBoolean("treasury", treasury);
+        tag.putString("comparator", comparator.key());
+        tag.putBoolean("notify", notify);
         CompoundTag held = new CompoundTag();
         buffer.forEach((item, count) -> held.putLong(BuiltInRegistries.ITEM.getKey(item).toString(), count));
         tag.put("buffer", held);
@@ -281,6 +328,8 @@ public final class Receiver {
         program = saved != null ? saved : ReceiverPrograms.SELL.id();
         offer = tag.contains("offer") ? ResourceLocation.tryParse(tag.getString("offer")) : null;
         treasury = tag.getBoolean("treasury");
+        comparator = ComparatorMode.of(tag.getString("comparator"));
+        notify = !tag.contains("notify") || tag.getBoolean("notify");
         buffer.clear();
         CompoundTag held = tag.getCompound("buffer");
         for (String key : held.getAllKeys()) {

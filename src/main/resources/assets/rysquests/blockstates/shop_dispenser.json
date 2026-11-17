@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "lamp=off": {
+      "model": "rysquests:block/shop_dispenser_off"
+    },
+    "lamp=green": {
+      "model": "rysquests:block/shop_dispenser_green"
+    },
+    "lamp=yellow": {
+      "model": "rysquests:block/shop_dispenser_yellow"
+    },
+    "lamp=red": {
+      "model": "rysquests:block/shop_dispenser_red"
+    }
+  }
+}

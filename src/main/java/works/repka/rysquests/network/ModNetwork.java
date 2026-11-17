@@ -16,7 +16,7 @@ import works.repka.rysquests.progress.ProgressService;
 public final class ModNetwork {
     // 11: the shop's state carries what the team delivered, and a request to deliver (0.2.7).
     // 12: the window of the intake block, its view and its settings (0.2.7).
-    private static final String VERSION = "12";
+    private static final String VERSION = "13";
 
     private static BiConsumer<BookSyncPayload, RegistryAccess> clientBookHandler = (payload, registries) -> {
     };
@@ -45,6 +45,8 @@ public final class ModNetwork {
     private static Consumer<AchievementStatePayload> clientAchievementHandler = payload -> {
     };
 
+    private static Consumer<BlockNoticePayload> clientBlockNoticeHandler = payload -> {
+    };
     private static Consumer<BookMessagePayload> clientMessageHandler = payload -> {
     };
     private static Consumer<LayoutBakeRequestPayload> clientLayoutBakeHandler = payload -> {
@@ -100,6 +102,11 @@ public final class ModNetwork {
         clientPinnedHandler = handler;
     }
 
+    /** A shop block of the player stopped: the family's notice. */
+    public static void setClientBlockNoticeHandler(Consumer<BlockNoticePayload> handler) {
+        clientBlockNoticeHandler = handler;
+    }
+
     /** The server's word about what the player did, for the book's message line. */
     public static void setClientMessageHandler(Consumer<BookMessagePayload> handler) {
         clientMessageHandler = handler;
@@ -147,6 +154,12 @@ public final class ModNetwork {
                         (payload, context) -> works.repka.rysquests.block.ReceiverMenu.receive(context.player(), payload))
                 .playToServer(ReceiverConfigPayload.TYPE, ReceiverConfigPayload.STREAM_CODEC,
                         (payload, context) -> works.repka.rysquests.block.ReceiverMenu.handleConfig((ServerPlayer) context.player(), payload))
+                .playToClient(DispenserStatePayload.TYPE, DispenserStatePayload.STREAM_CODEC,
+                        (payload, context) -> works.repka.rysquests.block.DispenserMenu.receive(context.player(), payload))
+                .playToServer(DispenserConfigPayload.TYPE, DispenserConfigPayload.STREAM_CODEC,
+                        (payload, context) -> works.repka.rysquests.block.DispenserMenu.handleConfig((ServerPlayer) context.player(), payload))
+                .playToClient(BlockNoticePayload.TYPE, BlockNoticePayload.STREAM_CODEC,
+                        (payload, context) -> clientBlockNoticeHandler.accept(payload))
                 .playToClient(AchievementStatePayload.TYPE, AchievementStatePayload.STREAM_CODEC,
                         (payload, context) -> clientAchievementHandler.accept(payload))
                 .playToServer(SelectTitlePayload.TYPE, SelectTitlePayload.STREAM_CODEC,

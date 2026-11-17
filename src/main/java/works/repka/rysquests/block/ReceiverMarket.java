@@ -14,8 +14,8 @@ import works.repka.rysquests.shop.TradeSink;
 import works.repka.rysquests.shop.TradeSource;
 
 /**
- * What the intake block asks of the shop: its trades and the trade's core for an owner who may be offline. On a server it is the
- * shop's own ({@link #of}); the tests give one over a bare progress store.
+ * What the shop blocks ask of the shop: its trades and the trade's core for an owner who may be offline. On a server it is the shop's
+ * own ({@link #of}); the tests give one over a bare progress store.
  */
 public interface ReceiverMarket {
     @Nullable
@@ -27,6 +27,13 @@ public interface ReceiverMarket {
     /** Whether the trade could be made once, changing nothing. @return the lang key of a refusal, or null */
     @Nullable
     String check(UUID owner, ShopOffer offer, boolean treasury, TradeSource from);
+
+    /** Buys as many times as the money and the room allow, up to {@code times}, and puts the goods into the sink (the dispenser). */
+    TradeCore.Outcome buy(UUID owner, ShopOffer offer, int times, boolean treasury, TradeSink to);
+
+    /** Whether a purchase could be made once into the sink, changing nothing. @return the lang key of a refusal, or null */
+    @Nullable
+    String checkBuy(UUID owner, ShopOffer offer, boolean treasury, TradeSink to);
 
     /** Gives what the source holds of a delivery's rows to the owner's team's count, never more than it lacks. */
     TradeCore.Delivered deliver(UUID owner, ShopOffer offer, TradeSource from, boolean simulate);
@@ -52,6 +59,16 @@ public interface ReceiverMarket {
             @Override
             public @Nullable String check(UUID owner, ShopOffer offer, boolean treasury, TradeSource from) {
                 return ShopService.checkFor(server, owner, offer, treasury, from, TradeSink.NONE);
+            }
+
+            @Override
+            public TradeCore.Outcome buy(UUID owner, ShopOffer offer, int times, boolean treasury, TradeSink to) {
+                return ShopService.tradeFor(server, owner, offer, times, treasury, TradeSource.NONE, to);
+            }
+
+            @Override
+            public @Nullable String checkBuy(UUID owner, ShopOffer offer, boolean treasury, TradeSink to) {
+                return ShopService.checkFor(server, owner, offer, treasury, TradeSource.NONE, to);
             }
 
             @Override
