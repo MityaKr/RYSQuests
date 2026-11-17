@@ -53,6 +53,7 @@ public final class RYSQuests {
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> QuestCommands.register(event.getDispatcher()));
         NeoForge.EVENT_BUS.addListener(RYSQuests::onDatapackSync);
         NeoForge.EVENT_BUS.addListener((ServerStartedEvent event) -> MigrationRunner.applyNew(event.getServer()));
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppedEvent event) -> ProgressService.onServerStopped());
         NeoForge.EVENT_BUS.addListener(RYSQuests::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(works.repka.rysquests.shop.ShopService::onServerTick);
         NeoForge.EVENT_BUS.addListener(AchievementService::onNameFormat);

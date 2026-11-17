@@ -1,0 +1,26 @@
+{
+  "id": "stats:long_liver",
+  "title": "Долгожитель",
+  "text": "Время без смерти. Смерть начинает счёт заново.",
+  "category": "Жизнь",
+  "icon": "minecraft:totem_of_undying",
+  "task": {
+    "type": "rysquests:stat",
+    "stat": "minecraft:custom",
+    "target": "minecraft:time_since_death"
+  },
+  "tiers": [
+    {
+      "tier": "bronze",
+      "amount": 72000
+    },
+    {
+      "tier": "silver",
+      "amount": 720000
+    },
+    {
+      "tier": "gold",
+      "amount": 3600000
+    }
+  ]
+}

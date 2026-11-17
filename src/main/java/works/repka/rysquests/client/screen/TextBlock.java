@@ -223,6 +223,14 @@ final class TextBlock {
 
     private static void draw(Ui ui, Laid laid, float x, float y, Look look, Consumer<ItemStack> onItem) {
         int warn = ui.c("state.warn");
+        // The words of one link share its action: under the pointer they light up together, as a link in chat does.
+        Runnable lit = null;
+        for (Item item : laid.items) {
+            if (item instanceof Placed placed && placed.word.link && placed.word.click != null
+                    && ui.over(x + placed.x, y + placed.y, placed.word.width, look.lineHeight)) {
+                lit = placed.word.click;
+            }
+        }
         for (Item item : laid.items) {
             switch (item) {
                 case WarningBox box -> {
@@ -236,14 +244,14 @@ final class TextBlock {
                 }
                 case Placed placed -> {
                     if (ui.rowVisible(y + placed.y, look.lineHeight)) {
-                        drawWord(ui, placed.word, x + placed.x, y + placed.y, look, ui.c("text.body"), onItem);
+                        drawWord(ui, placed.word, x + placed.x, y + placed.y, look, ui.c("text.body"), onItem, lit);
                     }
                 }
             }
         }
     }
 
-    private static void drawWord(Ui ui, Word word, float x, float y, Look look, int warn, Consumer<ItemStack> onItem) {
+    private static void drawWord(Ui ui, Word word, float x, float y, Look look, int warn, Consumer<ItemStack> onItem, @Nullable Runnable lit) {
         float cy = y + look.lineHeight / 2f;
         float pen = x;
         if (!word.icon.isEmpty()) {
@@ -258,8 +266,9 @@ final class TextBlock {
         } else {
             int base = word.warning ? warn : look.color;
             int bold = word.warning ? warn : look.boldColor;
+            int linkColor = ui.c(word.link && word.click != null && word.click == lit ? "link" : "chip.mod.fg");
             for (Piece piece : word.pieces) {
-                int color = word.link ? ui.c("chip.mod.fg") : piece.color != 0 ? piece.color : piece.weight == Ui.SEMIBOLD ? bold : base;
+                int color = word.link ? linkColor : piece.color != 0 ? piece.color : piece.weight == Ui.SEMIBOLD ? bold : base;
                 ui.label(piece.text, pen, cy, look.px, piece.weight, color);
                 float w = ui.width(piece.text, look.px, piece.weight);
                 if (word.link) {
@@ -349,6 +358,12 @@ final class TextBlock {
                 }
                 click = reveal != null ? reveal : () -> BookState.select(quest);
             }
+        } else if (span.kind().equals(Markup.URL) && Markup.isWebUrl(span.target())) {
+            String url = span.target();
+            if (label.isEmpty()) {
+                label = Markup.shortUrl(url);
+            }
+            click = reveal != null ? reveal : () -> WebLinks.open(url);
         } else if (span.kind().equals("guide") && GuideRef.parse(span.target()).isPresent()) {
             GuideRef ref = GuideRef.parse(span.target()).get();
             Guide guide = ClientBook.current().guides().get(ref.guide());

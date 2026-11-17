@@ -270,6 +270,22 @@ public final class ProgressStore extends SavedData {
         return TeamRewards.roundMembers(candidates, team, player -> teamOf(player, mode), team.equals(members.get(team)));
     }
 
+    /**
+     * The players who share a team's progress, offline ones too: a team mod's members and those of a team made with our own commands
+     * (its id is its owner's), each only while they still work on this team's progress.
+     */
+    public List<UUID> teamMembers(UUID team, ProgressMode mode) {
+        Set<UUID> candidates = new java.util.LinkedHashSet<>(TeamsApi.get().members(team));
+        members.forEach((player, own) -> {
+            if (own.equals(team)) {
+                candidates.add(player);
+            }
+        });
+        candidates.remove(SERVER_TEAM);
+        candidates.removeIf(player -> !teamOf(player, mode).equals(team));
+        return List.copyOf(candidates);
+    }
+
     public QuestProgress get(UUID team, ResourceLocation quest) {
         return team(team).getOrDefault(quest, QuestProgress.EMPTY);
     }

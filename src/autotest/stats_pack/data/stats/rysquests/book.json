@@ -1,0 +1,14 @@
+{
+  "progress_mode": "team",
+  "default_view": "map",
+  "default_theme": "ryscore:slate",
+  "title": "Статистика",
+  "icon": "minecraft:clock",
+  "chapter_order": [
+    "stats:life"
+  ],
+  "sections": [
+    "story",
+    "achievements"
+  ]
+}

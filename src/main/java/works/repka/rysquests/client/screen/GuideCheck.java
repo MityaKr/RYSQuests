@@ -114,6 +114,9 @@ final class GuideCheck {
     }
 
     static boolean valid(QuestBook book, Markup.Span span) {
+        if (span.kind().equals(Markup.URL)) {
+            return Markup.isWebUrl(span.target());
+        }
         if (span.kind().equals("guide")) {
             return GuideRef.parse(span.target()).map(ref -> {
                 Guide guide = book.guides().get(ref.guide());

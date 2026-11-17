@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.input.QuestKeys;
+import works.repka.rysquests.client.screen.LevelSegments;
 import works.repka.rysquests.client.screen.TaskText;
 import works.repka.rysquests.client.screen.Ui;
 import works.repka.rysquests.data.Achievement;
@@ -21,7 +23,9 @@ import works.repka.ryscore.ui.Numbers;
 /**
  * A pinned quest (mockup {@code .hud}, picture 31): its icon and title, which wraps to a second line rather than being cut (nothing can
  * be hovered over the world), and a row per task with its count. Done, it keeps its place and says "награда ждёт" with the book's key.
- * A pinned level of an achievement is titled by the achievement: "Шахтёр · до уровня 2".
+ * A pinned level of an achievement is titled by the achievement: "Шахтёр · до уровня 2", and has a thin bar under its count up to that
+ * level's amount, in that level's medal color, as in the book; only that level, not all of them. It draws the count the server already
+ * sends, nothing more is asked for it.
  */
 final class QuestSticker implements Sticker {
     private static final int PAD_X = 12;
@@ -29,6 +33,8 @@ final class QuestSticker implements Sticker {
     private static final int ICON = 24;
     private static final int GAP = 7;
     private static final int ROWS = 3;
+    private static final float BAR_H = 3;
+    private static final float BAR_GAP = 5;
 
     private final Quest quest;
 
@@ -43,6 +49,27 @@ final class QuestSticker implements Sticker {
 
     private boolean waiting() {
         return QuestLogic.status(quest, ClientProgress::get) == QuestStatus.COMPLETED;
+    }
+
+    /** The token of the medal color of the level this card counts to, or null when it is not a level of an achievement. */
+    @Nullable
+    private String medalToken() {
+        if (!Achievement.isTierQuest(quest.id())) {
+            return null;
+        }
+        for (Achievement achievement : ClientBook.current().achievements().values()) {
+            for (int i = 0; i < achievement.tiers().size(); i++) {
+                if (achievement.questId(achievement.tiers().get(i)).equals(quest.id())) {
+                    return LevelSegments.token(i, achievement.tiers().size());
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Whether the card shows the bar of its level: a level of an achievement, unfolded and not yet reached. */
+    private boolean hasBar(boolean folded) {
+        return !folded && !quest.tasks().isEmpty() && !waiting() && medalToken() != null;
     }
 
     /** The title: the quest's own, or for a level of an achievement its name and which level comes. */
@@ -94,7 +121,8 @@ final class QuestSticker implements Sticker {
     public int height(Ui ui, int width, boolean folded) {
         float head = Math.max(ICON, titleLines(ui, width).size() * HudLook.TITLE_LINE);
         int rows = folded ? 0 : waiting() ? 1 : rows().size();
-        return Math.round(PAD_Y * 2 + head + rows * (GAP + Ui.lineHeight(HudLook.ROW_PX)));
+        float bar = hasBar(folded) ? BAR_GAP + BAR_H : 0;
+        return Math.round(PAD_Y * 2 + head + rows * (GAP + Ui.lineHeight(HudLook.ROW_PX)) + bar);
     }
 
     @Override
@@ -145,6 +173,13 @@ final class QuestSticker implements Sticker {
                 ui.labelRight(count, right, cy, HudLook.ROW_PX, Ui.MEDIUM, done ? color : HudLook.muted(ui));
             }
             pen += rowH + GAP;
+        }
+        String medal = medalToken();
+        if (medal != null && !quest.tasks().isEmpty()) {
+            // A level of an achievement has one task, its counter: the bar runs from zero to this level's amount.
+            TaskDef task = quest.tasks().getFirst();
+            float ratio = task.target() <= 0 ? 0 : Math.min(1f, (float) own.task(0) / task.target());
+            ui.bar(left, pen - GAP + BAR_GAP, right - left, BAR_H, BAR_H / 2f, ratio, ui.c(medal));
         }
     }
 }

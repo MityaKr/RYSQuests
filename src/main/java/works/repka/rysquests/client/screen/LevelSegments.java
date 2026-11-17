@@ -11,15 +11,15 @@ import works.repka.rysquests.data.Achievement;
  * LevelSegments.render(ui, x, y, w, new float[] {1f, 0.37f, 0f});   // the wide row of a card: segments share the width
  * </pre>
  */
-final class LevelSegments {
+public final class LevelSegments {
     static final int HEIGHT = 8;
     private static final int GAP = 4;
 
     private LevelSegments() {
     }
 
-    /** The token of a level's medal color. */
-    static String token(int index, int count) {
+    /** The token of a level's medal color, the same in the book and on the pinned card. */
+    public static String token(int index, int count) {
         return switch (Achievement.medal(index, count)) {
             case GOLD -> "medal.gold";
             case SILVER -> "medal.silver";

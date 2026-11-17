@@ -188,6 +188,8 @@ public final class AutoTest {
             buildKubeJsScenario();
         } else if ("achievements".equals(scenario)) {
             buildAchievementsScenario();
+        } else if ("stat_team".equals(scenario)) {
+            StatTeamScenario.build();
         } else if ("constructor".equals(scenario)) {
             buildConstructorScenario();
         } else if ("sections".equals(scenario)) {

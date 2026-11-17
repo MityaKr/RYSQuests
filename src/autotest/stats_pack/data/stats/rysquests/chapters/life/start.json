@@ -1,0 +1,11 @@
+{
+  "id": "stats:life/start",
+  "chapter": "stats:life",
+  "title": "Начало",
+  "icon": "minecraft:apple",
+  "tasks": [
+    {
+      "type": "rysquests:checkbox"
+    }
+  ]
+}

@@ -10,6 +10,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Supplier;
+import com.google.common.base.Suppliers;
 import net.minecraft.Util;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.component.DataComponentPatch;
@@ -21,6 +23,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.stats.Stat;
 import net.minecraft.stats.StatType;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.player.Inventory;
@@ -166,8 +169,10 @@ public final class ProgressService {
         int hash = inventoryHash(player.getInventory());
         boolean inventoryChanged = !Objects.equals(INVENTORY_HASH.put(player.getUUID(), hash), hash);
         Map<ResourceLocation, QuestProgress> changes = new HashMap<>();
+        // Who shares the progress is asked once a poll, and only when a statistic is counted.
+        Supplier<List<UUID>> sharers = Suppliers.memoize(() -> sharers(player));
         for (Quest quest : active) {
-            poll(player, quest, inventoryChanged).ifPresent(updated -> changes.put(quest.id(), updated));
+            poll(player, quest, inventoryChanged, sharers).ifPresent(updated -> changes.put(quest.id(), updated));
         }
         apply(player, changes);
     }
@@ -267,7 +272,7 @@ public final class ProgressService {
         return quests;
     }
 
-    private static Optional<QuestProgress> poll(ServerPlayer player, Quest quest, boolean inventoryChanged) {
+    private static Optional<QuestProgress> poll(ServerPlayer player, Quest quest, boolean inventoryChanged, Supplier<List<UUID>> sharers) {
         QuestProgress before = ProgressStore.get(player.server).get(team(player), quest.id());
         List<Integer> values = before.taskValues(quest.tasks().size());
         boolean changed = false;
@@ -275,8 +280,9 @@ public final class ProgressService {
             TaskDef task = quest.tasks().get(i);
             int current = values.get(i);
             if (current < task.target()) {
-                int next = Math.min(task.target(), pollTask(player, task, current, inventoryChanged));
-                if (next > current) {
+                int next = Math.min(task.target(), pollTask(player, task, current, inventoryChanged, sharers));
+                // A streak starts again from zero, and its counter with it (ADR-61); every other value only grows.
+                if (next > current || next < current && task instanceof StatTask stat && StatCount.isStreak(stat)) {
                     values.set(i, next);
                     changed = true;
                 }
@@ -285,12 +291,12 @@ public final class ProgressService {
         return QuestLogic.afterPoll(quest, before, values, changed, System.currentTimeMillis());
     }
 
-    private static int pollTask(ServerPlayer player, TaskDef task, int current, boolean inventoryChanged) {
+    private static int pollTask(ServerPlayer player, TaskDef task, int current, boolean inventoryChanged, Supplier<List<UUID>> sharers) {
         return switch (task) {
             case ItemTask item when item.mode() != ItemTask.Mode.CONSUME && item.mode() != ItemTask.Mode.CRAFT && inventoryChanged -> Math.max(current, countIn(player.getInventory(), item));
             case FluidTask fluid when fluid.mode() != ItemTask.Mode.CONSUME && fluid.mode() != ItemTask.Mode.CRAFT && inventoryChanged -> Math.max(current, fluidIn(player.getInventory(), fluid));
             case XpTask xp when !xp.consume() -> Math.max(current, xp.have(player));
-            case StatTask stat -> Math.max(current, readStat(player, stat));
+            case StatTask stat -> statCount(player, stat, current, sharers.get());
             case AdvancementTask advancement -> isEarned(player, advancement) ? 1 : current;
             case VisitTask visit -> isVisiting(player, visit) ? 1 : current;
             case works.repka.rysquests.task.ScriptTask script -> ScriptHooks.get().taskProgress(player, script.script(), current);
@@ -453,14 +459,47 @@ public final class ProgressService {
         return taken;
     }
 
-    private static int readStat(ServerPlayer player, StatTask task) {
-        StatType<?> type = BuiltInRegistries.STAT_TYPE.get(task.stat());
-        return type == null ? 0 : readStat(player, type, task.entry());
+    /**
+     * A statistic task's value from the statistics of everyone who shares the progress (ADR-61): their sum, or the longest current
+     * streak. Each member has their own statistic, so the polling player's alone would leave the team's counter at its best member's.
+     */
+    private static int statCount(ServerPlayer player, StatTask task, int current, List<UUID> sharers) {
+        Stat<?> stat = statOf(task);
+        if (stat == null) {
+            return current;
+        }
+        int[] values = new int[sharers.size()];
+        for (int i = 0; i < values.length; i++) {
+            values[i] = MemberStats.value(player.server, sharers.get(i), stat);
+        }
+        boolean streak = StatCount.isStreak(task);
+        return StatCount.next(streak, current, StatCount.combine(streak, values), task.target());
     }
 
-    private static <T> int readStat(ServerPlayer player, StatType<T> type, ResourceLocation target) {
+    /** The players whose statistics make a shared counter: the polling player and everyone sharing their progress, offline too. */
+    private static List<UUID> sharers(ServerPlayer player) {
+        Set<UUID> found = new java.util.LinkedHashSet<>();
+        found.add(player.getUUID());
+        works.repka.rysquests.data.ProgressMode mode = book().meta().progressMode();
+        switch (mode) {
+            case SOLO -> {
+            }
+            case TEAM -> found.addAll(ProgressStore.get(player.server).teamMembers(team(player), mode));
+            case SERVER -> found.addAll(MemberStats.everyone(player.server));
+        }
+        return List.copyOf(found);
+    }
+
+    @Nullable
+    private static Stat<?> statOf(StatTask task) {
+        StatType<?> type = BuiltInRegistries.STAT_TYPE.get(task.stat());
+        return type == null ? null : statOf(type, task.entry());
+    }
+
+    @Nullable
+    private static <T> Stat<T> statOf(StatType<T> type, ResourceLocation target) {
         T value = type.getRegistry().get(target);
-        return value == null ? 0 : player.getStats().getValue(type.get(value));
+        return value == null ? null : type.get(value);
     }
 
     private static boolean isEarned(ServerPlayer player, AdvancementTask task) {
@@ -1119,6 +1158,7 @@ public final class ProgressService {
     }
 
     public static void forget(ServerPlayer player) {
+        MemberStats.left(player);
         ACTIVE.remove(team(player));
         INVENTORY_HASH.remove(player.getUUID());
         STAGE_LOCKS.remove(player.getUUID());
@@ -1151,6 +1191,11 @@ public final class ProgressService {
         // polled again from scratch: what lies in the inventory counts at once
         ACTIVE.remove(team);
         player.server.getPlayerList().getPlayers().stream().filter(member -> team(member).equals(team)).forEach(member -> INVENTORY_HASH.remove(member.getUUID()));
+    }
+
+    /** The server stopped: the statistics kept of offline players belong to its world. */
+    public static void onServerStopped() {
+        MemberStats.clear();
     }
 
     /** Forgets caches after progress was replaced from outside, such as an import or a migration. */

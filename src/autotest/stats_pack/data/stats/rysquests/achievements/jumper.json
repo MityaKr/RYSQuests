@@ -1,0 +1,26 @@
+{
+  "id": "stats:jumper",
+  "title": "Прыгун",
+  "text": "Прыжки всей команды.",
+  "category": "Жизнь",
+  "icon": "minecraft:rabbit_foot",
+  "task": {
+    "type": "rysquests:stat",
+    "stat": "minecraft:custom",
+    "target": "minecraft:jump"
+  },
+  "tiers": [
+    {
+      "tier": "bronze",
+      "amount": 5
+    },
+    {
+      "tier": "silver",
+      "amount": 1000
+    },
+    {
+      "tier": "gold",
+      "amount": 100000
+    }
+  ]
+}

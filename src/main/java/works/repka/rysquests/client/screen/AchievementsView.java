@@ -17,6 +17,8 @@ import works.repka.rysquests.client.ClientAchievements;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.data.Achievement;
+import works.repka.rysquests.progress.StatCount;
+import works.repka.rysquests.task.StatTask;
 import works.repka.rysquests.data.Achievement.Tier;
 import works.repka.rysquests.data.RewardDef;
 import works.repka.rysquests.network.QuestActionPayload;
@@ -106,6 +108,12 @@ final class AchievementsView implements BookView {
     }
 
     static int progress(Achievement achievement) {
+        Tier next = next(achievement);
+        StatTask stat = statTask(achievement);
+        if (next != null && stat != null && StatCount.isStreak(stat)) {
+            // A streak starts again from zero: the count is the current one, not the level it once reached (ADR-61).
+            return ClientProgress.get(achievement.questId(next)).task(0);
+        }
         int most = 0;
         for (Tier tier : achievement.tiers()) {
             QuestProgress own = ClientProgress.get(achievement.questId(tier));
@@ -629,13 +637,19 @@ final class AchievementsView implements BookView {
         static final Unit NONE = new Unit(1, null);
     }
 
-    private static Unit unit(Achievement achievement) {
+    /** The statistic an achievement counts, or null when it counts something else. */
+    @Nullable
+    private static StatTask statTask(Achievement achievement) {
         if (achievement.tiers().isEmpty()) {
-            return Unit.NONE;
+            return null;
         }
         works.repka.rysquests.data.Quest quest = BookData.book().quests().get(achievement.questId(achievement.tiers().get(0)));
-        if (quest == null || quest.tasks().isEmpty() || !(quest.tasks().get(0) instanceof works.repka.rysquests.task.StatTask stat)
-                || !stat.stat().equals(ResourceLocation.withDefaultNamespace("custom"))) {
+        return quest != null && !quest.tasks().isEmpty() && quest.tasks().get(0) instanceof StatTask stat ? stat : null;
+    }
+
+    private static Unit unit(Achievement achievement) {
+        StatTask stat = statTask(achievement);
+        if (stat == null || !stat.stat().equals(ResourceLocation.withDefaultNamespace("custom"))) {
             return Unit.NONE;
         }
         String path = stat.entry().getPath();

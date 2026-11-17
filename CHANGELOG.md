@@ -68,3 +68,13 @@
   - About the book. The book's name at the top left is now a button: it opens pages on how the book works over the current tab. Until a page is read, a dot lights on the icon.
   - "Build Atlas" and "Mining Atlas" are now visible to every player in the Guides tab; before, only an operator saw them.
   - For pack authors: an epoch in `book.json` can name the quest of its reward (`"quest"`), and the `"about"` field sets the About pages (a guide of the book or pages of their own).
+- 0.2.8 (черновик):
+  - Достижения на статистике игры в команде считают всех её участников. Раньше счётчик команды был числом одного лучшего участника, и остальные не могли его сдвинуть: «Парашютист» стоял на 19.7 из 20 км напарника, сколько бы ни падал другой игрок. Теперь падения, прыжки, смерти, пройденные километры и остальная статистика складываются по всей команде, включая тех, кто сейчас не в игре.
+  - «Время без смерти» и «время без сна» считаются по одной жизни, как и написано: это самая длинная текущая жизнь среди участников команды, и после смерти счёт начинается заново. Раньше счётчик навсегда запоминал самый долгий прошлый отрезок. Полученные уровни остаются.
+  - У закреплённого на экране уровня достижения появилась тонкая полоска прогресса до этого уровня, его цветом: бронза, серебро или золото, как в окне достижений.
+  - Ссылки на сайты на страницах гайдов и «О книге» открываются: при наведении ссылка подсвечивается, по клику игра спрашивает, открыть ли её, как в чате. Ссылку можно записать как `[[url:https://…|подпись]]`, как `[подпись](https://…)` или просто адресом.
+  EN (draft):
+  - Achievements on game statistics count every member of a team. Before, a team's counter was the number of its best member alone, and nobody else could move it: "Skydiver" stood at a teammate's 19.7 of 20 km however far another player fell. Now falls, jumps, deaths, distances and every other statistic add up over the whole team, members who are offline included.
+  - "Time since death" and "time since rest" count one life, as their text says: the longest current life among the members, starting again after a death. Before, the counter kept the longest past stretch for good. Levels already reached stay.
+  - A level of an achievement pinned to the screen has a thin progress bar up to that level, in its color: bronze, silver or gold, as in the achievements window.
+  - Web links on the pages of guides and About the book open: a link lights up under the pointer, and a click asks whether to open it, as in chat. A link can be written as `[[url:https://…|label]]`, as `[label](https://…)` or as a bare address.
