@@ -129,16 +129,25 @@
 
 ### Блоки «Приёмщик» и «Выдача»
 
-Рецептов у блоков в моде нет, их добавляет сборка, например KubeJS:
+С 0.2.7 у блоков есть рецепты по умолчанию из ванильных предметов, верстак, shaped:
+
+| Рецепт (id) | Сетка | Ключ |
+|---|---|---|
+| `rysquests:shop_receiver` | `IEI` / `IHI` / `ICI` | I `#c:ingots/iron`, E `#c:gems/emerald`, H `minecraft:hopper`, C `#c:chests/wooden` без `#c:chests/trapped` |
+| `rysquests:shop_dispenser` | `IEI` / `IDI` / `IRI` | I `#c:ingots/iron`, E `#c:gems/emerald`, D `minecraft:dispenser`, R `#c:dusts/redstone` |
+
+Файлы `data/rysquests/recipe/shop_receiver.json` и `shop_dispenser.json`. Рецепт открывается в книге рецептов, когда в инвентаре появляется воронка или раздатчик (`data/rysquests/advancement/recipes/redstone/*.json`). Сборка заменяет рецепт по id, например KubeJS:
 
 ```js
 ServerEvents.recipes(event => {
+  event.remove({ id: 'rysquests:shop_receiver' })
+  event.remove({ id: 'rysquests:shop_dispenser' })
   event.shaped('rysquests:shop_receiver', ['SBS', 'BHB', 'SBS'], { S: '#c:ingots/steel', B: 'create:brass_casing', H: 'minecraft:hopper' })
   event.shaped('rysquests:shop_dispenser', ['SBS', 'BDB', 'SBS'], { S: '#c:ingots/steel', B: 'create:brass_casing', D: 'minecraft:dropper' })
 })
 ```
 
-Без рецепта блоки берут в творческом режиме (вкладка «Функциональные блоки») или `/give @s rysquests:shop_receiver`.
+Можно и датапаком: файл с тем же путём `data/rysquests/recipe/<id>.json` в датапаке сборки перекрывает рецепт мода. Без рецепта блоки берут в творческом режиме (вкладка «Функциональные блоки») или `/give @s rysquests:shop_receiver`.
 
 - «Приёмщик» (`rysquests:shop_receiver`) продаёт всё, что в него приходит, по выбранной в окне продаже, или сдаёт поступившее в поставку команды. Предметы принимает с любой стороны через `Capabilities.ItemHandler.BLOCK`, только на вставку: трубы, воронки Create, хоппер, шина экспорта AE2. Берёт только предметы сделки, простые и только недостающие, чужое остаётся в трубе. Монеты в свой кошелёк или в казну команды.
 - «Выдача» (`rysquests:shop_dispenser`) покупает выбранную сделку (цена только монеты, выдаются предметы) раз в секунду и кладёт товар в инвентарь с выбранной стороны или в свой слот, откуда его забирают трубы (только извлечение). Ограничения «потратить не больше» (с последнего сброса счётчика), «оставить на счету» и «держать в инвентаре не больше», выключатель «только при сигнале редстоуна». Платить из казны можно с правом `spend_treasury`.

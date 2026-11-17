@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-17. Руками не править: после структурных правок пересобрать.
 
-Java: 382 файлов, 69976 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 383 файлов, 70050 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -17,7 +17,7 @@ Java: 382 файлов, 69976 строк. Переводы: `examples/example_pa
 - `gradle/` — 2 файлов
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
-- `src/` — 563 файлов
+- `src/` — 568 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -411,10 +411,11 @@ Java: 382 файлов, 69976 строк. Переводы: `examples/example_pa
 **(корень)** (1)
 - `ModSetupTest` 21 — Placeholder proving that JUnit runs with Minecraft classes on the test classpath.
 
-**block** (3)
+**block** (4)
 - `DispenserTest` 457 — The dispenser without a world (shop plan, step M7): purchases into the own slot and into a neighbour, the three limits ("spend at most", "keep on the account", "keep at most"), the…
 - `NoticeGateTest` 124 — "Your block stopped" (decision on question 17 of the shop plan): one notice per change of a block's state, at most one a minute per owner whatever the number of blocks, nothing for…
 - `ReceiverTest` 466 — The intake block without a world (shop plan, step M6): what a pipe is told and what really goes in, the sale of whole lots once a second, the buffer's ceiling, a delivery that take…
+- `ShopRecipesTest` 74 — The shop blocks ship default vanilla recipes; a modpack replaces them by id, so the ids and the files must stay exactly where the docs say.
 
 **client.layout** (7)
 - `CanvasLayoutTest` 273 — The canvas layout on made up books and on the real books of RepYS and ATM10: chapters never overlap, labels stay in their chapters, every quest on the map is placed inside its chap…
