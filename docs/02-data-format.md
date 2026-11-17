@@ -385,7 +385,7 @@ ProgressStore {
   wallets: { <uuid игрока или команды>: { <валюта>: long } },
   shop_usage: { <uuid игрока или команды>: { <сделка>: { period: long, count: int } } },
   counted_usage: { <uuid игрока>: { <сделка>: { period: long, count: int } } },  // с 0.2.6: сколько своих покупок игрока по лимитам на команду команда уже учла
-  shop_history: { <uuid игрока>: [ { time, delta, currency, ref, times, treasury } ] },  // treasury: из казны команды
+  shop_history: { <uuid игрока>: [ { time, delta, currency, ref, times, treasury } ] },  // treasury: из казны команды; с 0.2.7 сделки блоков владельца копятся в одной строке (delta и times складываются), формат тот же
   last_chapter: { <uuid игрока>: <chapter id> },   // глава последнего выполнения, личная
   titles: { <uuid игрока>: [<ключ титула>] },
   active_title: { <uuid игрока>: <ключ титула> },

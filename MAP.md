@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-17. Руками не править: после структурных правок пересобрать.
 
-Java: 338 файлов, 62337 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 344 файлов, 63284 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -17,7 +17,7 @@ Java: 338 файлов, 62337 строк. Переводы: `examples/example_pa
 - `gradle/` — 2 файлов
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
-- `src/` — 492 файлов
+- `src/` — 498 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -51,7 +51,7 @@ Java: 338 файлов, 62337 строк. Переводы: `examples/example_pa
 
 **(корень)** (2)
 - `CommonConfig` 20 — Settings that the client and the server both read.
-- `RYSQuests` 104 — Mod entry point shared by both physical sides.
+- `RYSQuests` 105 — Mod entry point shared by both physical sides.
 
 **api** (8)
 - `QuestCompletedEvent` 32 — Fired on the game bus when all tasks of a quest are done.
@@ -323,7 +323,7 @@ Java: 338 файлов, 62337 строк. Переводы: `examples/example_pa
 - `NextStep` 80 — The next step on "Now", one rule for every book (plan, section 3, "Now"): the nearest unfinished main quest of the chapter where the player last completed a quest; when there is no…
 - `ProgressRemap` 97 — Progress is kept by the position of a task or a reward.
 - `ProgressService` 1139 — Server-side quest rules.
-- `ProgressStore` 584 — Quest progress of all teams, saved with the world.
+- `ProgressStore` 622 — Quest progress of all teams, saved with the world.
 - `QuestLogic` 102 — Status rules shared by the server and the client's display.
 - `QuestPath` 217 — The way to a quest that is still closed (plan, section 3, "Closed quest"; pictures 21b, 22): every unfinished quest it still needs, in an order in which each comes after what it ne…
 - `QuestProgress` 62 — Progress of one quest: value per task, completion time (0 while open), indexes of claimed rewards, for a repeatable quest the time it becomes available again, and how many times it…
@@ -344,10 +344,15 @@ Java: 338 файлов, 62337 строк. Переводы: `examples/example_pa
 - `TitleReward` 22 — Gives a title, which a player can then show beside their name.
 - `XpReward` 31 — Gives experience, either in levels or in points.
 
-**shop** (3)
+**shop** (8)
+- `ShopBroadcast` 50 — When the money of a team changed by a shop block is sent to its members (shop plan, section 4.6): at most once a second per team, whatever the number of its blocks and their trades…
 - `ShopCycles` 87 — Finds chains of trades that end up with more than they started with, the classic way of printing money: buy a stack and sell it back for more.
 - `ShopLimits` 46 — Counts trades against limits, which reset at midnight of the server's own clock (ADR-37).
-- `ShopService` 486 — Makes trades.
+- `ShopService` 362 — Makes trades.
+- `TradeCore` 306 — The trade itself, with no player in it (shop plan, step M5): a check that changes nothing and an execution of what the check allowed, over a TradeSource the items are paid from and…
+- `TradeSink` 165 — Where a trade puts the items it gives (shop plan, step M5): a player's inventory today, the inventory next to a dispenser block later.
+- `TradeSource` 101 — Where a trade takes the items it is paid with (shop plan, step M5): a player's inventory today, the buffer of an intake block or a neighbouring inventory later.
+- `Trader` 36 — Who a trade is made for (shop plan, step M5): a player at the book, or the owner of a shop block, who may well be offline.
 
 **stage** (1)
 - `Stages` 57 — All stage providers.
@@ -434,11 +439,12 @@ Java: 338 файлов, 62337 строк. Переводы: `examples/example_pa
 - `TeamRoundOwedTest` 192 — A repeatable quest in a team (ADR-52): the first member to take all their rewards starts the next round, and what the others have not taken of the finished round stays theirs until…
 - `TeamShopLimitsTest` 186 — A trade "once per team" stays bought however players move between teams: leaving, buying alone and coming back never buys it twice for one team (the same kind of hole as the reward…
 
-**shop** (5)
+**shop** (6)
 - `BossTrophyTest` 241 — A boss trophy opens for the whole team after the first kill of the boss by any member (shop plan, step M3, the author's decision).
 - `DeliveryOfferTest` 107 — A trade paid in parts (shop plan, step M4): its file, what it asks for, how far it has come and how much a delivery takes.
 - `ShopComponentsTest` 137 — A trade gives an item with components as it is (a Create schematic with its file), and only what the player gets has them.
 - `ShopTest` 113
+- `TradeCoreTest` 374 — The trade without a player (shop plan, step M5): an owner who is offline, a treasury spent without the right, no room, a trade made as many times as it can, a delivery, the history…
 - `TreasuryRightTest` 81 — The team's treasury is spent only with the team's right to it (ADR-52); putting money in needs none.
 
 **task** (1)
