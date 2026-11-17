@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-17. Руками не править: после структурных правок пересобрать.
 
-Java: 361 файлов, 65953 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 379 файлов, 69142 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -17,7 +17,7 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 - `gradle/` — 2 файлов
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
-- `src/` — 529 файлов
+- `src/` — 560 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -25,8 +25,8 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 **(корень)** (1)
 - `ImportShowcase` 36 — What the server says at the end of an FTB import, without importing anything: the report and the failure of the ATM10 run of the "first" scenario, for the screenshots of the wizard…
 
-**dev** (15)
-- `AutoTest` 2982 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
+**dev** (16)
+- `AutoTest` 2984 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
 - `CanvasBooks` 277 — The two books of the canvas scenario, read on the client without a server: RepYS from its files with the titles of its lang file, and ATM10 carried over from FTB Quests by the impo…
 - `CanvasTestScreen` 104 — A bare screen around the canvas for the canvas scenario: the canvas sits where the map area of the mockups is (1280×800 at GUI scale 2), so that screenshots lie over pictures 13 to…
 - `EditorScenario` 334 — The acceptance of the book's editor (plan step 10), in two runs on the same world: book_editor: a book from nothing, its first chapter typed into the table, quests linked (a circle…
@@ -36,7 +36,8 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 - `QuestMenuScenario` 82 — The quest's menu "⋯" in the head of its panel (the author's note on 0.2.0): its lines for an operator, "Завершить" completes the quest without its tasks and leaves the reward to ta…
 - `RepysScenario` 603 — The new book on a copy of the real pack (run-repys: the mods of RepYS, its kubejs with the book from _audit/book2/repys-data).
 - `ShopDeliveryScenario` 236 — A trade paid in parts (shop plan, step M4; RYSQuests 0.2.7).
-- `ShopReceiverScenario` 227 — The intake block "Приёмщик" (shop plan, step M6; RYSQuests 0.2.7) on a copy of RepYS.
+- `ShopDispenserScenario` 258 — The dispenser "Выдача" (shop plan, step M7; RYSQuests 0.2.7) on a copy of RepYS.
+- `ShopReceiverScenario` 228 — The intake block "Приёмщик" (shop plan, step M6; RYSQuests 0.2.7) on a copy of RepYS.
 - `ShopSchematicScenario` 152 — The shop gives a Create schematic with its file, once per team (shop plan, steps M1 and M2; RYSQuests 0.2.6).
 - `ShopTrophyScenario` 230 — A boss trophy opens for the whole team after the first kill of the boss (shop plan, step M3; RYSQuests 0.2.7).
 - `ThemesScenario` 333 — Plan step 12: every screen of the book in the themes slate, glass and vanilla at the size of the mockups, and once more in the compact layout (a window of 1100×700, the base 480×27…
@@ -64,19 +65,28 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 - `TaskType` 10 — A kind of quest task, selected by the type field of its JSON.
 - `WalletApi` 61 — Coins for other mods and scripts, on the server only.
 
-**block** (12)
-- `ModBlocks` 77 — The mod's blocks (shop plan, step M6): the intake block "Приёмщик", its item, block entity and window.
-- `Receiver` 307 — What an intake block knows and does (shop plan, section 4.1), with no world in it, so that the tests can drive it: its owner, its program, trade and wallet, the buffer of items sho…
-- `ReceiverAccess` 40 — Who may do what with an intake block (shop plan, section 4.4).
-- `ReceiverBlock` 95 — The intake block "Приёмщик" (shop plan, section 4.1): takes items from any side and sells them by the trade chosen in its window, or gives them to a delivery of the owner's team.
-- `ReceiverBlockEntity` 276 — The intake block in the world: holds a Receiver, gives pipes an inventory that only takes, schedules one tick a second after items came in, keeps the lamp in step with the status a…
+**block** (21)
+- `BlockNotices` 59 — The server's side of "your block stopped" (decision on question 17 of the shop plan): the blocks tell it every change of their state, it lets the notices out through a NoticeGate o…
+- `ComparatorMode` 35 — What a comparator next to a shop block reads (shop plan, step M7), chosen in the block's window.
+- `Dispenser` 396 — What a dispenser knows and does (shop plan, section 4.2), with no world in it, so that the tests can drive it: its owner and settings, its own slot, the counters since they were la…
+- `DispenserBlock` 102 — The dispenser "Выдача" (shop plan, section 4.2): buys the trade chosen in its window for the owner's coins or the team's treasury and puts the goods into the inventory on its outpu…
+- `DispenserBlockEntity` 250 — The dispenser in the world: holds a Dispenser, buys once a second on its own offset, finds the inventory on its output side, gives pipes its own slot to take from, keeps the lamp, …
+- `DispenserMenu` 101 — The window of a dispenser: no slots, only what the block shows (DispenserView) and the settings the player changes.
+- `DispenserSettings` 99 — What the owner sets in a dispenser's window (shop plan, section 4.2): the trade, where the coins come from, where the goods go, the three limits, the redstone switch, what a compar…
+- `DispenserView` 56 — What the window of a dispenser shows, as the server sees it: sent when the window opens and again while it is open, only when something changed (shop plan, section 4.6).
+- `ModBlocks` 100 — The mod's blocks (shop plan, steps M6 and M7): the intake block "Приёмщик" and the dispenser "Выдача", their items, block entities and windows.
+- `NoticeGate` 115 — When the owner of a shop block hears that it stopped (decision on question 17 of the shop plan), with no world in it, so that the tests can drive it.
+- `Receiver` 356 — What an intake block knows and does (shop plan, section 4.1), with no world in it, so that the tests can drive it: its owner, its program, trade and wallet, the buffer of items sho…
+- `ReceiverAccess` 52 — Who may do what with an intake block (shop plan, section 4.4).
+- `ReceiverBlock` 106 — The intake block "Приёмщик" (shop plan, section 4.1): takes items from any side and sells them by the trade chosen in its window, or gives them to a delivery of the owner's team.
+- `ReceiverBlockEntity` 305 — The intake block in the world: holds a Receiver, gives pipes an inventory that only takes, schedules one tick a second after items came in, keeps the lamp in step with the status a…
 - `ReceiverLamp` 27 — The colour of the lamp on the intake block (shop plan, section 4.3): the same thing the status line of its window says.
-- `ReceiverMarket` 76 — What the intake block asks of the shop: its trades and the trade's core for an owner who may be offline.
+- `ReceiverMarket` 93 — What the shop blocks ask of the shop: its trades and the trade's core for an owner who may be offline.
 - `ReceiverMenu` 101 — The window of an intake block: no slots, only what the block shows (ReceiverView) and the settings the player changes.
 - `ReceiverProgram` 63 — The mode of an intake block (shop plan, sections 4 and 4.7): which trades it works with, what it takes from a pipe and what it does once a second.
 - `ReceiverPrograms` 198 — The two modes of the intake block today (shop plan, section 4.1): "Продажа" and "Поставка".
-- `ReceiverStatus` 58 — What the intake block is doing (shop plan, section 4.3), shown three ways that always agree: the lamp of the block, the status line of its window and, with the dispenser (step M7),…
-- `ReceiverView` 62 — What the window of an intake block shows, as the server sees it: sent when the window opens and again while it is open, only when something changed (shop plan, section 4.6).
+- `ReceiverStatus` 98 — What a shop block is doing (shop plan, section 4.3), shown three ways that always agree: the lamp of the block, the status line of its window and the comparator.
+- `ReceiverView` 67 — What the window of an intake block shows, as the server sees it: sent when the window opens and again while it is open, only when something changed (shop plan, section 4.6).
 
 **client** (13)
 - `ClientAchievements` 41 — What the server says about achievements beyond their own progress.
@@ -91,7 +101,7 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 - `ClientProgress` 178 — The client's copy of its own progress.
 - `ClientShop` 59 — The client's copy of its money.
 - `QuestLinks` 61 — Turns [[quest:id]] in chat into a link that opens the book on that quest.
-- `RYSQuestsClient` 137 — Client-only entry point; never loaded on a dedicated server.
+- `RYSQuestsClient` 140 — Client-only entry point; never loaded on a dedicated server.
 
 **client.canvas** (4)
 - `Camera` 117 — Where the canvas looks: the canvas point in the middle of the view and the scale in mockup pixels per canvas unit.
@@ -137,10 +147,12 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 - `GuideTopics` 64 — What a guide page is about, gathered from its text: nobody has to list it by hand.
 - `Markup` 110 — Parses quest text: [[kind:target|label]] links as in RYScope, **bold**, __italic__, !!warning!!
 
-**client.screen** (84)
+**client.screen** (87)
 - `AchievementEditorView` 398 — The editor's "Достижения" (picture 39b): the player's grid by category with "+ Достижение" last; on the right the chosen one: icon, name, "Секретное", description, the one conditio…
 - `AchievementRing` 35 — The ring around an achievement's icon (mockup .medal, picture 28): 3 wide in the color of the highest level reached, grey while none is; a secret achievement has no icon yet.
 - `AchievementsView` 776 — Achievements (plan, section 3, pictures 28, 45, 46d), laid out as the author's sample: categories and the totals on the left, cards in the middle, the selected one with its levels …
+- `BlockSettings` 88 — What both shop block windows share (shop plan, step M7): a row with a switch and two lines of words (mockup 06, the limits), and the block's own settings at the bottom of the right…
+- `BlockStopNotice` 59 — "Your block stopped" as one of the family's notices (decision on question 17 of the shop plan): the block's icon, what stopped it, the trade and where it stands.
 - `BookData` 97 — Lookups into the client's book that every page of the book shares.
 - `BookHeader` 315 — The header of the book (mockup .head, pictures 03, 08, 11, 32, 46): the book's icon and name ("Квесты" and the mod's icon when the book names none), the tabs with the badge on "Now…
 - `BookMessageLine` 147 — The book's message line (picture 48, plan section 3): the server's answer or refusal as one line over the bottom edge of the page, with a red border, its words, its actions and a c…
@@ -157,6 +169,7 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 - `Chips` 45 — The row of filter chips the section screens share.
 - `ClosedBookLine` 50 — "Книга закрыта для игроков" (picture 08, plan section 4): a narrow line under the header while the book is closed, for operators only.
 - `DetailPanel` 223 — The detail panel on the right: a quest, a chapter, an offer, an achievement, an issue of the check (mockup .panel, pictures 11, 16, 17, 25, 28).
+- `DispenserScreen` 619 — The window of the dispenser (shop plan, section 4.2, mockup 06): on the left the trades a dispenser can buy, with a search; on the right where the coins come from, where the goods …
 - `EdText` 170 — Tasks, rewards and types of quests in the editor's plain words (pictures 33, 34, 35b): "Получить: Медная катушка ×1", "25 опыта".
 - `EdUi` 562 — The small pieces the editor's pages share, at the sizes of the mockups (ui.css): an input (.inp), a field with its label (.fld), buttons (.btn, .btn.sm, .tb), the dashed "+" button…
 - `EditorBook` 691 — The editor's draft on this client (plan, section 6): one for the book, whatever editor page is open.
@@ -200,7 +213,7 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 - `QuestListView` 943 — The list mode of the "Map" tab (plan, section 3, "List"; pictures 19, 19b, 19c): the same sidebar, "Карта | Список" above, and the level the sidebar chose.
 - `QuestPanel` 1469 — The quest panel (plan, section 3, "Quest"; pictures 17, 20, 21, 21b, 22): one panel for the map, the list and "Now".
 - `QuestTable` 696 — A chapter as a table (pictures 35b and 09): a row per quest, columns "Квест, Тип, Что сделать, Награда, После", side quests right under their main one.
-- `ReceiverScreen` 566 — The window of the intake block (shop plan, section 4.1, mockups 04 and 05): on the left the trades of its mode with a search, on the right the mode, where the coins go, the trade i…
+- `ReceiverScreen` 579 — The window of the intake block (shop plan, section 4.1, mockups 04 and 05): on the left the trades of its mode with a search, on the right the mode, where the coins go, the trade i…
 - `RecipeLayoutView` 46 — A recipe as the viewer itself draws it, machines and their animations included, fitted to a width of the book.
 - `RecipePreview` 152 — The recipe of a quest's item, for the small preview in the book.
 - `RewardChip` 133 — A reward as a chip (mockup .rw, picture 21): an item with its count and name, experience ("300 опыта", the number green), coins ("● 4 монеты", the coin in its own token, never the …
@@ -298,12 +311,15 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 - `MigrationEngine` 94 — Applies migrations to copies of the progress, so that a dry run is simply a run whose result is thrown away.
 - `MigrationRunner` 91 — Runs migrations against the live store: a backup first, then replacing the store's contents.
 
-**network** (32)
+**network** (35)
 - `AchievementStatePayload` 28 — How rare each tier is on this server, in percent, and the titles this player owns.
+- `BlockNoticePayload` 41 — A shop block of the player stopped (decision on question 17 of the shop plan): the client shows it as one of the family's notices.
 - `BookEditsSavePayload` 45 — The part of the editor's draft that is not a chapter, a guide or a tab: the book's settings (the map's form chosen on picture 36, the title of a new book), shop offers (picture 39)…
 - `BookMessagePayload` 33 — A word from the server about something the player did: a reward that was not given, the limit of pinned quests, what a bulk hand-in did.
 - `BookSyncPayload` 24 — The whole book, gzipped.
 - `DevReportPayload` 24 — The book report for the Dev tab.
+- `DispenserConfigPayload` 29 — The settings a dispenser's window asks for (shop plan, step M7), whole, and whether to reset the counters.
+- `DispenserStatePayload` 25 — What the open window of a dispenser shows, sent only while it is open and only when it changed (shop plan, step M7).
 - `EditorResultPayload` 37 — How a save went.
 - `EditorSavePayload` 39 — What the editor saves: a guide or a section, its texts in the author's language and new pictures.
 - `FtbqImportErrorPayload` 35 — The FTB Quests import stopped and wrote nothing (plan, picture 50): the file, the line and what was wrong.
@@ -314,7 +330,7 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 - `LayoutBakeRequestPayload` 28 — The server asks an operator's client to lay the map out and send it back with LayoutSavePayload: the answer to /rysquests layout bake.
 - `LayoutSavePayload` 28 — The map an operator's client laid out, to be written as rysquests/layout.json and sent to everyone with the book.
 - `MapFormPayload` 27 — An operator sets the form of the book's map (the form choice after the FTB Quests import, picture 07); AUTO leaves it to the rule.
-- `ModNetwork` 186 — Registers payloads.
+- `ModNetwork` 199 — Registers payloads.
 - `NewBookPayload` 32 — An operator makes a book from scratch ("Новая книга", picture 09a): its name, an icon and the form the answer to "Как устроена сборка?" picked.
 - `PinWayPayload` 23 — Pins a way of a matrix section to the player's screen, or unpins it.
 - `PinnedPayload` 25 — The player's pinned quests and ways of matrix sections, in order.
@@ -322,7 +338,7 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 - `PublishPayload` 23 — An operator opens the book to players or closes it again; the server answers with EditorResultPayload.
 - `QuestActionPayload` 48 — A player's request.
 - `QuestEditorSavePayload` 44 — What the quest editor saves: the quests that changed, one chapter's.
-- `ReceiverConfigPayload` 32 — The settings an intake block's window asks for (shop plan, step M6): the mode, the trade, where the coins go, and whether to reset the counters.
+- `ReceiverConfigPayload` 42 — The settings an intake block's window asks for (shop plan, step M6): the mode, the trade, where the coins go, and whether to reset the counters, what a comparator reads and whether…
 - `ReceiverStatePayload` 25 — What the open window of an intake block shows, sent only while it is open and only when it changed (shop plan, step M6).
 - `SelectTitlePayload` 23 — Picks the title shown beside a player's name.
 - `ShopDeliverPayload` 20 — A request to deliver what the inventory holds towards a delivery trade (shop plan, step M4).
@@ -393,8 +409,10 @@ Java: 361 файлов, 65953 строк. Переводы: `examples/example_pa
 **(корень)** (1)
 - `ModSetupTest` 21 — Placeholder proving that JUnit runs with Minecraft classes on the test classpath.
 
-**block** (1)
-- `ReceiverTest` 418 — The intake block without a world (shop plan, step M6): what a pipe is told and what really goes in, the sale of whole lots once a second, the buffer's ceiling, a delivery that take…
+**block** (3)
+- `DispenserTest` 457 — The dispenser without a world (shop plan, step M7): purchases into the own slot and into a neighbour, the three limits ("spend at most", "keep on the account", "keep at most"), the…
+- `NoticeGateTest` 124 — "Your block stopped" (decision on question 17 of the shop plan): one notice per change of a block's state, at most one a minute per owner whatever the number of blocks, nothing for…
+- `ReceiverTest` 466 — The intake block without a world (shop plan, step M6): what a pipe is told and what really goes in, the sale of whole lots once a second, the buffer's ceiling, a delivery that take…
 
 **client.layout** (7)
 - `CanvasLayoutTest` 273 — The canvas layout on made up books and on the real books of RepYS and ATM10: chapters never overlap, labels stay in their chapters, every quest on the map is placed inside its chap…
