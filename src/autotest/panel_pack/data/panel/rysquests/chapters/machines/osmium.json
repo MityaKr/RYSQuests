@@ -1,0 +1,23 @@
+{
+  "id": "panel:machines/osmium",
+  "chapter": "panel:machines",
+  "title": "Осмиевый слиток",
+  "icon": "minecraft:iron_ingot",
+  "requires": [
+    "panel:current/heavy_engineering_block"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:iron_ingot",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

@@ -134,4 +134,18 @@ class SectionEditsTest {
         assertEquals(List.of("guides", "story", "t:atlas"), read.sections());
         assertEquals(Optional.of("book.title"), read.title());
     }
+
+    @Test
+    void aWayMovesToAnotherStageWithItsTexts() {
+        MatrixSection section = SectionEdits.addWay(matrix(), 0, middle(matrix()));
+        Column from = middle(section);
+        Column to = section.columns().getFirst();
+        String name = section.wayName(section.rows().getFirst(), from, section.rows().getFirst().ways(from).getFirst());
+        MatrixSection moved = SectionEdits.moveWayTo(section, 0, from, 0, to);
+        assertTrue(moved.rows().getFirst().ways(from).isEmpty(), "the old cell is empty");
+        assertEquals(1, moved.rows().getFirst().ways(to).size(), "the way is in the new cell");
+        Way way = moved.rows().getFirst().ways(to).getFirst();
+        assertEquals(name, moved.wayName(moved.rows().getFirst(), to, way), "its name keeps its key");
+        assertSame(section, SectionEdits.moveWayTo(section, 0, from, 0, from), "the same column changes nothing");
+    }
 }

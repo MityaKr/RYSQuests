@@ -1,0 +1,14 @@
+{
+  "id": "teamtest:ready",
+  "chapter": "teamtest:main",
+  "title": "Ready for the lock",
+  "icon": "minecraft:lever",
+  "requires": [],
+  "tasks": [
+    {
+      "type": "rysquests:checkbox",
+      "title": "Ready"
+    }
+  ],
+  "rewards": []
+}

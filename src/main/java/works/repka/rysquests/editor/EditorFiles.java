@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import net.minecraft.resources.ResourceLocation;
 import works.repka.rysquests.data.BookAssets;
+import works.repka.rysquests.data.BookLayout;
 import works.repka.rysquests.data.BookMeta;
 import works.repka.rysquests.data.CardsSection;
 import works.repka.rysquests.data.Chapter;
@@ -41,8 +42,10 @@ public final class EditorFiles {
             "advancement", "spoilers", "compact", "search", "row_title", "group", "groups", "art", "mark", "best", "hint", "stage", "stage_title", "done", "needs", "gives", "page", "quest",
             "links", "columns", "rows", "cells", "cards", "pages");
     private static final List<String> QUEST_ORDER = List.of("id", "chapter", "group", "title", "subtitle", "text", "icon", "requires", "requires_mode", "stage_required", "guide", "tasks", "rewards",
-            "layout", "size", "optional", "hidden", "repeatable", "page", "tags");
-    private static final List<String> CHAPTER_ORDER = List.of("id", "title", "subtitle", "icon", "epoch", "default_view", "section", "hidden", "requires", "groups", "links");
+            "layout", "milestone", "optional", "hidden", "repeatable", "page", "tags", "draft", "archived");
+    private static final List<String> CHAPTER_ORDER = List.of("id", "title", "subtitle", "icon", "epoch", "default_view", "section", "hidden", "off_map", "requires", "groups", "links");
+    private static final List<String> BOOK_ORDER = List.of("progress_mode", "default_view", "default_theme", "title", "icon", "chapter_order", "hud", "sections", "epochs", "map_form", "published");
+
     /** Tasks and rewards start with their type, as the files written by hand do. */
     private static final List<String> RULE_ORDER = List.of("type", "id", "item", "any_of", "entity", "stat", "target", "advancement", "dimension", "biome", "structure", "pos", "size", "radius", "fluid", "script", "table", "stage", "command",
             "levels", "points", "count", "amount", "rolls", "mode", "nbt", "of", "weights", "title", "pin", "x", "y");
@@ -141,6 +144,7 @@ public final class EditorFiles {
         String folder = chapterFile.getPath().substring(0, chapterFile.getPath().lastIndexOf('/') + 1);
         Set<String> keys = new HashSet<>();
         keys.add(chapter.title());
+        chapter.subtitle().ifPresent(keys::add);
         chapter.groups().forEach(group -> keys.add(group.title()));
         Map<Path, JsonElement> files = new java.util.LinkedHashMap<>();
         for (Quest quest : quests) {
@@ -181,6 +185,77 @@ public final class EditorFiles {
         }
     }
 
+    /**
+     * Writes what the editor changed outside chapters, guides and tabs: the book's settings, shop offers and achievements, with their
+     * strings. A removed offer's file moves to {@code _removed/} inside the folder, out of the data, rather than being deleted; an
+     * offer that lives in another pack cannot be removed from here. Everything is checked before anything is written.
+     *
+     * @param achievements whole achievement files, each with its {@code id}
+     */
+    public static void saveBookEdits(Path root, String namespace, Optional<BookMeta> meta, List<works.repka.rysquests.data.ShopOffer> offers, List<ResourceLocation> removed,
+            List<JsonObject> achievements, String language, Map<String, String> texts, DynamicOps<JsonElement> ops, boolean createPackFile) throws Rejected, IOException {
+        if (!LANGUAGE.matcher(language).matches()) {
+            throw new Rejected("rysquests.editor.error.invalid");
+        }
+        Set<String> keys = new HashSet<>();
+        meta.flatMap(BookMeta::title).ifPresent(keys::add);
+        Map<Path, JsonElement> files = new java.util.LinkedHashMap<>();
+        for (works.repka.rysquests.data.ShopOffer offer : offers) {
+            files.put(fileOf(root, offer.id(), "rysquests/shop/"), ordered(works.repka.rysquests.data.ShopOffer.CODEC.encodeStart(ops, offer).getOrThrow(), FIELD_ORDER, RULE_ORDER));
+            offer.title().ifPresent(keys::add);
+            offer.category().ifPresent(keys::add);
+        }
+        for (JsonObject achievement : achievements) {
+            ResourceLocation id = achievement.has("id") ? ResourceLocation.tryParse(achievement.get("id").getAsString()) : null;
+            if (id == null || !achievement.has("task") || !achievement.has("tiers")) {
+                throw new Rejected("rysquests.editor.error.invalid");
+            }
+            files.put(fileOf(root, id, "rysquests/achievements/"), ordered(achievement, FIELD_ORDER, RULE_ORDER));
+            for (String field : List.of("title", "text", "hint", "category")) {
+                if (achievement.has(field)) {
+                    keys.add(achievement.get(field).getAsString());
+                }
+            }
+        }
+        Map<Path, Path> moves = new java.util.LinkedHashMap<>();
+        for (ResourceLocation id : removed) {
+            Path file = fileOf(root, id, "rysquests/shop/");
+            if (!Files.isRegularFile(file)) {
+                throw new Rejected("rysquests.editor.error.offer_elsewhere");
+            }
+            moves.put(file, root.resolve("_removed").resolve(root.relativize(file)));
+        }
+        if (!keys.containsAll(texts.keySet())) {
+            throw new Rejected("rysquests.editor.error.invalid");
+        }
+        if (createPackFile) {
+            writePackFile(root);
+        }
+        if (meta.isPresent()) {
+            writeText(bookFile(root, namespace), GSON.toJson(encodeMeta(meta.get())) + "\n");
+        }
+        for (Map.Entry<Path, JsonElement> file : files.entrySet()) {
+            writeText(file.getKey(), GSON.toJson(file.getValue()) + "\n");
+        }
+        for (Map.Entry<Path, Path> move : moves.entrySet()) {
+            Files.createDirectories(move.getValue().getParent());
+            Files.move(move.getKey(), move.getValue(), StandardCopyOption.REPLACE_EXISTING);
+        }
+        if (!texts.isEmpty()) {
+            mergeLang(root.resolve("assets").resolve(namespace).resolve("lang").resolve(language + ".json"), texts);
+        }
+    }
+
+    /** The file of an offer or an achievement by its id, checked so that it stays inside the folder. */
+    private static Path fileOf(Path root, ResourceLocation id, String folder) throws Rejected {
+        for (String segment : id.getPath().split("/")) {
+            if (!FILE_NAME.matcher(segment).matches()) {
+                throw new Rejected("rysquests.editor.error.invalid");
+            }
+        }
+        return root.resolve("data").resolve(id.getNamespace()).resolve(folder + id.getPath() + ".json");
+    }
+
     private static Path dataFile(Path root, ResourceLocation file) {
         return root.resolve("data").resolve(file.getNamespace()).resolve(file.getPath());
     }
@@ -215,11 +290,108 @@ public final class EditorFiles {
         if (rail.isEmpty() || rail.stream().anyMatch(id -> ResourceLocation.tryParse(id) == null)) {
             throw new Rejected("rysquests.editor.error.invalid");
         }
+        saveMeta(root, namespace, meta.withSections(rail), createPackFile);
+    }
+
+    /** Writes the book's settings as they are, in the order of the format document. */
+    public static void saveMeta(Path root, String namespace, BookMeta meta, boolean createPackFile) throws IOException {
         if (createPackFile) {
             writePackFile(root);
         }
-        BookMeta updated = new BookMeta(meta.progressMode(), meta.defaultView(), meta.defaultTheme(), meta.title(), meta.icon(), meta.chapterOrder(), meta.hud(), rail);
-        writeText(root.resolve("data").resolve(namespace).resolve("rysquests/book.json"), GSON.toJson(BookMeta.CODEC.encodeStart(JsonOps.INSTANCE, updated).getOrThrow()) + "\n");
+        writeText(bookFile(root, namespace), GSON.toJson(encodeMeta(meta)) + "\n");
+    }
+
+    public static JsonElement encodeMeta(BookMeta meta) {
+        return ordered(BookMeta.CODEC.encodeStart(JsonOps.INSTANCE, meta).getOrThrow(), BOOK_ORDER, RULE_ORDER);
+    }
+
+    public static Path bookFile(Path root, String namespace) {
+        return root.resolve("data").resolve(namespace).resolve("rysquests/book.json");
+    }
+
+    /** Writes the baked map beside the book's settings. */
+    public static void saveLayout(Path root, String namespace, BookLayout layout, boolean createPackFile) throws IOException {
+        if (createPackFile) {
+            writePackFile(root);
+        }
+        writeText(root.resolve("data").resolve(namespace).resolve("rysquests/layout.json"), layoutText(layout));
+    }
+
+    /**
+     * The layout file, one node or area to a line and sorted by id: a book of thousands of quests stays a file that diffs well,
+     * which pretty printing every coordinate on a line of its own would not be.
+     */
+    public static String layoutText(BookLayout layout) {
+        StringBuilder out = new StringBuilder("{\n");
+        out.append("  \"form\": ").append(GSON.toJson(layout.form().getSerializedName())).append(",\n");
+        out.append("  \"hash\": ").append(GSON.toJson(layout.hash())).append(",\n");
+        out.append("  \"nodes\": {");
+        appendEntries(out, new java.util.TreeMap<>(layout.nodes()), point -> "[" + point.x() + ", " + point.y() + "]");
+        out.append("},\n  \"areas\": {");
+        appendEntries(out, new java.util.TreeMap<>(layout.areas()), area -> "[" + area.x() + ", " + area.y() + ", " + area.w() + ", " + area.h() + "]");
+        out.append("}");
+        BookLayout.Decor decor = layout.decor();
+        if (!decor.equals(BookLayout.Decor.EMPTY)) {
+            out.append(",\n  \"decor\": {\n    \"regions\": {");
+            appendEntries(out, new java.util.TreeMap<>(decor.regions()), EditorFiles::numbers, "      ", "\n    ");
+            out.append("},\n    \"labels\": {");
+            appendEntries(out, new java.util.TreeMap<>(decor.labels()), EditorFiles::numbers, "      ", "\n    ");
+            out.append("},\n    \"wheels\": ");
+            appendRows(out, decor.wheels());
+            out.append(",\n    \"marks\": ");
+            appendRows(out, decor.marks());
+            out.append(",\n    \"arms\": ");
+            appendRows(out, decor.arms());
+            out.append(",\n    \"turns\": ");
+            appendRows(out, decor.turns());
+            out.append("\n  }");
+        }
+        out.append("\n}\n");
+        return out.toString();
+    }
+
+    /** Numbers of the decor, whole ones without a fraction. */
+    private static String numbers(List<Float> values) {
+        StringBuilder out = new StringBuilder("[");
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) {
+                out.append(", ");
+            }
+            float v = values.get(i);
+            out.append(v == Math.rint(v) ? Long.toString((long) v) : Float.toString(v));
+        }
+        return out.append(']').toString();
+    }
+
+    /** One row of numbers to a line. */
+    private static void appendRows(StringBuilder out, List<List<Float>> rows) {
+        if (rows.isEmpty()) {
+            out.append("[]");
+            return;
+        }
+        out.append('[');
+        String separator = "\n";
+        for (List<Float> row : rows) {
+            out.append(separator).append("      ").append(numbers(row));
+            separator = ",\n";
+        }
+        out.append("\n    ]");
+    }
+
+    private static <V> void appendEntries(StringBuilder out, Map<String, V> entries, java.util.function.Function<V, String> value) {
+        appendEntries(out, entries, value, "    ", "\n  ");
+    }
+
+    private static <V> void appendEntries(StringBuilder out, Map<String, V> entries, java.util.function.Function<V, String> value, String indent, String close) {
+        if (entries.isEmpty()) {
+            return;
+        }
+        String separator = "\n";
+        for (Map.Entry<String, V> entry : entries.entrySet()) {
+            out.append(separator).append(indent).append(GSON.toJson(entry.getKey())).append(": ").append(value.apply(entry.getValue()));
+            separator = ",\n";
+        }
+        out.append(close);
     }
 
     private static Set<String> keysOf(Optional<Guide> guide, Optional<SectionDef> section) {

@@ -1,0 +1,23 @@
+{
+  "id": "panel:current/iron_rod",
+  "chapter": "panel:current",
+  "title": "Железный стержень",
+  "icon": "minecraft:iron_bars",
+  "requires": [
+    "panel:current/copper_wire_3"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:iron_bars",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 10
+    }
+  ]
+}

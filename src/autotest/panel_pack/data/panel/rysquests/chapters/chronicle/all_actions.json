@@ -1,0 +1,23 @@
+{
+  "id": "panel:chronicle/all_actions",
+  "chapter": "panel:chronicle",
+  "title": "Действия и особые задания",
+  "icon": "minecraft:book",
+  "group": "showcase",
+  "tasks": [
+    {
+      "type": "rysquests:checkbox"
+    },
+    {
+      "type": "rysquests:advancement",
+      "advancement": "minecraft:story/mine_diamond"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ],
+  "page": true
+}

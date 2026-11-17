@@ -1,0 +1,21 @@
+{
+  "progress_mode": "solo",
+  "default_view": "map",
+  "default_theme": "ryscore:slate",
+  "title": "RepYS",
+  "icon": "minecraft:nether_star",
+  "epochs": [
+    "Механика",
+    "Индустрия",
+    "Машины"
+  ],
+  "chapter_order": [
+    "panel:andesite",
+    "panel:brass",
+    "panel:current",
+    "panel:oil",
+    "panel:machines",
+    "panel:start",
+    "panel:chronicle"
+  ]
+}

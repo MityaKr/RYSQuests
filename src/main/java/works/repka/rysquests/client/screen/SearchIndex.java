@@ -1,9 +1,14 @@
 package works.repka.rysquests.client.screen;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
@@ -12,17 +17,26 @@ import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import works.repka.rysquests.client.ClientBook;
+import works.repka.rysquests.data.Achievement;
 import works.repka.rysquests.data.Chapter;
+import works.repka.rysquests.data.Guide;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.RewardDef;
+import works.repka.rysquests.data.ShopOffer;
 import works.repka.rysquests.data.TaskDef;
+import works.repka.rysquests.reward.ItemReward;
+import works.repka.rysquests.task.ItemTask;
 import works.repka.ryscore.ui.Field;
 
 /**
  * Search over the whole book: quest names, the items of their tasks and rewards, and chapter names. A word like
  * {@code глава:II} limits the search to one chapter. The texts are collected in the background once per book.
+ *
+ * <p>The window of results under the header (pictures 30, 30b) asks {@link #book} instead: one index of names for quests, items,
+ * guides, offers and achievements, built in the background as well, and {@link #maybe} for close words when nothing is found.
  */
 final class SearchIndex {
     private static final Pattern CHAPTER = Pattern.compile("(?:^|\\s)((?:глава|chapter):(\\S*))", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
@@ -50,7 +64,7 @@ final class SearchIndex {
         builtFor = book;
         builtLanguage = language;
         entries = List.of();
-        List<Chapter> chapters = BookScreen.chapters();
+        List<Chapter> chapters = BookData.chapters();
         CompletableFuture.supplyAsync(() -> build(book, chapters), Util.backgroundExecutor())
                 .thenAcceptAsync(built -> {
                     if (book == builtFor) {
@@ -83,7 +97,7 @@ final class SearchIndex {
             }
             for (RewardDef reward : quest.rewards()) {
                 if (reward instanceof works.repka.rysquests.reward.ItemReward item) {
-                    text.append('\n').append(QuestCard.stack(item).getHoverName().getString());
+                    text.append('\n').append(QuestFacts.stack(item).getHoverName().getString());
                 }
             }
         } catch (RuntimeException ignored) {
@@ -131,6 +145,200 @@ final class SearchIndex {
     static boolean matches(Quest quest) {
         find(BookState.search);
         return lastIds.contains(quest.id());
+    }
+
+    // --- the whole book for the window of results (pictures 30, 30b) ---
+
+    /** What a result is. The order is the order of the groups in the window. */
+    enum Kind {
+        QUEST, ITEM, GUIDE, OFFER, ACHIEVEMENT
+    }
+
+    /**
+     * One name in the index. @param target the quest, the item's stack, the guide, the offer or the achievement
+     * @param uses for an item, how many quests ask for it
+     */
+    record Named(Kind kind, String name, String lower, Object target, int uses) {
+    }
+
+    private static final Pattern WORD_SPLIT = Pattern.compile("[^\\p{L}\\p{N}]+");
+    private static volatile List<Named> named = List.of();
+    private static volatile Set<String> words = Set.of();
+    private static QuestBook namedFor;
+    private static String namedLanguage = "";
+
+    private static void prepareBook() {
+        QuestBook book = ClientBook.current();
+        String language = Minecraft.getInstance().getLanguageManager().getSelected();
+        if (book == namedFor && language.equals(namedLanguage)) {
+            return;
+        }
+        namedFor = book;
+        namedLanguage = language;
+        named = List.of();
+        words = Set.of();
+        CompletableFuture.supplyAsync(() -> buildBook(book), Util.backgroundExecutor())
+                .thenAcceptAsync(built -> {
+                    if (book == namedFor) {
+                        named = built;
+                        Set<String> all = new HashSet<>();
+                        for (Named entry : built) {
+                            for (String word : WORD_SPLIT.split(entry.lower)) {
+                                if (word.length() >= 3) {
+                                    all.add(word);
+                                }
+                            }
+                        }
+                        words = all;
+                    }
+                }, Minecraft.getInstance());
+    }
+
+    private static List<Named> buildBook(QuestBook book) {
+        List<Named> out = new ArrayList<>();
+        Map<ResourceLocation, int[]> uses = new LinkedHashMap<>();
+        for (Quest quest : book.quests().values()) {
+            boolean story = quest.chapter().map(id -> book.chapters().get(id)).map(Chapter::isStory).orElse(false);
+            if (quest.options().hidden() || !story) {
+                continue;
+            }
+            String title = Component.translatable(quest.title()).getString();
+            out.add(new Named(Kind.QUEST, title, lower(title), quest, 0));
+            for (TaskDef task : quest.tasks()) {
+                if (task instanceof ItemTask items) {
+                    items.itemRefs().stream().filter(ref -> !ref.tag()).forEach(ref -> uses.computeIfAbsent(ref.id(), id -> new int[1])[0]++);
+                }
+            }
+            for (RewardDef reward : quest.rewards()) {
+                if (reward instanceof ItemReward item) {
+                    uses.computeIfAbsent(item.item(), id -> new int[1]);
+                }
+            }
+        }
+        for (ShopOffer offer : book.offers().values()) {
+            if (!offer.isSale()) {
+                for (ShopOffer.Entry entry : offer.gives()) {
+                    entry.item().ifPresent(id -> uses.computeIfAbsent(id, key -> new int[1]));
+                }
+            }
+        }
+        uses.forEach((id, count) -> {
+            try {
+                ItemStack stack = TaskText.stackOf(id);
+                if (!stack.isEmpty()) {
+                    String name = stack.getHoverName().getString();
+                    out.add(new Named(Kind.ITEM, name, lower(name), stack, count[0]));
+                }
+            } catch (RuntimeException ignored) {
+                // An item a mod cannot name off the main thread is only missing from the results.
+            }
+        });
+        for (Guide guide : book.guides().values()) {
+            String title = Component.translatable(guide.title()).getString();
+            out.add(new Named(Kind.GUIDE, title, lower(title), guide, 0));
+        }
+        for (ShopOffer offer : book.offers().values()) {
+            if (!offer.isSale()) {
+                try {
+                    String title = ShopView.name(offer);
+                    out.add(new Named(Kind.OFFER, title, lower(title), offer, 0));
+                } catch (RuntimeException ignored) {
+                    // As above.
+                }
+            }
+        }
+        for (Achievement achievement : book.achievements().values()) {
+            if (!achievement.archived() && !achievement.hidden()) {
+                String title = Component.translatable(achievement.titleKey()).getString();
+                out.add(new Named(Kind.ACHIEVEMENT, title, lower(title), achievement, 0));
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    private static String lastBookQuery = "";
+    private static List<Named> lastBookEntries = List.of();
+    private static Map<Kind, List<Named>> lastBookResult = Map.of();
+
+    /** The names that contain the query, by kind in the window's order. Empty while the index is still being built. */
+    static Map<Kind, List<Named>> book(String query) {
+        prepareBook();
+        List<Named> current = named;
+        String wanted = lower(query).trim();
+        if (wanted.equals(lastBookQuery) && current == lastBookEntries) {
+            return lastBookResult;
+        }
+        Map<Kind, List<Named>> out = new EnumMap<>(Kind.class);
+        if (!wanted.isEmpty()) {
+            for (Named entry : current) {
+                if (entry.lower.contains(wanted)) {
+                    out.computeIfAbsent(entry.kind, kind -> new ArrayList<>()).add(entry);
+                }
+            }
+            // A name that starts with the query comes before one that only holds it, then the shorter one.
+            out.values().forEach(list -> list.sort(Comparator.comparing((Named entry) -> !entry.lower.startsWith(wanted)).thenComparingInt(entry -> entry.lower.length())));
+        }
+        lastBookQuery = wanted;
+        lastBookEntries = current;
+        lastBookResult = out;
+        return out;
+    }
+
+    /** Whether the index of names is there yet. */
+    static boolean bookReady() {
+        prepareBook();
+        return !named.isEmpty() || ClientBook.current().quests().isEmpty();
+    }
+
+    /** How many names hold a word: the count beside a suggestion. */
+    static int count(String word) {
+        String wanted = lower(word);
+        int count = 0;
+        for (Named entry : named) {
+            count += entry.lower.contains(wanted) ? 1 : 0;
+        }
+        return count;
+    }
+
+    /** Close words of the index for a query that found nothing ("может быть"), the ones that find most first. */
+    static List<String> maybe(String query, int limit) {
+        prepareBook();
+        String wanted = lower(query).trim();
+        if (wanted.length() < 3) {
+            return List.of();
+        }
+        int most = wanted.length() <= 5 ? 1 : 2;
+        List<String> close = new ArrayList<>();
+        for (String word : words) {
+            if (Math.abs(word.length() - wanted.length()) <= most && distance(wanted, word) <= most) {
+                close.add(word);
+            }
+        }
+        Map<String, Integer> counts = new HashMap<>();
+        close.forEach(word -> counts.put(word, count(word)));
+        close.sort(Comparator.comparing((String word) -> -counts.get(word)).thenComparing(word -> distance(wanted, word)));
+        return close.size() > limit ? List.copyOf(close.subList(0, limit)) : close;
+    }
+
+    /** The edit distance with swaps of neighbours, as typos go. */
+    static int distance(String a, String b) {
+        int[][] d = new int[a.length() + 1][b.length() + 1];
+        for (int i = 0; i <= a.length(); i++) {
+            d[i][0] = i;
+        }
+        for (int j = 0; j <= b.length(); j++) {
+            d[0][j] = j;
+        }
+        for (int i = 1; i <= a.length(); i++) {
+            for (int j = 1; j <= b.length(); j++) {
+                int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+                d[i][j] = Math.min(Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1), d[i - 1][j - 1] + cost);
+                if (i > 1 && j > 1 && a.charAt(i - 1) == b.charAt(j - 2) && a.charAt(i - 2) == b.charAt(j - 1)) {
+                    d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+                }
+            }
+        }
+        return d[a.length()][b.length()];
     }
 
     /** The chapter filter in the search field is drawn as a chip. */

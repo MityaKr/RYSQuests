@@ -1,0 +1,256 @@
+    /** The acceptance of the quest editor: a chapter of ten quests with dependencies, made in the game, read back from its files. */
+    private static void buildQuestEditorScenario() {
+        List<ResourceLocation> ids = new ArrayList<>();
+        ResourceLocation[] chapter = new ResourceLocation[1];
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("open the book", () -> mc().setScreen(new BookScreen()), 20);
+        step("open the quest editor", BookScreen::openQuestEditorForTest, 10);
+        expect("the editor is open", BookScreen::questEditorOpenForTest);
+        step("make a chapter of ten quests", () -> {
+            BookScreen.questNewChapterForTest("Индустрия и ток");
+            BookScreen.questEpochForTest(2);
+            chapter[0] = BookScreen.questChapterForTest();
+            for (String[] node : QUEST_EDITOR_NODES) {
+                ResourceLocation id = BookScreen.questAddForTest(node[0]);
+                ids.add(id);
+                BookScreen.questMoveForTest(id, Integer.parseInt(node[2]), Integer.parseInt(node[3]));
+                BookScreen.questItemTaskForTest(ResourceLocation.parse(node[1]), 3);
+                BookScreen.questCoinRewardForTest(5);
+            }
+        }, 10);
+        step("link most of them", () -> {
+            BookScreen.questLinkForTest(ids.get(0), ids.get(2));
+            BookScreen.questLinkForTest(ids.get(1), ids.get(3));
+            BookScreen.questLinkForTest(ids.get(2), ids.get(4));
+            BookScreen.questLinkForTest(ids.get(3), ids.get(4));
+            BookScreen.questLinkForTest(ids.get(7), ids.get(8));
+            BookScreen.questLinkForTest(ids.get(8), ids.get(9));
+            BookScreen.questSelectForTest(ids.get(4));
+        }, 10);
+        expect("a circle is refused", () -> {
+            BookScreen.questLinkForTest(ids.get(4), ids.get(0));
+            return BookScreen.questDraftForTest(ids.get(0)).requires().isEmpty() && BookScreen.questStatusForTest() != null;
+        });
+        step("pull a dependency with the mouse, and hold it", () -> {
+            float[] node = BookScreen.questRectForTest(ids.get(4));
+            float[] target = BookScreen.questRectForTest(ids.get(5));
+            click(node[0] + node[2] + 12, node[1] + node[3] / 2f);
+            dragTo(target[0] - 8, target[1] + 22);
+        }, 4);
+        screenshot("design_quest_editor");
+        step("drop it on the quest", () -> {
+            float[] target = BookScreen.questRectForTest(ids.get(5));
+            dragTo(target[0] + 20, target[1] + 20);
+            release(target[0] + 20, target[1] + 20);
+        }, 4);
+        expect("the mouse added the dependency", () -> BookScreen.questDraftForTest(ids.get(5)).requires().contains(ids.get(4)));
+        step("drag a quest with the mouse", () -> {
+            float[] node = BookScreen.questRectForTest(ids.get(6));
+            click(node[0] + 30, node[1] + 15);
+            dragTo(node[0] + 30 + 48, node[1] + 15 + 24);
+            release(node[0] + 30 + 48, node[1] + 15 + 24);
+        }, 4);
+        expect("it moved along the grid", () -> BookScreen.questDraftForTest(ids.get(6)).options().layout().x().orElse(0) == 432 && BookScreen.questDraftForTest(ids.get(6)).options().layout().y().orElse(0) == 336);
+        step("show the json tab", () -> {
+            BookScreen.questSelectForTest(ids.get(4));
+            BookScreen.questTabForTest("JSON");
+        }, 4);
+        screenshot("quest_editor_json");
+        step("back to properties and save", () -> {
+            BookScreen.questTabForTest("PROPS");
+            BookScreen.questSaveForTest();
+        }, 40);
+        expect("the save went through", () -> !BookScreen.questDirtyForTest());
+        expect("the chapter is in the book", () -> ClientBook.current().chapters().containsKey(chapter[0]));
+        expect("all ten are in the book", () -> ids.stream().allMatch(ClientBook.current().quests()::containsKey));
+        Path[] file = new Path[1];
+        expect("the files match the format", () -> {
+            Path folder = mc().gameDirectory.toPath().resolve("config/rysquests/pack/data/" + chapter[0].getNamespace() + "/rysquests/chapters/" + chapter[0].getPath());
+            file[0] = folder.resolve("quest_5.json");
+            try {
+                String text = Files.readString(file[0]);
+                var json = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+                List<String> order = new ArrayList<>(json.keySet());
+                var quest = works.repka.rysquests.data.Quest.CODEC.parse(net.minecraft.resources.RegistryOps.create(com.mojang.serialization.JsonOps.INSTANCE, mc().level.registryAccess()), json).getOrThrow();
+                return Files.isRegularFile(folder.resolve("_chapter.json"))
+                        && order.indexOf("id") == 0 && order.indexOf("title") < order.indexOf("tasks") && order.indexOf("tasks") < order.indexOf("rewards")
+                        && json.get("tasks").getAsJsonArray().get(0).getAsJsonObject().keySet().iterator().next().equals("type")
+                        && quest.requires().size() == 2 && quest.tasks().size() == 1 && quest.rewards().size() == 1
+                        && Files.readString(mc().gameDirectory.toPath().resolve("config/rysquests/pack/assets/" + chapter[0].getNamespace() + "/lang/ru_ru.json")).contains("Электрический механизм");
+            } catch (java.io.IOException e) {
+                return false;
+            }
+        });
+        step("change a file outside the game", () -> {
+            try {
+                Files.writeString(file[0], Files.readString(file[0]).replace("\"chapter\"", "\"icon\": \"minecraft:diamond\",\n  \"chapter\""));
+            } catch (java.io.IOException e) {
+                fail("could not change the file: " + e);
+            }
+            command("reload");
+        }, 60);
+        expect("the map followed the file", () -> BookScreen.questDraftForTest(ids.get(4)).icon().filter(ResourceLocation.parse("minecraft:diamond")::equals).isPresent() && !BookScreen.questDirtyForTest());
+        step("look at the highlight", () -> BookScreen.questSelectForTest(ids.get(0)), 10);
+        screenshot("quest_editor_external");
+        for (int[] size : new int[][] {{2560, 1440}, {1920, 1080}}) {
+            for (String theme : List.of("slate", "glass")) {
+                step("show the editor " + size[0] + " " + theme, () -> {
+                    mc().getWindow().setWindowed(size[0], size[1]);
+                    mc().options.guiScale().set(0);
+                    mc().resizeDisplay();
+                    ThemeManager.select("ryscore:" + theme);
+                }, 15);
+                screenshot("quest_editor_" + size[0] + "_" + theme);
+            }
+        }
+        step("back to the size of the mockups", () -> {
+            mc().getWindow().setWindowed(1280, 800);
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+            ThemeManager.select("ryscore:slate");
+        }, 15);
+        step("leave the editor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
+        expect("the editor closed", () -> !BookScreen.questEditorOpenForTest());
+        step("take the chapter away, other scenarios count the quests of the example", () -> {
+            try {
+                Path game = mc().gameDirectory.toPath();
+                Files.createDirectories(game.resolve("_stale"));
+                Files.move(file[0].getParent(), game.resolve("_stale/quest_editor_" + System.currentTimeMillis()));
+            } catch (java.io.IOException e) {
+                fail("could not move the chapter: " + e);
+            }
+            command("reload");
+        }, 60);
+        expect("the example is back to its own quests", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
+    }
+
+    /** The acceptance of the constructor: a mining atlas of five resources and three stages, made in the game. */
+    private static void buildConstructorScenario() {
+        List<String> resources = List.of("Iron", "Copper", "Gold", "Diamond", "Coal");
+        List<String> stages = List.of("Early", "Middle", "Late");
+        ResourceLocation[] made = new ResourceLocation[1];
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+        }, 10);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("open the constructor", BookScreen::openConstructorForTest, 5);
+        expect("the constructor is open", BookScreen::constructorOpenForTest);
+        step("make a matrix from the template", BookScreen::newMatrixForTest, 5);
+        step("fill it", () -> {
+            BookScreen.buildMatrixForTest("Mining atlas", resources, stages, ResourceLocation.parse("minecraft:iron_ingot"));
+            BookScreen.selectWayForTest(0, 1, 0);
+            made[0] = BookScreen.constructorSectionForTest();
+        }, 30);
+        screenshot("constructor_matrix");
+        step("click save", () -> mc().screen.mouseClicked(556, 31, GLFW.GLFW_MOUSE_BUTTON_LEFT), 5);
+        expect("the save went through", BookScreen::constructorSavedForTest);
+        expect("the section is in the book", () -> ClientBook.current().sections().get(made[0]) instanceof works.repka.rysquests.data.MatrixSection matrix && matrix.rows().size() == 5 && matrix.columns().size() == 3);
+        expect("it is on the rail", () -> ClientBook.current().meta().sections().contains(made[0].toString()));
+        expect("its texts came with the book", () -> Component.translatable(ClientBook.current().sections().get(made[0]).title()).getString().equals("Mining atlas"));
+        expect("every text resolves", () -> BookScreen.guideIssuesForTest().isEmpty());
+        step("leave the constructor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("the constructor is closed", () -> !BookScreen.constructorOpenForTest());
+        step("open the section as a player", () -> BookScreen.showSectionForTest(made[0].toString()), 30);
+        expect("the section is open", () -> made[0].toString().equals(BookScreen.currentSectionForTest()));
+        screenshot("constructor_result");
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+    }
+
+    /** A guide made in the editor and read back, in a single player world. */
+    private static void buildEditorScenario() {
+        ResourceLocation id = ResourceLocation.parse("example:autotest_editor");
+        ResourceLocation picture = ResourceLocation.parse("example:textures/guides/autotest_editor_1.png");
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+        }, 10);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("open the editor", () -> BookScreen.editGuideForTest(id), 5);
+        expect("the editor is open", BookScreen::editorOpenForTest);
+        step("write the first page", () -> {
+            BookScreen.writeGuideForTest("Autotest guide", ResourceLocation.parse("minecraft:furnace"));
+            BookScreen.addImageForTest(picture, testPicture());
+            BookScreen.writePageForTest("First page", "Build a [[item:minecraft:furnace]] from **cobblestone**.\n[[recipe:minecraft:furnace]]\n[[image:" + picture + "|A picture]]");
+        }, 40);
+        screenshot("editor_page");
+        String before = "Build";
+        step("type a letter", () -> mc().screen.charTyped('Z', 0), 25);
+        expect("the letter is in the text", () -> BookScreen.editorPageTextForTest().startsWith("Z" + before));
+        step("undo it", BookScreen::editorUndoForTest, 3);
+        expect("the letter is gone", () -> BookScreen.editorPageTextForTest().startsWith(before));
+        step("add a screenshot", () -> BookScreen.editorAddPictureForTest(mc().gameDirectory.toPath().resolve("screenshots/rysquests_editor_page.png")), 20);
+        expect("the screenshot is in the text", () -> BookScreen.editorPageTextForTest().contains("autotest_editor_2.png"));
+        step("go to the second page", () -> {
+            if (BookScreen.editorPagesForTest() < 2) {
+                BookScreen.addPageForTest();
+            } else {
+                BookScreen.editorSelectPageForTest(1);
+            }
+            BookScreen.writePageForTest("Second page", "Written at " + System.currentTimeMillis());
+        }, 5);
+        step("click save", () -> mc().screen.mouseClicked(556, 31, GLFW.GLFW_MOUSE_BUTTON_LEFT), 5);
+        expect("the save went through", BookScreen::editorSavedForTest);
+        expect("the book has the guide", () -> ClientBook.current().guides().containsKey(id));
+        expect("its pages are in order", () -> ClientBook.current().guides().get(id).pages().size() == 2);
+        expect("its title is translated", () -> Component.translatable(ClientBook.current().guides().get(id).title()).getString().equals("Autotest guide"));
+        expect("its picture is known", () -> ClientAssets.imageSize(picture) != null);
+        expect("the guide has no broken links", () -> BookScreen.guideIssuesForTest().isEmpty());
+        expect("the file is in the editor's folder", () -> Files.isRegularFile(mc().gameDirectory.toPath().resolve("config/rysquests/pack/data/example/rysquests/guides/autotest_editor.json")));
+        screenshot("editor_saved");
+        step("leave the editor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("the editor is closed", () -> !BookScreen.editorOpenForTest());
+        step("open the saved page", () -> BookScreen.openGuideForTest(id, 0), 40);
+        screenshot("editor_result");
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+    }
+
+    /** The operator writes a guide on a dedicated server. The other client checks what reached it. */
+    private static void addEditorOnServerSteps() {
+        step("open the book", () -> mc().setScreen(new BookScreen()), 10);
+        step("write a guide", () -> {
+            BookScreen.editGuideForTest(SERVER_GUIDE);
+            BookScreen.writeGuideForTest("Written on the server", ResourceLocation.parse("minecraft:book"));
+            BookScreen.addImageForTest(SERVER_IMAGE, testPicture());
+            BookScreen.writePageForTest("First", "Picture below\n[[image:" + SERVER_IMAGE + "]]");
+        }, 5);
+        step("save it", BookScreen::editorSaveForTest, 5);
+        expect("the server saved it", BookScreen::editorSavedForTest);
+        expect("the file is on the server", () -> Files.isRegularFile(mc().gameDirectory.toPath().resolve("../run-server/config/rysquests/pack/data/teamtest/rysquests/guides/editor_guide.json")));
+        step("make a section on the server", () -> {
+            BookScreen.openConstructorForTest();
+            BookScreen.newMatrixForTest();
+            BookScreen.buildMatrixForTest("Server atlas", List.of("Iron"), List.of("Early", "Middle", "Late"), ResourceLocation.parse("minecraft:iron_ingot"));
+        }, 5);
+        step("save the section", BookScreen::constructorSaveForTest, 5);
+        expect("the server saved the section", BookScreen::constructorSavedForTest);
+        step("leave the constructor for the quest editor", () -> mc().setScreen(new BookScreen()), 5);
+        step("make a chapter on the server", () -> {
+            BookScreen.openQuestEditorForTest();
+            BookScreen.questNewChapterForTest("Server chapter");
+            BookScreen.questAddForTest("Server quest");
+            BookScreen.questSaveForTest();
+        }, 40);
+        expect("the server saved the chapter", () -> !BookScreen.questDirtyForTest());
+        expect("the chapter file is on the server", () -> Files.isRegularFile(mc().gameDirectory.toPath().resolve("../run-server/config/rysquests/pack/data/" + BookScreen.questChapterForTest().getNamespace() + "/rysquests/chapters/" + BookScreen.questChapterForTest().getPath() + "/_chapter.json")));
+        step("close the book", () -> mc().setScreen(null), 5);
+    }
+
+        step("open the constructor on the mining atlas", () -> {
+            BookScreen.openConstructorOnForTest(ResourceLocation.parse("design:mining"));
+            BookScreen.selectWayForTest(0, 1, 0);
+        }, 20);
+        screenshot("design_constructor");
+        step("leave the constructor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);

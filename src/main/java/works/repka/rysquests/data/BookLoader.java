@@ -38,6 +38,12 @@ public final class BookLoader extends SimplePreparableReloadListener<BookHolder.
     private static final Logger LOGGER = LoggerFactory.getLogger(BookLoader.class);
     private static final FileToIdConverter FILES = FileToIdConverter.json("rysquests");
 
+    /**
+     * Dev runs only: every item counts as known, so that a book of a large pack (the ATM10 book of the first-run autotest) loads
+     * whole in a development game that has none of its mods. Set by {@code -Drysquests.dev.anyItem=true}.
+     */
+    private static final boolean ANY_ITEM = Boolean.getBoolean("rysquests.dev.anyItem");
+
     private final RegistryAccess registries;
 
     public BookLoader(RegistryAccess registries) {
@@ -52,11 +58,13 @@ public final class BookLoader extends SimplePreparableReloadListener<BookHolder.
         RawBook parsed = BookParser.parse(files, ops);
         List<Issue> issues = new ArrayList<>(readErrors);
         issues.addAll(parsed.issues());
-        RawBook raw = new RawBook(parsed.meta(), parsed.chapters(), parsed.quests(), parsed.guides(), parsed.sections(), parsed.offers(), parsed.achievements(), parsed.structures(), issues, parsed.migrations());
-        BookValidator.Result result = BookValidator.validate(raw, BuiltInRegistries.ITEM::containsKey, ops);
+        RawBook raw = parsed.withIssues(issues);
+        BookValidator.Result result = BookValidator.validate(raw, ANY_ITEM ? id -> true : BuiltInRegistries.ITEM::containsKey, ops);
         QuestBook book = result.book().withAssets(BookAssets.read(EditorFolder.root(), result.book()));
-        byte[] data = BookSerializer.encode(book, registries);
-        return new BookHolder.Loaded(book, result.report(), new BookSyncPayload(book.hash(), data), raw.migrations());
+        BookSyncPayload payload = new BookSyncPayload(book.hash(), BookSerializer.encode(book, registries));
+        QuestBook shown = book.playerView();
+        BookSyncPayload playerPayload = shown == book ? payload : new BookSyncPayload(book.hash(), BookSerializer.encode(shown, registries));
+        return new BookHolder.Loaded(book, result.report(), payload, playerPayload, raw.migrations());
     }
 
     /** Reads only the book again and sends it to everyone, which is far quicker than reloading all the data of a large pack. */
@@ -66,7 +74,7 @@ public final class BookLoader extends SimplePreparableReloadListener<BookHolder.
                 .thenAcceptAsync(loaded -> {
                     loader.apply(loaded, server.getResourceManager(), InactiveProfiler.INSTANCE);
                     for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                        PacketDistributor.sendToPlayer(player, loaded.payload());
+                        PacketDistributor.sendToPlayer(player, loaded.payloadFor(player));
                         ProgressService.sendAll(player);
                     }
                     done.accept(loaded.book());

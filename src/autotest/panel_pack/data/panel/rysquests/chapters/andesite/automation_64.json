@@ -1,0 +1,30 @@
+{
+  "id": "panel:andesite/automation_64",
+  "chapter": "panel:andesite",
+  "title": "Цель автоматизации: 64× Андезитовый сплав",
+  "icon": "minecraft:polished_andesite",
+  "requires": [
+    "panel:andesite/shaft"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:polished_andesite",
+      "count": 64,
+      "mode": "consume"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 300
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 4
+    }
+  ],
+  "text": "Сдай 64 шт. «Андезитовый сплав», сделанных твоим заводом. Другие квесты от него не зависят.",
+  "optional": true
+}

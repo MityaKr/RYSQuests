@@ -151,7 +151,33 @@ final class Snbt {
         }
     }
 
-    private IllegalArgumentException error(String message) {
-        return new IllegalArgumentException("SNBT: " + message + " at offset " + pos);
+    private SyntaxError error(String message) {
+        int line = 1;
+        for (int i = 0; i < Math.min(pos, text.length()); i++) {
+            if (text.charAt(i) == '\n') {
+                line++;
+            }
+        }
+        return new SyntaxError(message, line);
+    }
+
+    /** Where a file could not be read: the line, counted from 1, and what was wrong there. */
+    static final class SyntaxError extends IllegalArgumentException {
+        private final String reason;
+        private final int line;
+
+        SyntaxError(String reason, int line) {
+            super("SNBT: " + reason + " at line " + line);
+            this.reason = reason;
+            this.line = line;
+        }
+
+        String reason() {
+            return reason;
+        }
+
+        int line() {
+            return line;
+        }
     }
 }

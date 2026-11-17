@@ -1,0 +1,65 @@
+{
+  "id": "panel:chronicle/wither",
+  "chapter": "panel:chronicle",
+  "title": "Иссушитель",
+  "icon": "minecraft:nether_star",
+  "group": "adventure",
+  "tasks": [
+    {
+      "type": "rysquests:kill",
+      "entity": "minecraft:wither"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 150
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 8
+    },
+    {
+      "type": "rysquests:random",
+      "of": [
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:amethyst_shard",
+          "count": 16
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:lapis_lazuli",
+          "count": 2
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:coal",
+          "count": 8
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:diamond",
+          "count": 4
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:quartz",
+          "count": 8
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:nether_star",
+          "count": 2
+        },
+        {
+          "type": "rysquests:item",
+          "item": "minecraft:emerald",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "text": "Звезда Незера нужна поздним машинам."
+}

@@ -1,0 +1,25 @@
+{
+  "id": "panel:chronicle/scheme",
+  "chapter": "panel:chronicle",
+  "title": "Схема «Сборочный цех»",
+  "icon": "minecraft:map",
+  "group": "repeat",
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:gold_nugget",
+      "count": 1,
+      "mode": "consume"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 1
+    }
+  ],
+  "repeatable": {
+    "cooldown_minutes": 0
+  }
+}

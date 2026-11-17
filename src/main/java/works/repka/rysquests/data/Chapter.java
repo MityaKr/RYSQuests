@@ -18,14 +18,21 @@ public record Chapter(
         List<ResourceLocation> requires,
         boolean hidden,
         String section,
-        List<ResourceLocation> links) {
+        List<ResourceLocation> links,
+        boolean offMap) {
     /** The section of the book that holds the progression chapters, and the only one shown so far. */
     public static final String STORY = "story";
 
-    /** A chapter without quests of other chapters shown on its map. */
+    public Chapter {
+        // Epochs count from 1. Books written before off_map put their intro and chronicle into epoch 0 (RepYS up to 0.1.0): that is
+        // no epoch, so in a book with epochs those chapters stay off the map, as off_map puts them now.
+        epoch = epoch.filter(number -> number > 0);
+    }
+
+    /** A chapter on the map, without quests of other chapters shown on it. */
     public Chapter(ResourceLocation id, String title, Optional<String> subtitle, Optional<ResourceLocation> icon, Optional<Integer> epoch,
             Optional<ViewMode> defaultView, List<Group> groups, List<ResourceLocation> requires, boolean hidden, String section) {
-        this(id, title, subtitle, icon, epoch, defaultView, groups, requires, hidden, section, List.of());
+        this(id, title, subtitle, icon, epoch, defaultView, groups, requires, hidden, section, List.of(), false);
     }
 
     public record Group(String id, String title) {
@@ -47,10 +54,28 @@ public record Chapter(
             Codec.BOOL.optionalFieldOf("hidden", false).forGetter(Chapter::hidden),
             Codec.STRING.optionalFieldOf("section", STORY).forGetter(Chapter::section),
             // Quests of other chapters shown on this chapter's map, as FTB Quests' quest links (ADR-46).
-            ResourceLocation.CODEC.listOf().optionalFieldOf("links", List.of()).forGetter(Chapter::links)
+            ResourceLocation.CODEC.listOf().optionalFieldOf("links", List.of()).forGetter(Chapter::links),
+            // Off the map: listed under "Off the map" and opened as a list, as the book's intro and chronicle are.
+            Codec.BOOL.optionalFieldOf("off_map", false).forGetter(Chapter::offMap)
     ).apply(instance, Chapter::new));
 
     public boolean isStory() {
         return STORY.equals(section);
+    }
+
+    public Chapter withEpoch(Optional<Integer> newEpoch) {
+        return new Chapter(id, title, subtitle, icon, newEpoch, defaultView, groups, requires, hidden, section, links, offMap);
+    }
+
+    public Chapter withGroups(List<Group> newGroups) {
+        return new Chapter(id, title, subtitle, icon, epoch, defaultView, List.copyOf(newGroups), requires, hidden, section, links, offMap);
+    }
+
+    public Chapter withTitle(String newTitle) {
+        return new Chapter(id, newTitle, subtitle, icon, epoch, defaultView, groups, requires, hidden, section, links, offMap);
+    }
+
+    public Chapter withOffMap(boolean off) {
+        return new Chapter(id, title, subtitle, icon, epoch, defaultView, groups, requires, hidden, section, links, off);
     }
 }

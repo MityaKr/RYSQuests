@@ -58,8 +58,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.client.ClientBook;
+import works.repka.rysquests.client.ClientMessages;
+import works.repka.rysquests.client.screen.BookRole;
+import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.client.screen.BookScreen;
+import works.repka.rysquests.client.screen.PanelShowcase;
+import works.repka.rysquests.client.screen.FirstRunHooks;
+import works.repka.rysquests.client.screen.EditorTesting;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.ViewMode;
@@ -86,7 +92,9 @@ public final class AutoTest {
     private static final String SCENARIO_PROPERTY = "rysquests.autotest";
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoTest.class);
     private static final boolean AS_PLAYER = Boolean.getBoolean("rysquests.autotest.asPlayer");
-    private static final int TOTAL_TICK_LIMIT = 20 * (AS_PLAYER ? 1200 : 300);
+    /** The first run carries a whole FTB book over and lays out four maps of it: longer than the other scenarios. */
+    private static final boolean LONG_SCENARIO = List.of("first", "themes", "panel_notify").contains(System.getProperty(SCENARIO_PROPERTY));
+    private static final int TOTAL_TICK_LIMIT = 20 * (AS_PLAYER || LONG_SCENARIO ? 1200 : 300);
     private static final int STEP_TICK_LIMIT = 20 * (AS_PLAYER ? 600 : 120);
     private static final int REPYS_MIN_QUESTS = 2000;
     private static final UUID REPYS_PLAYER = UUID.fromString("216ea99a-d6eb-45be-8a5b-3da7852588a5");
@@ -134,7 +142,23 @@ public final class AutoTest {
             buildValidateScenario();
         } else if ("book".equals(scenario)) {
             buildBookScenario();
+        } else if ("frame".equals(scenario)) {
+            buildFrameScenario();
+        } else if ("panel".equals(scenario)) {
+            buildPanelScenario();
+        } else if ("extras".equals(scenario)) {
+            buildExtrasScenario();
+        } else if ("first".equals(scenario)) {
+            buildFirstRunScenario();
+        } else if ("dock".equals(scenario)) {
+            buildDockScenario();
         } else if ("repys".equals(scenario)) {
+            RepysScenario.check();
+        } else if ("items".equals(scenario)) {
+            ItemsScenario.check();
+        } else if ("upgrade_new".equals(scenario)) {
+            RepysScenario.upgrade();
+        } else if ("repys_ftb".equals(scenario)) {
             buildRepysScenario();
         } else if ("design".equals(scenario) || "design_sizes".equals(scenario)) {
             buildDesignScenario();
@@ -160,8 +184,24 @@ public final class AutoTest {
             buildSectionsDesignScenario();
         } else if ("guides_design".equals(scenario)) {
             buildGuidesDesignScenario();
+        } else if ("canvas".equals(scenario)) {
+            buildCanvasScenario();
+        } else if ("quest_menu".equals(scenario)) {
+            QuestMenuScenario.build();
+        } else if ("map".equals(scenario)) {
+            buildMapScenario();
+        } else if ("repys_data".equals(scenario)) {
+            buildRepysDataScenario();
         } else if ("layout".equals(scenario)) {
             buildLayoutScenario();
+        } else if ("themes".equals(scenario)) {
+            ThemesScenario.build();
+        } else if ("panel_notify".equals(scenario)) {
+            NoticesScenario.build();
+        } else if ("book_editor".equals(scenario)) {
+            EditorScenario.build(false);
+        } else if ("book_editor_restart".equals(scenario)) {
+            EditorScenario.build(true);
         } else if ("team_a".equals(scenario)) {
             buildTeamLeaderScenario();
         } else if ("team_b".equals(scenario)) {
@@ -171,6 +211,14 @@ public final class AutoTest {
             step("check scenario name", () -> fail("unknown scenario " + scenario), 0);
         }
         NeoForge.EVENT_BUS.addListener((ScreenEvent.Render.Post event) -> {
+            if (mapTiming && mc().screen instanceof BookScreen) {
+                works.repka.rysquests.client.canvas.MapCanvas.Stats stats = BookScreen.mapCanvasStatsForTest();
+                if (stats != null) {
+                    mapFrames++;
+                    mapNanos += stats.nanos();
+                    mapWorst = Math.max(mapWorst, stats.nanos());
+                }
+            }
             long now = System.nanoTime();
             if (lastFrame != 0) {
                 worstFrame = Math.max(worstFrame, now - lastFrame);
@@ -238,6 +286,7 @@ public final class AutoTest {
     }
 
     /** The whole migration on a copy of the real pack: import the book, import the owner's progress, open the book. */
+    /** The RepYS book from before it was the pack's own: imported from FTB Quests with the progress of a real player. */
     private static void buildRepysScenario() {
         openWorld();
         step("import the FTB book", () -> command("rysquests import ftbq repys"), 40);
@@ -487,15 +536,66 @@ public final class AutoTest {
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
         step("confirm the shared task", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CHECK, TEAM_QUEST, 0, List.of())), 20);
         expect("quest completed", () -> ClientProgress.get(TEAM_QUEST).completed());
+        expect("the own quest's notice stands in the toasts' column", () -> works.repka.ryscore.ui.Notices.activeForTest().stream()
+                .anyMatch(line -> line.startsWith("quests/done:" + TEAM_QUEST + " CARD on")));
+        step("let it slide in", () -> works.repka.ryscore.ui.Notices.playedForTest().forEach(line -> LOGGER.info("[autotest] notice sound: {}", line)), 14);
+        screenshot("team_a_notice_own");
         step("claim first", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
         expect("got the reward for each and the single one", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 1);
+        teamScreens("a");
         addShopOnServerSteps();
         addEditorOnServerSteps();
         step("import FTB progress where the other player took the reward", AutoTest::writeFtbqPartyFile, 5);
         step("run the import", () -> command("rysquests import ftbq progress"), 20);
         expect("the leader has not taken what the other player took", () -> ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().isEmpty());
+        // the publication lock: a closed book does not reach a player, an operator keeps it with the line "closed"
+        expect("the other player is ready for the lock", () -> ClientProgress.get(TEAM_READY).completed());
+        step("close the book to players", () -> PacketDistributor.sendToServer(new works.repka.rysquests.network.PublishPayload(false)), 40);
+        expect("the book is closed, the operator still has it", () -> !ClientBook.current().meta().published() && ClientBook.current().quests().containsKey(TEAM_QUEST));
+        step("open the closed book", () -> {
+            mc().setScreen(new BookScreen());
+            BookScreen.openTabForTest("map");
+        }, 20);
+        screenshot("team_a_closed_operator");
+        step("hold it closed while the other player looks", () -> mc().setScreen(null), 200);
+        step("open the book to players again", () -> PacketDistributor.sendToServer(new works.repka.rysquests.network.PublishPayload(true)), 40);
+        expect("the book is open again", () -> ClientBook.current().meta().published());
         expect("the other player has left", () -> players() == 1);
         step("stop the server", () -> command("stop"), 100);
+    }
+
+    /**
+     * The quest panel and "Now" in a team of two: "выполнен командой", "Каждый участник забирает сам" for the reward each takes,
+     * "Уже получена командой" for the one the first took, and the team's line on "Now".
+     */
+    private static void teamScreens(String who) {
+        step("open the shared quest (" + who + ")", () -> {
+            mc().setScreen(new BookScreen());
+            BookScreen.openTabForTest("map");
+            BookScreen.showForTest(ViewMode.MAP);
+            BookScreen.selectForTest(ResourceLocation.parse("teamtest:main"), TEAM_QUEST);
+            BookScreen.mapFlyForTest(null, 0, TEAM_QUEST);
+        }, 30);
+        // the game's own toasts (chat verification, tutorial, recipes) would lie over the panel
+        step("mouse away (" + who + ")", () -> {
+            moveMouse(1, 1);
+            mc().getToasts().clear();
+        }, 3);
+        screenshot("team_" + who + "_panel");
+        step("open now (" + who + ")", () -> {
+            BookScreen.openTabForTest("now");
+            mc().getToasts().clear();
+        }, 15);
+        screenshot("team_" + who + "_now");
+        step("close the book (" + who + ")", () -> mc().setScreen(null), 5);
+    }
+
+    /** The guide the leader wrote in the editor on the server, by the title of its page: the editor gives it its id and name. */
+    @org.jetbrains.annotations.Nullable
+    private static works.repka.rysquests.data.Guide serverGuide() {
+        return ClientBook.current().guides().values().stream()
+                .filter(guide -> !guide.pages().isEmpty() && Component.translatable(guide.pages().get(0).title()).getString().equals("Written on the server"))
+                .findFirst().orElse(null);
     }
 
     /** Joins the team by invitation and shows what the second member gets. */
@@ -515,18 +615,30 @@ public final class AutoTest {
         }
         expect("team of two on this client", () -> ClientProgress.teamSize() == 2);
         expect("progress is shared", () -> ClientProgress.get(TEAM_QUEST).completed());
+        expect("the teammate's quest came as a notice with a sound", () -> works.repka.ryscore.ui.Notices.activeForTest().stream()
+                .anyMatch(line -> line.startsWith("quests/done:" + TEAM_QUEST + " CARD on")) && !works.repka.ryscore.ui.Notices.playedForTest().isEmpty());
+        step("let it slide in", () -> works.repka.ryscore.ui.Notices.playedForTest().forEach(line -> LOGGER.info("[autotest] notice sound: {}", line)), 14);
+        screenshot("team_b_notice_mate");
         expect("the single reward is taken by the first", () -> ClientProgress.get(TEAM_QUEST).claimed().contains(1) && !ClientProgress.get(TEAM_QUEST).claimed().contains(0));
+        teamScreens("b_before_claim");
         step("claim second", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CLAIM, TEAM_QUEST, 0, List.of())), 20);
         expect("got only the reward for each", () -> count(Items.BREAD) == 1 && count(Items.DIAMOND) == 0);
+        teamScreens("b");
         addShopMemberSteps();
-        expect("the saved guide reached the other player", () -> ClientBook.current().guides().containsKey(SERVER_GUIDE));
-        expect("its text came with the book", () -> Component.translatable(ClientBook.current().guides().get(SERVER_GUIDE).title()).getString().equals("Written on the server"));
-        expect("its picture came with the book", () -> ClientAssets.imageSize(SERVER_IMAGE) != null);
-        expect("the section reached the other player", () -> ClientBook.current().sections().values().stream().anyMatch(section -> Component.translatable(section.title()).getString().equals("Server atlas")));
-        expect("the rail came too", () -> ClientBook.current().meta().sections().size() >= 2);
+        // the book's editor names a new guide itself (guide_1); it saves no pictures and no sections of the old constructor
+        expect("the saved guide reached the other player", () -> serverGuide() != null);
         expect("the import knows this player took the reward", () -> ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().contains(0));
-        step("try to save without rights", () -> PacketDistributor.sendToServer(new EditorSavePayload(Optional.of(ClientBook.current().guides().get(SERVER_GUIDE)), Optional.empty(), "en_us", Map.of(), Map.of(), List.of())), 20);
+        step("try to save without rights", () -> PacketDistributor.sendToServer(new EditorSavePayload(Optional.of(serverGuide()), Optional.empty(), "en_us", Map.of(), Map.of(), List.of())), 20);
         expect("the server refused", () -> "rysquests.editor.error.denied".equals(BookScreen.lastEditorResultForTest()));
+        step("say ready for the lock", () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.CHECK, TEAM_READY, 0, List.of())), 20);
+        expect("the closed book left this player", () -> !ClientBook.current().meta().published() && ClientBook.current().quests().isEmpty());
+        step("open the book while it is closed", () -> pressKey(GLFW.GLFW_KEY_K), 20);
+        screenshot("team_b_closed_player");
+        step("close it", () -> mc().setScreen(null), 5);
+        expect("the book came back when it opened", () -> ClientBook.current().meta().published() && ClientBook.current().quests().containsKey(TEAM_QUEST));
+        step("log the progress after the lock", () -> LOGGER.info("[autotest] after the lock: shared {}, imported {}", ClientProgress.get(TEAM_QUEST), ClientProgress.get(TEAM_IMPORTED)), 20);
+        // the FTB import of the leader replaced the team's progress with the file's: the imported quest is what the team has now
+        expect("and the progress with it", () -> ClientProgress.get(TEAM_IMPORTED).completed() && ClientProgress.get(TEAM_IMPORTED).claimed().contains(0));
         step("leave the server", () -> {}, 5);
     }
 
@@ -714,6 +826,387 @@ public final class AutoTest {
         }
     }
 
+    // --- the canvas of the map ---
+
+    private static final works.repka.rysquests.data.QuestBook[] CANVAS_BOOKS = new works.repka.rysquests.data.QuestBook[2];
+    private static final works.repka.rysquests.client.layout.MapBook[] CANVAS_MAPS = new works.repka.rysquests.client.layout.MapBook[2];
+    private static final java.util.List<java.util.Set<ResourceLocation>> CANVAS_DONE = new ArrayList<>(java.util.Arrays.asList(null, null));
+    private static final ResourceLocation[] CANVAS_HERE = new ResourceLocation[2];
+    private static CanvasTestScreen canvasScreen;
+
+    /**
+     * The canvas on its own test screen: RepYS as a serpentine on all four levels, with side quests hidden and a route lit, as a
+     * spiral and as a generator; ATM10 as a galaxy; and the loading page. Every view is shot and its frame timed into the log.
+     */
+    private static void buildCanvasScenario() {
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("read the books of RepYS and ATM10", () -> {
+            try {
+                CANVAS_BOOKS[0] = CanvasBooks.repys(Path.of(System.getProperty("rysquests.autotest.repysBook")), Path.of(System.getProperty("rysquests.autotest.repysLang")));
+                CANVAS_BOOKS[1] = CanvasBooks.atm10(Path.of(System.getProperty("rysquests.autotest.atm10Quests")));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            for (int i = 0; i < 2; i++) {
+                CANVAS_MAPS[i] = works.repka.rysquests.client.layout.MapBook.of(CANVAS_BOOKS[i]);
+            }
+            works.repka.rysquests.client.layout.MapBook repys = CANVAS_MAPS[0];
+            CANVAS_HERE[0] = repys.quests().stream().map(works.repka.rysquests.client.layout.MapBook.Q::id)
+                    .filter(id -> id.getPath().equals("b03_e2_current/electric_mechanism")).findFirst()
+                    .orElse(repys.quests().stream().filter(q -> repys.chapters().get(q.chapter()).epoch() == 2 && !q.optional()).findFirst().orElseThrow().id());
+            CANVAS_DONE.set(0, CanvasBooks.repysProgress(CANVAS_BOOKS[0], repys, CANVAS_HERE[0]));
+            CANVAS_DONE.set(1, CanvasBooks.atmProgress(CANVAS_BOOKS[1], CANVAS_MAPS[1]));
+            LOGGER.info("[autotest] canvas books: RepYS {} quests in {} chapters on the map, ATM10 {} quests in {} chapters", repys.quests().size(), repys.chapters().size(),
+                    CANVAS_MAPS[1].quests().size(), CANVAS_MAPS[1].chapters().size());
+        }, 1);
+        step("time the layouts", () -> {
+            for (int i = 0; i < 2; i++) {
+                for (works.repka.rysquests.data.MapForm form : List.of(works.repka.rysquests.data.MapForm.SERPENTINE, works.repka.rysquests.data.MapForm.SPIRAL,
+                        works.repka.rysquests.data.MapForm.GENERATOR, works.repka.rysquests.data.MapForm.GALAXY)) {
+                    long start = System.nanoTime();
+                    works.repka.rysquests.client.layout.CanvasLayout layout = new works.repka.rysquests.client.layout.LayoutEngine().lay(CANVAS_MAPS[i], form);
+                    LOGGER.info("[autotest] canvas layout {} {}: {} ms, {} quests, box {} x {}", i == 0 ? "RepYS" : "ATM10", form.getSerializedName(), (System.nanoTime() - start) / 1_000_000,
+                            layout.x.length, Math.round(layout.maxX - layout.minX), Math.round(layout.maxY - layout.minY));
+                }
+            }
+        }, 1);
+        step("open the canvas screen", () -> {
+            canvasScreen = new CanvasTestScreen();
+            mc().setScreen(canvasScreen);
+        }, 5);
+        expect("canvas screen open", () -> mc().screen == canvasScreen);
+
+        // RepYS as a serpentine, its own form
+        showCanvas(0, works.repka.rysquests.data.MapForm.SERPENTINE);
+        canvasShot("repys_serp_book", () -> {});
+        canvasShot("repys_serp_hover", () -> pointAtChapter(0, "b04_e2_oil"));
+        canvasShot("repys_serp_epoch", () -> canvasScreen.canvas.flyToEpoch(2));
+        canvasShot("repys_serp_chapter", () -> canvasScreen.canvas.flyToChapter(ResourceLocation.parse("repys:b03_e2_current")));
+        canvasShot("repys_serp_close", () -> {
+            canvasScreen.canvas.select(CANVAS_HERE[0]);
+            canvasScreen.canvas.flyToQuest(CANVAS_HERE[0]);
+        });
+        canvasShot("repys_serp_main_only", () -> {
+            canvasScreen.canvas.select(null);
+            canvasScreen.canvas.setShowSide(false);
+            canvasScreen.canvas.flyToChapter(ResourceLocation.parse("repys:b03_e2_current"));
+        });
+        canvasShot("repys_serp_route", () -> {
+            canvasScreen.canvas.setShowSide(true);
+            works.repka.rysquests.client.layout.MapBook repys = CANVAS_MAPS[0];
+            ResourceLocation goal = repys.quests().stream().filter(q -> q.milestone() && repys.chapters().get(q.chapter()).id().getPath().equals("b03_e2_current")
+                    && !CANVAS_DONE.get(0).contains(q.id())).map(works.repka.rysquests.client.layout.MapBook.Q::id).findFirst().orElse(CANVAS_HERE[0]);
+            canvasScreen.canvas.setRoute(CanvasBooks.route(CANVAS_BOOKS[0], CANVAS_DONE.get(0), goal));
+            canvasScreen.canvas.select(goal);
+            canvasScreen.canvas.flyToChapter(ResourceLocation.parse("repys:b03_e2_current"));
+        });
+        step("clear the route", () -> {
+            canvasScreen.canvas.setRoute(List.of());
+            canvasScreen.canvas.select(null);
+        }, 1);
+        // RepYS as a spiral and as a generator
+        showCanvas(0, works.repka.rysquests.data.MapForm.SPIRAL);
+        canvasShot("repys_spiral_book", () -> {});
+        canvasShot("repys_spiral_epoch", () -> canvasScreen.canvas.flyToEpoch(2));
+        showCanvas(0, works.repka.rysquests.data.MapForm.GENERATOR);
+        canvasShot("repys_gen_book", () -> {});
+        // ATM10 as a galaxy, its own form
+        showCanvas(1, works.repka.rysquests.data.MapForm.GALAXY);
+        canvasShot("atm_galaxy_book", () -> {});
+        canvasShot("atm_galaxy_hover", () -> pointAtChapter(1, "mekanism"));
+        canvasShot("atm_galaxy_chapter", () -> {
+            canvasScreen.pointer = new int[] {-100, -100};
+            canvasScreen.canvas.flyToChapter(ResourceLocation.parse("atm:create"));
+        });
+        canvasShot("atm_galaxy_close", () -> {
+            works.repka.rysquests.client.layout.MapBook atm = CANVAS_MAPS[1];
+            ResourceLocation open = atm.quests().stream().filter(q -> atm.chapters().get(q.chapter()).id().getPath().equals("create") && !CANVAS_DONE.get(1).contains(q.id()))
+                    .map(works.repka.rysquests.client.layout.MapBook.Q::id).findFirst().orElseThrow();
+            canvasScreen.canvas.select(open);
+            canvasScreen.canvas.flyToQuest(open);
+        });
+        // ATM10 at full size again, measured longer: the frame budget of picture 47
+        canvasShot("atm_galaxy_book_again", () -> {
+            canvasScreen.canvas.select(null);
+            canvasScreen.canvas.flyToBook();
+        });
+        step("check the frame budget", () -> {
+            double ms = canvasScreen.averageMs();
+            LOGGER.info("[autotest] canvas budget: ATM10 whole book {} ms a frame on the CPU, the goal is 4", String.format(java.util.Locale.ROOT, "%.2f", ms));
+        }, 1);
+        // the loading page, picture 49
+        step("show the loading page", () -> {
+            canvasScreen.pointer = new int[] {-100, -100};
+            canvasScreen.canvas.setLayout(CANVAS_BOOKS[1], CANVAS_MAPS[1], null);
+            canvasScreen.canvas.setLoading(() -> 0.62, () -> {});
+        }, 10);
+        screenshot("canvas_loading");
+    }
+
+    // --- the map screen in the book ---
+
+    private static boolean mapTiming;
+    private static long mapFrames;
+    private static long mapNanos;
+    private static long mapWorst;
+
+    /**
+     * The map tab of the real book screen, on RepYS (serpentine and spiral) and ATM10 (galaxy) given to the client with a made up
+     * progress: every picture of the map, 13 to 18, 22, 41, 43, 46, 47 and 49, with the canvas frame timed into the log.
+     */
+    private static void buildMapScenario() {
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("read the books of RepYS and ATM10", () -> {
+            try {
+                CANVAS_BOOKS[0] = CanvasBooks.repys(Path.of(System.getProperty("rysquests.autotest.repysBook")), Path.of(System.getProperty("rysquests.autotest.repysLang")));
+                CANVAS_BOOKS[1] = CanvasBooks.atm10(Path.of(System.getProperty("rysquests.autotest.atm10Quests")));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            for (int i = 0; i < 2; i++) {
+                CANVAS_MAPS[i] = works.repka.rysquests.client.layout.MapBook.of(CANVAS_BOOKS[i]);
+            }
+            works.repka.rysquests.client.layout.MapBook repys = CANVAS_MAPS[0];
+            CANVAS_HERE[0] = repys.quests().stream().map(works.repka.rysquests.client.layout.MapBook.Q::id)
+                    .filter(id -> id.getPath().equals("b03_e2_current/electric_mechanism")).findFirst().orElseThrow();
+            CANVAS_DONE.set(0, CanvasBooks.repysProgress(CANVAS_BOOKS[0], repys, CANVAS_HERE[0]));
+            CANVAS_DONE.set(1, CanvasBooks.atmProgress(CANVAS_BOOKS[1], CANVAS_MAPS[1]));
+        }, 1);
+        mapBook(0, ResourceLocation.parse("repys:b03_e2_current"));
+        step("mouse out of the way, no messages", () -> {
+            moveMouse(1, 1);
+            ClientMessages.dismiss();
+            ThemeManager.select("ryscore:slate");
+        }, 2);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("open the map tab", () -> {
+            BookScreen.openTabForTest("map");
+            BookScreen.showForTest(ViewMode.MAP);
+        }, 10);
+        expect("the map is laid out", BookScreen::mapReadyForTest);
+        mapShot("13_map_book", () -> {
+            // opening a screen puts the cursor in the middle of the window
+            moveMouse(1, 1);
+            BookScreen.mapFlyForTest(null, 0, null);
+        });
+        mapShot("14_map_book_collapsed", () -> BookScreen.foldSidebarForTest(true));
+        step("unfold the sidebar", () -> BookScreen.foldSidebarForTest(false), 5);
+        mapShot("15_map_hover_chapter", () -> pointAt(ResourceLocation.parse("repys:b05_e3_osmium")));
+        mapShot("15b_map_epoch", () -> {
+            moveMouse(1, 1);
+            BookScreen.mapFlyForTest(null, 2, null);
+        });
+        mapShot("16_map_chapter", () -> BookScreen.mapFlyForTest(ResourceLocation.parse("repys:b03_e2_current"), 0, null));
+        mapShot("17_map_close_quest", () -> BookScreen.mapFlyForTest(null, 0, CANVAS_HERE[0]));
+        mapShot("18_map_main_only_legend", () -> {
+            BookScreen.selectForTest(ResourceLocation.parse("repys:b03_e2_current"), null);
+            BookScreen.mapFlyForTest(null, 0, null);
+            BookScreen.mapSideForTest(false);
+            BookScreen.mapLegendForTest(true);
+        });
+        mapShot("22_map_route_to_goal", () -> {
+            BookScreen.mapLegendForTest(false);
+            BookScreen.mapSideForTest(true);
+            BookScreen.mapFlyForTest(ResourceLocation.parse("repys:b03_e2_current"), 0, null);
+            BookScreen.selectForTest(ResourceLocation.parse("repys:b03_e2_current"), ResourceLocation.parse("repys:b03_e2_current/heavy_engineering_block"));
+        });
+        step("log you are here", () -> LOGGER.info("[autotest] map here: {}", BookScreen.mapHereForTest()), 1);
+        // the compact layout: a window narrower than 1280
+        step("narrow the window", () -> {
+            org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc().getWindow().getWindow(), 1100, 680);
+        }, 20);
+        expect("the book is compact", BookScreen::compactForTest);
+        mapShot("46_small_screen_compact", () -> BookScreen.mapFlyForTest(null, 0, CANVAS_HERE[0]));
+        step("widen the window again", () -> {
+            org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc().getWindow().getWindow(), 1280, 800);
+        }, 20);
+        expect("the book is not compact", () -> !BookScreen.compactForTest());
+        // RepYS as a spiral
+        step("give RepYS as a spiral", () -> {
+            try {
+                CANVAS_BOOKS[0] = CanvasBooks.repys(Path.of(System.getProperty("rysquests.autotest.repysBook")), Path.of(System.getProperty("rysquests.autotest.repysLang")), "spiral");
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            ClientBook.overrideForTest(CANVAS_BOOKS[0], true);
+            BookScreen.selectForTest(ResourceLocation.parse("repys:b03_e2_current"), null);
+        }, 5);
+        expect("the spiral is laid out", BookScreen::mapReadyForTest);
+        mapShot("41_map_form_spiral", () -> BookScreen.mapFlyForTest(null, 0, null));
+        MapFixChecks.build(() -> works.repka.rysquests.client.layout.MapBook.of(CANVAS_BOOKS[0]));
+        // ATM10 as a galaxy
+        mapBook(1, null);
+        step("open the map of ATM10", () -> {
+            BookScreen.selectForTest(null, null);
+            BookScreen.openTabForTest("map");
+            BookScreen.showForTest(ViewMode.MAP);
+        }, 10);
+        expect("the galaxy is laid out", BookScreen::mapReadyForTest);
+        mapShot("47_map_far_budget", () -> {
+            moveMouse(1, 1);
+            BookScreen.mapFlyForTest(null, 0, null);
+        });
+        step("check the frame budget", () -> LOGGER.info("[autotest] map budget: ATM10 whole book {} ms a frame on the CPU, the goal is 4",
+                String.format(java.util.Locale.ROOT, "%.2f", mapFrames == 0 ? 0 : mapNanos / 1e6 / mapFrames)), 1);
+        mapShot("43_map_form_galaxy", () -> pointAt(ResourceLocation.parse("atm:mekanism")));
+        step("hold the map on loading", () -> {
+            moveMouse(1, 1);
+            works.repka.rysquests.client.canvas.MapLayouts.pauseForTest(true);
+        }, 10);
+        screenshot("map_49_map_loading");
+        step("let the map go", () -> works.repka.rysquests.client.canvas.MapLayouts.pauseForTest(false), 10);
+        step("give the book back", () -> ClientBook.overrideForTest(null, null), 1);
+    }
+
+    /**
+     * The RepYS book made ready for the new book (plan step 13), from a copy given by {@code -PrepysBook} and {@code -PrepysLang}: it
+     * names its nine epochs, comes to the serpentine on its own and brings a fresh {@code layout.json}, so the map is there at once
+     * without laying anything out. Shoots the whole book with the sidebar of epoch names and the level of epoch V.
+     */
+    private static void buildRepysDataScenario() {
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("read the copy of the RepYS book", () -> {
+            try {
+                CANVAS_BOOKS[0] = CanvasBooks.repys(Path.of(System.getProperty("rysquests.autotest.repysBook")), Path.of(System.getProperty("rysquests.autotest.repysLang")));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            CANVAS_MAPS[0] = works.repka.rysquests.client.layout.MapBook.of(CANVAS_BOOKS[0]);
+            CANVAS_HERE[0] = CANVAS_MAPS[0].quests().stream().map(works.repka.rysquests.client.layout.MapBook.Q::id)
+                    .filter(id -> id.getPath().equals("b03_e2_current/electric_mechanism")).findFirst().orElseThrow();
+            CANVAS_DONE.set(0, CanvasBooks.repysProgress(CANVAS_BOOKS[0], CANVAS_MAPS[0], CANVAS_HERE[0]));
+            LOGGER.info("[autotest] repys data: epochs {}, form {}, {} chapters and {} quests on the map, layout {}", CANVAS_BOOKS[0].meta().epochs().stream()
+                    .map(works.repka.rysquests.data.BookMeta.Epoch::title).toList(), works.repka.rysquests.data.MapForms.choose(CANVAS_BOOKS[0]),
+                    CANVAS_MAPS[0].chapters().size(), CANVAS_MAPS[0].quests().size(), CANVAS_BOOKS[0].freshLayout().isPresent() ? "fresh" : "missing or stale");
+        }, 1);
+        expect("nine named epochs", () -> CANVAS_BOOKS[0].meta().epochs().size() == 9
+                && CANVAS_BOOKS[0].meta().epochs().stream().noneMatch(epoch -> epoch.title().startsWith("book.")));
+        expect("the serpentine by the rule", () -> works.repka.rysquests.data.MapForms.choose(CANVAS_BOOKS[0]).form() == works.repka.rysquests.data.MapForm.SERPENTINE);
+        expect("the baked layout fits the book", () -> CANVAS_BOOKS[0].freshLayout().isPresent());
+        boolean[] fromFile = new boolean[1];
+        // ready at the first asking: read from layout.json, since a layout worked out now would take a while
+        step("ask for the map once", () -> fromFile[0] = works.repka.rysquests.client.canvas.MapLayouts.get(CANVAS_BOOKS[0]).ready(), 1);
+        expect("the map comes from the file, nothing is laid out", () -> fromFile[0]);
+        mapBook(0, ResourceLocation.parse("repys:b03_e2_current"));
+        step("mouse out of the way, no messages", () -> {
+            moveMouse(1, 1);
+            ClientMessages.dismiss();
+            ThemeManager.select("ryscore:slate");
+        }, 2);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("open the map tab", () -> {
+            BookScreen.openTabForTest("map");
+            BookScreen.showForTest(ViewMode.MAP);
+        }, 10);
+        expect("the map is laid out", BookScreen::mapReadyForTest);
+        mapShot("repys_data_book", () -> {
+            moveMouse(1, 1);
+            BookScreen.mapFlyForTest(null, 0, null);
+        });
+        mapShot("repys_data_epoch_v", () -> BookScreen.mapFlyForTest(null, 5, null));
+        step("give the book back", () -> ClientBook.overrideForTest(null, null), 1);
+    }
+
+    /** Gives the client a book and its made up progress. */
+    private static void mapBook(int book, @org.jetbrains.annotations.Nullable ResourceLocation last) {
+        step("give the client book " + book, () -> {
+            ClientBook.overrideForTest(CANVAS_BOOKS[book], true);
+            Map<ResourceLocation, works.repka.rysquests.progress.QuestProgress> quests = new java.util.HashMap<>();
+            CANVAS_DONE.get(book).forEach(id -> quests.put(id, new works.repka.rysquests.progress.QuestProgress(List.of(), 1L, List.of())));
+            works.repka.rysquests.client.ClientProgress.receiveForTest(quests, Optional.ofNullable(last));
+        }, 5);
+    }
+
+    /** Points the real mouse at the middle of a chapter's area. */
+    private static void pointAt(ResourceLocation chapter) {
+        float[] area = BookScreen.mapChapterForTest(chapter);
+        if (area != null) {
+            moveMouse((area[0] + area[2] / 2) / 2, (area[1] + area[3] * 0.62) / 2);
+        }
+    }
+
+    /** Does something on the map, lets the flight end, shoots it and times the canvas. */
+    private static void mapShot(String name, Runnable action) {
+        step("map " + name, action, 25);
+        screenshot("map_" + name);
+        step("time " + name, () -> {
+            mapFrames = 0;
+            mapNanos = 0;
+            mapWorst = 0;
+            mapTiming = true;
+        }, 60);
+        step("log " + name, () -> {
+            mapTiming = false;
+            LOGGER.info("[autotest] map frame {}: canvas {} ms (worst {} ms) over {} frames; {}", name, String.format(java.util.Locale.ROOT, "%.2f", mapFrames == 0 ? 0 : mapNanos / 1e6 / mapFrames),
+                    String.format(java.util.Locale.ROOT, "%.2f", mapWorst / 1e6), mapFrames, BookScreen.mapStatsForTest());
+        }, 1);
+    }
+
+    /** Lays the book out in the form through the client's layouts and gives it to the canvas with the made up progress. */
+    private static void showCanvas(int book, works.repka.rysquests.data.MapForm form) {
+        step("lay out " + book + " as " + form.getSerializedName(), () -> works.repka.rysquests.client.canvas.MapLayouts.get(CANVAS_BOOKS[book], form), 1);
+        expect("laid out " + book + " as " + form.getSerializedName(), () -> works.repka.rysquests.client.canvas.MapLayouts.get(CANVAS_BOOKS[book], form).ready());
+        step("show " + book + " as " + form.getSerializedName(), () -> {
+            works.repka.rysquests.client.canvas.MapLayouts.State state = works.repka.rysquests.client.canvas.MapLayouts.get(CANVAS_BOOKS[book], form);
+            CanvasBooks.Progress progress = CanvasBooks.progress(CANVAS_BOOKS[book], CANVAS_DONE.get(book));
+            canvasScreen.pointer = new int[] {-100, -100};
+            canvasScreen.canvas.setLoading(null, null);
+            canvasScreen.canvas.setShowSide(true);
+            canvasScreen.canvas.setLayout(CANVAS_BOOKS[book], state.map(), state.layout());
+            canvasScreen.canvas.setStatus(progress.status(), () -> 1);
+            canvasScreen.canvas.setHere(book == 0 ? CANVAS_HERE[0] : null);
+        }, 10);
+    }
+
+    /** Does something to the canvas, lets the flight end, shoots it and times its frames. */
+    private static void canvasShot(String name, Runnable action) {
+        step("canvas " + name, () -> {
+            // the pointer stays only for the hover views, which set it in their action
+            canvasScreen.pointer = new int[] {-100, -100};
+            action.run();
+        }, 25);
+        screenshot("canvas_" + name);
+        step("time " + name, () -> canvasScreen.resetTiming(), 60);
+        step("log " + name, () -> LOGGER.info("[autotest] canvas frame {}: {}", name, canvasScreen.timing()), 1);
+    }
+
+    private static void pointAtChapter(int book, String path) {
+        works.repka.rysquests.client.layout.MapBook map = CANVAS_MAPS[book];
+        works.repka.rysquests.client.layout.MapBook.Chap chapter = map.chapters().stream().filter(c -> c.id().getPath().equals(path)).findFirst().orElse(map.chapters().get(map.chapters().size() / 2));
+        works.repka.rysquests.client.layout.CanvasLayout.Region region = canvasScreen.canvas.layout().regions[chapter.index()];
+        works.repka.rysquests.client.layout.CanvasLayout.Label label = canvasScreen.canvas.layout().labels[chapter.index()];
+        float[] at = region.kind() == works.repka.rysquests.client.layout.CanvasLayout.RegionKind.RECT
+                ? canvasScreen.canvas.screenOf(region.centerX(), region.centerY() + (region.maxY() - region.minY()) * 0.3)
+                : canvasScreen.canvas.screenOf(label.x(), label.y());
+        canvasScreen.pointer = new int[] {Math.round(at[0]), Math.round(at[1])};
+    }
+
     /** Chapters of the RepYS book on the map, whole and at full size, to judge the automatic layout. */
     private static void buildLayoutScenario() {
         String tag = System.getProperty("rysquests.autotest.tag", "");
@@ -839,12 +1332,13 @@ public final class AutoTest {
                 ThemeManager.select("ryscore:slate");
             }, 10);
         }
-        step("open the constructor on the mining atlas", () -> {
-            BookScreen.openConstructorOnForTest(ResourceLocation.parse("design:mining"));
-            BookScreen.selectWayForTest(0, 1, 0);
+        step("open the editor's tabs on the mining atlas", () -> {
+            EditorTesting.open("tabs");
+            EditorTesting.tab(ResourceLocation.parse("design:mining"));
+            EditorTesting.cell(0, 1);
         }, 20);
         screenshot("design_constructor");
-        step("leave the constructor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+        step("leave the editor", EditorTesting::leave, 8);
         step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
     }
 
@@ -858,6 +1352,7 @@ public final class AutoTest {
     }
 
     private static final ResourceLocation TEAM_IMPORTED = ResourceLocation.parse("teamtest:imported");
+    private static final ResourceLocation TEAM_READY = ResourceLocation.parse("teamtest:ready");
 
     /** The format FTB Quests writes, for a party whose second member took a reward. Only the dedicated server's folder is touched. */
     private static void writeFtbqPartyFile() {
@@ -922,32 +1417,20 @@ public final class AutoTest {
     /** The operator writes a guide on a dedicated server. The other client checks what reached it. */
     private static void addEditorOnServerSteps() {
         step("open the book", () -> mc().setScreen(new BookScreen()), 10);
-        step("write a guide", () -> {
-            BookScreen.editGuideForTest(SERVER_GUIDE);
-            BookScreen.writeGuideForTest("Written on the server", ResourceLocation.parse("minecraft:book"));
-            BookScreen.addImageForTest(SERVER_IMAGE, testPicture());
-            BookScreen.writePageForTest("First", "Picture below\n[[image:" + SERVER_IMAGE + "]]");
+        ResourceLocation[] guide = new ResourceLocation[1];
+        step("write a guide in the editor", () -> {
+            EditorTesting.open("guides");
+            EditorTesting.newGuide("Written on the server", "Written at " + System.currentTimeMillis());
+            guide[0] = EditorTesting.guide();
         }, 5);
-        step("save it", BookScreen::editorSaveForTest, 5);
-        expect("the server saved it", BookScreen::editorSavedForTest);
-        expect("the file is on the server", () -> Files.isRegularFile(mc().gameDirectory.toPath().resolve("../run-server/config/rysquests/pack/data/teamtest/rysquests/guides/editor_guide.json")));
-        step("make a section on the server", () -> {
-            BookScreen.openConstructorForTest();
-            BookScreen.newMatrixForTest();
-            BookScreen.buildMatrixForTest("Server atlas", List.of("Iron"), List.of("Early", "Middle", "Late"), ResourceLocation.parse("minecraft:iron_ingot"));
+        step("save it", EditorTesting::save, 40);
+        expect("the server saved it", () -> !EditorTesting.saving() && EditorTesting.unsaved() == 0);
+        expect("the file is on the server", () -> Files.isRegularFile(mc().gameDirectory.toPath().resolve("../run-server/config/rysquests/pack/data/" + guide[0].getNamespace()
+                + "/rysquests/guides/" + guide[0].getPath() + ".json")));
+        step("close the book", () -> {
+            EditorTesting.leave();
+            mc().setScreen(null);
         }, 5);
-        step("save the section", BookScreen::constructorSaveForTest, 5);
-        expect("the server saved the section", BookScreen::constructorSavedForTest);
-        step("leave the constructor for the quest editor", () -> mc().setScreen(new BookScreen()), 5);
-        step("make a chapter on the server", () -> {
-            BookScreen.openQuestEditorForTest();
-            BookScreen.questNewChapterForTest("Server chapter");
-            BookScreen.questAddForTest("Server quest");
-            BookScreen.questSaveForTest();
-        }, 40);
-        expect("the server saved the chapter", () -> !BookScreen.questDirtyForTest());
-        expect("the chapter file is on the server", () -> Files.isRegularFile(mc().gameDirectory.toPath().resolve("../run-server/config/rysquests/pack/data/" + BookScreen.questChapterForTest().getNamespace() + "/rysquests/chapters/" + BookScreen.questChapterForTest().getPath() + "/_chapter.json")));
-        step("close the book", () -> mc().setScreen(null), 5);
     }
 
     private static final ResourceLocation SHOP_IRON = ResourceLocation.parse("example:iron");
@@ -1012,150 +1495,22 @@ public final class AutoTest {
             {"Электрический механизм", "minecraft:clock", "336", "72"}, {"Первая машина", "minecraft:emerald_block", "384", "168"}, {"Солнечные панели", "minecraft:daylight_detector", "384", "312"},
             {"Насос и трубы", "minecraft:lapis_block", "0", "240"}, {"Котёл", "minecraft:furnace", "168", "240"}, {"Турбина", "minecraft:piston", "384", "240"}};
 
-    private static void click(double x, double y) {
+    static void click(double x, double y) {
         mc().screen.mouseClicked(x / 2, y / 2, GLFW.GLFW_MOUSE_BUTTON_LEFT);
     }
 
-    private static void dragTo(double x, double y) {
+    static void dragTo(double x, double y) {
         mc().screen.mouseDragged(x / 2, y / 2, GLFW.GLFW_MOUSE_BUTTON_LEFT, 0, 0);
     }
 
-    private static void release(double x, double y) {
+    static void release(double x, double y) {
         mc().screen.mouseReleased(x / 2, y / 2, GLFW.GLFW_MOUSE_BUTTON_LEFT);
     }
 
     /** The acceptance of the quest editor: a chapter of ten quests with dependencies, made in the game, read back from its files. */
     private static void buildQuestEditorScenario() {
-        List<ResourceLocation> ids = new ArrayList<>();
-        ResourceLocation[] chapter = new ResourceLocation[1];
-        openWorld();
-        step("match the window of the mockups", () -> {
-            mc().options.guiScale().set(2);
-            mc().options.languageCode = "ru_ru";
-            mc().getLanguageManager().setSelected("ru_ru");
-            mc().resizeDisplay();
-            mc().reloadResourcePacks();
-        }, 40);
-        expect("language applied", () -> mc().getOverlay() == null);
-        step("open the book", () -> mc().setScreen(new BookScreen()), 20);
-        step("open the quest editor", BookScreen::openQuestEditorForTest, 10);
-        expect("the editor is open", BookScreen::questEditorOpenForTest);
-        step("make a chapter of ten quests", () -> {
-            BookScreen.questNewChapterForTest("Индустрия и ток");
-            BookScreen.questEpochForTest(2);
-            chapter[0] = BookScreen.questChapterForTest();
-            for (String[] node : QUEST_EDITOR_NODES) {
-                ResourceLocation id = BookScreen.questAddForTest(node[0]);
-                ids.add(id);
-                BookScreen.questMoveForTest(id, Integer.parseInt(node[2]), Integer.parseInt(node[3]));
-                BookScreen.questItemTaskForTest(ResourceLocation.parse(node[1]), 3);
-                BookScreen.questCoinRewardForTest(5);
-            }
-        }, 10);
-        step("link most of them", () -> {
-            BookScreen.questLinkForTest(ids.get(0), ids.get(2));
-            BookScreen.questLinkForTest(ids.get(1), ids.get(3));
-            BookScreen.questLinkForTest(ids.get(2), ids.get(4));
-            BookScreen.questLinkForTest(ids.get(3), ids.get(4));
-            BookScreen.questLinkForTest(ids.get(7), ids.get(8));
-            BookScreen.questLinkForTest(ids.get(8), ids.get(9));
-            BookScreen.questSelectForTest(ids.get(4));
-        }, 10);
-        expect("a circle is refused", () -> {
-            BookScreen.questLinkForTest(ids.get(4), ids.get(0));
-            return BookScreen.questDraftForTest(ids.get(0)).requires().isEmpty() && BookScreen.questStatusForTest() != null;
-        });
-        step("pull a dependency with the mouse, and hold it", () -> {
-            float[] node = BookScreen.questRectForTest(ids.get(4));
-            float[] target = BookScreen.questRectForTest(ids.get(5));
-            click(node[0] + node[2] + 12, node[1] + node[3] / 2f);
-            dragTo(target[0] - 8, target[1] + 22);
-        }, 4);
-        screenshot("design_quest_editor");
-        step("drop it on the quest", () -> {
-            float[] target = BookScreen.questRectForTest(ids.get(5));
-            dragTo(target[0] + 20, target[1] + 20);
-            release(target[0] + 20, target[1] + 20);
-        }, 4);
-        expect("the mouse added the dependency", () -> BookScreen.questDraftForTest(ids.get(5)).requires().contains(ids.get(4)));
-        step("drag a quest with the mouse", () -> {
-            float[] node = BookScreen.questRectForTest(ids.get(6));
-            click(node[0] + 30, node[1] + 15);
-            dragTo(node[0] + 30 + 48, node[1] + 15 + 24);
-            release(node[0] + 30 + 48, node[1] + 15 + 24);
-        }, 4);
-        expect("it moved along the grid", () -> BookScreen.questDraftForTest(ids.get(6)).options().layout().x().orElse(0) == 432 && BookScreen.questDraftForTest(ids.get(6)).options().layout().y().orElse(0) == 336);
-        step("show the json tab", () -> {
-            BookScreen.questSelectForTest(ids.get(4));
-            BookScreen.questTabForTest("JSON");
-        }, 4);
-        screenshot("quest_editor_json");
-        step("back to properties and save", () -> {
-            BookScreen.questTabForTest("PROPS");
-            BookScreen.questSaveForTest();
-        }, 40);
-        expect("the save went through", () -> !BookScreen.questDirtyForTest());
-        expect("the chapter is in the book", () -> ClientBook.current().chapters().containsKey(chapter[0]));
-        expect("all ten are in the book", () -> ids.stream().allMatch(ClientBook.current().quests()::containsKey));
-        Path[] file = new Path[1];
-        expect("the files match the format", () -> {
-            Path folder = mc().gameDirectory.toPath().resolve("config/rysquests/pack/data/" + chapter[0].getNamespace() + "/rysquests/chapters/" + chapter[0].getPath());
-            file[0] = folder.resolve("quest_5.json");
-            try {
-                String text = Files.readString(file[0]);
-                var json = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
-                List<String> order = new ArrayList<>(json.keySet());
-                var quest = works.repka.rysquests.data.Quest.CODEC.parse(net.minecraft.resources.RegistryOps.create(com.mojang.serialization.JsonOps.INSTANCE, mc().level.registryAccess()), json).getOrThrow();
-                return Files.isRegularFile(folder.resolve("_chapter.json"))
-                        && order.indexOf("id") == 0 && order.indexOf("title") < order.indexOf("tasks") && order.indexOf("tasks") < order.indexOf("rewards")
-                        && json.get("tasks").getAsJsonArray().get(0).getAsJsonObject().keySet().iterator().next().equals("type")
-                        && quest.requires().size() == 2 && quest.tasks().size() == 1 && quest.rewards().size() == 1
-                        && Files.readString(mc().gameDirectory.toPath().resolve("config/rysquests/pack/assets/" + chapter[0].getNamespace() + "/lang/ru_ru.json")).contains("Электрический механизм");
-            } catch (java.io.IOException e) {
-                return false;
-            }
-        });
-        step("change a file outside the game", () -> {
-            try {
-                Files.writeString(file[0], Files.readString(file[0]).replace("\"chapter\"", "\"icon\": \"minecraft:diamond\",\n  \"chapter\""));
-            } catch (java.io.IOException e) {
-                fail("could not change the file: " + e);
-            }
-            command("reload");
-        }, 60);
-        expect("the map followed the file", () -> BookScreen.questDraftForTest(ids.get(4)).icon().filter(ResourceLocation.parse("minecraft:diamond")::equals).isPresent() && !BookScreen.questDirtyForTest());
-        step("look at the highlight", () -> BookScreen.questSelectForTest(ids.get(0)), 10);
-        screenshot("quest_editor_external");
-        for (int[] size : new int[][] {{2560, 1440}, {1920, 1080}}) {
-            for (String theme : List.of("slate", "glass")) {
-                step("show the editor " + size[0] + " " + theme, () -> {
-                    mc().getWindow().setWindowed(size[0], size[1]);
-                    mc().options.guiScale().set(0);
-                    mc().resizeDisplay();
-                    ThemeManager.select("ryscore:" + theme);
-                }, 15);
-                screenshot("quest_editor_" + size[0] + "_" + theme);
-            }
-        }
-        step("back to the size of the mockups", () -> {
-            mc().getWindow().setWindowed(1280, 800);
-            mc().options.guiScale().set(2);
-            mc().resizeDisplay();
-            ThemeManager.select("ryscore:slate");
-        }, 15);
-        step("leave the editor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 10);
-        expect("the editor closed", () -> !BookScreen.questEditorOpenForTest());
-        step("take the chapter away, other scenarios count the quests of the example", () -> {
-            try {
-                Path game = mc().gameDirectory.toPath();
-                Files.createDirectories(game.resolve("_stale"));
-                Files.move(file[0].getParent(), game.resolve("_stale/quest_editor_" + System.currentTimeMillis()));
-            } catch (java.io.IOException e) {
-                fail("could not move the chapter: " + e);
-            }
-            command("reload");
-        }, 60);
-        expect("the example is back to its own quests", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
+        // The old full-window quest editor is in _stale/client-screen-editor; its acceptance lives on in the book editor's scenario.
+        EditorScenario.build(false);
     }
 
     /** Laid out and formatted as the book of a real pack. Only the test folder is touched. */
@@ -1376,87 +1731,14 @@ public final class AutoTest {
 
     /** The acceptance of the constructor: a mining atlas of five resources and three stages, made in the game. */
     private static void buildConstructorScenario() {
-        List<String> resources = List.of("Iron", "Copper", "Gold", "Diamond", "Coal");
-        List<String> stages = List.of("Early", "Middle", "Late");
-        ResourceLocation[] made = new ResourceLocation[1];
-        openWorld();
-        step("match the window of the mockups", () -> {
-            mc().options.guiScale().set(2);
-            mc().resizeDisplay();
-        }, 10);
-        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
-        expect("book screen open", () -> mc().screen instanceof BookScreen);
-        step("open the constructor", BookScreen::openConstructorForTest, 5);
-        expect("the constructor is open", BookScreen::constructorOpenForTest);
-        step("make a matrix from the template", BookScreen::newMatrixForTest, 5);
-        step("fill it", () -> {
-            BookScreen.buildMatrixForTest("Mining atlas", resources, stages, ResourceLocation.parse("minecraft:iron_ingot"));
-            BookScreen.selectWayForTest(0, 1, 0);
-            made[0] = BookScreen.constructorSectionForTest();
-        }, 30);
-        screenshot("constructor_matrix");
-        step("click save", () -> mc().screen.mouseClicked(556, 31, GLFW.GLFW_MOUSE_BUTTON_LEFT), 5);
-        expect("the save went through", BookScreen::constructorSavedForTest);
-        expect("the section is in the book", () -> ClientBook.current().sections().get(made[0]) instanceof works.repka.rysquests.data.MatrixSection matrix && matrix.rows().size() == 5 && matrix.columns().size() == 3);
-        expect("it is on the rail", () -> ClientBook.current().meta().sections().contains(made[0].toString()));
-        expect("its texts came with the book", () -> Component.translatable(ClientBook.current().sections().get(made[0]).title()).getString().equals("Mining atlas"));
-        expect("every text resolves", () -> BookScreen.guideIssuesForTest().isEmpty());
-        step("leave the constructor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
-        expect("the constructor is closed", () -> !BookScreen.constructorOpenForTest());
-        step("open the section as a player", () -> BookScreen.showSectionForTest(made[0].toString()), 30);
-        expect("the section is open", () -> made[0].toString().equals(BookScreen.currentSectionForTest()));
-        screenshot("constructor_result");
-        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+        // The section constructor became the editor's "Вкладки"; the book editor's scenario covers it.
+        EditorScenario.build(false);
     }
 
     /** A guide made in the editor and read back, in a single player world. */
     private static void buildEditorScenario() {
-        ResourceLocation id = ResourceLocation.parse("example:autotest_editor");
-        ResourceLocation picture = ResourceLocation.parse("example:textures/guides/autotest_editor_1.png");
-        openWorld();
-        step("match the window of the mockups", () -> {
-            mc().options.guiScale().set(2);
-            mc().resizeDisplay();
-        }, 10);
-        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 30);
-        expect("book screen open", () -> mc().screen instanceof BookScreen);
-        step("open the editor", () -> BookScreen.editGuideForTest(id), 5);
-        expect("the editor is open", BookScreen::editorOpenForTest);
-        step("write the first page", () -> {
-            BookScreen.writeGuideForTest("Autotest guide", ResourceLocation.parse("minecraft:furnace"));
-            BookScreen.addImageForTest(picture, testPicture());
-            BookScreen.writePageForTest("First page", "Build a [[item:minecraft:furnace]] from **cobblestone**.\n[[recipe:minecraft:furnace]]\n[[image:" + picture + "|A picture]]");
-        }, 40);
-        screenshot("editor_page");
-        String before = "Build";
-        step("type a letter", () -> mc().screen.charTyped('Z', 0), 25);
-        expect("the letter is in the text", () -> BookScreen.editorPageTextForTest().startsWith("Z" + before));
-        step("undo it", BookScreen::editorUndoForTest, 3);
-        expect("the letter is gone", () -> BookScreen.editorPageTextForTest().startsWith(before));
-        step("add a screenshot", () -> BookScreen.editorAddPictureForTest(mc().gameDirectory.toPath().resolve("screenshots/rysquests_editor_page.png")), 20);
-        expect("the screenshot is in the text", () -> BookScreen.editorPageTextForTest().contains("autotest_editor_2.png"));
-        step("go to the second page", () -> {
-            if (BookScreen.editorPagesForTest() < 2) {
-                BookScreen.addPageForTest();
-            } else {
-                BookScreen.editorSelectPageForTest(1);
-            }
-            BookScreen.writePageForTest("Second page", "Written at " + System.currentTimeMillis());
-        }, 5);
-        step("click save", () -> mc().screen.mouseClicked(556, 31, GLFW.GLFW_MOUSE_BUTTON_LEFT), 5);
-        expect("the save went through", BookScreen::editorSavedForTest);
-        expect("the book has the guide", () -> ClientBook.current().guides().containsKey(id));
-        expect("its pages are in order", () -> ClientBook.current().guides().get(id).pages().size() == 2);
-        expect("its title is translated", () -> Component.translatable(ClientBook.current().guides().get(id).title()).getString().equals("Autotest guide"));
-        expect("its picture is known", () -> ClientAssets.imageSize(picture) != null);
-        expect("the guide has no broken links", () -> BookScreen.guideIssuesForTest().isEmpty());
-        expect("the file is in the editor's folder", () -> Files.isRegularFile(mc().gameDirectory.toPath().resolve("config/rysquests/pack/data/example/rysquests/guides/autotest_editor.json")));
-        screenshot("editor_saved");
-        step("leave the editor", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
-        expect("the editor is closed", () -> !BookScreen.editorOpenForTest());
-        step("open the saved page", () -> BookScreen.openGuideForTest(id, 0), 40);
-        screenshot("editor_result");
-        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 8);
+        // The guide editor became the editor's "Гайды"; the book editor's scenario covers it.
+        EditorScenario.build(false);
     }
 
     private static void sendRead(ResourceLocation guide, int pages) {
@@ -1596,6 +1878,637 @@ public final class AutoTest {
     }
 
     /** Plays the first example quest through the real keys and the real packets. */
+    /**
+     * The frame of the redesigned book (plan step 4): header and tabs, sidebar and its rail, settings, the message line, the
+     * closed-book line and its question, loading, the empty book for an operator, a player and with FTB, a first-run page, and the
+     * compact layout. Each state is a screenshot to lay over its mockup in {@code _audit/book2/final/img}.
+     */
+    /**
+     * The shop, the achievements, the guides, the search and the HUD of the redesigned book (plan steps 8 and 9, pictures 23 to 31b),
+     * each state with a screenshot to lay over its mockup. The showcase book and states come from {@code ExtrasShowcase}.
+     */
+    private static void buildExtrasScenario() {
+        ResourceLocation tools = ResourceLocation.parse("example:start/first_tools");
+        ResourceLocation furnace = ResourceLocation.parse("example:start/first_furnace");
+        ResourceLocation dynamo = ResourceLocation.parse("example:power/dynamo");
+        openWorld();
+        expect("example book reached the client", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("reset the world", () -> {
+            moveMouse(1, 1);
+            ClientMessages.dismiss();
+            ThemeManager.select("ryscore:slate");
+            command("gamerule sendCommandFeedback false");
+            command("time set day");
+            command("clear @s");
+            ClientBook.current().quests().keySet().forEach(id -> command("rysquests progress @s reset " + id));
+        }, 30);
+        step("things to sell", () -> {
+            command("give @s minecraft:andesite 212");
+            command("give @s minecraft:copper_ingot 96");
+            command("give @s minecraft:coal 64");
+            command("give @s minecraft:iron_ingot 20");
+        }, 20);
+
+        step("the first entry: the key hint", () -> {
+            works.repka.rysquests.client.ClientConfig.KEY_HINT_SHOWN.set(false);
+            ClientProgress.pinnedForTest(List.of());
+            works.repka.rysquests.client.hud.StickerBoard.clearForTest();
+        }, 10);
+        screenshot("extras_hud_first_hint");
+        step("pinned quests, one waiting for its reward, and a message under them", () -> {
+            works.repka.rysquests.client.ClientConfig.KEY_HINT_SHOWN.set(true);
+            ClientProgress.progressForTest(furnace, new works.repka.rysquests.progress.QuestProgress(List.of(1, 1), System.currentTimeMillis(), List.of()));
+            ClientProgress.pinnedForTest(List.of(furnace, tools, ResourceLocation.parse("example:_achievements/iron_hoard/silver")));
+            works.repka.rysquests.client.hud.StickerBoard.celebrateForTest(ClientBook.current().quests().get(dynamo));
+        }, 10);
+        expect("three cards", () -> works.repka.rysquests.client.hud.StickerBoard.cardsForTest() == 3);
+        screenshot("extras_hud");
+        step("a low window", () -> {
+            mc().getWindow().setWindowed(960, 520);
+            mc().resizeDisplay();
+        }, 20);
+        expect("two cards when the window is low", () -> works.repka.rysquests.client.hud.StickerBoard.cardsForTest() == 2);
+        screenshot("extras_hud_low");
+        step("back to the mockups' window", () -> {
+            mc().getWindow().setWindowed(1280, 800);
+            mc().resizeDisplay();
+            works.repka.rysquests.client.hud.StickerBoard.clearForTest();
+            ClientProgress.pinnedForTest(List.of());
+            ClientProgress.progressForTest(furnace, works.repka.rysquests.progress.QuestProgress.EMPTY);
+        }, 20);
+
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("the showcase book", works.repka.rysquests.client.screen.ExtrasShowcase::install, 10);
+        expect("the hint is gone once the book was opened", () -> works.repka.rysquests.client.ClientConfig.KEY_HINT_SHOWN.get());
+        step("shop: buy two tokens", () -> works.repka.rysquests.client.screen.ExtrasShowcase.shop("token", "all", 2, false, false), 10);
+        expect("the shop is open", () -> "shop".equals(BookScreen.bodyForTest()));
+        screenshot("extras_shop_buy");
+        step("shop: a section from the list", () -> {
+            works.repka.rysquests.client.screen.ExtrasShowcase.walletOnly(214);
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop("quartz", "IV Энергия и разум", 1, false, true);
+        }, 10);
+        screenshot("extras_shop_sections");
+        step("shop: only available, the tip", () -> {
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop(null, "all", 1, false, false);
+            works.repka.rysquests.client.screen.ExtrasShowcase.shopOnlyAvailable(true);
+        }, 10);
+        screenshot("extras_shop_only_available");
+        step("shop: not enough coins", () -> {
+            works.repka.rysquests.client.screen.ExtrasShowcase.shopOnlyAvailable(false);
+            works.repka.rysquests.client.screen.ExtrasShowcase.walletOnly(6);
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop("steel", "all", 1, false, false);
+        }, 10);
+        screenshot("extras_shop_not_enough");
+        step("shop: nothing for quests", () -> {
+            works.repka.rysquests.client.screen.ExtrasShowcase.walletOnly(14);
+            ClientProgress.progressForTest(tools, new works.repka.rysquests.progress.QuestProgress(List.of(8, 1), 0, List.of()));
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop(null, "quests", 1, false, false);
+        }, 10);
+        screenshot("extras_shop_filter_empty");
+        step("shop: sell", () -> {
+            ClientProgress.progressForTest(tools, works.repka.rysquests.progress.QuestProgress.EMPTY);
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop("brass", "all", 3, false, false);
+        }, 10);
+        screenshot("extras_shop_sell");
+        step("shop: history", works.repka.rysquests.client.screen.ExtrasShowcase::shopHistory, 10);
+        screenshot("extras_shop_history");
+
+        step("achievements", () -> works.repka.rysquests.client.screen.ExtrasShowcase.achievements("miner", 0), 10);
+        expect("the achievements are open", () -> "achievements".equals(BookScreen.bodyForTest()));
+        screenshot("extras_achievements");
+        step("achievements in vanilla", () -> ThemeManager.select("ryscore:vanilla"), 10);
+        screenshot("extras_achievements_vanilla");
+        step("back to slate", () -> ThemeManager.select("ryscore:slate"), 5);
+
+        step("guides: the library", () -> {
+            BookScreen.openTabForTest("guides");
+            works.repka.rysquests.client.screen.ExtrasShowcase.library(0);
+        }, 10);
+        expect("the guides are open", () -> "guides".equals(BookScreen.bodyForTest()));
+        screenshot("extras_guides_library");
+        step("guides: a page", () -> works.repka.rysquests.client.screen.ExtrasShowcase.guidePage("create", 1), 10);
+        screenshot("extras_guide_page");
+
+        step("search: results", () -> {
+            BookScreen.openTabForTest("map");
+            works.repka.rysquests.client.screen.ExtrasShowcase.search("ящик");
+        }, 20);
+        screenshot("extras_search");
+        step("search: nothing found", () -> works.repka.rysquests.client.screen.ExtrasShowcase.search("кирак"), 10);
+        screenshot("extras_search_empty");
+        step("search: done", () -> {
+            works.repka.rysquests.client.screen.ExtrasShowcase.search("");
+            pressKey(GLFW.GLFW_KEY_ESCAPE);
+        }, 5);
+
+        step("a small window", () -> {
+            mc().getWindow().setWindowed(1100, 700);
+            mc().resizeDisplay();
+            works.repka.rysquests.client.screen.ExtrasShowcase.shop("token", "all", 2, false, false);
+        }, 20);
+        expect("compact layout", BookScreen::compactForTest);
+        screenshot("extras_compact_shop");
+        step("compact achievements", () -> works.repka.rysquests.client.screen.ExtrasShowcase.achievements(null, 0), 10);
+        screenshot("extras_compact_achievements");
+        step("compact achievement detail", () -> works.repka.rysquests.client.screen.ExtrasShowcase.achievements("miner", 0), 10);
+        screenshot("extras_compact_achievement_detail");
+        step("compact guides", () -> {
+            BookScreen.openTabForTest("guides");
+            works.repka.rysquests.client.screen.ExtrasShowcase.library(0);
+        }, 10);
+        screenshot("extras_compact_guides");
+        step("back to the real book", () -> {
+            mc().getWindow().setWindowed(1280, 800);
+            mc().resizeDisplay();
+            works.repka.rysquests.client.screen.ExtrasShowcase.restore();
+            mc().setScreen(null);
+        }, 20);
+    }
+
+    private static void buildFrameScenario() {
+        openWorld();
+        expect("example book reached the client", () -> ClientBook.current().quests().size() == EXAMPLE_QUESTS);
+        step("mouse out of the way, no messages", () -> {
+            moveMouse(1, 1);
+            ClientMessages.dismiss();
+            ThemeManager.select("ryscore:slate");
+        }, 2);
+        step("open the book with its key", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        expect("the first opening is on Now", () -> "now".equals(BookScreen.bodyForTest()));
+        expect("tabs with content only", () -> BookScreen.tabsForTest().contains("now") && BookScreen.tabsForTest().contains("map"));
+        step("log the tabs", () -> LOGGER.info("[autotest] tabs: {}", BookScreen.tabsForTest()), 2);
+        screenshot("frame_now");
+        step("open the map tab", () -> BookScreen.openTabForTest("map"), 20);
+        expect("the map tab is open", () -> "map".equals(BookScreen.bodyForTest()));
+        screenshot("frame_map");
+        step("fold the sidebar", () -> BookScreen.foldSidebarForTest(true), 5);
+        screenshot("frame_map_rail");
+        step("unfold the sidebar, open the list", () -> {
+            BookScreen.foldSidebarForTest(false);
+            BookScreen.showForTest(ViewMode.LIST);
+        }, 10);
+        screenshot("frame_list");
+        for (String tab : List.of("guides", "shop", "achievements")) {
+            step("open the " + tab + " tab", () -> BookScreen.openTabForTest(tab), 10);
+            expect("the " + tab + " tab is open", () -> tab.equals(BookScreen.bodyForTest()));
+            screenshot("frame_" + tab);
+        }
+        step("open the settings", BookScreen::toggleSettingsForTest, 5);
+        expect("the settings are a page", () -> "page".equals(BookScreen.bodyForTest()));
+        screenshot("frame_settings");
+        step("back from the settings", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("the settings closed, the book stayed", () -> mc().screen instanceof BookScreen && "achievements".equals(BookScreen.bodyForTest()));
+        step("a message from the server", () -> {
+            BookScreen.openTabForTest("now");
+            ClientMessages.show("rysquests.reward.error.inventory_full", List.of(), false);
+        }, 5);
+        screenshot("frame_message");
+        step("the shared components on one page", works.repka.rysquests.client.screen.FrameShowcase::open, 10);
+        screenshot("frame_components");
+        step("back from the components", () -> {
+            pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ClientMessages.dismiss();
+        }, 5);
+        step("a closed book", () -> {
+            QuestBook book = ClientBook.current();
+            ClientBook.overrideForTest(new QuestBook(book.meta().withPublished(false), book.chapters(), book.quests(), book.guides(), book.sections(),
+                    book.unlocks(), book.byItem(), book.hash(), book.assets(), book.offers(), book.achievements(), book.structures(), book.layoutHash(),
+                    book.layout()), null);
+            BookScreen.openTabForTest("map");
+        }, 10);
+        screenshot("frame_closed");
+        step("ask to open it", BookScreen::askToOpenForTest, 5);
+        expect("the question is open", BookScreen::dialogOpenForTest);
+        screenshot("frame_closed_ask");
+        step("answer no with Esc", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("the question closed, the book stayed", () -> !BookScreen.dialogOpenForTest() && mc().screen instanceof BookScreen);
+        step("the book still loading", () -> ClientBook.overrideForTest(QuestBook.EMPTY, false), 5);
+        expect("loading state", () -> "loading".equals(BookScreen.bodyForTest()));
+        screenshot("frame_loading");
+        step("an empty book, operator", () -> {
+            ClientBook.overrideForTest(QuestBook.EMPTY, true);
+            BookScreen.ftbForTest(false);
+        }, 5);
+        expect("empty state", () -> "empty".equals(BookScreen.bodyForTest()));
+        screenshot("frame_empty_operator");
+        step("an empty book, player", () -> BookRole.forceForTest(false), 5);
+        screenshot("frame_empty_player");
+        step("an empty book with FTB", () -> {
+            BookRole.forceForTest(null);
+            BookScreen.ftbForTest(true);
+        }, 5);
+        screenshot("frame_empty_ftb");
+        step("build the book", () -> BookScreen.openEmptyPageForTest(false), 5);
+        expect("a first-run page", () -> "page".equals(BookScreen.bodyForTest()));
+        screenshot("frame_new_book");
+        step("back to the real book", () -> {
+            pressKey(GLFW.GLFW_KEY_ESCAPE);
+            BookScreen.ftbForTest(null);
+            ClientBook.overrideForTest(null, null);
+        }, 5);
+        expect("the book is back", () -> List.of("now", "map").contains(BookScreen.bodyForTest()));
+        step("a small window", () -> {
+            mc().getWindow().setWindowed(1100, 700);
+            mc().resizeDisplay();
+            BookScreen.openTabForTest("map");
+        }, 20);
+        expect("compact layout", BookScreen::compactForTest);
+        screenshot("frame_compact_map");
+        step("compact now", () -> BookScreen.openTabForTest("now"), 10);
+        screenshot("frame_compact_now");
+        step("compact settings", BookScreen::toggleSettingsForTest, 5);
+        screenshot("frame_compact_settings");
+        step("back to the size of the mockups", () -> {
+            pressKey(GLFW.GLFW_KEY_ESCAPE);
+            mc().getWindow().setWindowed(1280, 800);
+            mc().resizeDisplay();
+        }, 20);
+        expect("normal layout again", () -> !BookScreen.compactForTest());
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("book closed", () -> mc().screen == null);
+    }
+
+    /**
+     * The quest panel, "Now" and the list (plan steps 5 and 6) on a book shaped like the mockups (src/autotest/panel_pack): the first
+     * opening, the next step, every kind of task and reward, a closed quest with its way, "any one of", a repeatable quest, the map
+     * with the panel, the list of a chapter, of a chapter off the map, of an epoch and of the whole book, a filter left empty, the
+     * compact layout and a finished book. With -PftbqBook=<FTB Quests folder> the list is measured on that book too (ATM10).
+     */
+    private static void buildPanelScenario() {
+        String ns = "panel:";
+        java.util.function.Function<String, ResourceLocation> id = path -> ResourceLocation.parse(ns + path);
+        openWorld();
+        expect("the panel book reached the client", () -> ClientBook.current().quests().containsKey(id.apply("current/electric_mechanism")));
+        step("mouse out of the way, slate, every quest reset", () -> {
+            moveMouse(1, 1);
+            ClientMessages.dismiss();
+            ThemeManager.select("ryscore:slate");
+            command("gamerule sendCommandFeedback false");
+            command("clear @s");
+            command("xp set @s 0 levels");
+            for (ResourceLocation quest : ClientBook.current().quests().keySet()) {
+                command("rysquests progress @s reset " + quest);
+            }
+            // The mark of the last completed chapter outlives a reset: point it at the first chapter, as for a new player.
+            command("rysquests progress @s complete " + ns + "andesite/andesite_alloy");
+            command("rysquests progress @s reset " + ns + "andesite/andesite_alloy");
+            for (ResourceLocation quest : ClientProgress.pinned()) {
+                PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, quest, 0, List.of()));
+            }
+        }, 30);
+        expect("nothing is done", () -> ClientBook.current().quests().keySet().stream().noneMatch(quest -> ClientProgress.get(quest).everDone()));
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("Now at the first opening", () -> PanelShowcase.now(true), 10);
+        step("log the next step", () -> LOGGER.info("[autotest] next step {}, last chapter {}", PanelShowcase.nextStep(), ClientProgress.lastChapter()), 2);
+        expect("the first step is the first main quest", () -> id.apply("andesite/andesite_alloy").equals(PanelShowcase.nextStep()));
+        screenshot("panel_now_first");
+
+        step("progress as in the mockups", () -> {
+            for (String done : List.of("andesite/andesite_alloy", "andesite/water_wheel", "andesite/shaft", "andesite/andesite_2", "brass/brass_ingot",
+                    "brass/brass_casing", "current/tok", "current/copper_wire", "current/copper_wire_2", "current/copper_wire_3", "current/iron_rod",
+                    "current/copper_wire_coil", "current/ie_wires", "current/lv_wire_coil", "current/steel_wire_coil", "chronicle/old_mineshaft",
+                    "chronicle/villages", "chronicle/nether_expedition", "chronicle/explorer_the_nether", "start/welcome")) {
+                command("rysquests progress @s complete " + ns + done);
+            }
+        }, 30);
+        step("claim what needs no choice", BookScreen::claimAllForTest, 30);
+        step("two quests wait for their rewards, items in the inventory", () -> {
+            // The last completed quest marks the chapter of the next step: "Ток" last.
+            command("rysquests progress @s complete " + ns + "oil/plastic");
+            command("rysquests progress @s complete " + ns + "current/copper_coil");
+            command("give @s minecraft:polished_andesite 40");
+            command("give @s minecraft:clock 12");
+        }, 30);
+        step("hand in part of two tasks", () -> {
+            PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.SUBMIT, id.apply("andesite/automation_64"), 0, List.of()));
+            PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.SUBMIT, id.apply("chronicle/all_items"), 1, List.of()));
+        }, 20);
+        step("more in the inventory, pins", () -> {
+            command("give @s minecraft:polished_andesite 24");
+            command("give @s minecraft:clock 8");
+            command("give @s minecraft:oak_planks 16");
+            command("give @s minecraft:iron_ingot 6");
+            command("give @s minecraft:lava_bucket 1");
+            command("give @s minecraft:lava_bucket 1");
+            command("give @s minecraft:water_bucket 1");
+            command("give @s minecraft:gold_nugget 1");
+            command("xp add @s 12 levels");
+            PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, id.apply("andesite/automation_64"), 0, List.of()));
+            PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, id.apply("chronicle/all_items"), 0, List.of()));
+        }, 40);
+        expect("part of the andesite was handed in", () -> ClientProgress.get(id.apply("andesite/automation_64")).task(0) == 40);
+        step("Now with the next step", () -> PanelShowcase.now(false), 10);
+        step("log the next step", () -> LOGGER.info("[autotest] next step {}, last chapter {}", PanelShowcase.nextStep(), ClientProgress.lastChapter()), 2);
+        expect("the next step is the electric mechanism", () -> id.apply("current/electric_mechanism").equals(PanelShowcase.nextStep()));
+        screenshot("panel_now");
+        step("a quest in work chosen on Now", () -> PanelShowcase.nowChoose(id.apply("andesite/automation_64")), 10);
+        screenshot("panel_now_work");
+
+        step("every kind of task", () -> PanelShowcase.sheet(id.apply("chronicle/all_items"), id.apply("chronicle/all_counters"),
+                id.apply("chronicle/all_actions")), 10);
+        screenshot("panel_tasks");
+        step("every kind of reward, a choice picked", () -> {
+            PanelShowcase.sheet(id.apply("chronicle/all_rewards"), id.apply("oil/plastic"), id.apply("current/copper_coil"));
+            PanelShowcase.pick(0, 1);
+        }, 10);
+        screenshot("panel_rewards");
+        step("closed with its way, any one of, repeatable", () -> PanelShowcase.sheet(id.apply("current/heavy_engineering_block"),
+                id.apply("current/capacitor"), id.apply("chronicle/scheme")), 10);
+        screenshot("panel_locked");
+
+        step("the map with the panel", () -> PanelShowcase.map(id.apply("current"), id.apply("current/electric_mechanism")), 20);
+        screenshot("panel_map_quest");
+        step("the map with a closed quest", () -> PanelShowcase.map(id.apply("current"), id.apply("current/heavy_engineering_block")), 20);
+        screenshot("panel_map_route");
+
+        step("the list of a chapter", () -> PanelShowcase.list(id.apply("current"), 0, "ALL", id.apply("current/copper_coil"), true), 10);
+        screenshot("panel_list_chapter");
+        step("the list of a chapter off the map", () -> PanelShowcase.list(id.apply("chronicle"), 0, "ALL", id.apply("chronicle/wither"), false), 10);
+        screenshot("panel_list_off_map");
+        step("the whole book, what can be done", () -> PanelShowcase.list(null, 0, "CAN", id.apply("current/electric_mechanism"), false), 10);
+        screenshot("panel_list_book");
+        step("an epoch", () -> PanelShowcase.list(null, 2, "ALL", null, false), 10);
+        screenshot("panel_list_epoch");
+        step("a filter left nothing", () -> PanelShowcase.list(id.apply("machines"), 0, "DONE", null, false), 10);
+        screenshot("panel_list_empty");
+
+        step("a small window", () -> {
+            mc().getWindow().setWindowed(1100, 700);
+            mc().resizeDisplay();
+            PanelShowcase.now(false);
+        }, 20);
+        expect("compact layout", BookScreen::compactForTest);
+        screenshot("panel_compact_now");
+        step("compact list", () -> PanelShowcase.list(id.apply("current"), 0, "ALL", id.apply("current/copper_coil"), true), 10);
+        screenshot("panel_compact_list");
+        step("back to the size of the mockups", () -> {
+            mc().getWindow().setWindowed(1280, 800);
+            mc().resizeDisplay();
+        }, 20);
+
+        step("every main quest done", () -> {
+            for (var quest : ClientBook.current().quests().values()) {
+                if (!quest.options().optional()) {
+                    command("rysquests progress @s complete " + quest.id());
+                }
+            }
+        }, 40);
+        step("claim it all", BookScreen::claimAllForTest, 30);
+        step("Now in a finished book", () -> PanelShowcase.now(false), 10);
+        expect("no next step", () -> PanelShowcase.nextStep() == null);
+        screenshot("panel_now_done");
+
+        String ftbq = System.getProperty("rysquests.autotest.ftbqBook", "");
+        if (!ftbq.isBlank()) {
+            step("the ATM10 book in the client", () -> {
+                try {
+                    QuestBook atm = PanelShowcase.ftbqBook(Path.of(ftbq));
+                    LOGGER.info("[autotest] ftbq book: {} chapters, {} quests", atm.chapters().size(), atm.quests().size());
+                    ClientBook.overrideForTest(atm, true);
+                } catch (java.io.IOException e) {
+                    fail("could not read the FTB book: " + e);
+                }
+            }, 20);
+            step("Now on the large book", () -> PanelShowcase.now(false), 20);
+            screenshot("panel_atm_now");
+            step("the list of the whole book, every chapter open in full", () -> {
+                PanelShowcase.list(null, 0, "ALL", null, false);
+                PanelShowcase.listOpenAll();
+            }, 20);
+            step("log the size of the list", () -> LOGGER.info("[autotest] atm list: {}", PanelShowcase.listStats()), 2);
+            screenshot("panel_atm_list");
+            step("measure the frame while scrolling", () -> worstFrame = 0, 2);
+            for (int i = 0; i < 40; i++) {
+                step("scroll the large list " + i, () -> PanelShowcase.listScroll(-25), 2);
+            }
+            step("report the frame", () -> LOGGER.info("[autotest] worst frame while scrolling the whole ATM10 list: {} ms, {}", worstFrame / 1_000_000,
+                    PanelShowcase.listStats()), 2);
+            screenshot("panel_atm_list_scrolled");
+            step("what can be done in the large book", () -> PanelShowcase.list(null, 0, "CAN", null, false), 20);
+            screenshot("panel_atm_list_can");
+            step("back to the real book", () -> ClientBook.overrideForTest(null, null), 10);
+        }
+        step("close the book", () -> pressKey(GLFW.GLFW_KEY_ESCAPE), 5);
+        expect("book closed", () -> mc().screen == null);
+    }
+
+    // --- the first run (plan, sections 4 and 5) ---
+
+    private static final String FTB_BROKEN = "zz_autotest_broken.snbt";
+
+    /**
+     * Moves what earlier runs made out of the way (into {@code _stale}, nothing is deleted) and lays a copy of the ATM10 book where
+     * FTB Quests keeps it, with one broken chapter: the scenario starts on an empty book each time.
+     */
+    private static void prepareFirstRun() {
+        Path game = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get();
+        Path stale = game.resolve("_stale").resolve("first-" + STARTED_AT);
+        try {
+            for (String folder : List.of("config/rysquests/import", "config/rysquests/pack", "config/ftbquests/quests")) {
+                Path from = game.resolve(folder);
+                if (Files.exists(from)) {
+                    Path to = stale.resolve(folder);
+                    Files.createDirectories(to.getParent());
+                    Files.move(from, to);
+                }
+            }
+            Path source = Path.of(System.getProperty("rysquests.autotest.atm10Quests"));
+            Path target = game.resolve("config/ftbquests/quests");
+            try (var files = Files.walk(source)) {
+                for (Path file : files.toList()) {
+                    Path to = target.resolve(source.relativize(file).toString());
+                    if (Files.isDirectory(file)) {
+                        Files.createDirectories(to);
+                    } else {
+                        Files.copy(file, to, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                }
+            }
+            Files.writeString(target.resolve("chapters").resolve(FTB_BROKEN), "{\n\tid: \"7A11ED0000000001\"\n\tfilename: \"zz_autotest_broken\"\n\tquests: [\n\t\t{\n\t\t\tid: \"7A11ED0000000002\"\n");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void buildFirstRunScenario() {
+        prepareFirstRun();
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+            ThemeManager.select("ryscore:slate");
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        expect("an empty book reached the client", () -> ClientBook.received() && ClientBook.current().quests().isEmpty());
+        // 01: the panel of the family left of the inventory, without FTB Library, the invitation of the empty book in the tooltip
+        dockShot("first_dock_no_ftb");
+        step("close the inventory", () -> mc().setScreen(null), 5);
+        // 09a: a book from scratch
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("the empty book", () -> "empty".equals(BookScreen.bodyForTest()));
+        step("build from scratch", () -> FirstRunHooks.open("new", false), 5);
+        expect("the new book page", () -> "NewBookView".equals(FirstRunHooks.pageName()));
+        step("point away", () -> moveMouse(1, 1), 5);
+        screenshot("first_new_book");
+        step("answer: a main line and mods around", () -> FirstRunHooks.newBookAnswer("CORE"), 5);
+        screenshot("first_new_book_answered");
+        step("create the book", FirstRunHooks::createBook, 5);
+        expect("the server made the book, closed, as a galaxy", () -> ClientBook.current().meta().title().filter("Моя сборка"::equals).isPresent()
+                && !ClientBook.current().meta().published() && ClientBook.current().meta().mapForm() == works.repka.rysquests.data.MapForm.GALAXY);
+        expect("the editor opens on the table of the new book's first chapter", () -> works.repka.rysquests.client.screen.EditorTesting.on()
+                && works.repka.rysquests.client.screen.EditorTesting.chapter() != null && FirstRunHooks.pageName().isEmpty());
+        expect("the draft keeps the answer: a galaxy, no epochs", () -> works.repka.rysquests.client.screen.EditorTesting.draftMeta().mapForm() == works.repka.rysquests.data.MapForm.GALAXY
+                && works.repka.rysquests.client.screen.EditorTesting.draftMeta().epochs().isEmpty());
+        step("point away", () -> moveMouse(1, 1), 5);
+        screenshot("first_new_book_table");
+        step("put the new book aside for the import", () -> {
+            works.repka.rysquests.client.screen.EditorTesting.leave();
+            works.repka.rysquests.client.screen.EditorTesting.forgetDraft();
+            mc().setScreen(null);
+            try {
+                Path game = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get();
+                Path aside = game.resolve("_stale").resolve("first-" + STARTED_AT);
+                Files.createDirectories(aside);
+                Files.move(game.resolve("config/rysquests/pack"), aside.resolve("new-book-pack"));
+                if (Files.exists(game.resolve("rysquests/drafts"))) {
+                    Files.move(game.resolve("rysquests/drafts"), aside.resolve("new-book-drafts"));
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            command("reload");
+        }, 40);
+        expect("the book is empty again", () -> ClientBook.current().meta().title().isEmpty() && ClientBook.current().quests().isEmpty());
+        // 05, then 50: the import stops on the broken chapter
+        step("open the empty book with FTB", () -> {
+            BookScreen.ftbForTest(true);
+            pressKey(GLFW.GLFW_KEY_K);
+        }, 10);
+        screenshot("first_empty_ftb");
+        step("carry over from FTB", () -> FirstRunHooks.open("import", true), 2);
+        screenshot("first_import_running");
+        expect("the import stopped on the broken chapter", () -> "error".equals(FirstRunHooks.wizardState()));
+        step("log the failure", () -> LOGGER.info("[autotest] import failure: {}", works.repka.rysquests.client.ClientImport.error()), 5);
+        expect("it names the broken file", () -> works.repka.rysquests.client.ClientImport.error().failure().file().endsWith(FTB_BROKEN)
+                && works.repka.rysquests.client.ClientImport.error().failure().skippable());
+        screenshot("first_import_error");
+        // 06: carried over without that chapter
+        step("carry over without this chapter", works.repka.rysquests.client.ClientImport::skipFailedFile, 5);
+        expect("the report came", () -> "report".equals(FirstRunHooks.wizardState()));
+        // Rewards are item stacks, which a game without the mods of ATM10 cannot read: about half of the quests load here, all chapters do.
+        expect("the ATM10 book reached the client", () -> ClientBook.current().quests().size() > 2000 && ClientBook.current().chapters().size() >= 67);
+        step("log the report", () -> LOGGER.info("[autotest] import report: {}", works.repka.rysquests.client.ClientImport.report()), 40);
+        expect("the translations of the new book are loaded", () -> mc().getOverlay() == null);
+        expect("the skipped file is in the report", () -> works.repka.rysquests.client.ClientImport.report().skippedFiles().stream().anyMatch(file -> file.endsWith(FTB_BROKEN)));
+        expect("the carried book is closed to players", () -> !ClientBook.current().meta().published());
+        screenshot("first_import_report");
+        // 07b and 07: the map form
+        // On this half loaded book the forms take about a second each: the picture is taken while they are still being laid out.
+        step("next: the map form", FirstRunHooks::wizardNext, 1);
+        screenshot("first_form_calculating");
+        expect("the advised form is laid out first", FirstRunHooks::advisedDone);
+        expect("all four previews laid out", FirstRunHooks::previewsDone);
+        step("log the advice", () -> LOGGER.info("[autotest] advised form: {}", FirstRunHooks.advisedForm()), 20);
+        expect("ATM10 is advised a galaxy", () -> "galaxy".equals(FirstRunHooks.advisedForm()));
+        screenshot("first_form");
+        step("look at the spiral", () -> FirstRunHooks.selectForm("spiral"), 20);
+        screenshot("first_form_spiral");
+        step("back to the advised galaxy", () -> FirstRunHooks.selectForm("galaxy"), 10);
+        step("choose the galaxy", FirstRunHooks::chooseForm, 10);
+        // 08: the book, closed to players
+        expect("the book opened on the map", () -> "map".equals(BookScreen.bodyForTest()));
+        expect("the layout was saved for players", () -> ClientBook.current().freshLayout().filter(layout -> layout.form() == works.repka.rysquests.data.MapForm.GALAXY).isPresent());
+        step("point away", () -> moveMouse(1, 1), 20);
+        screenshot("first_book_closed");
+        // 10: open it to players
+        step("ask to open the book", FirstRunHooks::askToPublish, 5);
+        expect("the question is open", BookScreen::dialogOpenForTest);
+        screenshot("first_publish_ask");
+        step("open to players", () -> {
+            pressKey(GLFW.GLFW_KEY_ESCAPE);
+            ClientBook.requestPublish(true);
+        }, 10);
+        expect("the book is open to players", () -> ClientBook.current().meta().published());
+        step("settle", () -> moveMouse(1, 1), 20);
+        screenshot("first_book_open");
+        step("close the book", () -> {
+            BookScreen.ftbForTest(null);
+            mc().setScreen(null);
+        }, 5);
+    }
+
+    /** Opens the inventory, points at the first button of the panel of the family and takes a screenshot (pictures 01, 02, 02b). */
+    private static void dockShot(String name) {
+        step("open the inventory", () -> mc().setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc().player)), 20);
+        step("point at the first button of the panel", () -> {
+            var screen = mc().screen;
+            LOGGER.info("[autotest] dock: standalone {}, hosted {}, replaces FTB {}, FTB visible {}, buttons {}", works.repka.ryscore.dock.Dock.standalone(screen),
+                    works.repka.ryscore.dock.Dock.hosted(screen), works.repka.ryscore.dock.Dock.replaces(screen), works.repka.ryscore.dock.Dock.ftbVisible(screen),
+                    works.repka.ryscore.dock.DockButtons.all().stream().map(works.repka.ryscore.dock.DockButton::id).toList());
+            int[] at = dockCorner();
+            if (at != null) {
+                moveMouse(at[0] + 14, at[1] + 14);
+            } else if (works.repka.ryscore.dock.Dock.ftbVisible(screen)) {
+                // FTB Library draws its own panel: our button stands third in its second row here (picture 02).
+                moveMouse(26, 25);
+            } else {
+                moveMouse(1, 1);
+            }
+        }, 10);
+        screenshot(name);
+    }
+
+    /** The top left corner of the panel of the family in GUI units, or null when there is none on screen. */
+    private static int[] dockCorner() {
+        int w = mc().getWindow().getGuiScaledWidth();
+        int h = mc().getWindow().getGuiScaledHeight();
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                if (works.repka.ryscore.dock.Dock.contains(x + 0.5, y + 0.5)) {
+                    return new int[] {x, y};
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The panel in a pack with FTB Library ({@code run-ftb}): its own panel (02), or replaced by the panel of RYScope (02b). */
+    private static void buildDockScenario() {
+        String tag = System.getProperty("rysquests.autotest.tag", "");
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        expect("the book reached the client", ClientBook::received);
+        dockShot("dock" + (tag.isEmpty() ? "" : "_" + tag));
+        step("open the book with the button of the panel", () -> {
+            if (dockCorner() != null) {
+                clickMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+            }
+        }, 10);
+        step("log what opened", () -> LOGGER.info("[autotest] after the click: {}", mc().screen == null ? "nothing" : mc().screen.getClass().getSimpleName()), 5);
+        step("close", () -> mc().setScreen(null), 5);
+    }
+
     private static void buildBookScenario() {
         ResourceLocation chapter = ResourceLocation.parse("example:01_start");
         ResourceLocation quest = ResourceLocation.parse("example:start/first_tools");
@@ -1658,15 +2571,15 @@ public final class AutoTest {
 
     // --- steps ---
 
-    private static void step(String name, Runnable action, int waitAfter) {
+    static void step(String name, Runnable action, int waitAfter) {
         STEPS.add(new Step(name, () -> true, action, waitAfter));
     }
 
-    private static void expect(String name, BooleanSupplier condition) {
+    static void expect(String name, BooleanSupplier condition) {
         STEPS.add(new Step(name, condition, () -> {}, 0));
     }
 
-    private static void openWorld() {
+    static void openWorld() {
         // A fresh game directory opens the accessibility onboarding instead of the title screen.
         STEPS.add(new Step("open world", () -> mc().screen != null && mc().level == null && mc().getOverlay() == null && total > 40, () -> {
             mc().options.pauseOnLostFocus = false;
@@ -1676,6 +2589,7 @@ public final class AutoTest {
             if (!(mc().screen instanceof TitleScreen)) {
                 mc().setScreen(new TitleScreen());
             }
+            cleanStart();
             String world = worldName();
             if (mc().getLevelSource().levelExists(world)) {
                 mc().createWorldOpenFlows().openWorld(world, () -> fail("world did not open"));
@@ -1691,10 +2605,44 @@ public final class AutoTest {
         STEPS.add(new Step("world loaded", () -> {
             skipBackupQuestion();
             return mc().player != null && mc().level != null && mc().screen == null;
-        }, () -> {}, 40));
+        }, AutoTest::cleanWorld, 40));
     }
 
-    private static void screenshot(String name) {
+    /**
+     * Every scenario starts as on a fresh game directory, whatever the one before it left: the FTB import of "first", the editor's
+     * pack and the drafts of the editor go aside into {@code _stale} (nothing is deleted). Only "book_editor_restart" keeps them: it
+     * picks up what "book_editor" left on purpose.
+     */
+    private static void cleanStart() {
+        if ("book_editor_restart".equals(scenario)) {
+            return;
+        }
+        Path game = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get();
+        Path stale = game.resolve("_stale").resolve("left-before-" + scenario + "-" + STARTED_AT);
+        for (String folder : List.of("config/rysquests/import", "config/rysquests/pack", "rysquests/drafts")) {
+            Path from = game.resolve(folder);
+            if (Files.exists(from)) {
+                try {
+                    Path to = stale.resolve(folder);
+                    Files.createDirectories(to.getParent());
+                    Files.move(from, to);
+                    LOGGER.info("[autotest] put aside {} left by an earlier run", folder);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+        }
+    }
+
+    /** The world is shared by the scenarios: command answers go to chat again, as in a new world ("panel" turns them off). */
+    private static void cleanWorld() {
+        var server = mc().getSingleplayerServer();
+        if (server != null) {
+            server.execute(() -> server.getGameRules().getRule(GameRules.RULE_SENDCOMMANDFEEDBACK).set(true, server));
+        }
+    }
+
+    static void screenshot(String name) {
         String file = "rysquests_" + name + ".png";
         step("screenshot " + name, () -> Screenshot.grab(mc().gameDirectory, file, mc().getMainRenderTarget(), message -> {}), 5);
         expect("screenshot written " + name, () -> writtenThisRun(mc().gameDirectory.toPath().resolve("screenshots").resolve(file)));
@@ -1711,6 +2659,11 @@ public final class AutoTest {
     private static void tick() {
         if (finished) {
             return;
+        }
+        if (total == 0) {
+            // tests play without sound (the author's request); the game may have written its volume back into options.txt
+            mc().options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.0);
+            mc().options.save();
         }
         Step step = STEPS.get(index);
         if (++total > TOTAL_TICK_LIMIT) {
@@ -1752,7 +2705,7 @@ public final class AutoTest {
         }
     }
 
-    private static void fail(String reason) {
+    static void fail(String reason) {
         LOGGER.error("[autotest] FAIL: {}", reason);
         finished = true;
         mc().stop();
@@ -1760,12 +2713,16 @@ public final class AutoTest {
 
     // --- game access ---
 
-    private static Minecraft mc() {
+    static Minecraft mc() {
         return Minecraft.getInstance();
     }
 
     /** One world per mod set, reused between runs: opening a world with other mods stops on a game prompt. */
-    private static String worldName() {
+    static String worldName() {
+        String fixed = System.getProperty("rysquests.autotest.world", "");
+        if (!fixed.isBlank()) {
+            return fixed;
+        }
         int hash = ModList.get().getMods().stream().map(mod -> mod.getModId() + mod.getVersion()).sorted().toList().hashCode();
         return "rysquests_autotest_" + Integer.toHexString(hash);
     }
@@ -1776,7 +2733,7 @@ public final class AutoTest {
         }
     }
 
-    private static void command(String command) {
+    static void command(String command) {
         mc().player.connection.sendCommand(command);
     }
 
@@ -1804,14 +2761,14 @@ public final class AutoTest {
     }
 
     /** Feeds the game the same input the window system does. */
-    private static void pressKey(int key) {
+    static void pressKey(int key) {
         long window = mc().getWindow().getWindow();
         int scan = GLFW.glfwGetKeyScancode(key);
         mc().keyboardHandler.keyPress(window, key, scan, GLFW.GLFW_PRESS, 0);
         mc().keyboardHandler.keyPress(window, key, scan, GLFW.GLFW_RELEASE, 0);
     }
 
-    private static void moveMouse(double guiX, double guiY) {
+    static void moveMouse(double guiX, double guiY) {
         double scale = mc().getWindow().getGuiScale();
         double x = guiX * scale * mc().getWindow().getScreenWidth() / mc().getWindow().getWidth();
         double y = guiY * scale * mc().getWindow().getScreenHeight() / mc().getWindow().getHeight();
@@ -1824,7 +2781,7 @@ public final class AutoTest {
         }
     }
 
-    private static void clickMouse(int button) {
+    static void clickMouse(int button) {
         long window = mc().getWindow().getWindow();
         try {
             var onPress = MouseHandler.class.getDeclaredMethod("onPress", long.class, int.class, int.class, int.class);

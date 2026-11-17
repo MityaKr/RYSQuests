@@ -1,0 +1,24 @@
+{
+  "id": "panel:current/tok",
+  "chapter": "panel:current",
+  "title": "Ток",
+  "icon": "minecraft:redstone_block",
+  "requires": [
+    "panel:brass/brass_casing"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:redstone_block",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ],
+  "milestone": true
+}

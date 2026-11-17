@@ -61,6 +61,11 @@ public final class Ui {
     ItemStack hoveredStack;
     @Nullable
     Component hoveredText;
+    /** A line under the game's tooltip of {@link #hoveredStack}: the chance of a random reward. */
+    @Nullable
+    Component hoveredNote;
+    /** Where items with a tooltip and the recipe keys were drawn this frame: x, y, w, h and 1 for hover only (autotest). */
+    final List<float[]> itemSpots = new java.util.ArrayList<>();
     /** Set while the rail of sections touches the window's left edge: the columns beside it have square corners there. */
     boolean squareLeft;
     private final ArrayDeque<int[]> clipStack = new ArrayDeque<>();
@@ -153,10 +158,11 @@ public final class Ui {
     void clip(int x, int y, int w, int h) {
         Draw.scissor(g, Math.floorDiv(x, 2), Math.floorDiv(y, 2), Math.floorDiv(x + w + 1, 2), Math.floorDiv(y + h + 1, 2));
         clipStack.push(new int[] {clipLeft, clipTop, clipRight, clipBottom});
-        clipLeft = x;
-        clipTop = y;
-        clipRight = x + w;
-        clipBottom = y + h;
+        // The game's scissor stack intersects a nested clip with the one around it; hits and hover follow the same rule.
+        clipLeft = Math.max(x, clipLeft);
+        clipTop = Math.max(y, clipTop);
+        clipRight = Math.max(clipLeft, Math.min(x + w, clipRight));
+        clipBottom = Math.max(clipTop, Math.min(y + h, clipBottom));
     }
 
     void unclip() {
@@ -271,17 +277,72 @@ public final class Ui {
         stroke(x, y, w, h, r, border);
     }
 
+    /**
+     * A card, a row of a list, a task: the theme's raised face (with a bevel in vanilla, picture 45), and when selected the theme's
+     * frame of the selected (a white frame in vanilla, a light border elsewhere), never the accent.
+     */
+    void card(float x, float y, float w, float h, float r, boolean selected) {
+        card(x, y, w, h, r, selected, c("panel.border"));
+    }
+
+    /** {@link #card} with its own border when not selected (a hovered card, a card of another weight). */
+    void card(float x, float y, float w, float h, float r, boolean selected, int border) {
+        if (theme.beveled()) {
+            theme.raised(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, 0);
+            if (selected) {
+                theme.selected(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, 0);
+            }
+            return;
+        }
+        box(x, y, w, h, r, c(selected ? "tab.active.bg" : "card.bg"), selected ? c("text.secondary") : border);
+    }
+
+    /** Text typed into a field: light on vanilla's black field, the page's text elsewhere. */
+    int inputText(String token) {
+        return theme.beveled() ? c("input.fg") : c(token);
+    }
+
+    /** The face of a small button (map tools, crumbs): vanilla's bevel, a box elsewhere. */
+    void face(float x, float y, float w, float h, float r, int fill, int border) {
+        if (theme.beveled()) {
+            Draw.bevel(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, fill, Draw.mix(fill, 0xFFFFFFFF, 0.55f), c("button.border"), 1, false);
+            return;
+        }
+        box(x, y, w, h, r, fill, border);
+    }
+
+    /** The plate under an item: sunk into the card in vanilla, a dark slot with its border elsewhere. */
+    void plate(float x, float y, float w, float h, float r) {
+        if (theme.beveled()) {
+            Draw.bevel(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, c("slot.bg"), c("slot.bevel.dark"), c("slot.bevel.light"), 1, false);
+            return;
+        }
+        box(x, y, w, h, r, c("slot.bg"), c("slot.border"));
+    }
+
+    /** A chip or a segment that is on: pressed in vanilla, on its light plate elsewhere. @return the colour of its text */
+    int pressed(float x, float y, float w, float h, float r) {
+        theme.pressed(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, radius(r));
+        return theme.pressedFg();
+    }
+
+    /** The round "i" beside a tip, {@code size} mockup pixels across (14 in the mockups). */
+    void info(float x, float y, float size, int color) {
+        Draw.info(g, x / PER_GUI, y / PER_GUI, size / PER_GUI, color);
+    }
+
     public void shadow(float x, float y, float w, float h, float r, float strength) {
         Draw.shadow(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, r / PER_GUI, strength);
     }
 
+    /** A circle stays round in every theme, vanilla too: coins, medals, rings, dots (picture 45). */
     public void circle(float x, float y, float size, int color) {
-        fill(x, y, size, size, size / 2f, color);
+        Draw.round(g, x / PER_GUI, y / PER_GUI, size / PER_GUI, size / PER_GUI, Math.max(SQUARE, size / 2f / PER_GUI), color);
     }
 
     /** A ring drawn as one shape, so that it stays even at any GUI scale: two stacked circles round apart. */
     void ring(float x, float y, float size, float stroke, int color) {
-        Draw.roundBorder(g, x / PER_GUI, y / PER_GUI, size / PER_GUI, size / PER_GUI, radius(size / 2f), color, stroke / PER_GUI);
+        Draw.roundBorder(g, x / PER_GUI, y / PER_GUI, size / PER_GUI, size / PER_GUI, Math.max(SQUARE, size / 2f / PER_GUI), color, stroke / PER_GUI);
     }
 
     public void bar(float x, float y, float w, float h, float r, float ratio, int color) {
@@ -319,7 +380,7 @@ public final class Ui {
         Icons.drawRotated(g, shape, x / PER_GUI, y / PER_GUI, size / PER_GUI, degrees, color);
     }
 
-    void icon(Icons.Shape shape, float x, float y, float size, int color) {
+    public void icon(Icons.Shape shape, float x, float y, float size, int color) {
         Icons.draw(g, shape, x / PER_GUI, y / PER_GUI, size / PER_GUI, color);
     }
 
@@ -424,7 +485,7 @@ public final class Ui {
     // --- text ---
 
     /** The height of a line in the mockups' font, which browsers round per ascent and per descent. */
-    static float lineHeight(float px) {
+    public static float lineHeight(float px) {
         return Math.round(px * 0.96875f) + Math.round(px * 0.2412f);
     }
 
@@ -435,7 +496,19 @@ public final class Ui {
 
     /** @param cy the vertical middle of the line */
     public void label(String text, float x, float cy, float px, Type.Weight weight, int color) {
-        Draw.label(g, text, x / PER_GUI, cy / PER_GUI, px, weight, color);
+        Draw.label(g, plain(text), x / PER_GUI, cy / PER_GUI, px, weight, color);
+    }
+
+    /**
+     * A label's text without the game's formatting codes: imported FTB titles carry {@code §a} and the like, which the book's font would
+     * draw as letters. Texts without a section sign come back as they are.
+     */
+    static String plain(String text) {
+        if (text.indexOf('§') < 0) {
+            return text;
+        }
+        String stripped = net.minecraft.ChatFormatting.stripFormatting(text);
+        return stripped == null ? text : stripped;
     }
 
     public void labelRight(String text, float right, float cy, float px, Type.Weight weight, int color) {
@@ -454,8 +527,8 @@ public final class Ui {
     public void labelFit(String text, float x, float cy, float maxWidth, float px, Type.Weight weight, int color) {
         String shown = fit(text, maxWidth, px, weight);
         label(shown, x, cy, px, weight, color);
-        if (!shown.equals(text)) {
-            tooltipIfOver(x, cy - px * 0.7f, Math.min(maxWidth, width(shown, px, weight)), px * 1.4f, Component.literal(ChatFormattingStrip.strip(text)));
+        if (!shown.equals(plain(text))) {
+            tooltipIfOver(x, cy - px * 0.7f, Math.min(maxWidth, width(shown, px, weight)), px * 1.4f, Component.literal(plain(text)));
         }
     }
 
@@ -464,16 +537,8 @@ public final class Ui {
         label(fit(text, maxWidth, px, weight), x, cy, px, weight, color);
     }
 
-    /** Formatting codes of imported texts stay out of the tooltip. */
-    private static final class ChatFormattingStrip {
-        static String strip(String text) {
-            String plain = net.minecraft.ChatFormatting.stripFormatting(text);
-            return plain == null ? text : plain;
-        }
-    }
-
     public float width(String text, float px, Type.Weight weight) {
-        return Draw.labelWidth(text, px, weight) * PER_GUI;
+        return Draw.labelWidth(plain(text), px, weight) * PER_GUI;
     }
 
     /** The same as {@link #labelFit}, which now always shows a cut text in full; kept for the places that asked for it by name. */
@@ -482,11 +547,11 @@ public final class Ui {
     }
 
     String fit(String text, float maxWidth, float px, Type.Weight weight) {
-        return Draw.ellipsize(text, maxWidth / PER_GUI, px, weight);
+        return Draw.ellipsize(plain(text), maxWidth / PER_GUI, px, weight);
     }
 
-    List<String> wrap(String text, float maxWidth, float px, Type.Weight weight, int maxLines) {
-        return Draw.wrapLabel(text, Math.max(1f, maxWidth) / PER_GUI, px, weight, maxLines);
+    public List<String> wrap(String text, float maxWidth, float px, Type.Weight weight, int maxLines) {
+        return Draw.wrapLabel(plain(text), Math.max(1f, maxWidth) / PER_GUI, px, weight, maxLines);
     }
 
     /** The narrowest a text can get when it wraps: its longest word. */
@@ -508,11 +573,11 @@ public final class Ui {
 
     /** A section heading in capitals with letter spacing, drawn as one string (RYSCore 1.7.5 tracking) rather than letter by letter. */
     void caps(String text, float x, float cy, int color) {
-        Draw.label(g, text.toUpperCase(java.util.Locale.ROOT), x / PER_GUI, cy / PER_GUI, CAPS_PX, MEDIUM, color, CAPS_TRACKING / PER_GUI);
+        Draw.label(g, plain(text).toUpperCase(java.util.Locale.ROOT), x / PER_GUI, cy / PER_GUI, CAPS_PX, MEDIUM, color, CAPS_TRACKING / PER_GUI);
     }
 
     float capsWidth(String text) {
-        return Draw.labelWidth(text.toUpperCase(java.util.Locale.ROOT), CAPS_PX, MEDIUM, CAPS_TRACKING / PER_GUI) * PER_GUI;
+        return Draw.labelWidth(plain(text).toUpperCase(java.util.Locale.ROOT), CAPS_PX, MEDIUM, CAPS_TRACKING / PER_GUI) * PER_GUI;
     }
 
     void capsRight(String text, float right, float cy, int color) {
@@ -560,8 +625,32 @@ public final class Ui {
         }
         if (over(x, y, w, h)) {
             hoveredStack = stack;
+            hoveredNote = null;
+        }
+        if (centerShown(x, y, w, h)) {
+            itemSpots.add(new float[] {x, y, w, h, 0});
         }
         hit(x, y, w, h, () -> Recipes.showRecipes(stack));
+    }
+
+    /**
+     * An item on something clicked for another reason (a shop card selects its offer, a reward card is picked): the game's
+     * tooltip, the usages on the right button and the recipe keys of RYScope, but the left click stays the card's.
+     */
+    void hoverItem(ItemStack stack, float x, float y, float w, float h) {
+        if (!stack.isEmpty() && over(x, y, w, h)) {
+            hoveredStack = stack;
+            hoveredNote = null;
+        }
+        if (!stack.isEmpty() && centerShown(x, y, w, h)) {
+            itemSpots.add(new float[] {x, y, w, h, 1});
+        }
+    }
+
+    private boolean centerShown(float x, float y, float w, float h) {
+        float cx = x + w / 2f;
+        float cy = y + h / 2f;
+        return cx >= clipLeft && cx < clipRight && cy >= clipTop && cy < clipBottom;
     }
 
     /** Fades what is under it towards a color, which is how the mockups' opacity looks on an item. */
@@ -592,12 +681,24 @@ public final class Ui {
         int color;
         switch (style) {
             case ACCENT -> {
-                fill(x, y, w, h, r, over ? Draw.mix(c("accent"), 0xFFFFFFFF, 0.1f) : c("accent"));
+                int fill = over ? Draw.mix(c("accent"), 0xFFFFFFFF, 0.1f) : c("accent");
+                if (theme.beveled()) {
+                    // vanilla's button: a bevel lighter and darker than its face
+                    Draw.bevel(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, fill, Draw.mix(fill, 0xFFFFFFFF, 0.35f), Draw.mix(fill, 0xFF000000, 0.45f), 1, false);
+                } else {
+                    fill(x, y, w, h, r, fill);
+                }
                 color = c("accent.text");
             }
             case PLAIN -> {
-                box(x, y, w, h, r, over ? c("slot.hover") : c("button.bg"), c("button.border"));
-                color = c("text.primary");
+                if (theme.beveled()) {
+                    int fill = over ? Draw.mix(c("button.bg"), 0xFFFFFFFF, 0.18f) : c("button.bg");
+                    Draw.bevel(g, x / PER_GUI, y / PER_GUI, w / PER_GUI, h / PER_GUI, fill, Draw.mix(fill, 0xFFFFFFFF, 0.55f), c("button.border"), 1, false);
+                    color = c("tab.inactive.fg");
+                } else {
+                    box(x, y, w, h, r, over ? c("slot.hover") : c("button.bg"), c("button.border"));
+                    color = c("text.primary");
+                }
             }
             default -> {
                 if (over) {

@@ -1,0 +1,29 @@
+{
+  "id": "panel:current/copper_coil",
+  "chapter": "panel:current",
+  "title": "Медная катушка",
+  "icon": "minecraft:lightning_rod",
+  "requires": [
+    "panel:current/iron_rod"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:lightning_rod",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    },
+    {
+      "type": "rysquests:currency",
+      "id": "coin",
+      "amount": 1
+    }
+  ],
+  "text": "Проволока, намотанная на железный прут последовательной сборкой. Катушки идут в электромеханизм, зарядник и конденсаторы."
+}

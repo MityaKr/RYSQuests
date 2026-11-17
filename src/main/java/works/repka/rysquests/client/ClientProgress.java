@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 import works.repka.rysquests.client.hud.StickerBoard;
@@ -27,6 +28,7 @@ public final class ClientProgress {
     private static List<String> pinnedWays = List.of();
     private static final Set<String> GUIDE_PAGES = new HashSet<>();
     private static int teamSize = 1;
+    private static Optional<ResourceLocation> lastChapter = Optional.empty();
     /** Grows with every packet that changes what the book shows: caches of counts and statuses compare it. */
     private static int version;
 
@@ -45,24 +47,47 @@ public final class ClientProgress {
         return pinned;
     }
 
+    /**
+     * The chapter of the quest this player last completed by their own doing, for the next step on "Now". Empty before the first
+     * one: then the first unfinished chapter is meant.
+     */
+    public static Optional<ResourceLocation> lastChapter() {
+        return lastChapter;
+    }
+
+    /** Replaces the whole progress as a full packet would: the autotest's way to a made up progress for a book it gave the client. */
+    public static void receiveForTest(Map<ResourceLocation, QuestProgress> quests, Optional<ResourceLocation> last) {
+        receive(new ProgressPayload(true, quests, last));
+    }
+
+    /** A copy of the whole progress, for the autotest to give it back after a made up one. */
+    public static Map<ResourceLocation, QuestProgress> snapshotForTest() {
+        return Map.copyOf(QUESTS);
+    }
+
     static void receive(ProgressPayload payload) {
         version++;
         if (payload.full()) {
             QUESTS.clear();
             QUESTS.putAll(payload.quests());
+            lastChapter = payload.lastChapter();
             return;
         }
+        payload.lastChapter().ifPresent(chapter -> lastChapter = Optional.of(chapter));
+        List<Quest> finished = new java.util.ArrayList<>();
         payload.quests().forEach((id, progress) -> {
             if (progress.completed() && !get(id).completed()) {
                 Quest quest = ClientBook.current().quests().get(id);
-                // A hidden quest that has opened is an ordinary quest by now and gets its toast like any other.
+                // A hidden quest that has opened is an ordinary quest by now and gets its message like any other.
                 if (quest != null && (!quest.options().hidden() || Achievement.isTierQuest(quest.id())
                         || works.repka.rysquests.progress.QuestLogic.isUnlocked(quest, ClientProgress::get))) {
-                    StickerBoard.celebrate(quest);
+                    finished.add(quest);
                 }
             }
             QUESTS.put(id, progress);
         });
+        // After the whole update is in: a chapter the last of these quests closes counts as closed.
+        StickerBoard.celebrate(finished, payload.done());
     }
 
     /** How many players share this player's progress. */
@@ -120,10 +145,29 @@ public final class ClientProgress {
         return stageLocked.contains(quest);
     }
 
+    // --- for the in-game autotest: states the server did not send (shop, achievements, guides, HUD pictures) ---
+
+    public static void progressForTest(ResourceLocation quest, QuestProgress progress) {
+        version++;
+        QUESTS.put(quest, progress);
+    }
+
+    public static void pinnedForTest(List<ResourceLocation> quests) {
+        version++;
+        pinned = List.copyOf(quests);
+    }
+
+    public static void guidePagesForTest(java.util.Collection<String> readKeys, Set<ResourceLocation> locked) {
+        version++;
+        GUIDE_PAGES.addAll(readKeys);
+        guideLocked = Set.copyOf(locked);
+    }
+
     static void clear() {
         version++;
         QUESTS.clear();
         pinned = List.of();
+        lastChapter = Optional.empty();
         stageLocked = Set.of();
         guideLocked = Set.of();
         openStages = Set.of();

@@ -1,0 +1,23 @@
+{
+  "id": "panel:machines/alloy",
+  "chapter": "panel:machines",
+  "title": "Сплав",
+  "icon": "minecraft:iron_block",
+  "requires": [
+    "panel:machines/osmium"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:iron_block",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

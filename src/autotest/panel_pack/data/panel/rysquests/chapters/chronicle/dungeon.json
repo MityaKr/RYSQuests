@@ -1,0 +1,19 @@
+{
+  "id": "panel:chronicle/dungeon",
+  "chapter": "panel:chronicle",
+  "title": "Подземелье",
+  "icon": "minecraft:mossy_cobblestone",
+  "group": "adventure",
+  "tasks": [
+    {
+      "type": "rysquests:visit",
+      "structure": "minecraft:monument"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

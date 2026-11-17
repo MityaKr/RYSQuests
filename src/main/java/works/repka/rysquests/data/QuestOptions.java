@@ -7,15 +7,26 @@ import java.util.List;
 import java.util.Optional;
 import net.minecraft.util.ExtraCodecs;
 
-/** Optional quest fields, kept apart because a record codec takes at most 16 fields. */
+/**
+ * Optional quest fields, kept apart because a record codec takes at most 16 fields.
+ *
+ * @param milestone a milestone of the book, drawn larger; the old {@code size: 2} reads as one
+ * @param draft hidden from players until the author has looked at it, as the FTB Quests import leaves a quest it could not carry
+ *              over in full; the server neither sends it to players nor counts it
+ * @param archived taken out of the book without deleting the file: players never see it and quests that needed it no longer wait
+ */
 public record QuestOptions(
         Layout layout,
-        int size,
+        boolean milestone,
         boolean optional,
         boolean hidden,
         Optional<Repeatable> repeatable,
         boolean page,
-        List<String> tags) {
+        List<String> tags,
+        boolean draft,
+        boolean archived) {
+
+    public static final QuestOptions DEFAULT = new QuestOptions(Layout.DEFAULT, false, false, false, Optional.empty(), false, List.of(), false, false);
 
     public record Repeatable(int cooldownMinutes) {
         static final Codec<Repeatable> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -23,13 +34,48 @@ public record QuestOptions(
         ).apply(instance, Repeatable::new));
     }
 
+    /** The fields as they were before milestones, drafts and the archive: {@code size} 2 is a milestone. */
+    public QuestOptions(Layout layout, int size, boolean optional, boolean hidden, Optional<Repeatable> repeatable, boolean page, List<String> tags) {
+        this(layout, size >= 2, optional, hidden, repeatable, page, tags, false, false);
+    }
+
     public static final MapCodec<QuestOptions> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
             Layout.CODEC.optionalFieldOf("layout", Layout.DEFAULT).forGetter(QuestOptions::layout),
-            ExtraCodecs.POSITIVE_INT.optionalFieldOf("size", 1).forGetter(QuestOptions::size),
+            // Read only: size 2 was the milestone before the field had its name. It is never written again.
+            ExtraCodecs.POSITIVE_INT.optionalFieldOf("size", 1).forGetter(options -> 1),
+            Codec.BOOL.optionalFieldOf("milestone", false).forGetter(QuestOptions::milestone),
             Codec.BOOL.optionalFieldOf("optional", false).forGetter(QuestOptions::optional),
             Codec.BOOL.optionalFieldOf("hidden", false).forGetter(QuestOptions::hidden),
             Repeatable.CODEC.optionalFieldOf("repeatable").forGetter(QuestOptions::repeatable),
             Codec.BOOL.optionalFieldOf("page", false).forGetter(QuestOptions::page),
-            Codec.STRING.listOf().optionalFieldOf("tags", List.of()).forGetter(QuestOptions::tags)
-    ).apply(instance, QuestOptions::new));
+            Codec.STRING.listOf().optionalFieldOf("tags", List.of()).forGetter(QuestOptions::tags),
+            Codec.BOOL.optionalFieldOf("draft", false).forGetter(QuestOptions::draft),
+            Codec.BOOL.optionalFieldOf("archived", false).forGetter(QuestOptions::archived)
+    ).apply(instance, (layout, size, milestone, optional, hidden, repeatable, page, tags, draft, archived) ->
+            new QuestOptions(layout, milestone || size >= 2, optional, hidden, repeatable, page, tags, draft, archived)));
+
+    /** Players see the quest and the server counts it: neither a draft nor in the archive. */
+    public boolean live() {
+        return !draft && !archived;
+    }
+
+    public QuestOptions withLayout(Layout newLayout) {
+        return new QuestOptions(newLayout, milestone, optional, hidden, repeatable, page, tags, draft, archived);
+    }
+
+    public QuestOptions withMilestone(boolean value) {
+        return new QuestOptions(layout, value, optional, hidden, repeatable, page, tags, draft, archived);
+    }
+
+    public QuestOptions withOptional(boolean value) {
+        return new QuestOptions(layout, milestone, value, hidden, repeatable, page, tags, draft, archived);
+    }
+
+    public QuestOptions withDraft(boolean value) {
+        return new QuestOptions(layout, milestone, optional, hidden, repeatable, page, tags, value, archived);
+    }
+
+    public QuestOptions withArchived(boolean value) {
+        return new QuestOptions(layout, milestone, optional, hidden, repeatable, page, tags, draft, value);
+    }
 }

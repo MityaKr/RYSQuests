@@ -2,43 +2,44 @@ package works.repka.rysquests.client.screen;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.data.Guide;
-import works.repka.rysquests.data.Quest;
+import works.repka.ryscore.ui.Draw;
 import works.repka.ryscore.ui.Icons;
+import works.repka.ryscore.ui.Kit;
 
-/** The library of guides, from {@code design/Guides.dc.html}: cards, and the contents of the selected guide on the right. */
+/**
+ * The library of guides (plan, section 3, picture 23): to the right of the topics, a line that says what the guides are with the
+ * filters "Все | Непрочитанные | Новые", the guide to continue reading, and the guides as cards in four columns. The mark "прочитан"
+ * or "новое" sits on the bottom line of a card, so the name gets the whole width. The topic is picked in the column on the left,
+ * which {@link GuidesTab} draws.
+ */
 final class GuideLibraryView implements BookView {
-    private static final int PANEL_W = 330;
     private static final int PAD_X = 20;
-    private static final int PAD_Y = 16;
-    private static final int GAP = 12;
-    private static final int HEADER_H = 38;
-    private static final int SEARCH_W = 286;
-    private static final int CHIP_H = Chips.HEIGHT;
-    private static final int CHIP_ROW = Chips.ROW;
-    private static final int BANNER_H = 54;
+    private static final int PAD_Y = 18;
+    private static final int TOP_H = 28;
+    private static final int GAP = 14;
+    private static final int HERO_H = 72;
     private static final int COLUMNS = 4;
-    private static final int CARD_H = 104;
+    private static final int COLUMNS_COMPACT = 3;
+    private static final int CARD_H = 89;
     private static final int CARD_GAP = 10;
-    private static final int ROW_H = 34;
-    private static final int ROW_STEP = 44;
     private static final int WHEEL = 48;
+
+    private enum Show {
+        ALL, UNREAD, NEW
+    }
 
     private final BookScreen screen;
     private final Guides guides;
     private final Scroll gridScroll = new Scroll();
-    private final Scroll contentsScroll = new Scroll();
-    private int panelLeft;
+    private Show show = Show.ALL;
+    private final Kit.Dropdown topics = new Kit.Dropdown();
 
     GuideLibraryView(BookScreen screen, Guides guides) {
         this.screen = screen;
@@ -53,309 +54,227 @@ final class GuideLibraryView implements BookView {
         return Component.translatable(key).getString();
     }
 
+    /** New: opened by an epoch and not read yet. The library has no other memory of when a guide appeared. */
+    static boolean isNew(Guide guide) {
+        return guide.stage().isPresent() && !ClientProgress.isGuideLocked(guide.id()) && ClientProgress.readPages(guide) == 0;
+    }
+
+    private static boolean unread(Guide guide) {
+        return !ClientProgress.isGuideLocked(guide.id()) && ClientProgress.readPages(guide) < guide.pages().size();
+    }
+
     @Override
     public void render(Ui ui, int x, int y, int w, int h) {
-        panelLeft = x + w - PANEL_W;
-        List<Guide> shown = shown();
-        Guide selected = selected(shown);
-        renderPanel(ui, selected, panelLeft, y, PANEL_W, h);
         float left = x + PAD_X;
-        float inner = panelLeft - x - PAD_X * 2;
-        float cursor = y + PAD_Y;
-        renderHeader(ui, left, cursor, inner);
-        cursor += HEADER_H + GAP;
-        cursor = renderChips(ui, left, cursor, inner) + GAP;
-        Guides.Focus focus = guides.focus();
-        if (focus != null) {
-            renderBanner(ui, focus, left, cursor, inner);
-            cursor += BANNER_H + GAP;
+        float inner = w - PAD_X * 2;
+        float pen = y + PAD_Y;
+        renderTop(ui, left, pen, inner);
+        pen += TOP_H + GAP;
+        Hero hero = hero();
+        if (hero != null) {
+            renderHero(ui, hero, left, pen, inner);
+            pen += HERO_H + GAP;
         }
-        List<String> hint = ui.wrap(tr("rysquests.guides.hint"), inner, 11, Ui.REGULAR, 3);
+        List<Guide> shown = shown();
         float bottom = y + h - PAD_Y;
-        float hintTop = bottom - hint.size() * 14;
-        ui.lines(hint, left, hintTop + hint.size() * 7f, 14, 11, Ui.REGULAR, ui.c("text.dim"));
-        renderGrid(ui, shown, selected, left, cursor, inner, hintTop - GAP - cursor);
+        if (shown.isEmpty()) {
+            renderTopicList(ui);
+            if (show == Show.UNREAD) {
+                EmptyFilter.render(ui, left, pen, inner, bottom - pen, tr("rysquests.guides.empty.unread"), tr("rysquests.guides.empty.show_all"), () -> show = Show.ALL);
+            } else {
+                EmptyFilter.render(ui, left, pen, inner, bottom - pen, tr("rysquests.guides.empty.filter"), tr("rysquests.guides.empty.show_all"), () -> {
+                    show = Show.ALL;
+                    BookState.sectionCategory = "";
+                });
+            }
+            return;
+        }
+        renderGrid(ui, shown, left, pen, inner, bottom - pen, screen.compact() ? COLUMNS_COMPACT : COLUMNS);
+        renderTopicList(ui);
+    }
+
+    private void renderTopicList(Ui ui) {
+        if (!screen.compact()) {
+            topics.close();
+            return;
+        }
+        List<String> keys = new ArrayList<>(List.of(""));
+        List<Kit.Option> options = new ArrayList<>(List.of(new Kit.Option(tr("rysquests.guides.show.all"), guides.all().size())));
+        java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
+        guides.all().forEach(guide -> guide.category().ifPresent(category -> counts.merge(category, 1, Integer::sum)));
+        counts.forEach((key, count) -> {
+            keys.add(key);
+            options.add(new Kit.Option(tr(key), count));
+        });
+        Kit.dropdownList(ui.g, ui.theme, ui.kitHits, topics, options, Math.max(0, keys.indexOf(BookState.sectionCategory)), 120, ui.mouseX / 2, ui.mouseY / 2,
+                index -> BookState.sectionCategory = keys.get(index));
     }
 
     // --- what is listed ---
 
     private List<Guide> shown() {
-        String query = BookState.sectionSearch.trim();
         List<Guide> list = new ArrayList<>();
         for (Guide guide : guides.all()) {
-            boolean category = BookState.sectionCategory.isEmpty() || guide.category().filter(BookState.sectionCategory::equals).isPresent();
-            if (category && (query.isEmpty() || guides.matches(guide, query))) {
+            boolean topic = BookState.sectionCategory.isEmpty() || guide.category().filter(BookState.sectionCategory::equals).isPresent();
+            boolean match = switch (show) {
+                case ALL -> true;
+                case UNREAD -> unread(guide);
+                case NEW -> isNew(guide);
+            };
+            if (topic && match) {
                 list.add(guide);
             }
         }
-        Comparator<Guide> byName = Comparator.comparing(guide -> tr(guide.title()));
-        list.sort(BookState.sectionByName ? byName : Comparator.<Guide, Integer>comparing(guide -> rank(guides.state(guide))).thenComparing(byName));
+        // Closed guides go last; the rest keeps the book's order, which is the author's.
+        list.sort(Comparator.comparing(guide -> ClientProgress.isGuideLocked(guide.id())));
         return list;
     }
 
-    private static int rank(Guides.State state) {
-        return switch (state) {
-            case NEEDED -> 0;
-            case OPEN -> 1;
-            case DONE -> 2;
-            case LOCKED -> 3;
-        };
+    // --- the line on top ---
+
+    private void renderTop(Ui ui, float x, float y, float w) {
+        long fresh = guides.all().stream().filter(GuideLibraryView::isNew).count();
+        List<String> labels = new ArrayList<>(List.of(tr("rysquests.guides.show.all"), tr("rysquests.guides.show.unread")));
+        if (fresh > 0 || show == Show.NEW) {
+            labels.add(text("rysquests.guides.show.new", fresh));
+        }
+        float cw = FilterChips.width(ui, labels, false);
+        if (screen.compact()) {
+            // The topics of the column on the left become a list in this line (plan, section 7).
+            String topic = BookState.sectionCategory.isEmpty() ? tr("rysquests.guides.show.all") : tr(BookState.sectionCategory);
+            Kit.dropdown(ui.g, ui.theme, ui.kitHits, topics, Math.round(x / 2f), Math.round((y + TOP_H / 2f - Kit.DROP_H) / 2f), 120,
+                    text("rysquests.guides.topic_dd", topic), !BookState.sectionCategory.isEmpty(), ui.mouseX / 2, ui.mouseY / 2);
+        } else {
+            ui.labelFit(tr("rysquests.guides.library_line"), x, y + TOP_H / 2f, w - cw - 12, 12.5f, Ui.REGULAR, ui.c("text.muted"));
+        }
+        FilterChips.render(ui, x + w - cw, y, labels, Math.min(show.ordinal(), labels.size() - 1), index -> {
+            show = Show.values()[index];
+            gridScroll.reset();
+        }, false);
+    }
+
+    /** The guide to go on with: the page an open quest points at, or else the last guide left half read. */
+    private record Hero(Guide guide, int page, @Nullable String quest) {
     }
 
     @Nullable
-    private static Guide selected(List<Guide> shown) {
-        Guide chosen = BookState.guide == null ? null : ClientBook.current().guides().get(BookState.guide);
-        return chosen != null ? chosen : shown.isEmpty() ? null : shown.getFirst();
-    }
-
-    // --- the column of cards ---
-
-    private void renderHeader(Ui ui, float x, float y, float w) {
-        ui.label(tr("rysquests.guides.title"), x, y + 12.5f, 19, Ui.DISPLAY, ui.c("text.primary"));
-        int pages = guides.all().stream().mapToInt(guide -> guide.pages().size()).sum();
-        int read = guides.all().stream().mapToInt(ClientProgress::readPages).sum();
-        ui.label(text("rysquests.guides.summary", Ui.counted("rysquests.plural.guide", guides.all().size()), Ui.counted("rysquests.plural.page", pages), read),
-                x, y + 25 + 7, 11.5f, Ui.REGULAR, ui.c("text.muted"));
-        int searchW = Math.round(Math.min(SEARCH_W, w / 2f));
-        screen.renderSectionSearch(ui, x + w, y + HEADER_H / 2f, searchW, null);
-        if (net.minecraft.client.Minecraft.getInstance().player.hasPermissions(2)) {
-            float size = 34;
-            float plusX = x + w - searchW - 8 - size;
-            float plusY = y + HEADER_H / 2f - size / 2f;
-            boolean over = ui.over(plusX, plusY, size, size);
-            ui.box(plusX, plusY, size, size, 9, over ? ui.c("slot.hover") : ui.c("button.bg"), ui.c("button.border"));
-            ui.icon(Icons.Shape.PLUS, plusX + 11, plusY + 11, 12, ui.c("button.fg"));
-            ui.tooltipIfOver(plusX, plusY, size, size, Component.translatable("rysquests.editor.new_guide"));
-            ui.hit(plusX, plusY, size, size, screen::newGuide);
+    private Hero hero() {
+        Guides.Focus focus = guides.focus();
+        if (focus != null) {
+            return new Hero(focus.guide(), focus.page(), tr(focus.quest().title()));
         }
-    }
-
-    /** @return the y below the chips */
-    private float renderChips(Ui ui, float x, float y, float w) {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        Map<String, Integer> named = new TreeMap<>();
-        for (Guide guide : guides.all()) {
-            guide.category().ifPresent(category -> named.merge(category, 1, Integer::sum));
+        Guide last = BookState.guide == null ? null : ClientBook.current().guides().get(BookState.guide);
+        if (last != null && !ClientProgress.isGuideLocked(last.id()) && unread(last) && ClientProgress.readPages(last) > 0) {
+            return new Hero(last, BookState.firstUnread(last), null);
         }
-        counts.put("", guides.all().size());
-        named.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed().thenComparing(entry -> tr(entry.getKey())))
-                .forEach(entry -> counts.put(entry.getKey(), entry.getValue()));
-        List<Chips.Chip> chips = new ArrayList<>();
-        counts.forEach((key, count) -> chips.add(new Chips.Chip(key, key.isEmpty() ? tr("rysquests.guides.category_all") : tr(key), count)));
-        float[] end = Chips.render(ui, chips, BookState.sectionCategory, key -> BookState.sectionCategory = key, x, y, w);
-        float pen = end[0];
-        float row = end[1];
-        String sort = tr(BookState.sectionByName ? "rysquests.guides.sort_name" : "rysquests.guides.sort_needed");
-        float sortW = ui.width(sort, 12, Ui.REGULAR) + 24 + 14;
-        if (pen + sortW > x + w) {
-            row += CHIP_ROW;
+        return null;
+    }
+
+    private void renderHero(Ui ui, Hero hero, float x, float y, float w) {
+        ui.box(x, y, w, HERO_H, 14, ui.c("card.bg"), ui.c("card.border"));
+        float cy = y + HERO_H / 2f;
+        float pen = x + 14;
+        ui.box(pen, cy - 22, 44, 44, 6, ui.c("slot.bg"), ui.c("slot.border"));
+        ui.item(icon(hero.guide), pen + 6, cy - 16, 32);
+        pen += 44 + 14;
+        String go = tr("rysquests.guides.read_on");
+        float bw = ui.buttonWidth(go, 12.5f, Ui.SEMIBOLD, 14);
+        float bx = x + w - 14 - bw;
+        ui.button(go, bx, cy - 17, bw, 34, 9, 12.5f, Ui.SEMIBOLD, 14, Ui.Style.ACCENT, () -> BookState.openGuide(hero.guide, hero.page));
+        float textW = bx - 14 - pen;
+        Guide.Page page = hero.guide.pages().get(Math.clamp(hero.page, 0, hero.guide.pages().size() - 1));
+        String title = text("rysquests.guides.hero_title", tr(hero.guide.title()), hero.page + 1, tr(page.title()));
+        int read = ClientProgress.readPages(hero.guide);
+        String sub = text("rysquests.count.read", read, hero.guide.pages().size());
+        if (hero.quest != null) {
+            sub += " · " + text("rysquests.guides.for_quest_line", hero.quest);
         }
-        float sortX = x + w - sortW;
-        ui.box(sortX, row, sortW, CHIP_H, CHIP_H / 2f, ui.over(sortX, row, sortW, CHIP_H) ? ui.c("button.bg") : 0, ui.c("panel.border"));
-        ui.label(sort, sortX + 12, row + CHIP_H / 2f, 12, Ui.REGULAR, ui.c("text.muted"));
-        ui.icon(Icons.Shape.CHEVRON_DOWN, sortX + sortW - 21, row + CHIP_H / 2f - 4.5f, 9, ui.c("text.muted"));
-        ui.hit(sortX, row, sortW, CHIP_H, () -> BookState.sectionByName = !BookState.sectionByName);
-        return row + CHIP_H;
+        float top = cy - (Ui.lineHeight(11) + 3 + Ui.lineHeight(14) + 1 + Ui.lineHeight(12)) / 2f;
+        ui.caps(tr("rysquests.guides.continue"), pen, top + Ui.lineHeight(11) / 2f, ui.c("text.dim"));
+        top += Ui.lineHeight(11) + 3;
+        ui.labelFit(title, pen, top + Ui.lineHeight(14) / 2f, textW, 14, Ui.SEMIBOLD, ui.c("text.primary"));
+        top += Ui.lineHeight(14) + 1;
+        ui.labelFit(sub, pen, top + Ui.lineHeight(12) / 2f, textW, 12, Ui.REGULAR, ui.c("text.muted"));
     }
 
-    private void renderBanner(Ui ui, Guides.Focus focus, float x, float y, float w) {
-        ui.box(x, y, w, BANNER_H, 12, ui.warmBorder(0.11f), ui.warmBorder(0.34f));
-        float cy = y + BANNER_H / 2f;
-        String caption = tr("rysquests.guides.for_quest");
-        float pen = x + 15;
-        ui.caps(caption, pen, cy, ui.c("accent"));
-        pen += ui.capsWidth(caption) + 12;
-        ui.item(icon(focus.guide()), pen, cy - 12, 24);
-        pen += 24 + 12;
-        String open = tr("rysquests.guides.open_page");
-        float buttonW = ui.buttonWidth(open, 12, Ui.SEMIBOLD, 12);
-        float buttonX = x + w - 15 - buttonW;
-        ui.button(open, buttonX, cy - 15, buttonW, 30, 8, 12, Ui.SEMIBOLD, 12, Ui.Style.ACCENT, () -> BookState.openGuide(focus.guide(), focus.page()));
-        Guide.Page page = focus.guide().pages().get(focus.page());
-        String where = text("rysquests.guides.page_ref", tr(focus.guide().title()), focus.page() + 1, tr(page.title()));
-        String why = text("rysquests.guides.needed_for", tr(focus.quest().title()));
-        float[] widths = Ui.shrink(buttonX - 12 - pen, 12, new float[] {ui.width(where, 13, Ui.REGULAR), ui.width(why, 12, Ui.REGULAR)},
-                new float[] {ui.minWidth(where, 13, Ui.REGULAR), ui.minWidth(why, 12, Ui.REGULAR)});
-        ui.lines(ui.wrap(where, widths[0] + 1, 13, Ui.REGULAR, 2), pen, cy, 16, 13, Ui.REGULAR, ui.c("text.primary"));
-        ui.lines(ui.wrap(why, widths[1] + 1, 12, Ui.REGULAR, 2), pen + widths[0] + 12, cy, 15, 12, Ui.REGULAR, ui.c("button.fg"));
-    }
+    // --- the cards ---
 
-    private void renderGrid(Ui ui, List<Guide> shown, @Nullable Guide selected, float x, float y, float w, float h) {
-        float cardW = (w - (COLUMNS - 1) * CARD_GAP) / COLUMNS;
-        int rows = (shown.size() + COLUMNS - 1) / COLUMNS;
+    private void renderGrid(Ui ui, List<Guide> shown, float x, float y, float w, float h, int columns) {
+        float cardW = (w - (columns - 1) * CARD_GAP) / columns;
+        int rows = (shown.size() + columns - 1) / columns;
         gridScroll.content(rows * CARD_H + Math.max(0, rows - 1) * CARD_GAP, Math.round(h));
         int offset = gridScroll.offset();
         ui.clip(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
         for (int i = 0; i < shown.size(); i++) {
-            float cy = y + (i / COLUMNS) * (CARD_H + CARD_GAP) - offset;
+            float cy = y + (i / columns) * (CARD_H + CARD_GAP) - offset;
             if (cy + CARD_H > y && cy < y + h) {
-                renderCard(ui, shown.get(i), shown.get(i) == selected, x + (i % COLUMNS) * (cardW + CARD_GAP), cy, cardW);
+                Guide guide = shown.get(i);
+                boolean locked = ClientProgress.isGuideLocked(guide.id());
+                GridCard.of("").off(locked).onClick(locked ? null : () -> BookState.openGuide(guide, BookState.firstUnread(guide)))
+                        .body((u, ix, iy, iw, ih) -> renderCard(u, guide, locked, ix, iy, iw, ih))
+                        .render(ui, x + (i % columns) * (cardW + CARD_GAP), cy, cardW, CARD_H);
             }
         }
         ui.unclip();
     }
 
-    private void renderCard(Ui ui, Guide guide, boolean selected, float x, float y, float w) {
-        Guides.State state = guides.state(guide);
-        ui.box(x, y, w, CARD_H, 12, ui.c("card.bg"), state == Guides.State.NEEDED ? ui.warmBorder(0.34f) : ui.c("panel.border"));
-        if (selected) {
-            ui.strokeBold(x, y, w, CARD_H, 12, ui.c("accent"));
-        }
-        float left = x + 13;
-        float inner = w - 26;
-        ui.cell(icon(guide), left, y + 13, 34, 34, 9, 20, ui.c("slot.bg"), ui.c("card.border"));
-        float textX = left + 34 + 10;
-        float textW = inner - 44;
-        ui.labelFitTip(tr(guide.title()), textX, y + 13 + 9, textW, 13, Ui.SEMIBOLD, ui.c("text.primary"));
-        ui.labelFit(subtitle(guide), textX, y + 13 + 16 + 7 + 1, textW, 11, Ui.REGULAR, ui.c("text.muted"));
+    private static void renderCard(Ui ui, Guide guide, boolean locked, float x, float y, float w, float h) {
+        ui.box(x, y, 38, 38, 6, ui.c("slot.bg"), ui.c("slot.border"));
+        ui.item(icon(guide), x + 5, y + 5, 28);
+        float textX = x + 38 + 10;
+        float textW = w - 48;
+        float block = Ui.lineHeight(13) + Ui.lineHeight(11.5f);
+        float top = y + (38 - block) / 2f;
+        ui.labelFit(tr(guide.title()), textX, top + Ui.lineHeight(13) / 2f, textW, 13, Ui.SEMIBOLD, ui.c("text.primary"));
+        String sub = guide.category().map(GuideLibraryView::tr).orElse("");
+        ui.labelFit(sub, textX, top + Ui.lineHeight(13) + Ui.lineHeight(11.5f) / 2f, textW, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+        float cy = y + h - 9;
         int read = ClientProgress.readPages(guide);
-        String count = read + " / " + guide.pages().size();
-        float countW = ui.width(count, 11, Ui.REGULAR);
-        float barY = y + 13 + 34 + 8;
-        ui.bar(left, barY + 5, inner - countW - 8, 4, 2, (float) read / guide.pages().size(), barColor(ui, state));
-        ui.labelRight(count, left + inner, barY + 7, 11, Ui.REGULAR, ui.c("text.muted"));
-        ui.labelFit(tag(guide, state), left, barY + 14 + 8 + 7, inner, 11, Ui.REGULAR, tagColor(ui, state));
-        if (state == Guides.State.LOCKED) {
-            ui.veil(x, y, w, CARD_H, 12, ui.c("panel.bg"), 0.45f);
+        int pages = guide.pages().size();
+        if (locked) {
+            ui.lock(x, cy - 6, 12, ui.c("text.muted"));
+            ui.labelFit(guide.stageTitle().map(stage -> text("rysquests.guides.locked_until", tr(stage))).orElseGet(() -> tr("rysquests.guides.locked")),
+                    x + 14, cy, w - 14, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+            return;
         }
-        ui.hit(x, y, w, CARD_H, () -> {
-            if (selected && state != Guides.State.LOCKED) {
-                BookState.openGuide(guide, BookState.firstUnread(guide));
-            } else {
-                BookState.guide = guide.id();
-            }
-        });
-    }
-
-    private static String subtitle(Guide guide) {
-        List<String> parts = new ArrayList<>();
-        guide.category().ifPresent(category -> parts.add(tr(category)));
-        guide.stageTitle().ifPresent(stage -> parts.add(tr(stage)));
-        return String.join(" · ", parts);
-    }
-
-    private static int barColor(Ui ui, Guides.State state) {
-        return ui.c(switch (state) {
-            case NEEDED -> "accent";
-            case DONE -> "state.ok";
-            case OPEN -> "chip.mod.fg";
-            case LOCKED -> "text.dim";
-        });
-    }
-
-    private static int tagColor(Ui ui, Guides.State state) {
-        return ui.c(switch (state) {
-            case NEEDED -> "accent";
-            case DONE -> "state.ok";
-            case OPEN -> "text.muted";
-            case LOCKED -> "text.dim";
-        });
-    }
-
-    private static String tag(Guide guide, Guides.State state) {
-        return switch (state) {
-            case NEEDED -> tr("rysquests.guides.needed");
-            case DONE -> tr("rysquests.guides.read");
-            case OPEN -> tr("rysquests.guides.available");
-            case LOCKED -> guide.stageTitle().map(stage -> text("rysquests.guides.locked_until", tr(stage))).orElseGet(() -> tr("rysquests.guides.locked"));
-        };
+        String count = read > 0 ? text("rysquests.count.read", read, pages) : Plural.full("rysquests.plural.page_short", pages);
+        ui.label(count, x, cy, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+        float right = x + w;
+        if (read >= pages) {
+            String tag = tr("rysquests.guides.tag_read");
+            float tw = ui.width(tag, 11, Ui.SEMIBOLD) + 14 + 14;
+            ui.fill(right - tw, cy - 9, tw, 18, 5, Draw.alpha(ui.c("state.ok"), 0.12f));
+            ui.icon(Icons.Shape.CHECK, right - tw + 7, cy - 5, 10, ui.c("state.ok"));
+            ui.label(tag, right - tw + 21, cy, 11, Ui.SEMIBOLD, ui.c("state.ok"));
+        } else if (isNew(guide)) {
+            String tag = tr("rysquests.guides.tag_new");
+            float tw = ui.width(tag, 11, Ui.SEMIBOLD) + 14;
+            ui.box(right - tw, cy - 9, tw, 18, 5, ui.c("button.bg"), ui.c("button.border"));
+            ui.label(tag, right - tw + 7, cy, 11, Ui.SEMIBOLD, ui.c("text.primary"));
+        } else {
+            float countW = ui.width(count, 11.5f, Ui.REGULAR);
+            float barW = Math.min(70, w - countW - 12);
+            ui.bar(right - barW, cy - 2, barW, 4, 2, (float) read / Math.max(1, pages), ui.c("state.ok"));
+        }
     }
 
     static ItemStack icon(Guide guide) {
         return guide.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
     }
 
-    // --- the contents on the right ---
-
-    private void renderPanel(Ui ui, @Nullable Guide guide, int x, int y, int w, int h) {
-        ui.fillCorners(x, y, w, h, 13, ui.c("card.bg"), false, true, true, false);
-        ui.rect(x, y, 1, h, ui.c("panel.border"));
-        if (guide == null) {
-            return;
+    @Override
+    public void scroll(double mouseX, double mouseY, double amount) {
+        if (!topics.scrolled(mouseX / 2, mouseY / 2, amount)) {
+            gridScroll.wheel(amount, WHEEL);
         }
-        float left = x + 17;
-        float inner = w - 33;
-        float top = y + 16;
-        ui.cell(icon(guide), left, top, 40, 40, 10, 24, ui.c("slot.bg"), ui.c("card.border"));
-        ui.labelFit(tr(guide.title()), left + 52, top + 11, inner - 52, 17, Ui.DISPLAY, ui.c("text.primary"));
-        ui.labelFit(text("rysquests.guides.panel_summary", Ui.counted("rysquests.plural.page", guide.pages().size()), ClientProgress.readPages(guide), guides.minutes(guide)),
-                left + 52, top + 22 + 7, inner - 52, 11.5f, Ui.REGULAR, ui.c("text.muted"));
-        float listTop = top + 40 + 10;
-        ui.caps(tr("rysquests.guides.toc"), left, listTop + 7, ui.c("text.dim"));
-        listTop += 14 + 10;
-        String related = related(guide);
-        float bottom = y + h - 16;
-        if (related != null) {
-            List<String> lines = ui.wrap(related, inner - 26, 12, Ui.REGULAR, 3);
-            float boxH = 26 + 14 + 6 + lines.size() * 15;
-            float boxY = bottom - boxH;
-            ui.box(left, boxY, inner, boxH, 10, ui.c("status.bg"), ui.c("status.border"));
-            ui.label(tr("rysquests.guides.related"), left + 13, boxY + 11 + 7, 11, Ui.REGULAR, ui.c("text.muted"));
-            ui.lines(lines, left + 13, boxY + 11 + 14 + 6 + lines.size() * 7.5f, 15, 12, Ui.REGULAR, ui.c("button.fg"));
-            bottom = boxY - 10;
-        }
-        float listH = bottom - listTop;
-        contentsScroll.content(guide.pages().size() * ROW_STEP - 10, Math.round(listH));
-        int offset = contentsScroll.offset();
-        boolean locked = ClientProgress.isGuideLocked(guide.id());
-        int questPage = guides.questPage(guide);
-        ui.clip(Math.round(left), Math.round(listTop), Math.round(inner), Math.round(listH));
-        for (int i = 0; i < guide.pages().size(); i++) {
-            float rowY = listTop + i * ROW_STEP - offset;
-            if (rowY + ROW_H > listTop && rowY < listTop + listH) {
-                renderRow(ui, guide, i, i == questPage, locked, left, rowY, inner);
-            }
-        }
-        ui.unclip();
-    }
-
-    private void renderRow(Ui ui, Guide guide, int index, boolean forQuest, boolean locked, float x, float y, float w) {
-        Guide.Page page = guide.pages().get(index);
-        boolean read = ClientProgress.isRead(guide, page);
-        if (forQuest) {
-            ui.box(x, y, w, ROW_H, 8, ui.warmBorder(0.11f), ui.warmBorder(0.34f));
-        } else if (!locked && ui.over(x, y, w, ROW_H)) {
-            ui.fill(x, y, w, ROW_H, 8, ui.c("button.bg"));
-        }
-        float cy = y + ROW_H / 2f;
-        ui.box(x + 11, cy - 9, 18, 18, 5, read ? ui.c("state.ok") : ui.c("slot.bg"), ui.c("card.border"));
-        if (read) {
-            ui.check(x + 14, cy - 6, 12, ui.c("accent.text"));
-        }
-        String note = forQuest ? tr("rysquests.guides.for_quest_note") : "";
-        float noteW = note.isEmpty() ? 0 : ui.width(note, 10.5f, Ui.REGULAR) + 10;
-        ui.labelFitTip((index + 1) + " · " + tr(page.title()), x + 39, cy, w - 39 - 11 - noteW, 12.5f, Ui.REGULAR, ui.c(forQuest ? "text.primary" : read ? "text.muted" : "text.body"));
-        if (!note.isEmpty()) {
-            ui.labelRight(note, x + w - 11, cy, 10.5f, Ui.REGULAR, ui.c("accent"));
-        }
-        if (locked) {
-            ui.veil(x, y, w, ROW_H, 8, ui.c("card.bg"), 0.45f);
-        } else {
-            ui.hit(x, y, w, ROW_H, () -> BookState.openGuide(guide, index));
-        }
-    }
-
-    /** Which chapters have quests that point at the guide. */
-    @Nullable
-    private String related(Guide guide) {
-        Map<Integer, Integer> perChapter = new TreeMap<>();
-        for (Quest quest : guides.referencing(guide.id())) {
-            ResourceLocation chapter = quest.chapter().orElse(null);
-            if (BookScreen.inStory(quest) && BookScreen.chapterNumber(chapter) > 0) {
-                perChapter.merge(BookScreen.chapterNumber(chapter), 1, Integer::sum);
-            }
-        }
-        if (perChapter.isEmpty()) {
-            return null;
-        }
-        List<String> parts = new ArrayList<>();
-        perChapter.forEach((number, count) -> parts.add(text("rysquests.guides.related_chapter", count, Ui.roman(number))));
-        return text("rysquests.guides.related_quests", String.join(", ", parts));
     }
 
     @Override
-    public void scroll(double mouseX, double mouseY, double amount) {
-        (mouseX >= panelLeft ? contentsScroll : gridScroll).wheel(amount, WHEEL);
+    public boolean key(int key) {
+        return topics.keyPressed(key);
+    }
+
+    void showForTest(int filter) {
+        show = Show.values()[filter];
     }
 }

@@ -1,0 +1,23 @@
+{
+  "id": "panel:current/mv_accumulator",
+  "chapter": "panel:current",
+  "title": "Накопитель СН",
+  "icon": "minecraft:respawn_anchor",
+  "requires": [
+    "panel:current/electrum_ingot"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:respawn_anchor",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

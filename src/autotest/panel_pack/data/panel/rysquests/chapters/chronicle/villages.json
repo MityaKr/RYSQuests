@@ -1,0 +1,19 @@
+{
+  "id": "panel:chronicle/villages",
+  "chapter": "panel:chronicle",
+  "title": "Деревни",
+  "icon": "minecraft:bell",
+  "group": "adventure",
+  "tasks": [
+    {
+      "type": "rysquests:visit",
+      "structure": "minecraft:village_plains"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 25
+    }
+  ]
+}

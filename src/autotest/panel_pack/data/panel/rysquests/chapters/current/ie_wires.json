@@ -1,0 +1,24 @@
+{
+  "id": "panel:current/ie_wires",
+  "chapter": "panel:current",
+  "title": "Провода IE",
+  "icon": "minecraft:chain",
+  "requires": [
+    "panel:current/copper_coil"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:chain",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 10
+    }
+  ],
+  "optional": true
+}

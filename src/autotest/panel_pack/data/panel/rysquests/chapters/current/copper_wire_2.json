@@ -1,0 +1,23 @@
+{
+  "id": "panel:current/copper_wire_2",
+  "chapter": "panel:current",
+  "title": "Медный провод",
+  "icon": "minecraft:copper_ingot",
+  "requires": [
+    "panel:current/copper_wire"
+  ],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:copper_ingot",
+      "count": 8,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "points": 10
+    }
+  ]
+}

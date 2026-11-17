@@ -28,6 +28,7 @@ public final class BookParser {
     private static final String CHAPTER_FILE = "_chapter";
     private static final String QUESTS_FILE = "_quests";
     private static final String BOOK_FILE = "book";
+    private static final String LAYOUT_FILE = "layout";
     private static final String MIGRATIONS_FILE = "migrations";
 
     private BookParser() {
@@ -107,7 +108,18 @@ public final class BookParser {
                 decode(Migration.FILE_CODEC, json, ops, id, issues).ifPresent(migrations::addAll);
             }
         });
-        return new RawBook(meta, chapters, quests, guides, sections, offers, achievements, structures, issues, migrations);
+        return new RawBook(meta, chapters, quests, guides, sections, offers, achievements, structures, issues, migrations, parseLayout(sorted, ops, issues));
+    }
+
+    /** The baked map lies beside the book's settings: the layout of the namespace whose {@code book.json} is used, or the first one. */
+    private static Optional<BookLayout> parseLayout(Map<ResourceLocation, JsonElement> files, DynamicOps<JsonElement> ops, List<Issue> issues) {
+        List<ResourceLocation> layouts = files.keySet().stream().filter(id -> LAYOUT_FILE.equals(id.getPath())).toList();
+        if (layouts.isEmpty()) {
+            return Optional.empty();
+        }
+        String bookNamespace = files.keySet().stream().filter(id -> BOOK_FILE.equals(id.getPath())).map(ResourceLocation::getNamespace).findFirst().orElse(null);
+        ResourceLocation chosen = layouts.stream().filter(id -> id.getNamespace().equals(bookNamespace)).findFirst().orElse(layouts.getFirst());
+        return decode(BookLayout.CODEC, files.get(chosen), ops, chosen, issues);
     }
 
     /** Each card with a condition becomes a hidden quest in a chapter of its own section, out of sight of the story. */
@@ -138,7 +150,7 @@ public final class BookParser {
             }
             decode(TaskDef.CODEC, counted, ops, file, issues).ifPresent(parsed -> quests.add(new Quest(achievement.questId(tier), Optional.of(achievement.holderChapter()), Optional.empty(), achievement.titleKey(),
                     Optional.empty(), Optional.empty(), achievement.icon(), List.of(), RequiresMode.ALL, Optional.empty(), List.of(parsed), tier.rewards(), Optional.empty(),
-                    new QuestOptions(Layout.DEFAULT, 1, false, true, Optional.empty(), false, List.of()))));
+                    new QuestOptions(Layout.DEFAULT, 1, false, true, Optional.empty(), false, List.of()).withArchived(achievement.archived()))));
         }
     }
 

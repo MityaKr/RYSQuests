@@ -82,7 +82,7 @@ public final class QuestEdits {
     }
 
     private static QuestOptions withLayout(QuestOptions options, Layout layout) {
-        return new QuestOptions(layout, options.size(), options.optional(), options.hidden(), options.repeatable(), options.page(), options.tags());
+        return options.withLayout(layout);
     }
 
     public static Quest moved(Quest quest, int x, int y) {
@@ -94,7 +94,7 @@ public final class QuestEdits {
         return withOptions(quest, withLayout(quest.options(), Layout.DEFAULT));
     }
 
-    private static Quest withOptions(Quest q, QuestOptions options) {
+    public static Quest withOptions(Quest q, QuestOptions options) {
         return new Quest(q.id(), q.chapter(), q.group(), q.title(), q.subtitle(), q.text(), q.icon(), q.requires(), q.requiresMode(), q.stageRequired(), q.tasks(), q.rewards(), q.guide(), options);
     }
 
@@ -120,6 +120,51 @@ public final class QuestEdits {
 
     public static Quest withRewards(Quest q, List<works.repka.rysquests.data.RewardDef> rewards) {
         return new Quest(q.id(), q.chapter(), q.group(), q.title(), q.subtitle(), q.text(), q.icon(), q.requires(), q.requiresMode(), q.stageRequired(), q.tasks(), List.copyOf(rewards), q.guide(), q.options());
+    }
+
+    /** The type of a quest as the editor's one switch shows it (picture 33): main, side or milestone. */
+    public enum Kind {
+        MAIN, SIDE, MILESTONE
+    }
+
+    public static Kind kind(Quest quest) {
+        return quest.options().milestone() ? Kind.MILESTONE : quest.options().optional() ? Kind.SIDE : Kind.MAIN;
+    }
+
+    public static Quest withKind(Quest quest, Kind kind) {
+        QuestOptions options = quest.options().withMilestone(kind == Kind.MILESTONE).withOptional(kind == Kind.SIDE);
+        return withOptions(quest, options);
+    }
+
+    /** Into the archive or back: players no longer see it, its progress stays (plan, section 6). */
+    public static Quest withArchived(Quest quest, boolean archived) {
+        return withOptions(quest, quest.options().withArchived(archived));
+    }
+
+    public static Quest withHidden(Quest quest, boolean hidden) {
+        QuestOptions o = quest.options();
+        return withOptions(quest, new QuestOptions(o.layout(), o.milestone(), o.optional(), hidden, o.repeatable(), o.page(), o.tags(), o.draft(), o.archived()));
+    }
+
+    public static Quest withRepeatable(Quest quest, boolean repeatable) {
+        QuestOptions o = quest.options();
+        return withOptions(quest, new QuestOptions(o.layout(), o.milestone(), o.optional(), o.hidden(), repeatable ? Optional.of(new QuestOptions.Repeatable(0)) : Optional.empty(),
+                o.page(), o.tags(), o.draft(), o.archived()));
+    }
+
+    /** A new quest without a place of its own: the map puts it where its links say (quests are not moved by hand any more). */
+    public static Quest newQuest(ResourceLocation id, ResourceLocation chapter, Kind kind, List<ResourceLocation> requires) {
+        Quest quest = new Quest(id, Optional.of(chapter), Optional.empty(), titleKey(id), Optional.empty(), Optional.empty(), Optional.empty(), List.copyOf(requires),
+                RequiresMode.ALL, Optional.empty(), List.of(), List.of(), Optional.empty(), QuestOptions.DEFAULT);
+        return withKind(quest, kind);
+    }
+
+    /**
+     * Quests that would wait for each other after this dependency is added, as the words of the refusal need them (picture 33c):
+     * the quest that already stands before, which is the dependency itself when the chain is direct.
+     */
+    public static boolean dependsOn(Map<ResourceLocation, Quest> quests, ResourceLocation quest, ResourceLocation earlier) {
+        return wouldCycle(quests, earlier, quest);
     }
 
     /** Whether a quest needing this dependency would end up waiting for itself. */

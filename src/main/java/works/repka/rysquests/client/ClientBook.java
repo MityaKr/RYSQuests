@@ -13,7 +13,9 @@ import works.repka.rysquests.data.BookAssets;
 import works.repka.rysquests.data.BookSerializer;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.integration.ftbq.ImportedPack;
+import net.neoforged.neoforge.network.PacketDistributor;
 import works.repka.rysquests.network.BookSyncPayload;
+import works.repka.rysquests.network.PublishPayload;
 
 /** The client's copy of the book. Updated only from packets. */
 public final class ClientBook {
@@ -21,13 +23,53 @@ public final class ClientBook {
     private static final AtomicInteger GENERATION = new AtomicInteger();
 
     private static volatile QuestBook current = QuestBook.EMPTY;
+    private static volatile boolean received;
     private static boolean reloadedForImport;
 
     private ClientBook() {
     }
 
     public static QuestBook current() {
-        return current;
+        QuestBook test = testBook;
+        return test != null ? test : current;
+    }
+
+    /**
+     * Whether the server has sent the book since joining. Until then the book is loading, which is not the same as an empty book:
+     * a player of a closed book gets an empty one (plan, pictures 04 and 04b).
+     */
+    public static boolean received() {
+        Boolean test = testReceived;
+        return test != null ? test : received;
+    }
+
+    @org.jetbrains.annotations.Nullable
+    private static volatile QuestBook testBook;
+    @org.jetbrains.annotations.Nullable
+    private static volatile Boolean testReceived;
+
+    /**
+     * Makes the client see another book, or "still loading", until called with nulls: the autotest's way to the empty and loading
+     * states of the book in a world that has a book.
+     */
+    public static void overrideForTest(@org.jetbrains.annotations.Nullable QuestBook book, @org.jetbrains.annotations.Nullable Boolean arrived) {
+        testBook = book;
+        testReceived = arrived;
+    }
+
+    /** Opens the book to players or closes it again; only an operator may, and the server answers with an editor result. */
+    public static void requestPublish(boolean open) {
+        PacketDistributor.sendToServer(new PublishPayload(open));
+    }
+
+    /** Sets the form of the map, {@link works.repka.rysquests.data.MapForm#AUTO} to leave it to the rule; only an operator may. */
+    public static void requestMapForm(works.repka.rysquests.data.MapForm form) {
+        PacketDistributor.sendToServer(new works.repka.rysquests.network.MapFormPayload(form));
+    }
+
+    /** Makes a book from scratch, closed to players: "Создать книгу" (picture 09a). Refused when the book already has quests. */
+    public static void requestNewBook(String title, java.util.Optional<net.minecraft.resources.ResourceLocation> icon, works.repka.rysquests.data.MapForm form) {
+        PacketDistributor.sendToServer(new works.repka.rysquests.network.NewBookPayload(title, icon, form));
     }
 
     /** Decodes in the background; a newer packet that arrives meanwhile wins over this one. */
@@ -39,9 +81,11 @@ public final class ClientBook {
                         LOGGER.error("Could not decode the quest book", failure);
                     } else if (generation == GENERATION.get()) {
                         current = book;
+                        received = true;
                         ClientAssets.apply(book.assets());
                         LOGGER.info("Received book: {} chapters, {} quests", book.chapters().size(), book.quests().size());
                         reloadForNewTranslations(book);
+                        ClientLayout.onBook(book);
                     }
                 }, Minecraft.getInstance());
     }
@@ -58,6 +102,7 @@ public final class ClientBook {
     static void clear() {
         GENERATION.incrementAndGet();
         current = QuestBook.EMPTY;
+        received = false;
         ClientAssets.apply(BookAssets.EMPTY);
     }
 }

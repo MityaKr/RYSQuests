@@ -71,7 +71,7 @@ public final class RYSQuests {
             MigrationRunner.applyNew(event.getPlayerList().getServer());
         }
         event.getRelevantPlayers().forEach(player -> {
-            PacketDistributor.sendToPlayer(player, BookHolder.current().payload());
+            PacketDistributor.sendToPlayer(player, BookHolder.current().payloadFor(player));
             ProgressService.sendAll(player);
         });
     }

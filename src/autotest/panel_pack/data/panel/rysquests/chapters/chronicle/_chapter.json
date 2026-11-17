@@ -1,0 +1,25 @@
+{
+  "id": "panel:chronicle",
+  "title": "Летопись инженера",
+  "icon": "minecraft:golden_helmet",
+  "subtitle": "Приключения, измерения и коллекции. Здесь ничего не запирает.",
+  "off_map": true,
+  "groups": [
+    {
+      "id": "adventure",
+      "title": "Приключения"
+    },
+    {
+      "id": "dims",
+      "title": "Измерения"
+    },
+    {
+      "id": "showcase",
+      "title": "Все виды задач"
+    },
+    {
+      "id": "repeat",
+      "title": "Поставки"
+    }
+  ]
+}

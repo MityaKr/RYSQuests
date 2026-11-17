@@ -69,14 +69,32 @@ neoForge {
         autotest {
             client()
             // JEI and Create are in run-int/mods, copied from a pack, so that nothing else has to load them.
-            gameDirectory = project.file(project.findProperty('autotest') == 'integrations' ? 'run-int' : 'run')
+            // 'dock' looks at the panel of buttons beside FTB Library (and RYScope) from run-ftb/mods, picture 02 and 02b.
+            gameDirectory = project.file(project.findProperty('autotest') == 'integrations' ? 'run-int' : project.findProperty('autotest') == 'dock' ? 'run-ftb' : 'run')
             // 'layout' reads a copy of the RepYS book from run-layout/pack, made by tools/layout_pack.py.
-            systemProperty 'rysquests.dev.examplePack', project.file(project.findProperty('autotest') == 'layout' ? 'run-layout/pack' : project.findProperty('autotest') == 'integrations' ? 'src/autotest/integration_pack' : (project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : ((project.findProperty('autotest') ?: '').startsWith('guides_design') || (project.findProperty('autotest') ?: '').startsWith('sections_design')) ? 'src/autotest/guides_pack' : 'examples/example_pack').absolutePath
+            // 'book_editor' makes a book from nothing: no example pack. 'quest_editor', 'editor' and 'constructor' run the same scenario.
+            systemProperty 'rysquests.dev.examplePack', ((project.findProperty('autotest') ?: '').startsWith('book_editor') || project.findProperty('autotest') in ['quest_editor', 'editor', 'constructor']) ? '' : project.file(project.findProperty('autotest') == 'layout' ? 'run-layout/pack' : project.findProperty('autotest') == 'integrations' ? 'src/autotest/integration_pack' : (project.findProperty('autotest') ?: '').startsWith('design') ? 'src/autotest/design_pack' : ((project.findProperty('autotest') ?: '').startsWith('panel') || project.findProperty('autotest') == 'themes') ? 'src/autotest/panel_pack' : ((project.findProperty('autotest') ?: '').startsWith('guides_design') || (project.findProperty('autotest') ?: '').startsWith('sections_design')) ? 'src/autotest/guides_pack' : 'examples/example_pack').absolutePath
             systemProperty 'rysquests.dev.brokenPack', project.file('examples/broken').absolutePath
+            if (project.findProperty('autotest') == 'first') {
+                // The first run starts without a book: no example pack.
+                systemProperty 'rysquests.dev.examplePack', ''
+                // The ATM10 book names items of mods this game does not have; it is carried over and shown whole all the same.
+                systemProperty 'rysquests.dev.anyItem', 'true'
+                // Nor the broken example: a reload that looks for new packs would switch it on.
+                systemProperty 'rysquests.dev.brokenPack', ''
+            }
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
             systemProperty 'rysquests.autotest.tag', project.findProperty('tag') ?: ''
+            // 'canvas' and 'map' read the books of RepYS and ATM10 on the client, without a server.
+            systemProperty 'rysquests.autotest.repysBook', project.findProperty('repysBook') ?: project.file('../../_shared/_fresh/book').absolutePath
+            systemProperty 'rysquests.autotest.repysLang', project.findProperty('repysLang') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/RepYS/kubejs/assets/repys/lang/ru_ru.json"
+            systemProperty 'rysquests.autotest.atm10Quests', project.findProperty('atm10Quests') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/All the Mods 10 - ATM10/config/ftbquests/quests"
             // The size of the mockups in design/, so that screenshots can be laid over them.
             programArguments.addAll '--width', '1280', '--height', '800'
+            // Several agents run games side by side: the heap stays small unless asked for (-Pheap=6G).
+            jvmArgument "-Xmx${project.findProperty('heap') ?: '3G'}"
+            // The ATM10 book the list is measured on (scenario panel): an FTB Quests folder, read and converted on the client.
+            systemProperty 'rysquests.autotest.ftbqBook', project.findProperty('ftbqBook') ?: ''
         }
         // A dedicated server and two clients, for what a single player cannot show. The server needs eula.txt in its folder.
         dedicatedServer {
@@ -98,11 +116,16 @@ neoForge {
             programArguments.addAll '--username', 'TestB', '--width', '1280', '--height', '800'
         }
         // Full path on a copy of the real pack: its mods load from run-repys/mods, the instance itself stays untouched.
+        // -PrepysRun=<folder> runs it in the copy another worktree keeps (one copy of the pack for all of them).
         repysAutotest {
             client()
-            gameDirectory = project.file('run-repys')
-            jvmArgument '-Xmx8G'
-            systemProperty 'rysquests.autotest', 'repys'
+            gameDirectory = project.file(project.findProperty('repysRun') ?: 'run-repys')
+            jvmArgument "-Xmx${project.findProperty('heap') ?: '8G'}"
+            // repys: the whole book as a player and as an operator; upgrade_new: a world of RYSQuests 0.1.0 opened on this one.
+            systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'repys'
+            systemProperty 'rysquests.autotest.world', project.findProperty('world') ?: ''
+            // The book of RepYS for the pack's kubejs, as _audit/book2/repys-data/CHANGES.md lays it out.
+            systemProperty 'rysquests.autotest.repysData', project.findProperty('repysData') ?: project.file('../../_shared/_audit/book2/repys-data').absolutePath
             systemProperty 'rysquests.autotest.asPlayer', 'true'
             systemProperty 'rysquests.autotest.ftbqSaves', project.findProperty('ftbqSaves') ?: ''
             programArguments.addAll '--width', '1280', '--height', '800'
@@ -149,8 +172,18 @@ test {
     useJUnitPlatform()
     systemProperty 'rysquests.examplesDir', project.file('examples').absolutePath
     systemProperty 'rysquests.reportFile', project.file('build/ftbq-real-report.txt').absolutePath
+    // Real books for the automatic map form and for reading RepYS; each test is skipped where its folder is absent.
+    systemProperty 'rysquests.repysBook', project.findProperty('repysBook') ?: project.file('../../_shared/_fresh/book').absolutePath
+    systemProperty 'rysquests.repysPack', project.findProperty('repysPack') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/RepYS/kubejs/data/repys/rysquests"
+    systemProperty 'rysquests.atm10Quests', project.findProperty('atm10Quests') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/All the Mods 10 - ATM10/config/ftbquests/quests"
     if (project.hasProperty('ftbqDir')) {
         systemProperty 'rysquests.ftbqDir', project.property('ftbqDir')
+        outputs.upToDateWhen { false }
+    }
+    // A copy of the RepYS book prepared for the new book (RepysBookDataTest); -PbakeLayout writes its layout.json first.
+    if (project.hasProperty('repysData')) {
+        systemProperty 'rysquests.repysData', project.property('repysData')
+        systemProperty 'rysquests.bakeLayout', project.hasProperty('bakeLayout') ? 'true' : 'false'
         outputs.upToDateWhen { false }
     }
 }
@@ -160,12 +193,13 @@ tasks.named('check') {
 }
 
 // The game exits normally even when a scenario fails, so the verdict is read from its log.
-def autotestLog = file(project.findProperty('autotest') == 'integrations' ? 'run-int/logs/latest.log' : 'run/logs/latest.log')
+def autotestLog = file(project.findProperty('autotest') == 'integrations' ? 'run-int/logs/latest.log' : project.findProperty('autotest') == 'dock' ? 'run-ftb/logs/latest.log' : 'run/logs/latest.log')
 tasks.matching { it.name == 'runAutotest' }.configureEach {
     doLast {
         def lines = autotestLog.readLines('UTF-8')
         def errors = lines.findAll { it =~ /\/(ERROR|FATAL)\]/ }
-        if (!errors.isEmpty()) {
+        // FTB mods in run-ftb log errors of their own; only the verdict counts there.
+        if (!errors.isEmpty() && project.findProperty('autotest') != 'dock') {
             throw new GradleException("Autotest log has ${errors.size()} error line(s), first: ${errors[0]}")
         }
         if (!lines.any { it.contains('[autotest] PASS') }) {
@@ -175,11 +209,11 @@ tasks.matching { it.name == 'runAutotest' }.configureEach {
 }
 
 // A large pack always logs errors from other mods, so only the scenario's verdict counts here.
-def repysLog = file('run-repys/logs/latest.log')
+def repysLog = file("${project.findProperty('repysRun') ?: 'run-repys'}/logs/latest.log")
 tasks.matching { it.name == 'runRepysAutotest' }.configureEach {
     doLast {
         if (!repysLog.readLines('UTF-8').any { it.contains('[autotest] PASS') }) {
-            throw new GradleException('Autotest finished without a PASS line, see run-repys/logs/latest.log')
+            throw new GradleException("Autotest finished without a PASS line, see ${repysLog}")
         }
     }
 }
