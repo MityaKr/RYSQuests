@@ -74,6 +74,11 @@ public final class ProgressStore extends SavedData {
      */
     private final Map<UUID, Map<String, ShopLimits.Usage>> countedUsage = new HashMap<>();
     private final Map<UUID, List<ShopLine>> shopHistory = new HashMap<>();
+    /**
+     * Per player, not saved: the lines of the history that still sum up what their shop blocks do, by what they sum up (shop plan,
+     * section 4.6). Any other operation closes them; a restart starts new ones.
+     */
+    private final Map<UUID, Map<String, ShopLine>> openSummaries = new HashMap<>();
     private final Map<UUID, Set<String>> titles = new HashMap<>();
     private final Map<UUID, String> activeTitles = new HashMap<>();
     /** Per player, not per team: the chapter of the quest this player last completed by their own doing. */
@@ -473,6 +478,39 @@ public final class ProgressStore extends SavedData {
     }
 
     public void addShopHistory(UUID player, ShopLine line) {
+        openSummaries.remove(player);
+        pushShopLine(player, line);
+    }
+
+    /**
+     * A trade a shop block made on its owner's behalf (shop plan, section 4.6). The history keeps 30 lines, which a block trading every
+     * second would fill in half a minute, so its trades add up in one line per trade, currency, wallet and direction: the line is
+     * updated and moved to the top for as long as no other operation comes in between.
+     */
+    public void addShopSummary(UUID player, ShopLine line) {
+        Map<String, ShopLine> open = openSummaries.computeIfAbsent(player, id -> new HashMap<>());
+        String key = line.ref() + '|' + line.currency() + '|' + line.treasury() + '|' + Long.signum(line.delta());
+        List<ShopLine> lines = shopHistory.computeIfAbsent(player, id -> new ArrayList<>());
+        ShopLine before = open.get(key);
+        // By identity: an equal line written by hand is not the block's.
+        int at = -1;
+        for (int i = 0; before != null && i < lines.size(); i++) {
+            if (lines.get(i) == before) {
+                at = i;
+                break;
+            }
+        }
+        ShopLine written = line;
+        if (at >= 0) {
+            lines.remove(at);
+            written = new ShopLine(line.time(), before.delta() + line.delta(), line.currency(), line.ref(),
+                    (int) Math.min(Integer.MAX_VALUE, (long) before.times() + line.times()), line.treasury());
+        }
+        pushShopLine(player, written);
+        open.put(key, written);
+    }
+
+    private void pushShopLine(UUID player, ShopLine line) {
         List<ShopLine> lines = shopHistory.computeIfAbsent(player, id -> new ArrayList<>());
         lines.addFirst(line);
         if (lines.size() > HISTORY_LINES) {

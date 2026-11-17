@@ -16,6 +16,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
@@ -28,12 +29,9 @@ import works.repka.rysquests.network.ShopResultPayload;
 import works.repka.rysquests.network.ShopStatePayload;
 import works.repka.rysquests.network.ShopTradePayload;
 import works.repka.rysquests.progress.ProgressStore;
-import works.repka.rysquests.stage.Stages;
 
 /** Makes trades. Nothing the client says is believed: balance, limit, stage, quest and free space are all checked here. */
 public final class ShopService {
-    private static final int MAX_TIMES = 64;
-
     /** What a command or a script does to a balance. */
     public enum WalletOp {
         ADD, TAKE, SET
@@ -92,87 +90,33 @@ public final class ShopService {
         return offer.quest().map(quest -> store.get(store.teamOf(player, mode), quest).everDone()).orElse(true);
     }
 
+    /** The trade's core over this server's progress, the book's progress mode and today's date. */
+    public static TradeCore core(MinecraftServer server) {
+        return new TradeCore(ProgressStore.get(server), mode(), LocalDate.now());
+    }
+
+    /** What a player pays with: the main inventory, never armour or the offhand. */
+    private static TradeSource source(ServerPlayer player) {
+        Inventory inventory = player.getInventory();
+        return TradeSource.of(inventory.items, inventory::setChanged);
+    }
+
+    /** Where a player's goods go: the main inventory, and at the player's feet what does not fit after all. */
+    private static TradeSink sink(ServerPlayer player) {
+        return TradeSink.player(player.getInventory().items, stack -> ItemHandlerHelper.giveItemToPlayer(player, stack));
+    }
+
     /** @return the lang key of why the trade cannot be made, or null when it was made */
     private static String trade(ServerPlayer player, ShopOffer offer, int times, boolean treasury) {
-        // The goods of a delivery are taken one round at a time: each round is delivered anew.
-        if (times < 1 || times > (offer.delivery() ? 1 : MAX_TIMES)) {
-            return "rysquests.shop.error.unknown";
-        }
-        MinecraftServer server = player.server;
-        ProgressStore store = ProgressStore.get(server);
-        if (treasury && !inTeam(player)) {
-            return "rysquests.shop.error.no_team";
-        }
-        if (spendsTreasury(offer, treasury) && !maySpendTreasury(player.getUUID())) {
-            return "rysquests.shop.error.no_right";
-        }
-        if (offer.stage().filter(stage -> !Stages.has(player, stage)).isPresent()) {
-            return "rysquests.shop.error.locked";
-        }
-        if (!questOpens(store, player.getUUID(), offer, mode())) {
-            return "rysquests.shop.error.locked";
-        }
-        LocalDate today = LocalDate.now();
-        UUID limitOwner = offer.limit().filter(limit -> limit.per() == ShopOffer.Per.TEAM).isPresent() ? team(player) : player.getUUID();
-        if (offer.limit().isPresent()) {
-            ShopOffer.Limit limit = offer.limit().get();
-            if (ShopLimits.used(limit, store.shopUsage(limitOwner).get(offer.id().toString()), today) + times > limit.count()) {
-                return !limit.onceForTeam() ? "rysquests.shop.error.limit" : inTeam(player) ? "rysquests.shop.error.team_bought" : "rysquests.shop.error.bought";
-            }
-        }
-        // The items of a delivery are in the team's count already; only its coins are paid now.
-        UUID deliveryOwner = team(player);
-        if (offer.delivery() && !offer.deliveryComplete(store.deliveries().get(deliveryOwner, offer.id().toString()))) {
-            return "rysquests.shop.error.delivery_short";
-        }
-        UUID wallet = treasury ? team(player) : player.getUUID();
-        Inventory inventory = player.getInventory();
-        for (ShopOffer.Entry cost : offer.cost()) {
-            if (offer.delivery() && !cost.isCurrency()) {
-                continue;
-            }
-            long needed = (long) cost.amount() * times;
-            if (cost.isCurrency() ? store.balance(wallet, cost.id()) < needed : count(inventory, item(cost)) < needed) {
-                return "rysquests.shop.error.not_enough";
-            }
-        }
-        if (!hasRoom(inventory.items, offer, times)) {
-            return "rysquests.shop.error.no_space";
-        }
-        if (offer.delivery() && !store.deliveries().take(deliveryOwner, offer.id().toString(), offer.deliveryRows())) {
-            return "rysquests.shop.error.delivery_short";
-        }
-        for (ShopOffer.Entry cost : offer.cost()) {
-            long needed = (long) cost.amount() * times;
-            if (cost.isCurrency()) {
-                store.addBalance(wallet, cost.id(), -needed);
-            } else if (!offer.delivery()) {
-                remove(inventory, item(cost), (int) needed);
-            }
-        }
-        for (ShopOffer.Entry gives : offer.gives()) {
-            long amount = (long) gives.amount() * times;
-            if (gives.isCurrency()) {
-                store.addBalance(wallet, gives.id(), amount);
-            } else {
-                give(player, gives, (int) amount);
-            }
-        }
-        offer.limit().ifPresent(limit -> store.setShopUsage(limitOwner, offer.id().toString(),
-                ShopLimits.after(limit, store.shopUsage(limitOwner).get(offer.id().toString()), times, today)));
-        ShopOffer.Entry money = offer.isSale() ? offer.gives().getFirst() : offer.cost().stream().filter(ShopOffer.Entry::isCurrency).findFirst().orElse(null);
-        if (money != null) {
-            long delta = (offer.isSale() ? 1 : -1) * (long) money.amount() * times;
-            store.addShopHistory(player.getUUID(), new ProgressStore.ShopLine(System.currentTimeMillis(), delta, money.id(), offer.id().toString(), times, treasury));
-        }
-        return null;
+        return core(player.server).trade(offer, Trader.player(player, treasury), times, false, source(player), sink(player), System.currentTimeMillis()).problem();
     }
 
     /** A request to deliver from the inventory towards a delivery trade (shop plan, step M4). */
     public static void handleDeliver(ServerPlayer player, ShopDeliverPayload payload) {
         ShopOffer offer = BookHolder.current().book().offers().get(payload.offer());
         boolean closed = !BookHolder.current().book().meta().published() && !player.hasPermissions(BookHolder.OPERATOR);
-        String problem = offer == null || closed || !offer.delivery() ? "rysquests.shop.error.unknown" : deliver(player, offer);
+        String problem = offer == null || closed || !offer.delivery() ? "rysquests.shop.error.unknown"
+                : core(player.server).deliver(offer, Trader.player(player, false), source(player), false).problem();
         PacketDistributor.sendToPlayer(player, new ShopResultPayload(problem == null, problem == null ? "" : problem));
         if (problem == null) {
             works.repka.rysquests.progress.Feedback.submit(player);
@@ -181,79 +125,51 @@ public final class ShopService {
     }
 
     /**
-     * Gives what the inventory holds of a delivery's rows to the team's count, never more than a row still lacks, so that nothing is
-     * taken for nothing. Plain stacks of the main inventory only, as a trade pays. @return the lang key of a refusal, or null
+     * A trade a shop block makes on its owner's behalf (shop plan, step M5), the owner online or not: as many times as the money, the
+     * goods and the room allow, up to {@code times}, with no stack's ceiling. Its history is one running line, and the owner's team
+     * hears about the money at most once a second. A closed book trades nothing.
+     *
+     * @param owner the player who placed the block
+     * @param treasury pay from and to the team's treasury, the owner's right to spend it asked at every trade
      */
-    private static String deliver(ServerPlayer player, ShopOffer offer) {
-        ProgressStore store = ProgressStore.get(player.server);
-        if (offer.stage().filter(stage -> !Stages.has(player, stage)).isPresent() || !questOpens(store, player.getUUID(), offer, mode())) {
-            return "rysquests.shop.error.locked";
+    public static TradeCore.Outcome tradeFor(MinecraftServer server, UUID owner, ShopOffer offer, int times, boolean treasury, TradeSource from, TradeSink to) {
+        if (!BookHolder.current().book().meta().published()) {
+            return new TradeCore.Outcome("rysquests.shop.error.unknown", 0, List.of());
         }
-        UUID owner = team(player);
-        if (offer.limit().isPresent()) {
-            ShopOffer.Limit limit = offer.limit().get();
-            UUID limitOwner = limit.per() == ShopOffer.Per.TEAM ? owner : player.getUUID();
-            if (ShopLimits.used(limit, store.shopUsage(limitOwner).get(offer.id().toString()), LocalDate.now()) >= limit.count()) {
-                return "rysquests.shop.error.limit";
-            }
+        TradeCore.Outcome outcome = core(server).trade(offer, Trader.owner(owner, server.getPlayerList().getPlayer(owner), treasury), times, true, from, to, System.currentTimeMillis());
+        if (outcome.ok()) {
+            BROADCAST.mark(ProgressStore.get(server).teamOf(owner, ProgressMode.TEAM));
         }
-        String goal = offer.id().toString();
-        Map<String, Long> delivered = store.deliveries().get(owner, goal);
-        if (offer.deliveryComplete(delivered)) {
-            return "rysquests.shop.error.delivery_full";
-        }
-        Inventory inventory = player.getInventory();
-        Map<String, Long> held = new HashMap<>();
-        for (String item : offer.deliveryRows().keySet()) {
-            ResourceLocation id = ResourceLocation.tryParse(item);
-            if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-                held.put(item, (long) count(inventory, BuiltInRegistries.ITEM.get(id)));
-            }
-        }
-        Map<String, Long> taken = offer.toDeliver(delivered, held);
-        if (taken.isEmpty()) {
-            return "rysquests.shop.error.nothing_to_deliver";
-        }
-        taken.forEach((item, amount) -> {
-            remove(inventory, BuiltInRegistries.ITEM.get(ResourceLocation.parse(item)), amount.intValue());
-            store.deliveries().add(owner, goal, item, amount);
-        });
-        return null;
-    }
-
-    private static Item item(ShopOffer.Entry entry) {
-        return BuiltInRegistries.ITEM.get(ResourceLocation.parse(entry.id()));
+        return outcome;
     }
 
     /**
-     * Whether a stack can pay: from the main inventory only, never armour or the offhand, and plain, so that a worn,
-     * damaged, enchanted or renamed piece is never sold as an ordinary one.
+     * A delivery a shop block makes towards its owner's team's count (shop plan, step M5). @param simulate only say what would be taken
      */
-    private static boolean pays(ItemStack stack, Item item) {
-        return stack.is(item) && stack.getComponentsPatch().isEmpty();
+    public static TradeCore.Delivered deliverFor(MinecraftServer server, UUID owner, ShopOffer offer, TradeSource from, boolean simulate) {
+        if (!BookHolder.current().book().meta().published()) {
+            return new TradeCore.Delivered("rysquests.shop.error.unknown", Map.of());
+        }
+        TradeCore.Delivered delivered = core(server).deliver(offer, Trader.owner(owner, server.getPlayerList().getPlayer(owner), false), from, simulate);
+        if (delivered.ok() && !simulate) {
+            BROADCAST.mark(ProgressStore.get(server).teamOf(owner, ProgressMode.TEAM));
+        }
+        return delivered;
     }
 
-    private static int count(Inventory inventory, Item item) {
-        int have = 0;
-        for (ItemStack stack : inventory.items) {
-            if (pays(stack, item)) {
-                have += stack.getCount();
-            }
-        }
-        return have;
-    }
+    private static final ShopBroadcast BROADCAST = new ShopBroadcast();
 
-    private static void remove(Inventory inventory, Item item, int amount) {
-        int left = amount;
-        for (int slot = 0; slot < inventory.items.size() && left > 0; slot++) {
-            ItemStack stack = inventory.items.get(slot);
-            if (pays(stack, item)) {
-                int taken = Math.min(left, stack.getCount());
-                stack.shrink(taken);
-                left -= taken;
+    /** Sends the states that blocks changed, at most once a second per team: nothing to do on most ticks. */
+    public static void onServerTick(ServerTickEvent.Post event) {
+        List<UUID> teams = BROADCAST.due(event.getServer().getTickCount());
+        if (teams.isEmpty()) {
+            return;
+        }
+        for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+            if (teams.contains(team(player))) {
+                send(player);
             }
         }
-        inventory.setChanged();
     }
 
     /**
@@ -261,47 +177,7 @@ public final class ShopService {
      * same item with the same components: a plain schematic does not take a schematic with its file.
      */
     static boolean hasRoom(List<ItemStack> items, ShopOffer offer, int times) {
-        int free = 0;
-        for (ItemStack stack : items) {
-            if (stack.isEmpty()) {
-                free++;
-            }
-        }
-        for (ShopOffer.Entry gives : offer.gives()) {
-            if (gives.isCurrency()) {
-                continue;
-            }
-            ItemStack template = gives.stack();
-            if (template.isEmpty()) {
-                continue;
-            }
-            int maxStack = template.getMaxStackSize();
-            long left = (long) gives.amount() * times;
-            for (ItemStack stack : items) {
-                if (ItemStack.isSameItemSameComponents(stack, template)) {
-                    left -= Math.max(0, stack.getMaxStackSize() - stack.getCount());
-                }
-            }
-            if (left > 0) {
-                free -= (int) ((left + maxStack - 1) / maxStack);
-            }
-        }
-        return free >= 0;
-    }
-
-    /** Gives an item as the trade names it, components and all, in stacks no larger than the item allows. */
-    private static void give(ServerPlayer player, ShopOffer.Entry entry, int amount) {
-        ItemStack template = entry.stack();
-        if (template.isEmpty()) {
-            return;
-        }
-        int maxStack = template.getMaxStackSize();
-        int left = amount;
-        while (left > 0) {
-            int part = Math.min(left, maxStack);
-            ItemHandlerHelper.giveItemToPlayer(player, template.copyWithCount(part));
-            left -= part;
-        }
+        return TradeSink.roomIn(items, TradeCore.goods(offer, times));
     }
 
     /** A currency reward: a shared one goes to the treasury of the team. */
