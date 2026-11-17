@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-17. Руками не править: после структурных правок пересобрать.
 
-Java: 324 файлов, 58871 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 324 файлов, 59052 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -26,8 +26,8 @@ Java: 324 файлов, 58871 строк. Переводы: `examples/example_pa
 - `ImportShowcase` 36 — What the server says at the end of an FTB import, without importing anything: the report and the failure of the ATM10 run of the "first" scenario, for the screenshots of the wizard…
 
 **dev** (11)
-- `AutoTest` 2796 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
-- `CanvasBooks` 258 — The two books of the canvas scenario, read on the client without a server: RepYS from its files with the titles of its lang file, and ATM10 carried over from FTB Quests by the impo…
+- `AutoTest` 2900 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
+- `CanvasBooks` 277 — The two books of the canvas scenario, read on the client without a server: RepYS from its files with the titles of its lang file, and ATM10 carried over from FTB Quests by the impo…
 - `CanvasTestScreen` 104 — A bare screen around the canvas for the canvas scenario: the canvas sits where the map area of the mockups is (1280×800 at GUI scale 2), so that screenshots lie over pictures 13 to…
 - `EditorScenario` 334 — The acceptance of the book's editor (plan step 10), in two runs on the same world: book_editor: a book from nothing, its first chapter typed into the table, quests linked (a circle…
 - `ItemsScenario` 88 — Items in the book act like items of the recipe viewer (the author's note on 0.2.1): the game's tooltip on hover, the recipe on a click, the usages on the right button; a shop card …
@@ -77,7 +77,7 @@ Java: 324 файлов, 58871 строк. Переводы: `examples/example_pa
 
 **client.canvas** (4)
 - `Camera` 117 — Where the canvas looks: the canvas point in the middle of the view and the scale in mockup pixels per canvas unit.
-- `MapCanvas` 1884 — The canvas of the map ("Полотно"): a book laid out in one form, drawn in a rectangle with a camera over it.
+- `MapCanvas` 1942 — The canvas of the map ("Полотно"): a book laid out in one form, drawn in a rectangle with a camera over it.
 - `MapLayouts` 198 — Where the client gets a book's canvas, by the plan's order: the layout that came with the book when it fits (layout.json), else one laid out before and kept by the book's layout ha…
 - `NodeGrid` 123 — Nodes of a layout in square cells, to find the node under the pointer and count nodes under a label without a scan.
 

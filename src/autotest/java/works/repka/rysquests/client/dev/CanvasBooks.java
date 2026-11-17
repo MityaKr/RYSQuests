@@ -82,6 +82,25 @@ final class CanvasBooks {
         return BookValidator.validate(BookParser.parse(files, JsonOps.INSTANCE), id -> true, JsonOps.INSTANCE).book();
     }
 
+    /** Vanilla stand-ins for the icons of the drift scenario: the dev client has no modded items, and an empty icon draws nothing. */
+    private static final List<String> VANILLA_ICONS = List.of("minecraft:iron_ingot", "minecraft:redstone", "minecraft:copper_ingot",
+            "minecraft:diamond", "minecraft:furnace", "minecraft:piston", "minecraft:comparator", "minecraft:gold_ingot", "minecraft:hopper",
+            "minecraft:lightning_rod", "minecraft:observer", "minecraft:emerald");
+
+    /**
+     * RepYS with every quest's icon swapped for a vanilla item, picked by the quest's id so each quest keeps the same one: for the drift
+     * scenario, which needs items in the tiles of the dev client.
+     */
+    static QuestBook repysVanillaIcons(Path folder, Path lang) throws IOException {
+        QuestBook book = repys(folder, lang, null);
+        Map<ResourceLocation, Quest> quests = new java.util.LinkedHashMap<>();
+        book.quests().forEach((id, q) -> quests.put(id, new Quest(q.id(), q.chapter(), q.group(), q.title(),
+                q.subtitle(), q.text(), java.util.Optional.of(ResourceLocation.parse(VANILLA_ICONS.get(Math.floorMod(id.hashCode(), VANILLA_ICONS.size())))),
+                q.requires(), q.requiresMode(), q.stageRequired(), q.tasks(), q.rewards(), q.guide(), q.options())));
+        return new QuestBook(book.meta(), book.chapters(), quests, book.guides(), book.sections(), book.unlocks(), book.byItem(), book.hash(),
+                book.assets(), book.offers(), book.achievements(), book.structures(), book.layoutHash(), book.layout());
+    }
+
     static QuestBook atm10(Path quests) throws IOException {
         FtbqImporter.Result result = FtbqImporter.convert(FtbqFiles.read(quests), "atm", FtbqImporter.Ids.empty());
         Map<String, String> names = new HashMap<>(result.lang().getOrDefault("en_us", Map.of()));

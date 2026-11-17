@@ -190,6 +190,8 @@ public final class AutoTest {
             QuestMenuScenario.build();
         } else if ("map".equals(scenario)) {
             buildMapScenario();
+        } else if ("map_drift".equals(scenario)) {
+            buildMapDriftScenario();
         } else if ("repys_data".equals(scenario)) {
             buildRepysDataScenario();
         } else if ("layout".equals(scenario)) {
@@ -1073,6 +1075,108 @@ public final class AutoTest {
         screenshot("map_49_map_loading");
         step("let the map go", () -> works.repka.rysquests.client.canvas.MapLayouts.pauseForTest(false), 10);
         step("give the book back", () -> ClientBook.overrideForTest(null, null), 1);
+    }
+
+    /** Pans of the drift scenario in mockup pixels: fractions of a pixel, as a drag at a scale other than 100 % or a zoom gives. */
+    private static final double[][] DRIFT_PANS = {{0.5, 0.25}, {0.75, 0.5}, {1.0, 0.75}, {1.25, 0.33}, {0.6, 1.1}, {3.4, -2.7}};
+    private static float[] driftBase;
+    /** The quest the drift scenario moves the map around; its book wears vanilla icons (CanvasBooks.repysVanillaIcons). */
+    private static ResourceLocation driftQuest;
+    private static final float[] DRIFT_WORST = new float[2];
+
+    /**
+     * Items on the map stay in their tiles while the map moves (the author's report after 0.2.2: items "floated" against their nodes on a
+     * drag). Opens RepYS close on a quest, pans the map by fractions of a pixel in steps with a screenshot after each, and compares where
+     * every item stands against its own tile: the way of 0.2.2 first (the "before" shots, which must show the drift), then the fixed one,
+     * where nothing may move by even a hundredth of a pixel.
+     */
+    private static void buildMapDriftScenario() {
+        openWorld();
+        step("match the window of the mockups", () -> {
+            mc().options.guiScale().set(2);
+            mc().options.languageCode = "ru_ru";
+            mc().getLanguageManager().setSelected("ru_ru");
+            mc().resizeDisplay();
+            mc().reloadResourcePacks();
+        }, 40);
+        expect("language applied", () -> mc().getOverlay() == null);
+        step("read the book of RepYS", () -> {
+            try {
+                CANVAS_BOOKS[0] = CanvasBooks.repysVanillaIcons(Path.of(System.getProperty("rysquests.autotest.repysBook")), Path.of(System.getProperty("rysquests.autotest.repysLang")));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            CANVAS_MAPS[0] = works.repka.rysquests.client.layout.MapBook.of(CANVAS_BOOKS[0]);
+            CANVAS_HERE[0] = CANVAS_MAPS[0].quests().stream().map(works.repka.rysquests.client.layout.MapBook.Q::id)
+                    .filter(id -> id.getPath().equals("b03_e2_current/electric_mechanism")).findFirst().orElseThrow();
+            CANVAS_DONE.set(0, CanvasBooks.repysProgress(CANVAS_BOOKS[0], CANVAS_MAPS[0], CANVAS_HERE[0]));
+            driftQuest = CANVAS_HERE[0];
+            LOGGER.info("[autotest] drift: the map moves around {}", driftQuest);
+        }, 1);
+        mapBook(0, ResourceLocation.parse("repys:b03_e2_current"));
+        step("mouse out of the way, no messages", () -> {
+            moveMouse(1, 1);
+            ClientMessages.dismiss();
+            ThemeManager.select("ryscore:slate");
+        }, 2);
+        step("open the book", () -> pressKey(GLFW.GLFW_KEY_K), 10);
+        expect("book screen open", () -> mc().screen instanceof BookScreen);
+        step("open the map tab", () -> {
+            BookScreen.openTabForTest("map");
+            BookScreen.showForTest(ViewMode.MAP);
+        }, 10);
+        expect("the map is laid out", BookScreen::mapReadyForTest);
+        for (int run = 0; run < 2; run++) {
+            boolean old = run == 0;
+            String name = old ? "before" : "after";
+            step("draw items the " + name + " way", () -> {
+                works.repka.rysquests.client.canvas.MapCanvas.oldIconSnapForTest(old);
+                moveMouse(1, 1);
+                BookScreen.mapFlyForTest(null, 0, driftQuest);
+            }, 25);
+            expect("the flight to the quest is over (" + name + ")", BookScreen::mapReadyForTest);
+            step("settle (" + name + ")", () -> {}, 10);
+            step("start the worst of the drift (" + name + ")", () -> DRIFT_WORST[old ? 0 : 1] = 0, 1);
+            screenshot("drift_" + name + "_open");
+            expect("items are on screen (" + name + ")", () -> {
+                driftBase = BookScreen.mapCanvasForTest().iconOffsetsForTest();
+                for (float v : driftBase) {
+                    if (!Float.isNaN(v)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            screenshot("drift_" + name + "_0");
+            for (int i = 0; i < DRIFT_PANS.length; i++) {
+                double[] pan = DRIFT_PANS[i];
+                int shot = i + 1;
+                step("pan " + pan[0] + ", " + pan[1] + " (" + name + ")", () -> BookScreen.mapCanvasForTest().panForTest(pan[0], pan[1]), 5);
+                step("compare the items (" + name + " " + shot + ")", () -> {
+                    float[] now = BookScreen.mapCanvasForTest().iconOffsetsForTest();
+                    float worst = 0;
+                    int compared = 0;
+                    for (int j = 0; j < Math.min(now.length, driftBase.length); j++) {
+                        if (!Float.isNaN(now[j]) && !Float.isNaN(driftBase[j])) {
+                            worst = Math.max(worst, Math.abs(now[j] - driftBase[j]));
+                            compared++;
+                        }
+                    }
+                    DRIFT_WORST[old ? 0 : 1] = Math.max(DRIFT_WORST[old ? 0 : 1], worst);
+                    LOGGER.info("[autotest] drift {} step {}: {} item coordinates compared, the most an item moved against its tile {} px",
+                            name, shot, compared, String.format(java.util.Locale.ROOT, "%.3f", worst));
+                }, 1);
+                screenshot("drift_" + name + "_" + shot);
+            }
+        }
+        step("log the drift", () -> LOGGER.info("[autotest] drift: before {} px, after {} px",
+                String.format(java.util.Locale.ROOT, "%.3f", DRIFT_WORST[0]), String.format(java.util.Locale.ROOT, "%.3f", DRIFT_WORST[1])), 1);
+        expect("the old way shows the drift (the scenario sees the bug)", () -> DRIFT_WORST[0] >= 0.5f);
+        expect("items stay in their tiles while the map moves", () -> DRIFT_WORST[1] < 0.01f);
+        step("give the book back", () -> {
+            works.repka.rysquests.client.canvas.MapCanvas.oldIconSnapForTest(false);
+            ClientBook.overrideForTest(null, null);
+        }, 1);
     }
 
     /**

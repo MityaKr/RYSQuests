@@ -28,6 +28,7 @@ import works.repka.ryscore.theme.ThemeManager;
 import works.repka.ryscore.ui.Draw;
 import works.repka.ryscore.ui.Icons;
 import works.repka.ryscore.ui.Type;
+import works.repka.ryscore.ui.UiScale;
 
 /**
  * The canvas of the map ("Полотно"): a book laid out in one form, drawn in a rectangle with a camera over it. It is a component of
@@ -138,6 +139,9 @@ public final class MapCanvas {
     private int[] sideCount = new int[0];
     private int[] sideDone = new int[0];
     private final Map<Integer, ItemStack> icons = new HashMap<>();
+    /** Item against tile in the last frame, for the drift scenario ({@link #iconOffsetsForTest}). */
+    private float[] iconOffsets = new float[0];
+    private static boolean oldIconSnap;
     @Nullable
     private NodeGrid grid;
 
@@ -487,6 +491,25 @@ public final class MapCanvas {
         return stats;
     }
 
+    /** Pans the view by mockup pixels, as a drag does; for the drift scenario. */
+    public void panForTest(double dx, double dy) {
+        camera.pan(dx, dy);
+    }
+
+    /**
+     * Where each tile's item stood against its tile in the last frame: the item's centre minus the tile's centre in screen pixels,
+     * x and y per quest index, NaN for a quest without an item on screen. For the drift scenario: the numbers must not change
+     * while the map moves.
+     */
+    public float[] iconOffsetsForTest() {
+        return iconOffsets.clone();
+    }
+
+    /** Draws items as 0.2.2 did (rounded to whole GUI units against a tile on fractional pixels): the "before" of the drift scenario. */
+    public static void oldIconSnapForTest(boolean old) {
+        oldIconSnap = old;
+    }
+
     @Nullable
     public CanvasLayout layout() {
         return layout;
@@ -663,7 +686,10 @@ public final class MapCanvas {
         return current;
     }
 
-    /** World to mockup pixels for one frame. */
+    /**
+     * World to mockup pixels for one frame. The offset lies on whole screen pixels, so a drag moves everything on the canvas by whole
+     * pixels together and the fraction of every point stays the same from frame to frame: what is rounded (items) does not flicker.
+     */
     private final class Frame {
         final double s;
         final double ox;
@@ -672,11 +698,16 @@ public final class MapCanvas {
         final double minY;
         final double maxX;
         final double maxY;
+        /** Screen pixels in one mockup pixel. */
+        final double k;
 
         Frame(double s) {
             this.s = s;
-            this.ox = vx + vw / 2 - camera.cx * s;
-            this.oy = vy + vh / 2 - camera.cy * s;
+            this.k = screenPerPx();
+            double rawX = vx + vw / 2 - camera.cx * s;
+            double rawY = vy + vh / 2 - camera.cy * s;
+            this.ox = oldIconSnap ? rawX : Math.round(rawX * k) / k;
+            this.oy = oldIconSnap ? rawY : Math.round(rawY * k) / k;
             double m = 40 / s;
             this.minX = camera.cx - vw / 2 / s - m;
             this.maxX = camera.cx + vw / 2 / s + m;
@@ -688,8 +719,18 @@ public final class MapCanvas {
             return (float) (wx * s + ox);
         }
 
+        /** Whole GUI units, as items were placed in 0.2.2: the drift scenario's "before". */
+        float oldSnap(double v) {
+            return Math.round(v / PER_GUI) * PER_GUI;
+        }
+
         float py(double wy) {
             return (float) (wy * s + oy);
+        }
+
+        /** A coordinate in mockup pixels put on the nearest whole screen pixel. */
+        float snap(double v) {
+            return (float) (Math.round(v * k) / k);
         }
 
         boolean visible(double x, double y, double r) {
@@ -1185,6 +1226,10 @@ public final class MapCanvas {
         boolean tiles = level != Level.BOOK && tilePx(false, false) >= MIN_TILE;
         boolean mainTiles = level != Level.BOOK && tilePx(true, false) >= MIN_TILE;
         List<Integer> tileList = new ArrayList<>();
+        if (iconOffsets.length != 2 * n) {
+            iconOffsets = new float[2 * n];
+        }
+        java.util.Arrays.fill(iconOffsets, Float.NaN);
         // dots first, in one run: rings, glows and fills
         for (int q = 0; q < n; q++) {
             boolean isSide = side(q);
@@ -1254,8 +1299,9 @@ public final class MapCanvas {
             if (size < MIN_TILE) {
                 size = MIN_TILE;
             }
-            float px = f.px(layout.x[q]);
-            float py = f.py(layout.y[q]);
+            // the tile's centre on a whole screen pixel: the tile, its item and its badge are all placed from this one point
+            float px = oldIconSnap ? f.px(layout.x[q]) : f.snap(f.px(layout.x[q]));
+            float py = oldIconSnap ? f.py(layout.y[q]) : f.snap(f.py(layout.y[q]));
             byte st = state[q];
             float x0 = px - size / 2;
             float y0 = py - size / 2;
@@ -1282,7 +1328,13 @@ public final class MapCanvas {
                 ItemStack icon = icon(q);
                 if (!icon.isEmpty()) {
                     float iconSize = crisp(size * 0.68f);
-                    item(g, icon, Math.round((px - iconSize / 2) / PER_GUI) * PER_GUI, Math.round((py - iconSize / 2) / PER_GUI) * PER_GUI, iconSize);
+                    // on whole screen pixels from the tile's own centre (not whole GUI units: those are two or more screen
+                    // pixels, and the item jumped against its tile while the map moved)
+                    float ix = oldIconSnap ? f.oldSnap(px - iconSize / 2) : f.snap(px - iconSize / 2);
+                    float iy = oldIconSnap ? f.oldSnap(py - iconSize / 2) : f.snap(py - iconSize / 2);
+                    item(g, icon, ix, iy, iconSize);
+                    iconOffsets[2 * q] = (float) ((ix + iconSize / 2 - px) * f.k);
+                    iconOffsets[2 * q + 1] = (float) ((iy + iconSize / 2 - py) * f.k);
                     iconCount++;
                     if (st == LOCKED) {
                         fill(g, x0 + 1.5f, y0 + 1.5f, size - 3, size - 3, radius, Draw.alpha(back, 0.62f));
@@ -1866,6 +1918,12 @@ public final class MapCanvas {
      */
     private static float crisp(float size) {
         return size < 16 ? size : (float) Math.floor(size / 16) * 16;
+    }
+
+    /** Screen pixels in one mockup pixel: the family's interface unit is two mockup pixels. */
+    private static double screenPerPx() {
+        double pixels = UiScale.pixels();
+        return pixels > 0 ? pixels / PER_GUI : 1;
     }
 
     private static void item(GuiGraphics g, ItemStack stack, float x, float y, float size) {
