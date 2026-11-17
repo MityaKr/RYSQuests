@@ -144,6 +144,17 @@ public final class ShopService {
     }
 
     /**
+     * Whether a shop block could make a trade once now, changing nothing (shop plan, step M6): the lamp of an intake block that has
+     * nothing to sell yet still says whether the trade is open. @return the lang key of a refusal, or null
+     */
+    public static @Nullable String checkFor(MinecraftServer server, UUID owner, ShopOffer offer, boolean treasury, TradeSource from, TradeSink to) {
+        if (!BookHolder.current().book().meta().published()) {
+            return "rysquests.shop.error.unknown";
+        }
+        return core(server).check(offer, Trader.owner(owner, server.getPlayerList().getPlayer(owner), treasury), 1, true, from, to).problem();
+    }
+
+    /**
      * A delivery a shop block makes towards its owner's team's count (shop plan, step M5). @param simulate only say what would be taken
      */
     public static TradeCore.Delivered deliverFor(MinecraftServer server, UUID owner, ShopOffer offer, TradeSource from, boolean simulate) {

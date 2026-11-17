@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "lamp=off": {
+      "model": "rysquests:block/shop_receiver_off"
+    },
+    "lamp=green": {
+      "model": "rysquests:block/shop_receiver_green"
+    },
+    "lamp=yellow": {
+      "model": "rysquests:block/shop_receiver_yellow"
+    },
+    "lamp=red": {
+      "model": "rysquests:block/shop_receiver_red"
+    }
+  }
+}

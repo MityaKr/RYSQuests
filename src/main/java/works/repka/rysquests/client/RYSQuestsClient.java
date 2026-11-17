@@ -42,6 +42,8 @@ public final class RYSQuestsClient {
         modBus.addListener(RYSQuestsClient::onClientSetup);
         modBus.addListener(QuestKeys::register);
         modBus.addListener(StickerBoard::register);
+        modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) ->
+                event.register(works.repka.rysquests.block.ModBlocks.RECEIVER_MENU.get(), works.repka.rysquests.client.screen.ReceiverScreen::new));
         modBus.addListener((RegisterClientReloadListenersEvent event) -> event.registerReloadListener((ResourceManagerReloadListener) manager -> ClientAssets.applyLanguage()));
         ModNetwork.setClientBookHandler(ClientBook::receive);
         ModNetwork.setClientProgressHandler(ClientProgress::receive);

@@ -162,6 +162,8 @@ public final class AutoTest {
             ShopTrophyScenario.check();
         } else if ("shop_delivery".equals(scenario)) {
             ShopDeliveryScenario.check();
+        } else if ("shop_receiver".equals(scenario)) {
+            ShopReceiverScenario.check();
         } else if ("upgrade_new".equals(scenario)) {
             RepysScenario.upgrade();
         } else if ("repys_ftb".equals(scenario)) {

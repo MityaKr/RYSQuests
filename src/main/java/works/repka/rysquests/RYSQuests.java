@@ -41,6 +41,7 @@ public final class RYSQuests {
     public RYSQuests(IEventBus modBus, ModContainer container) {
         TaskTypes.REGISTER.register(modBus);
         RewardTypes.REGISTER.register(modBus);
+        works.repka.rysquests.block.ModBlocks.register(modBus);
         modBus.addListener(ModNetwork::register);
         DevExamplePack.register(modBus);
         ImportedPack.register(modBus);
