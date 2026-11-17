@@ -461,6 +461,8 @@
   "rysquests.shop.limit.daily": "сегодня",
   "rysquests.shop.limit.weekly": "в неделю",
   "rysquests.shop.after_quest": "после квеста «%s»",
+  "rysquests.shop.after_kill": "победи: %s",
+  "rysquests.shop.after_kill_note": "Откроется всей команде после первой победы над боссом: %s. Победа засчитывается, если последний удар нанёс игрок, а не механизм.",
   "rysquests.shop.closed": "закрыто",
   "rysquests.shop.buy": "Купить",
   "rysquests.shop.sell": "Продать",

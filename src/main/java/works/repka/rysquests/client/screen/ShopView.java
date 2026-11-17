@@ -114,6 +114,11 @@ final class ShopView implements BookView {
         times = 1;
     }
 
+    static String lockForTest(ResourceLocation id) {
+        ShopOffer offer = ClientBook.current().offers().get(id);
+        return offer == null || !locked(offer) ? "" : lockedLine(offer);
+    }
+
     @Nullable
     String statusForTest() {
         return status;
@@ -203,11 +208,38 @@ final class ShopView implements BookView {
         return fromTreasury && ClientShop.spendTreasury() && !offer.isSale();
     }
 
+    /**
+     * Why a closed trade is closed, in one line: the book's own words ({@code lock_text}), the stage, the boss to defeat when the
+     * trade waits for an achievement's kill ("победи: Игнис", shop plan, picture 01), or the quest.
+     */
     private static String lockedLine(ShopOffer offer) {
-        return offer.stageTitle().map(stage -> text("rysquests.guides.locked_until", tr(stage))).orElseGet(() -> offer.quest()
+        if (offer.lockText().isPresent()) {
+            return tr(offer.lockText().get());
+        }
+        // A trophy of a later epoch names its epoch while the epoch is closed, and its boss once only the boss is left.
+        String boss = bossName(offer);
+        boolean stageMissing = offer.stage().filter(required -> !ClientProgress.hasStage(required)).isPresent();
+        if (boss != null && !stageMissing) {
+            return text("rysquests.shop.after_kill", boss);
+        }
+        if (offer.stageTitle().isPresent()) {
+            return text("rysquests.guides.locked_until", tr(offer.stageTitle().get()));
+        }
+        if (boss != null) {
+            return text("rysquests.shop.after_kill", boss);
+        }
+        return offer.quest()
                 .map(id -> ClientBook.current().quests().get(id))
                 .map(quest -> text("rysquests.shop.after_quest", tr(quest.title())))
-                .orElseGet(() -> tr("rysquests.shop.closed")));
+                .orElseGet(() -> tr("rysquests.shop.closed"));
+    }
+
+    /** The name of the boss the team has to defeat to open this trade, or null when it waits for something else. */
+    @Nullable
+    private static String bossName(ShopOffer offer) {
+        return offer.bossToDefeat(ClientBook.current().quests())
+                .map(id -> net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getOptional(id).map(type -> type.getDescription().getString()).orElse(id.toString()))
+                .orElse(null);
     }
 
     /** A trade bought once for the whole team: "1 раз на команду" rather than "0 из 1 на команду". */
@@ -1017,6 +1049,11 @@ final class ShopView implements BookView {
             u.interactive(goodsIcon(offer), bx, pen, 46, 46);
             u.count(goods(offer).amount() * times, bx + 45, pen + 48);
             pen += headH + DetailPanel.GAP;
+            String boss = state == State.LOCKED ? bossName(offer) : null;
+            if (boss != null) {
+                // The first win of anyone in the team opens it for all: the kill is the team's, like the achievement it counts.
+                pen += note(u, bx, pen, bw, Icons.Shape.SKULL, text("rysquests.shop.after_kill_note", boss), boss, false) + DetailPanel.GAP;
+            }
             Need need = need(offer);
             if (need != null) {
                 pen += note(u, bx, pen, bw, Icons.Shape.PIN, text("rysquests.shop.need_note", tr(need.quest.title()), need.missing), tr(need.quest.title()), false) + DetailPanel.GAP;

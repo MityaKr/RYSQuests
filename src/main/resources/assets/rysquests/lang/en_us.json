@@ -456,6 +456,8 @@
   "rysquests.shop.limit.daily": "today",
   "rysquests.shop.limit.weekly": "this week",
   "rysquests.shop.after_quest": "after the quest “%s”",
+  "rysquests.shop.after_kill": "defeat: %s",
+  "rysquests.shop.after_kill_note": "Opens for the whole team after its first win over %s. A win counts when a player lands the last hit, not a machine.",
   "rysquests.shop.closed": "locked",
   "rysquests.shop.buy": "Buy",
   "rysquests.shop.sell": "Sell",

@@ -39,7 +39,7 @@ public final class EditorFiles {
     private static final Pattern IMAGE_PATH = Pattern.compile("textures/guides/[a-z0-9_.-]+\\.png");
     /** Every field of guides and sections in the order a file shows them; others follow by name. */
     private static final List<String> FIELD_ORDER = List.of("template", "id", "type", "title", "name", "short_title", "subtitle", "text", "icon", "category", "item", "count",
-            "advancement", "spoilers", "compact", "search", "row_title", "group", "groups", "art", "mark", "best", "hint", "stage", "stage_title", "done", "needs", "gives", "page", "quest",
+            "advancement", "spoilers", "compact", "search", "row_title", "group", "groups", "art", "mark", "best", "hint", "stage", "stage_title", "done", "needs", "gives", "page", "quest", "lock_text",
             "links", "columns", "rows", "cells", "cards", "pages");
     private static final List<String> QUEST_ORDER = List.of("id", "chapter", "group", "title", "subtitle", "text", "icon", "requires", "requires_mode", "stage_required", "guide", "tasks", "rewards",
             "layout", "milestone", "optional", "hidden", "repeatable", "page", "tags", "draft", "archived");

@@ -82,6 +82,15 @@ public final class ShopService {
         }
     }
 
+    /**
+     * Whether the trade's quest lets this player trade: done once by their team, whoever did it. The tier of an achievement is a
+     * quest too, so a trophy that opens after a boss (shop plan, step M3) opens for the whole team on the first kill by any member.
+     * Asked by id alone, like the treasury's right.
+     */
+    public static boolean questOpens(ProgressStore store, UUID player, ShopOffer offer, ProgressMode mode) {
+        return offer.quest().map(quest -> store.get(store.teamOf(player, mode), quest).everDone()).orElse(true);
+    }
+
     /** @return the lang key of why the trade cannot be made, or null when it was made */
     private static String trade(ServerPlayer player, ShopOffer offer, int times, boolean treasury) {
         if (times < 1 || times > MAX_TIMES) {
@@ -98,7 +107,7 @@ public final class ShopService {
         if (offer.stage().filter(stage -> !Stages.has(player, stage)).isPresent()) {
             return "rysquests.shop.error.locked";
         }
-        if (offer.quest().filter(quest -> !store.get(store.teamOf(player.getUUID(), mode()), quest).everDone()).isPresent()) {
+        if (!questOpens(store, player.getUUID(), offer, mode())) {
             return "rysquests.shop.error.locked";
         }
         LocalDate today = LocalDate.now();

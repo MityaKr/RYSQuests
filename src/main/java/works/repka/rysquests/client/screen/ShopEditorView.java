@@ -58,7 +58,7 @@ final class ShopEditorView extends EditorPage {
 
     private static ShopOffer with(ShopOffer o, Optional<String> title, Optional<ResourceLocation> icon, Optional<String> category, List<ShopOffer.Entry> cost,
             List<ShopOffer.Entry> gives, Optional<ShopOffer.Limit> limit, Optional<ResourceLocation> quest) {
-        return new ShopOffer(o.id(), title, icon, category, cost, gives, limit, o.stage(), o.stageTitle(), quest);
+        return new ShopOffer(o.id(), title, icon, category, cost, gives, limit, o.stage(), o.stageTitle(), quest, o.lockText());
     }
 
     @Override

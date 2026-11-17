@@ -792,6 +792,11 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         }
     }
 
+    /** Why an offer of the client's book is closed, as its card says it; empty when it is open. */
+    public static String shopLockForTest(ResourceLocation offer) {
+        return ShopView.lockForTest(offer);
+    }
+
     public static void shopSelectForTest(ResourceLocation offer) {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
             screen.shopView().selectForTest(offer);

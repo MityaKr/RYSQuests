@@ -158,6 +158,8 @@ public final class AutoTest {
             ItemsScenario.check();
         } else if ("shop_schematic".equals(scenario)) {
             ShopSchematicScenario.check();
+        } else if ("shop_trophy".equals(scenario)) {
+            ShopTrophyScenario.check();
         } else if ("upgrade_new".equals(scenario)) {
             RepysScenario.upgrade();
         } else if ("repys_ftb".equals(scenario)) {

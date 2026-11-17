@@ -4,6 +4,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -11,6 +12,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.item.ItemStack;
+import works.repka.rysquests.task.KillTask;
 
 /** A trade of the shop: one file in {@code rysquests/shop/}. A sale is simply a trade that gives only currency. */
 public record ShopOffer(
@@ -23,7 +25,14 @@ public record ShopOffer(
         Optional<Limit> limit,
         Optional<String> stage,
         Optional<String> stageTitle,
-        Optional<ResourceLocation> quest) {
+        Optional<ResourceLocation> quest,
+        Optional<String> lockText) {
+
+    /** A trade as it was before {@code lock_text}. */
+    public ShopOffer(ResourceLocation id, Optional<String> title, Optional<ResourceLocation> icon, Optional<String> category, List<Entry> cost,
+            List<Entry> gives, Optional<Limit> limit, Optional<String> stage, Optional<String> stageTitle, Optional<ResourceLocation> quest) {
+        this(id, title, icon, category, cost, gives, limit, stage, stageTitle, quest, Optional.empty());
+    }
 
     public enum Kind implements StringRepresentable {
         CURRENCY("currency"), ITEM("item");
@@ -138,10 +147,22 @@ public record ShopOffer(
             Limit.CODEC.optionalFieldOf("limit").forGetter(ShopOffer::limit),
             Codec.STRING.optionalFieldOf("stage").forGetter(ShopOffer::stage),
             Codec.STRING.optionalFieldOf("stage_title").forGetter(ShopOffer::stageTitle),
-            ResourceLocation.CODEC.optionalFieldOf("quest").forGetter(ShopOffer::quest)
+            ResourceLocation.CODEC.optionalFieldOf("quest").forGetter(ShopOffer::quest),
+            Codec.STRING.optionalFieldOf("lock_text").forGetter(ShopOffer::lockText)
     ).apply(instance, ShopOffer::new)).validate(offer -> offer.cost.isEmpty() || offer.gives.isEmpty()
             ? DataResult.error(() -> "A trade needs both 'cost' and 'gives'")
             : DataResult.success(offer));
+
+    /**
+     * The boss the team has to defeat before the trade opens: its {@code quest} is the tier of an achievement that counts kills of
+     * one entity, such as {@code repys:_achievements/slayer_ignis/gold}. Such a tier is kept for the team, so the first kill by any
+     * member opens the trade for all of them, for good.
+     */
+    public Optional<ResourceLocation> bossToDefeat(Map<ResourceLocation, Quest> quests) {
+        return quest.filter(Achievement::isTierQuest).map(quests::get)
+                .filter(tier -> tier.tasks().size() == 1 && tier.tasks().getFirst() instanceof KillTask)
+                .map(tier -> ((KillTask) tier.tasks().getFirst()).entity());
+    }
 
     /** Whether the player gets only currency out of it, which the shop lists under selling. */
     public boolean isSale() {
