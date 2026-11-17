@@ -46,7 +46,7 @@
   EN: a repeatable quest in a team no longer takes away a round's rewards from those who had not claimed them yet: they wait for each player until claimed, even after the team moved on to the next round. Paying from the team treasury in the shop now needs the RYSTeams permission "Spend the team treasury" (leader and officers by default).
 - 0.2.6 (черновик): магазин может продавать предметы с особыми свойствами (именем, зачарованием, данными мода), и игрок получает их как есть; карточка и подсказка показывают настоящий предмет. Покупка «1 раз на команду» видна сразу: так и написано на карточке, а после покупки там стоит «куплено командой». Выход из команды, роспуск и повторное вступление больше не дают купить такой товар второй раз.
   EN (draft): the shop can sell items with special properties (a name, an enchantment, a mod's data), and the player gets them as they are; the card and the tooltip show the real item. A purchase "once per team" says so on its card and shows "bought by your team" afterwards. Leaving a team, disbanding it or joining again no longer lets such an item be bought a second time.
-- 0.2.7 (черновик): большое обновление магазина.
+- 0.2.7: большое обновление магазина.
   - Трофеи боссов. Товар может ждать победы над боссом: он открывается всей команде после первой победы кого-то из неё, навсегда, и закрытая карточка так и пишет: «победи: Игнис». Победа засчитывается, если последний удар нанёс игрок, а не механизм.
   - Поставки. Дорогой товар можно оплатить частями: предметы сдаются кнопкой «Сдать из инвентаря» в общий счёт команды, карточка показывает, сколько собрано. Когда всё собрано, товар забирает любой участник, и монеты списываются в этот момент (свои или из казны, если есть право). Сданное не уходит из команды вместе с игроком и не засчитывается дважды.
   - Новый блок «Приёмщик». Продаёт всё, что приходит в него по трубам, воронкам и из хоппера, или сдаёт предметы в поставку команды. Берёт только нужное и только недостающее, остальное остаётся в трубе. Монеты идут в свой кошелёк или в казну команды.
@@ -57,7 +57,7 @@
   - Страницы «О книге». Название книги слева вверху стало кнопкой: оно открывает страницы о том, как устроена книга, поверх текущей вкладки. Пока ни одна страница не прочитана, на значке горит точка.
   - «Атлас сборки» и «Атлас добычи» теперь видят все игроки во вкладке «Гайды», раньше их видел только оператор.
   - Для авторов сборок: эпоха в `book.json` может назвать квест своей награды (`"quest"`), поле `"about"` задаёт страницы «О книге» (гайд книги или свои страницы).
-  EN (draft): a big update of the shop.
+  EN: a big update of the shop.
   - Boss trophies. A trade can wait for a boss: it opens for the whole team, for good, after the first win over that boss by any member, and its closed card says so: "defeat: Ignis". A win counts when a player, not a machine, lands the last blow.
   - Deliveries. An expensive trade can be paid in parts: items go into one count of the team with "Deliver from inventory", and the card shows how far it has come. Once everything is in, any member takes the goods and the coins are paid then (own coins, or the treasury with the right). What was delivered does not leave with a player and never counts twice.
   - A new block, the Shop Receiver. It sells everything that comes in through pipes, funnels or a hopper, or brings the items into a team delivery. It takes only what is needed and only what is still missing, everything else stays in the pipe. The coins go to your own wallet or to the team treasury.
