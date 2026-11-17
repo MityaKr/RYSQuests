@@ -49,6 +49,8 @@ final class GridCard {
     private boolean off;
     private boolean picture;
     @Nullable
+    private String done;
+    @Nullable
     private Runnable click;
     @Nullable
     private Body body;
@@ -98,6 +100,15 @@ final class GridCard {
         button = label;
         buttonAction = null;
         buttonOff = true;
+        return this;
+    }
+
+    /** Nothing more to do here: a green check and a word at the bottom right instead of a button ("в команде"). */
+    GridCard done(@Nullable String label) {
+        done = label;
+        button = null;
+        buttonAction = null;
+        buttonOff = false;
         return this;
     }
 
@@ -191,6 +202,12 @@ final class GridCard {
                 ui.circle(x, cy - 5.5f, 11, ui.c("coin"));
                 ui.label(Numbers.compact(price), x + 17, cy, 15, Ui.DISPLAY, ui.c(short_ ? "state.bad" : "text.primary"));
             }
+        }
+        if (done != null) {
+            float tw = ui.width(done, 12, Ui.REGULAR);
+            float cy = bottom - 14;
+            ui.label(done, x + w - tw, cy, 12, Ui.REGULAR, ui.c("state.ok"));
+            ui.icon(works.repka.ryscore.ui.Icons.Shape.CHECK, x + w - tw - 5 - 12, cy - 6, 12, ui.c("state.ok"));
         }
         if (button != null && buttonAction != null) {
             float bw = ui.buttonWidth(button, 12, Ui.MEDIUM, 10);

@@ -106,7 +106,7 @@ public final class ShopService {
         if (offer.limit().isPresent()) {
             ShopOffer.Limit limit = offer.limit().get();
             if (ShopLimits.used(limit, store.shopUsage(limitOwner).get(offer.id().toString()), today) + times > limit.count()) {
-                return "rysquests.shop.error.limit";
+                return !limit.onceForTeam() ? "rysquests.shop.error.limit" : inTeam(player) ? "rysquests.shop.error.team_bought" : "rysquests.shop.error.bought";
             }
         }
         UUID wallet = treasury ? team(player) : player.getUUID();
@@ -117,7 +117,7 @@ public final class ShopService {
                 return "rysquests.shop.error.not_enough";
             }
         }
-        if (!hasRoom(inventory, offer, times)) {
+        if (!hasRoom(inventory.items, offer, times)) {
             return "rysquests.shop.error.no_space";
         }
         for (ShopOffer.Entry cost : offer.cost()) {
@@ -133,7 +133,7 @@ public final class ShopService {
             if (gives.isCurrency()) {
                 store.addBalance(wallet, gives.id(), amount);
             } else {
-                give(player, item(gives), (int) amount);
+                give(player, gives, (int) amount);
             }
         }
         offer.limit().ifPresent(limit -> store.setShopUsage(limitOwner, offer.id().toString(),
@@ -181,10 +181,13 @@ public final class ShopService {
         inventory.setChanged();
     }
 
-    /** Whether what the trade gives fits, in the free slots and on top of stacks already held. */
-    private static boolean hasRoom(Inventory inventory, ShopOffer offer, int times) {
+    /**
+     * Whether what the trade gives fits, in the free slots and on top of stacks already held. A stack counts only when it is the
+     * same item with the same components: a plain schematic does not take a schematic with its file.
+     */
+    static boolean hasRoom(List<ItemStack> items, ShopOffer offer, int times) {
         int free = 0;
-        for (ItemStack stack : inventory.items) {
+        for (ItemStack stack : items) {
             if (stack.isEmpty()) {
                 free++;
             }
@@ -193,12 +196,15 @@ public final class ShopService {
             if (gives.isCurrency()) {
                 continue;
             }
-            Item item = item(gives);
-            int maxStack = new ItemStack(item).getMaxStackSize();
+            ItemStack template = gives.stack();
+            if (template.isEmpty()) {
+                continue;
+            }
+            int maxStack = template.getMaxStackSize();
             long left = (long) gives.amount() * times;
-            for (ItemStack stack : inventory.items) {
-                if (stack.is(item)) {
-                    left -= maxStack - stack.getCount();
+            for (ItemStack stack : items) {
+                if (ItemStack.isSameItemSameComponents(stack, template)) {
+                    left -= Math.max(0, stack.getMaxStackSize() - stack.getCount());
                 }
             }
             if (left > 0) {
@@ -208,12 +214,17 @@ public final class ShopService {
         return free >= 0;
     }
 
-    private static void give(ServerPlayer player, Item item, int amount) {
-        int maxStack = new ItemStack(item).getMaxStackSize();
+    /** Gives an item as the trade names it, components and all, in stacks no larger than the item allows. */
+    private static void give(ServerPlayer player, ShopOffer.Entry entry, int amount) {
+        ItemStack template = entry.stack();
+        if (template.isEmpty()) {
+            return;
+        }
+        int maxStack = template.getMaxStackSize();
         int left = amount;
         while (left > 0) {
             int part = Math.min(left, maxStack);
-            ItemHandlerHelper.giveItemToPlayer(player, new ItemStack(item, part));
+            ItemHandlerHelper.giveItemToPlayer(player, template.copyWithCount(part));
             left -= part;
         }
     }
@@ -305,12 +316,38 @@ public final class ShopService {
         return stack -> !stack.isEmpty() && BuiltInRegistries.ITEM.getKey(stack.getItem()).equals(id);
     }
 
+    /** The trades of the book limited per team, by id. */
+    private static Map<String, ShopOffer.Limit> teamLimits() {
+        Map<String, ShopOffer.Limit> out = new HashMap<>();
+        for (ShopOffer offer : BookHolder.current().book().offers().values()) {
+            offer.limit().filter(limit -> limit.per() == ShopOffer.Per.TEAM).ifPresent(limit -> out.put(offer.id().toString(), limit));
+        }
+        return out;
+    }
+
+    /** A player joined a team: what they bought alone of trades limited per team counts for the team too. */
+    public static void joinedTeam(MinecraftServer server, UUID team, UUID player) {
+        ProgressStore.get(server).foldTeamLimits(player, team, teamLimits(), LocalDate.now());
+    }
+
+    /** A player left a team, or it broke up: what the team bought of trades limited per team stays bought for them. */
+    public static void leftTeam(MinecraftServer server, UUID team, UUID player) {
+        ProgressStore.get(server).carryTeamLimits(team, player, teamLimits());
+    }
+
+    /** Two teams became one: what each bought of trades limited per team adds up. */
+    public static void mergedTeams(MinecraftServer server, UUID from, UUID into) {
+        ProgressStore.get(server).addTeamLimits(from, into, teamLimits(), LocalDate.now());
+    }
+
     /** Forgets what a player has used of the limits, and their team's too. @param offer one trade, or null for all */
     public static void resetLimits(ServerPlayer player, @Nullable ResourceLocation offer) {
         ProgressStore store = ProgressStore.get(player.server);
         String key = offer == null ? null : offer.toString();
         store.clearShopUsage(player.getUUID(), key);
         store.clearShopUsage(team(player), key);
+        // Otherwise what was counted before the reset would hide the next purchase made alone from the team.
+        store.clearCountedUsage(player.getUUID(), key);
         sendToTeam(player);
     }
 

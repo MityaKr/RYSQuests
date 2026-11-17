@@ -34,6 +34,11 @@ public final class ShopLimits {
         return usage != null && usage.period() == period(limit.reset(), today) ? usage.count() : 0;
     }
 
+    /** What a player used of a limit beyond what a team already counts for them; never below zero. */
+    public static int unCounted(ShopOffer.Limit limit, Usage own, Usage counted, LocalDate today) {
+        return Math.max(0, used(limit, own, today) - used(limit, counted, today));
+    }
+
     public static Usage after(ShopOffer.Limit limit, Usage usage, int times, LocalDate today) {
         return new Usage(period(limit.reset(), today), used(limit, usage, today) + times);
     }

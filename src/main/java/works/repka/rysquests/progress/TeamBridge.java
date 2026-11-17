@@ -11,6 +11,8 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
 import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.RYSQuests;
+import works.repka.rysquests.shop.ShopLimits;
+import works.repka.rysquests.shop.ShopService;
 
 /** Moves quest progress when a team mod, through RYSCore, reports that teams changed. */
 public final class TeamBridge implements TeamsApi.Listener {
@@ -18,6 +20,8 @@ public final class TeamBridge implements TeamsApi.Listener {
 
     /** Each side of a merge as it was, for the short window in which a merge can be undone. */
     private final Map<UUID, Map<ResourceLocation, QuestProgress>> beforeMerge = new HashMap<>();
+    /** What each side had used of the shop's limits before a merge. */
+    private final Map<UUID, Map<String, ShopLimits.Usage>> usageBeforeMerge = new HashMap<>();
 
     public static void register() {
         TeamsApi.listen(new TeamBridge());
@@ -43,6 +47,11 @@ public final class TeamBridge implements TeamsApi.Listener {
         if (store != null && carryProgress) {
             store.mergeInto(player, team);
         }
+        // Limits move whatever the team's rule on progress says: they guard against buying twice, not progress.
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null) {
+            ShopService.joinedTeam(server, team, player);
+        }
         resync();
     }
 
@@ -51,6 +60,10 @@ public final class TeamBridge implements TeamsApi.Listener {
         ProgressStore store = store();
         if (store != null && keepCopy) {
             store.copyTeam(team, player);
+        }
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null) {
+            ShopService.leftTeam(server, team, player);
         }
         resync();
     }
@@ -68,7 +81,10 @@ public final class TeamBridge implements TeamsApi.Listener {
         if (store != null) {
             beforeMerge.put(from, new HashMap<>(store.team(from)));
             beforeMerge.put(into, new HashMap<>(store.team(into)));
+            usageBeforeMerge.put(from, store.copyShopUsage(from));
+            usageBeforeMerge.put(into, store.copyShopUsage(into));
             store.mergeInto(from, into);
+            ShopService.mergedTeams(ServerLifecycleHooks.getCurrentServer(), from, into);
         }
         resync();
     }
@@ -79,6 +95,10 @@ public final class TeamBridge implements TeamsApi.Listener {
         if (store != null && beforeMerge.containsKey(from) && beforeMerge.containsKey(into)) {
             store.replaceTeam(from, beforeMerge.remove(from));
             store.replaceTeam(into, beforeMerge.remove(into));
+        }
+        if (store != null && usageBeforeMerge.containsKey(from) && usageBeforeMerge.containsKey(into)) {
+            store.replaceShopUsage(from, usageBeforeMerge.remove(from));
+            store.replaceShopUsage(into, usageBeforeMerge.remove(into));
         }
         resync();
     }

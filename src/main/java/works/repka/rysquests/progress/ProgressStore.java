@@ -2,6 +2,7 @@ package works.repka.rysquests.progress;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,6 +20,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.data.ProgressMode;
+import works.repka.rysquests.data.ShopOffer;
 import works.repka.rysquests.migrate.MigrationEngine;
 import works.repka.rysquests.shop.ShopLimits;
 
@@ -35,6 +37,7 @@ public final class ProgressStore extends SavedData {
     private static final String PINNED_WAYS = "pinned_ways";
     private static final String WALLETS = "wallets";
     private static final String SHOP_USAGE = "shop_usage";
+    private static final String COUNTED_USAGE = "counted_usage";
     private static final String SHOP_HISTORY = "shop_history";
     private static final String TITLES = "titles";
     private static final String ACTIVE_TITLE = "active_title";
@@ -64,6 +67,11 @@ public final class ProgressStore extends SavedData {
     private final Map<UUID, List<String>> pinnedWays = new HashMap<>();
     private final Map<UUID, Map<String, Long>> wallets = new HashMap<>();
     private final Map<UUID, Map<String, ShopLimits.Usage>> shopUsage = new HashMap<>();
+    /**
+     * Per player: how much of their own use of team limits a team already counts. What they used beyond it, alone between two teams,
+     * is added to the team they join; see {@link #foldTeamLimits}.
+     */
+    private final Map<UUID, Map<String, ShopLimits.Usage>> countedUsage = new HashMap<>();
     private final Map<UUID, List<ShopLine>> shopHistory = new HashMap<>();
     private final Map<UUID, Set<String>> titles = new HashMap<>();
     private final Map<UUID, String> activeTitles = new HashMap<>();
@@ -142,6 +150,9 @@ public final class ProgressStore extends SavedData {
         if (tag.contains(SHOP_USAGE)) {
             USAGE_CODEC.parse(NbtOps.INSTANCE, tag.get(SHOP_USAGE)).resultOrPartial(LOGGER::error).ifPresent(saved -> saved.forEach((owner, usage) -> store.shopUsage.put(owner, new HashMap<>(usage))));
         }
+        if (tag.contains(COUNTED_USAGE)) {
+            USAGE_CODEC.parse(NbtOps.INSTANCE, tag.get(COUNTED_USAGE)).resultOrPartial(LOGGER::error).ifPresent(saved -> saved.forEach((owner, usage) -> store.countedUsage.put(owner, new HashMap<>(usage))));
+        }
         if (tag.contains(SHOP_HISTORY)) {
             HISTORY_CODEC.parse(NbtOps.INSTANCE, tag.get(SHOP_HISTORY)).resultOrPartial(LOGGER::error).ifPresent(saved -> saved.forEach((owner, lines) -> store.shopHistory.put(owner, new ArrayList<>(lines))));
         }
@@ -172,6 +183,7 @@ public final class ProgressStore extends SavedData {
         tag.put(ACTIVE_TITLE, Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.STRING).encodeStart(NbtOps.INSTANCE, activeTitles).getOrThrow());
         tag.put(WALLETS, WALLETS_CODEC.encodeStart(NbtOps.INSTANCE, wallets).getOrThrow());
         tag.put(SHOP_USAGE, USAGE_CODEC.encodeStart(NbtOps.INSTANCE, shopUsage).getOrThrow());
+        tag.put(COUNTED_USAGE, USAGE_CODEC.encodeStart(NbtOps.INSTANCE, countedUsage).getOrThrow());
         tag.put(SHOP_HISTORY, HISTORY_CODEC.encodeStart(NbtOps.INSTANCE, shopHistory).getOrThrow());
         tag.put(LAST_CHAPTER, LAST_CHAPTER_CODEC.encodeStart(NbtOps.INSTANCE, lastChapters).getOrThrow());
         tag.put(OWED_ROUNDS, CODEC.encodeStart(NbtOps.INSTANCE, owedRounds).getOrThrow());
@@ -345,6 +357,94 @@ public final class ProgressStore extends SavedData {
     public void setShopUsage(UUID owner, String offer, ShopLimits.Usage usage) {
         shopUsage.computeIfAbsent(owner, id -> new HashMap<>()).put(offer, usage);
         setDirty();
+    }
+
+    /** A copy of what an owner used of the limits, to put back with {@link #replaceShopUsage}. */
+    public Map<String, ShopLimits.Usage> copyShopUsage(UUID owner) {
+        return new HashMap<>(shopUsage(owner));
+    }
+
+    public void replaceShopUsage(UUID owner, Map<String, ShopLimits.Usage> usage) {
+        shopUsage.put(owner, new HashMap<>(usage));
+        setDirty();
+    }
+
+    public Map<String, ShopLimits.Usage> countedUsage(UUID player) {
+        return countedUsage.getOrDefault(player, Map.of());
+    }
+
+    /** Forgets what a team counted of a player's own purchases, when their limits are reset. @param offer one trade, or null for all */
+    public void clearCountedUsage(UUID player, @Nullable String offer) {
+        Map<String, ShopLimits.Usage> counted = countedUsage.get(player);
+        if (counted != null) {
+            if (offer == null) {
+                counted.clear();
+            } else {
+                counted.remove(offer);
+            }
+            setDirty();
+        }
+    }
+
+    /**
+     * A player leaves a team: what the team used of its team limits goes with them, as if they had bought it themselves. Otherwise
+     * leaving, buying alone and coming back would buy a trade "once per team" twice. All of it is counted already, so coming back
+     * adds nothing.
+     *
+     * @param limits the trades limited per team, by id
+     */
+    public void carryTeamLimits(UUID team, UUID player, Map<String, ShopOffer.Limit> limits) {
+        Map<String, ShopLimits.Usage> shared = copyShopUsage(team);
+        Map<String, ShopLimits.Usage> own = shopUsage.computeIfAbsent(player, id -> new HashMap<>());
+        Map<String, ShopLimits.Usage> counted = countedUsage.computeIfAbsent(player, id -> new HashMap<>());
+        for (String offer : limits.keySet()) {
+            ShopLimits.Usage usage = shared.get(offer);
+            if (usage == null) {
+                own.remove(offer);
+                counted.remove(offer);
+            } else {
+                own.put(offer, usage);
+                counted.put(offer, usage);
+            }
+        }
+        setDirty();
+    }
+
+    /**
+     * A player joins a team: what they used of team limits on their own, beyond what a team already counts, is added to the team's.
+     * Joining twice in a row adds it once.
+     */
+    public void foldTeamLimits(UUID player, UUID team, Map<String, ShopOffer.Limit> limits, LocalDate today) {
+        Map<String, ShopLimits.Usage> own = shopUsage(player);
+        Map<String, ShopLimits.Usage> counted = countedUsage.computeIfAbsent(player, id -> new HashMap<>());
+        for (Map.Entry<String, ShopOffer.Limit> entry : limits.entrySet()) {
+            String offer = entry.getKey();
+            ShopLimits.Usage mine = own.get(offer);
+            int extra = team.equals(player) ? 0 : ShopLimits.unCounted(entry.getValue(), mine, counted.get(offer), today);
+            if (extra > 0) {
+                setShopUsage(team, offer, ShopLimits.after(entry.getValue(), shopUsage(team).get(offer), extra, today));
+            }
+            if (mine == null) {
+                counted.remove(offer);
+            } else {
+                counted.put(offer, mine);
+            }
+        }
+        setDirty();
+    }
+
+    /** Two teams become one: each bought on its own, so what both used of a team limit adds up. */
+    public void addTeamLimits(UUID from, UUID into, Map<String, ShopOffer.Limit> limits, LocalDate today) {
+        if (from.equals(into)) {
+            return;
+        }
+        Map<String, ShopLimits.Usage> gone = shopUsage(from);
+        for (Map.Entry<String, ShopOffer.Limit> entry : limits.entrySet()) {
+            int used = ShopLimits.used(entry.getValue(), gone.get(entry.getKey()), today);
+            if (used > 0) {
+                setShopUsage(into, entry.getKey(), ShopLimits.after(entry.getValue(), shopUsage(into).get(entry.getKey()), used, today));
+            }
+        }
     }
 
     /** The latest first. */

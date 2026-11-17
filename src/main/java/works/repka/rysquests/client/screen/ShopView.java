@@ -140,12 +140,14 @@ final class ShopView implements BookView {
         return price == null ? 0 : price.amount();
     }
 
+    /** The item as the trade gives it, with its components: a schematic with its file, not a blank one. */
     private static ItemStack stackOf(ShopOffer.Entry entry) {
-        return entry.item().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
+        return entry.stack();
     }
 
+    /** The offer's picture, or the goods themselves when it has none or names their own item. */
     private static ItemStack icon(ShopOffer offer) {
-        return offer.icon().map(TaskText::stackOf).orElseGet(() -> stackOf(goods(offer)));
+        return picture(offer) ? offer.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY) : stackOf(goods(offer));
     }
 
     /** The offer's icon when it is the goods themselves, empty when the offer has a picture of its own (a kit, a set). */
@@ -208,11 +210,29 @@ final class ShopView implements BookView {
                 .orElseGet(() -> tr("rysquests.shop.closed")));
     }
 
+    /** A trade bought once for the whole team: "1 раз на команду" rather than "0 из 1 на команду". */
+    private static boolean oncePerTeam(ShopOffer offer) {
+        return offer.limit().filter(limit -> limit.onceForTeam() && limit.count() == 1).isPresent();
+    }
+
+    /** A trade the team has bought as many times as it ever may (picture 02 of the shop plan: "куплено командой"). */
+    private static boolean boughtByTeam(ShopOffer offer) {
+        return offer.limit().filter(ShopOffer.Limit::onceForTeam).isPresent() && left(offer) <= 0;
+    }
+
     /** The limit on a card, short: "1 из 3 сегодня". Null without a limit: the name then takes two lines. */
     @Nullable
     private static String limitShort(ShopOffer offer) {
-        return offer.limit().map(limit -> text(limit.per() == ShopOffer.Per.TEAM ? "rysquests.shop.limit_short.team" : "rysquests.shop.limit_short." + limit.reset().getSerializedName(),
-                ClientShop.used(offer.id()), limit.count())).orElse(null);
+        if (oncePerTeam(offer)) {
+            return tr("rysquests.shop.limit_short.team_once");
+        }
+        return offer.limit().map(limit -> limitCount(offer, limit)).orElse(null);
+    }
+
+    /** What is used of a limit: "1 из 3 сегодня", "0 из 1 на команду". */
+    private static String limitCount(ShopOffer offer, ShopOffer.Limit limit) {
+        return text(limit.per() == ShopOffer.Per.TEAM ? "rysquests.shop.limit_short.team" : "rysquests.shop.limit_short." + limit.reset().getSerializedName(),
+                ClientShop.used(offer.id()), limit.count());
     }
 
     /** The limit in the detail, with when it renews: "лимит 3 в день, обновится в полночь сервера", or "без лимита". */
@@ -220,9 +240,45 @@ final class ShopView implements BookView {
         if (offer.limit().isEmpty()) {
             return tr("rysquests.shop.no_limit");
         }
+        if (oncePerTeam(offer)) {
+            return tr("rysquests.shop.limit_short.team_once");
+        }
         ShopOffer.Limit limit = offer.limit().get();
         String line = text("rysquests.shop.limit_long." + limit.reset().getSerializedName(), limit.count());
         return limit.per() == ShopOffer.Per.TEAM ? line + tr("rysquests.shop.limit_long.team") : line;
+    }
+
+    /** The lines of an item's tooltip under its name, in one line: the file and size of a schematic. Empty for a plain item. */
+    private static String details(ItemStack stack) {
+        Minecraft mc = Minecraft.getInstance();
+        if (stack.getComponentsPatch().isEmpty() || mc.level == null) {
+            return "";
+        }
+        // Coloured lines first (a schematic's file is gold), grey hints such as "hold Shift" after them: the row cuts the end off.
+        List<String> parts = new ArrayList<>();
+        List<String> grey = new ArrayList<>();
+        List<Component> lines = stack.getTooltipLines(net.minecraft.world.item.Item.TooltipContext.of(mc.level), mc.player, net.minecraft.world.item.TooltipFlag.Default.NORMAL);
+        for (int i = 1; i < lines.size(); i++) {
+            String raw = lines.get(i).getString();
+            String line = net.minecraft.ChatFormatting.stripFormatting(raw).strip();
+            if (!line.isEmpty()) {
+                (isGrey(lines.get(i), raw) ? grey : parts).add(line);
+            }
+        }
+        parts.addAll(grey);
+        return String.join(" · ", parts);
+    }
+
+    /** A line without a colour of its own, or grey; a colour written as a legacy code ("§6", as Create writes the file) counts. */
+    private static boolean isGrey(Component line, String raw) {
+        if (raw.length() > 1 && raw.charAt(0) == '§') {
+            char code = Character.toLowerCase(raw.charAt(1));
+            return code == '7' || code == '8' || "0123456789abcdef".indexOf(code) < 0;
+        }
+        net.minecraft.network.chat.TextColor color = line.visit((style, text) -> text.isBlank() ? java.util.Optional.<net.minecraft.network.chat.TextColor>empty()
+                : java.util.Optional.ofNullable(style.getColor()), net.minecraft.network.chat.Style.EMPTY).orElse(null);
+        return color == null || color.equals(net.minecraft.network.chat.TextColor.fromLegacyFormat(net.minecraft.ChatFormatting.GRAY))
+                || color.equals(net.minecraft.network.chat.TextColor.fromLegacyFormat(net.minecraft.ChatFormatting.DARK_GRAY));
     }
 
     private static String currencyName(String currency) {
@@ -619,6 +675,13 @@ final class ShopView implements BookView {
             return;
         }
         State state = state(offer);
+        if (state == State.OUT && boughtByTeam(offer)) {
+            // Bought for good: the card says by whom and keeps no button, the copy is the team's (picture 02 of the shop plan).
+            card.meta(tr(ClientShop.inTeam() ? "rysquests.shop.bought_by_team" : "rysquests.shop.bought_alone"));
+            card.done(tr(ClientShop.inTeam() ? "rysquests.shop.in_team" : "rysquests.shop.bought"));
+            card.render(ui, x, y, w, CARD_H);
+            return;
+        }
         Need need = need(offer);
         if (state == State.LOCKED) {
             card.meta(lockedLine(offer));
@@ -932,6 +995,8 @@ final class ShopView implements BookView {
         DetailPanel.Action action;
         if (state == State.LOCKED) {
             action = DetailPanel.Action.state(lockedLine(offer));
+        } else if (state == State.OUT && boughtByTeam(offer)) {
+            action = DetailPanel.Action.state(tr(ClientShop.inTeam() ? "rysquests.shop.team_bought_long" : "rysquests.shop.bought_long"));
         } else if (state == State.OUT) {
             action = DetailPanel.Action.state(tr(offer.limit().filter(limit -> limit.reset() == ShopOffer.Reset.NEVER).isPresent() ? "rysquests.shop.sold_out_long" : "rysquests.shop.limit_used"));
         } else if (canBuy) {
@@ -956,14 +1021,18 @@ final class ShopView implements BookView {
             if (need != null) {
                 pen += note(u, bx, pen, bw, Icons.Shape.PIN, text("rysquests.shop.need_note", tr(need.quest.title()), need.missing), tr(need.quest.title()), false) + DetailPanel.GAP;
             }
-            if (offer.gives().stream().filter(entry -> !entry.isCurrency()).count() > 1) {
+            // "Что внутри": a kit lists its items; an item with components shows what makes it special (a schematic's file and size).
+            if (offer.gives().stream().filter(entry -> !entry.isCurrency()).count() > 1 || offer.gives().stream().anyMatch(ShopOffer.Entry::hasComponents)) {
                 pen += DetailPanel.rubric(u, bx, pen, bw, tr("rysquests.shop.inside"), null) + 6;
                 for (ShopOffer.Entry entry : offer.gives()) {
                     if (!entry.isCurrency()) {
                         ItemStack stack = stackOf(entry);
                         u.cell(stack, bx, pen, 26, 26, 5, 18, u.c("slot.bg"), u.c("slot.border"));
+                        u.interactive(stack, bx, pen, 26, 26);
                         u.count(entry.amount() * times, bx + 25, pen + 28);
-                        u.labelFit(stack.getHoverName().getString(), bx + 34, pen + 13, bw - 34, 12.5f, Ui.REGULAR, u.c("text.secondary"));
+                        String details = details(stack);
+                        String line = details.isEmpty() ? stack.getHoverName().getString() : stack.getHoverName().getString() + " · " + details;
+                        u.labelFit(line, bx + 34, pen + 13, bw - 34, 12.5f, Ui.REGULAR, u.c("text.secondary"));
                         pen += 26 + 6;
                     }
                 }
@@ -981,10 +1050,11 @@ final class ShopView implements BookView {
                 pen += Segments.HEIGHT + DetailPanel.GAP;
             }
             long rest = have - total;
-            List<String[]> rows = List.of(
+            List<String[]> rows = new ArrayList<>(List.of(
                     new String[] {tr("rysquests.shop.you_receive"), text("rysquests.shop.pieces", Sidebar.full((long) goods(offer).amount() * times))},
                     new String[] {tr("rysquests.shop.price"), money(currency, total)},
-                    new String[] {tr("rysquests.shop.remaining"), rest < 0 ? "−" + Sidebar.full(-rest) : money(currency, rest), rest < 0 ? "state.bad" : null});
+                    new String[] {tr("rysquests.shop.remaining"), rest < 0 ? "−" + Sidebar.full(-rest) : money(currency, rest), rest < 0 ? "state.bad" : null}));
+            offer.limit().ifPresent(limit -> rows.add(new String[] {tr("rysquests.shop.limit_row"), limitCount(offer, limit)}));
             pen += summary(u, bx, pen, bw, rows, null, false) + DetailPanel.GAP;
             if (status != null) {
                 u.labelFit(status, bx, pen + 8, bw, 12, Ui.REGULAR, u.c(statusBad ? "state.bad" : "state.ok"));

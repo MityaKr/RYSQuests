@@ -1,12 +1,17 @@
 package works.repka.rysquests.client.screen;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.mojang.serialization.JsonOps;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -108,7 +113,8 @@ final class ShopEditorView extends EditorPage {
             List<ShopOffer.Entry> things = items(offer);
             ItemStack icon = offer.icon().map(TaskText::stackOf).orElseGet(() -> things.isEmpty() ? ItemStack.EMPTY : things.getFirst().item().map(TaskText::stackOf).orElse(ItemStack.EMPTY));
             int count = things.isEmpty() ? 1 : things.getFirst().amount();
-            String meta = offer.limit().map(limit -> tr("rysquests.ed.shop.limit_short." + limit.reset().getSerializedName(), limit.count())).orElse(null);
+            String meta = offer.limit().map(limit -> tr("rysquests.ed.shop.limit_short." + limit.reset().getSerializedName(), limit.count())
+                    + (limit.per() == ShopOffer.Per.TEAM ? tr("rysquests.shop.limit_long.team") : "")).orElse(null);
             ResourceLocation id = offer.id();
             GridCard.of(offer.title().orElse(things.isEmpty() ? id.getPath() : EdText.item(things.getFirst().item().orElse(id))))
                     .icon(icon, count).meta(meta).price(price(offer), false).selected(id.equals(chosen)).onClick(() -> select(id)).render(ui, cx, cy, cw, CARD_H);
@@ -165,8 +171,19 @@ final class ShopEditorView extends EditorPage {
         for (int i = 0; i < things.size(); i++) {
             ShopOffer.Entry entry = things.get(i);
             int index = i;
-            ItemStack stack = entry.item().map(TaskText::stackOf).orElse(ItemStack.EMPTY);
-            pen += EdUi.row(ui, bx, pen, bw, stack, null, EdText.item(entry.item().orElse(offer.id())) + " ×" + entry.amount(), null, null, () -> removeItem(offer, index)) + 6;
+            ItemStack stack = entry.stack();
+            String sub = entry.components().map(patch -> tr("rysquests.ed.shop.with_data") + " " + componentNames(patch)).orElse(null);
+            float rowY = pen;
+            pen += EdUi.row(ui, bx, pen, bw, stack, null, EdText.item(entry.item().orElse(offer.id())) + " ×" + entry.amount(), sub, null, () -> removeItem(offer, index)) + 6;
+            if (!stack.isEmpty()) {
+                ui.hoverItem(stack, bx + 9, rowY + (sub == null ? EdUi.ROW_H - 4 : EdUi.ROW_H + 2) / 2f - 10, 20, 20);
+            }
+            // Only what the player gets can carry components: a player pays with plain items.
+            if (!offer.isSale()) {
+                EdUi.input(ui, fields, "offer-data:" + offer.id() + ":" + i, bx, pen, bw, EdUi.INPUT_H, 12, Ui.REGULAR, componentsJson(entry), tr("rysquests.ed.shop.data_hint"),
+                        value -> setComponents(offer, index, value));
+                pen += EdUi.INPUT_H + 6;
+            }
         }
         pen += EdUi.add(ui, tr("rysquests.ed.shop.add_item"), bx, pen, bw, false, () -> addItemFromHand(offer)) + 12;
         // the price, with its coin
@@ -213,6 +230,15 @@ final class ShopEditorView extends EditorPage {
         }).orElse(0);
         Segments.render(ui, bx, pen, limits, sel, i -> setLimit(offer, i));
         pen += 34;
+        if (offer.limit().isPresent()) {
+            pen += 10;
+            ui.label(tr("rysquests.ed.shop.limit_per"), bx, pen + 17, 12.5f, Ui.REGULAR, ui.c("text.muted"));
+            List<Segments.Item> pers = List.of(Segments.item(tr("rysquests.ed.shop.limit_per.player")), Segments.item(tr("rysquests.ed.shop.limit_per.team")));
+            int per = offer.limit().get().per() == ShopOffer.Per.TEAM ? 1 : 0;
+            float pw2 = Segments.width(pers, per);
+            Segments.render(ui, bx + bw - pw2, pen, pers, per, i -> setLimitPer(offer, i == 1));
+            pen += 34;
+        }
         if (offer.limit().isPresent()) {
             pen += 10;
             ui.label(tr("rysquests.ed.shop.limit_count"), bx, pen + 17, 12.5f, Ui.REGULAR, ui.c("text.muted"));
@@ -351,7 +377,9 @@ final class ShopEditorView extends EditorPage {
         }
         ItemStack held = player.getMainHandItem();
         List<ShopOffer.Entry> things = new ArrayList<>(items(offer));
-        things.add(new ShopOffer.Entry(ShopOffer.Kind.ITEM, BuiltInRegistries.ITEM.getKey(held.getItem()).toString(), held.getCount()));
+        // What the player gets keeps the held item's components (a schematic with its file); what the player gives is always plain.
+        Optional<DataComponentPatch> components = offer.isSale() || held.getComponentsPatch().isEmpty() ? Optional.empty() : Optional.of(held.getComponentsPatch());
+        things.add(new ShopOffer.Entry(ShopOffer.Kind.ITEM, BuiltInRegistries.ITEM.getKey(held.getItem()).toString(), held.getCount(), components));
         replaceItems(offer, things, tr("rysquests.ed.log.offer_item", name(book(), offer)));
     }
 
@@ -371,8 +399,73 @@ final class ShopEditorView extends EditorPage {
         book().putOffer(changed, line);
     }
 
+    /** The names of an item's components, for the line under it: "create:schematic_file, minecraft:custom_name". */
+    private static String componentNames(DataComponentPatch patch) {
+        List<String> names = new ArrayList<>();
+        for (var entry : patch.entrySet()) {
+            ResourceLocation key = BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(entry.getKey());
+            names.add((entry.getValue().isPresent() ? "" : "!") + (key == null ? "?" : key.toString()));
+        }
+        return String.join(", ", names);
+    }
+
+    @Nullable
+    private static RegistryOps<JsonElement> jsonOps() {
+        var level = Minecraft.getInstance().level;
+        return level == null ? null : RegistryOps.create(JsonOps.INSTANCE, level.registryAccess());
+    }
+
+    /** An item's components as the data file writes them: {"create:schematic_file": "repys_steel_converter.nbt"}. */
+    private static String componentsJson(ShopOffer.Entry entry) {
+        RegistryOps<JsonElement> ops = jsonOps();
+        if (entry.components().isEmpty() || ops == null) {
+            return "";
+        }
+        return DataComponentPatch.CODEC.encodeStart(ops, entry.components().get()).result().map(JsonElement::toString).orElse("");
+    }
+
+    /** Typed components: an empty field takes them away, text that does not read yet is left until it does. */
+    private void setComponents(ShopOffer offer, int index, String value) {
+        List<ShopOffer.Entry> things = new ArrayList<>(items(offer));
+        RegistryOps<JsonElement> ops = jsonOps();
+        if (index >= things.size() || ops == null) {
+            return;
+        }
+        Optional<DataComponentPatch> components;
+        if (value.isBlank()) {
+            components = Optional.empty();
+        } else {
+            try {
+                components = DataComponentPatch.CODEC.parse(ops, JsonParser.parseString(value)).result().filter(patch -> !patch.isEmpty());
+            } catch (RuntimeException e) {
+                return;
+            }
+            if (components.isEmpty()) {
+                return;
+            }
+        }
+        ShopOffer.Entry old = things.get(index);
+        if (old.components().equals(components)) {
+            return;
+        }
+        things.set(index, new ShopOffer.Entry(old.type(), old.id(), old.amount(), components));
+        List<ShopOffer.Entry> coins = offer.cost().stream().filter(ShopOffer.Entry::isCurrency).toList();
+        ShopOffer changed = with(offer, offer.title(), offer.icon(), offer.category(), coins, things, offer.limit(), offer.quest());
+        book().type("offer-data:" + offer.id() + ":" + index, "offer:" + offer.id(), tr("rysquests.ed.log.offer_components", name(book(), offer)), d -> d.withOffer(changed));
+    }
+
+    private void setLimitPer(ShopOffer offer, boolean team) {
+        ShopOffer.Limit old = offer.limit().orElse(null);
+        if (old == null || (old.per() == ShopOffer.Per.TEAM) == team) {
+            return;
+        }
+        ShopOffer.Limit limit = new ShopOffer.Limit(team ? ShopOffer.Per.TEAM : ShopOffer.Per.PLAYER, old.count(), old.reset());
+        book().putOffer(with(offer, offer.title(), offer.icon(), offer.category(), offer.cost(), offer.gives(), Optional.of(limit), offer.quest()), tr("rysquests.ed.log.offer_limit", name(book(), offer)));
+    }
+
     private void setLimit(ShopOffer offer, int index) {
-        Optional<ShopOffer.Limit> limit = index == 0 ? Optional.empty() : Optional.of(new ShopOffer.Limit(ShopOffer.Per.PLAYER, offer.limit().map(ShopOffer.Limit::count).orElse(1),
+        ShopOffer.Per per = offer.limit().map(ShopOffer.Limit::per).orElse(ShopOffer.Per.PLAYER);
+        Optional<ShopOffer.Limit> limit = index == 0 ? Optional.empty() : Optional.of(new ShopOffer.Limit(per, offer.limit().map(ShopOffer.Limit::count).orElse(1),
                 index == 1 ? ShopOffer.Reset.DAILY : index == 2 ? ShopOffer.Reset.WEEKLY : ShopOffer.Reset.NEVER));
         book().putOffer(with(offer, offer.title(), offer.icon(), offer.category(), offer.cost(), offer.gives(), limit, offer.quest()), tr("rysquests.ed.log.offer_limit", name(book(), offer)));
     }

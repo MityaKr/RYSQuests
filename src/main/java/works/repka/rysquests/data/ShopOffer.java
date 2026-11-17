@@ -5,9 +5,12 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
 import java.util.Optional;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.util.StringRepresentable;
+import net.minecraft.world.item.ItemStack;
 
 /** A trade of the shop: one file in {@code rysquests/shop/}. A sale is simply a trade that gives only currency. */
 public record ShopOffer(
@@ -38,21 +41,45 @@ public record ShopOffer(
         }
     }
 
-    /** One side of a trade. @param id a currency name, or an item id */
-    public record Entry(Kind type, String id, int amount) {
+    /**
+     * One side of a trade. @param id a currency name, or an item id
+     * @param components data components of the item given, as in an item reward (a Create schematic with its file); only in
+     *        {@code gives}: what a player pays with is always a plain item
+     */
+    public record Entry(Kind type, String id, int amount, Optional<DataComponentPatch> components) {
         static final Codec<Entry> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 Kind.CODEC.fieldOf("type").forGetter(Entry::type),
                 Codec.STRING.fieldOf("id").forGetter(Entry::id),
                 ExtraCodecs.POSITIVE_INT.optionalFieldOf("amount").forGetter(entry -> entry.type == Kind.CURRENCY ? Optional.of(entry.amount) : Optional.empty()),
-                ExtraCodecs.POSITIVE_INT.optionalFieldOf("count").forGetter(entry -> entry.type == Kind.ITEM ? Optional.of(entry.amount) : Optional.empty())
-        ).apply(instance, (type, id, amount, count) -> new Entry(type, id, amount.or(() -> count).orElse(1))));
+                ExtraCodecs.POSITIVE_INT.optionalFieldOf("count").forGetter(entry -> entry.type == Kind.ITEM ? Optional.of(entry.amount) : Optional.empty()),
+                DataComponentPatch.CODEC.optionalFieldOf("components").forGetter(Entry::components)
+        ).apply(instance, (type, id, amount, count, components) -> new Entry(type, id, amount.or(() -> count).orElse(1), components.filter(patch -> !patch.isEmpty()))));
+
+        public Entry(Kind type, String id, int amount) {
+            this(type, id, amount, Optional.empty());
+        }
 
         public boolean isCurrency() {
             return type == Kind.CURRENCY;
         }
 
+        public boolean hasComponents() {
+            return components.isPresent();
+        }
+
         public Optional<ResourceLocation> item() {
             return type == Kind.ITEM ? Optional.ofNullable(ResourceLocation.tryParse(id)) : Optional.empty();
+        }
+
+        /** One of the item as it is given, its components applied; empty for currency or an unknown item. */
+        public ItemStack stack() {
+            Optional<ResourceLocation> item = item();
+            if (item.isEmpty() || !BuiltInRegistries.ITEM.containsKey(item.get())) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(item.get()));
+            components.ifPresent(stack::applyComponents);
+            return stack;
         }
     }
 
@@ -94,6 +121,11 @@ public record ShopOffer(
                 ExtraCodecs.POSITIVE_INT.fieldOf("count").forGetter(Limit::count),
                 Reset.CODEC.optionalFieldOf("reset", Reset.NEVER).forGetter(Limit::reset)
         ).apply(instance, Limit::new));
+
+        /** A team buys it a set number of times for good, such as a schematic once per team. */
+        public boolean onceForTeam() {
+            return per == Per.TEAM && reset == Reset.NEVER;
+        }
     }
 
     public static final Codec<ShopOffer> CODEC = RecordCodecBuilder.<ShopOffer>create(instance -> instance.group(

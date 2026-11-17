@@ -218,6 +218,19 @@ public final class BookValidator {
                     valid = false;
                 }
             }
+            // A player pays only with plain items, and currency has no components: such a trade could never be made.
+            for (ShopOffer.Entry entry : offer.cost()) {
+                if (entry.hasComponents()) {
+                    issues.add(error("offer_cost_components", offer.id(), entry.id()));
+                    valid = false;
+                }
+            }
+            for (ShopOffer.Entry entry : offer.gives()) {
+                if (entry.isCurrency() && entry.hasComponents()) {
+                    issues.add(error("offer_currency_components", offer.id(), entry.id()));
+                    valid = false;
+                }
+            }
             if (valid) {
                 offers.put(offer.id(), offer);
                 offer.quest().filter(quest -> !quests.containsKey(quest)).ifPresent(quest -> issues.add(warning("unknown_offer_quest", offer.id(), quest.toString())));

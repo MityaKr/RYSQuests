@@ -23,7 +23,8 @@ public final class ShopCycles {
     }
 
     private static String node(ShopOffer.Entry entry) {
-        return entry.type().getSerializedName() + ":" + entry.id();
+        // An item with components is not the plain one: it cannot pay for anything, so it never closes a chain.
+        return entry.type().getSerializedName() + ":" + entry.id() + entry.components().map(patch -> " " + patch).orElse("");
     }
 
     /** @return the trades of each profitable chain found */

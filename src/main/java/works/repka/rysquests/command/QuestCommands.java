@@ -43,6 +43,7 @@ import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.BookReport;
 import works.repka.rysquests.data.BookReport.Issue;
 import works.repka.rysquests.data.BookReport.Severity;
+import works.repka.rysquests.data.ProgressMode;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.ShopOffer;
@@ -319,6 +320,7 @@ public final class QuestCommands {
             return 0;
         }
         ProgressStore.get(player.server).setTeam(player.getUUID(), team);
+        ShopService.joinedTeam(player.server, team, player.getUUID());
         refreshTeam(player);
         context.getSource().sendSuccess(() -> Component.translatable("rysquests.team.joined"), false);
         return 1;
@@ -326,7 +328,9 @@ public final class QuestCommands {
 
     private static int teamLeave(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
+        UUID team = ProgressStore.get(player.server).teamOf(player.getUUID(), ProgressMode.TEAM);
         ProgressStore.get(player.server).leaveTeam(player.getUUID());
+        ShopService.leftTeam(player.server, team, player.getUUID());
         refreshTeam(player);
         context.getSource().sendSuccess(() -> Component.translatable("rysquests.team.left"), false);
         return 1;
