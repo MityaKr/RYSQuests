@@ -86,7 +86,7 @@ neoForge {
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'datapack'
             systemProperty 'rysquests.autotest.tag', project.findProperty('tag') ?: ''
             // 'canvas' and 'map' read the books of RepYS and ATM10 on the client, without a server.
-            systemProperty 'rysquests.autotest.repysBook', project.findProperty('repysBook') ?: project.file('../_fresh/book').absolutePath
+            systemProperty 'rysquests.autotest.repysBook', project.findProperty('repysBook') ?: project.file('../../_shared/_fresh/book').absolutePath
             systemProperty 'rysquests.autotest.repysLang', project.findProperty('repysLang') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/RepYS/kubejs/assets/repys/lang/ru_ru.json"
             systemProperty 'rysquests.autotest.atm10Quests', project.findProperty('atm10Quests') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/All the Mods 10 - ATM10/config/ftbquests/quests"
             // The size of the mockups in design/, so that screenshots can be laid over them.
@@ -125,7 +125,7 @@ neoForge {
             systemProperty 'rysquests.autotest', project.findProperty('autotest') ?: 'repys'
             systemProperty 'rysquests.autotest.world', project.findProperty('world') ?: ''
             // The book of RepYS for the pack's kubejs, as _audit/book2/repys-data/CHANGES.md lays it out.
-            systemProperty 'rysquests.autotest.repysData', project.findProperty('repysData') ?: project.file('../_audit/book2/repys-data').absolutePath
+            systemProperty 'rysquests.autotest.repysData', project.findProperty('repysData') ?: project.file('../../_shared/_audit/book2/repys-data').absolutePath
             systemProperty 'rysquests.autotest.asPlayer', 'true'
             systemProperty 'rysquests.autotest.ftbqSaves', project.findProperty('ftbqSaves') ?: ''
             programArguments.addAll '--width', '1280', '--height', '800'
@@ -173,7 +173,7 @@ test {
     systemProperty 'rysquests.examplesDir', project.file('examples').absolutePath
     systemProperty 'rysquests.reportFile', project.file('build/ftbq-real-report.txt').absolutePath
     // Real books for the automatic map form and for reading RepYS; each test is skipped where its folder is absent.
-    systemProperty 'rysquests.repysBook', project.findProperty('repysBook') ?: project.file('../_fresh/book').absolutePath
+    systemProperty 'rysquests.repysBook', project.findProperty('repysBook') ?: project.file('../../_shared/_fresh/book').absolutePath
     systemProperty 'rysquests.repysPack', project.findProperty('repysPack') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/RepYS/kubejs/data/repys/rysquests"
     systemProperty 'rysquests.atm10Quests', project.findProperty('atm10Quests') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/All the Mods 10 - ATM10/config/ftbquests/quests"
     if (project.hasProperty('ftbqDir')) {
