@@ -39,6 +39,7 @@ public final class ProgressStore extends SavedData {
     private static final String TITLES = "titles";
     private static final String ACTIVE_TITLE = "active_title";
     private static final String LAST_CHAPTER = "last_chapter";
+    private static final String OWED_ROUNDS = "owed_rounds";
     private static final int HISTORY_LINES = 30;
     private static final UUID SERVER_TEAM = new UUID(0, 0);
 
@@ -68,6 +69,11 @@ public final class ProgressStore extends SavedData {
     private final Map<UUID, String> activeTitles = new HashMap<>();
     /** Per player, not per team: the chapter of the quest this player last completed by their own doing. */
     private final Map<UUID, ResourceLocation> lastChapters = new HashMap<>();
+    /**
+     * Per player: the finished rounds of repeatable quests whose rewards still wait for them, because a teammate started the next
+     * round first. See {@link TeamRewards#owedAtNewRound}.
+     */
+    private final Map<UUID, Map<ResourceLocation, QuestProgress>> owedRounds = new HashMap<>();
 
     /**
      * One operation with money.
@@ -142,6 +148,10 @@ public final class ProgressStore extends SavedData {
         if (tag.contains(LAST_CHAPTER)) {
             LAST_CHAPTER_CODEC.parse(NbtOps.INSTANCE, tag.get(LAST_CHAPTER)).resultOrPartial(LOGGER::error).ifPresent(store.lastChapters::putAll);
         }
+        if (tag.contains(OWED_ROUNDS)) {
+            CODEC.parse(NbtOps.INSTANCE, tag.get(OWED_ROUNDS)).resultOrPartial(LOGGER::error).ifPresent(saved ->
+                    saved.forEach((player, quests) -> store.owedRounds.put(player, new HashMap<>(quests))));
+        }
         return store;
     }
 
@@ -164,6 +174,7 @@ public final class ProgressStore extends SavedData {
         tag.put(SHOP_USAGE, USAGE_CODEC.encodeStart(NbtOps.INSTANCE, shopUsage).getOrThrow());
         tag.put(SHOP_HISTORY, HISTORY_CODEC.encodeStart(NbtOps.INSTANCE, shopHistory).getOrThrow());
         tag.put(LAST_CHAPTER, LAST_CHAPTER_CODEC.encodeStart(NbtOps.INSTANCE, lastChapters).getOrThrow());
+        tag.put(OWED_ROUNDS, CODEC.encodeStart(NbtOps.INSTANCE, owedRounds).getOrThrow());
         return tag;
     }
 
@@ -190,9 +201,49 @@ public final class ProgressStore extends SavedData {
                 changed = true;
             }
         }
+        // An owed round is the same kind of record, kept apart only until its rewards are taken.
+        for (Map<ResourceLocation, QuestProgress> row : owedRounds.values()) {
+            QuestProgress before = row.get(quest);
+            if (before != null) {
+                row.put(quest, change.apply(before));
+                changed = true;
+            }
+        }
         if (changed) {
             setDirty();
         }
+    }
+
+    /** The finished round of a repeatable quest whose rewards still wait for this player, or null. */
+    @Nullable
+    public QuestProgress owed(UUID player, ResourceLocation quest) {
+        Map<ResourceLocation, QuestProgress> rounds = owedRounds.get(player);
+        return rounds == null ? null : rounds.get(quest);
+    }
+
+    /** @param round what the player is owed now, or null when nothing is left */
+    public void setOwed(UUID player, ResourceLocation quest, @Nullable QuestProgress round) {
+        if (round == null) {
+            Map<ResourceLocation, QuestProgress> rounds = owedRounds.get(player);
+            if (rounds != null && rounds.remove(quest) != null) {
+                if (rounds.isEmpty()) {
+                    owedRounds.remove(player);
+                }
+                setDirty();
+            }
+        } else {
+            owedRounds.computeIfAbsent(player, key -> new HashMap<>()).put(quest, round);
+            setDirty();
+        }
+    }
+
+    /** The players of a team who can be owed a round of a repeatable quest. */
+    public List<UUID> roundMembers(UUID team, ProgressMode mode) {
+        List<UUID> candidates = new ArrayList<>(teams.keySet());
+        candidates.addAll(TeamsApi.get().members(team));
+        candidates.addAll(members.keySet());
+        candidates.remove(SERVER_TEAM);
+        return TeamRewards.roundMembers(candidates, team, player -> teamOf(player, mode), team.equals(members.get(team)));
     }
 
     public QuestProgress get(UUID team, ResourceLocation quest) {

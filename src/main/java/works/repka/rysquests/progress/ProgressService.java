@@ -113,8 +113,15 @@ public final class ProgressService {
         return BookHolder.current().book();
     }
 
-    /** A team shares task progress, while each member claims rewards for themselves. */
+    /**
+     * A team shares task progress, while each member claims rewards for themselves. A finished round of a repeatable quest whose
+     * rewards still wait for the player shows first, while the team's next round goes on.
+     */
     private static QuestProgress viewFor(ServerPlayer player, ResourceLocation quest, QuestProgress teamProgress) {
+        QuestProgress owed = ProgressStore.get(player.server).owed(player.getUUID(), quest);
+        if (owed != null) {
+            return TeamRewards.owedView(owed, teamProgress);
+        }
         UUID team = team(player);
         if (team.equals(player.getUUID())) {
             return teamProgress;
@@ -128,6 +135,13 @@ public final class ProgressService {
         ProgressStore store = ProgressStore.get(player.server);
         UUID team = team(player);
         return id -> viewFor(player, id, store.get(team, id));
+    }
+
+    /** The team's own records, the same for every member: what is open, done or stuck, rewards aside. */
+    private static Function<ResourceLocation, QuestProgress> teamLookup(ServerPlayer player) {
+        ProgressStore store = ProgressStore.get(player.server);
+        UUID team = team(player);
+        return id -> store.get(team, id);
     }
 
     private static boolean stageAllows(ServerPlayer player, Quest quest) {
@@ -232,7 +246,8 @@ public final class ProgressService {
         if (cached != null && now < cached.expires()) {
             return cached.quests();
         }
-        Function<ResourceLocation, QuestProgress> progress = lookup(player);
+        // What is open is the same for every member, whatever rewards one of them still has to take of an earlier round.
+        Function<ResourceLocation, QuestProgress> progress = teamLookup(player);
         List<Quest> open = new ArrayList<>();
         long expires = Long.MAX_VALUE;
         for (Quest quest : activeBook.quests().values()) {
@@ -747,7 +762,8 @@ public final class ProgressService {
     }
 
     private static boolean isOpen(ServerPlayer player, Quest quest) {
-        QuestStatus status = QuestLogic.status(quest, lookup(player));
+        // A member still owed an earlier round helps with the team's current one all the same.
+        QuestStatus status = QuestLogic.status(quest, teamLookup(player));
         return (status == QuestStatus.AVAILABLE || status == QuestStatus.IN_PROGRESS) && stageAllows(player, quest);
     }
 
@@ -833,6 +849,7 @@ public final class ProgressService {
     private static Claim claim(ServerPlayer player, Quest quest, List<Integer> choices, boolean dropExtra) {
         UUID team = team(player);
         ProgressStore store = ProgressStore.get(player.server);
+        QuestProgress owed = store.owed(player.getUUID(), quest.id());
         QuestProgress before = viewFor(player, quest.id(), store.get(team, quest.id()));
         if (!before.completed()) {
             return new Claim(false, "rysquests.reward.error.not_done");
@@ -854,11 +871,27 @@ public final class ProgressService {
             }
         }
         boolean given = claimed.size() > before.claimed().size();
+        if (owed != null) {
+            // A round the team has already moved on from: it is the player's alone, and taking it starts nothing.
+            if (given) {
+                store.setOwed(player.getUUID(), quest.id(), TeamRewards.owedAfterClaim(quest, owed, claimed));
+                PacketDistributor.sendToPlayer(player, new ProgressPayload(false, Map.of(quest.id(), viewFor(player, quest.id(), store.get(team, quest.id())))));
+            }
+            return new Claim(given, refusal);
+        }
         boolean allClaimed = claimed.size() >= quest.rewards().size();
         if (allClaimed && quest.options().repeatable().isPresent()) {
             long cooldown = quest.options().repeatable().get().cooldownMinutes() * MINUTE_MS;
-            int times = store.get(team, quest.id()).times() + 1;
-            // A new round starts clean for everyone in the team, so that no one carries this round's claims into the next.
+            QuestProgress round = store.get(team, quest.id());
+            int times = round.times() + 1;
+            // What the others have not taken of this round stays theirs until they take it, the next round going on meanwhile.
+            for (UUID member : store.roundMembers(team, book().meta().progressMode())) {
+                if (!member.equals(player.getUUID())) {
+                    List<Integer> own = member.equals(team) ? round.claimed() : store.get(member, quest.id()).claimed();
+                    store.setOwed(member, quest.id(), TeamRewards.owedAtNewRound(quest, round, own, store.owed(member, quest.id())));
+                }
+            }
+            // A new round starts clean for everyone in the team: what was owed of this one is kept above, apart from the rounds.
             // The rows are the store's own, so this holds for a team mod, our own teams (whose id is the owner's) and
             // server-wide progress alike, whoever of them claims.
             for (UUID member : TeamRewards.rowsToReset(store.allProgress().keySet(), team, row -> store.teamOf(row, book().meta().progressMode()))) {
@@ -1047,7 +1080,7 @@ public final class ProgressService {
         }
         UUID team = team(player);
         ProgressStore store = ProgressStore.get(player.server);
-        Function<ResourceLocation, QuestProgress> progress = lookup(player);
+        Function<ResourceLocation, QuestProgress> progress = teamLookup(player);
         Map<ResourceLocation, QuestProgress> mended = new HashMap<>();
         long now = System.currentTimeMillis();
         for (Quest quest : book().quests().values()) {
