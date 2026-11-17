@@ -231,6 +231,15 @@ public final class BookValidator {
                     valid = false;
                 }
             }
+            // A delivery is brought in items and gives goods: without an item to bring, or with only coins out, it is no delivery.
+            if (offer.delivery() && offer.cost().stream().allMatch(ShopOffer.Entry::isCurrency)) {
+                issues.add(error("offer_delivery_items", offer.id(), ""));
+                valid = false;
+            }
+            if (offer.delivery() && offer.isSale()) {
+                issues.add(error("offer_delivery_sale", offer.id(), ""));
+                valid = false;
+            }
             if (valid) {
                 offers.put(offer.id(), offer);
                 offer.quest().filter(quest -> !quests.containsKey(quest)).ifPresent(quest -> issues.add(warning("unknown_offer_quest", offer.id(), quest.toString())));

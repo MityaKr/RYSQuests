@@ -24,6 +24,7 @@ import works.repka.rysquests.data.Achievement;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.RewardDef;
 import works.repka.rysquests.data.ShopOffer;
+import works.repka.rysquests.network.ShopDeliverPayload;
 import works.repka.rysquests.network.ShopTradePayload;
 import works.repka.rysquests.progress.ProgressStore;
 import works.repka.rysquests.progress.QuestProgress;
@@ -182,9 +183,12 @@ final class ShopView implements BookView {
         return treasury ? ClientShop.treasury(currency) : ClientShop.balance(currency);
     }
 
-    /** Whether the player can pay for a number of trades. */
+    /** Whether the player can pay for a number of trades. A delivery's items are in the team's count already: only its coins count. */
     private static boolean canPay(ShopOffer offer, int count, boolean treasury) {
         for (ShopOffer.Entry cost : offer.cost()) {
+            if (offer.delivery() && !cost.isCurrency()) {
+                continue;
+            }
             long needed = (long) cost.amount() * count;
             long have = cost.isCurrency() ? wallet(cost.id(), treasury) : paying(stackOf(cost));
             if (have < needed) {
@@ -714,6 +718,10 @@ final class ShopView implements BookView {
             card.render(ui, x, y, w, CARD_H);
             return;
         }
+        if (offer.delivery() && state != State.LOCKED) {
+            renderDeliveryCard(ui, card, offer, state, x, y, w);
+            return;
+        }
         Need need = need(offer);
         if (state == State.LOCKED) {
             card.meta(lockedLine(offer));
@@ -739,6 +747,56 @@ final class ShopView implements BookView {
     private void trade(ShopOffer offer, int count, boolean treasury) {
         status = null;
         PacketDistributor.sendToServer(new ShopTradePayload(offer.id(), count, treasury));
+    }
+
+    // --- deliveries (shop plan, step M4, picture 01) ---
+
+    private static Map<String, Long> delivered(ShopOffer offer) {
+        return ClientShop.delivered(offer.id());
+    }
+
+    /** How far a delivery has come in whole percent: 100 only when every row is full. */
+    private static int percent(ShopOffer offer) {
+        Map<String, Long> delivered = delivered(offer);
+        return offer.deliveryComplete(delivered) ? 100 : Math.min(99, (int) Math.floor(offer.deliveryProgress(delivered) * 100));
+    }
+
+    /** What the inventory would give to a delivery now, by item, as the server counts it. */
+    private static Map<String, Long> deliverable(ShopOffer offer) {
+        Map<String, Long> held = new java.util.HashMap<>();
+        for (String item : offer.deliveryRows().keySet()) {
+            ResourceLocation id = ResourceLocation.tryParse(item);
+            if (id != null) {
+                held.put(item, paying(TaskText.stackOf(id)));
+            }
+        }
+        return offer.toDeliver(delivered(offer), held);
+    }
+
+    /** The card of an open delivery: how far it has come, and "Забрать" once it is complete (picture 01). */
+    private void renderDeliveryCard(Ui ui, GridCard card, ShopOffer offer, State state, float x, float y, float w) {
+        Map<String, Long> delivered = delivered(offer);
+        boolean full = offer.deliveryComplete(delivered);
+        int percent = percent(offer);
+        card.meta(full ? tr("rysquests.shop.delivery.ready") : delivered.isEmpty() ? tr("rysquests.shop.delivery.not_started")
+                : text("rysquests.shop.delivery.percent", percent));
+        card.progress(full ? 1f : offer.deliveryProgress(delivered), percent + "%", full);
+        if (full) {
+            switch (state) {
+                case OK -> card.mainButton(tr("rysquests.shop.take"), () -> {
+                    select(offer);
+                    trade(offer, 1, payFromTreasury(offer));
+                });
+                case POOR -> card.buttonOff(tr("rysquests.shop.not_enough"));
+                default -> card.buttonOff(tr(offer.limit().filter(limit -> limit.reset() == ShopOffer.Reset.NEVER).isPresent() ? "rysquests.shop.sold_out" : "rysquests.shop.later"));
+            }
+        }
+        card.render(ui, x, y, w, CARD_H);
+    }
+
+    private void deliver(ShopOffer offer) {
+        status = null;
+        PacketDistributor.sendToServer(new ShopDeliverPayload(offer.id()));
     }
 
     // --- history ---
@@ -1013,7 +1071,119 @@ final class ShopView implements BookView {
         return top + h;
     }
 
+    /**
+     * The detail of a delivery (picture 01): the rows with what the team has brought, the coins paid when the goods are taken, and at
+     * the bottom "Сдать из инвентаря" until it is complete, then "Забрать".
+     */
+    private void renderDeliveryDetail(Ui ui, ShopOffer offer, int x, int y, int w, int h) {
+        State state = state(offer);
+        boolean treasury = payFromTreasury(offer);
+        ShopOffer.Entry price = price(offer);
+        String currency = price == null ? mainCurrency() : price.id();
+        long coins = priceOf(offer);
+        long have = wallet(currency, treasury);
+        Map<String, Long> delivered = delivered(offer);
+        boolean full = offer.deliveryComplete(delivered);
+        Map<String, Long> rows = offer.deliveryRows();
+        Map<String, Long> give = deliverable(offer);
+        DetailPanel.Action action;
+        if (state == State.LOCKED) {
+            action = DetailPanel.Action.state(lockedLine(offer));
+        } else if (state == State.OUT && boughtByTeam(offer)) {
+            action = DetailPanel.Action.state(tr(ClientShop.inTeam() ? "rysquests.shop.team_bought_long" : "rysquests.shop.bought_long"));
+        } else if (state == State.OUT) {
+            action = DetailPanel.Action.state(tr(offer.limit().filter(limit -> limit.reset() == ShopOffer.Reset.NEVER).isPresent() ? "rysquests.shop.sold_out_long" : "rysquests.shop.limit_used"));
+        } else if (full && have >= coins) {
+            action = DetailPanel.Action.button(coins > 0 ? text("rysquests.shop.take_for", money(currency, coins)) : tr("rysquests.shop.take"), () -> trade(offer, 1, treasury));
+        } else if (full) {
+            action = DetailPanel.Action.state(text("rysquests.shop.short_by", money(currency, Math.max(1, coins - have))));
+        } else if (!give.isEmpty()) {
+            String label;
+            if (give.size() == 1) {
+                Map.Entry<String, Long> only = give.entrySet().iterator().next();
+                label = text("rysquests.shop.deliver_one", TaskText.stackOf(ResourceLocation.parse(only.getKey())).getHoverName().getString(), Sidebar.full(only.getValue()));
+            } else {
+                label = text("rysquests.shop.deliver_many", text("rysquests.shop.pieces", Sidebar.full(give.values().stream().mapToLong(Long::longValue).sum())));
+            }
+            action = DetailPanel.Action.button(label, () -> deliver(offer));
+        } else {
+            action = DetailPanel.Action.state(tr("rysquests.shop.delivery.nothing_held"));
+        }
+        // The recipes of the first row still short: what the team has to make next.
+        String missing = rows.entrySet().stream().filter(row -> delivered.getOrDefault(row.getKey(), 0L) < row.getValue()).map(Map.Entry::getKey).findFirst().orElse(null);
+        ResourceLocation missingId = missing == null ? null : ResourceLocation.tryParse(missing);
+        if (missingId != null && state != State.LOCKED) {
+            ItemStack stack = TaskText.stackOf(missingId);
+            action = action.withLink(tr("rysquests.shop.delivery.recipes"), () -> Recipes.showRecipes(stack));
+        }
+        panel.render(ui, x, y, w, h, (u, bx, by, bw) -> {
+            float pen = by;
+            String category = offer.category().map(ShopView::tr).orElse("");
+            String sub = (category.isEmpty() ? "" : category + " · ") + limitLong(offer) + (ClientShop.inTeam() ? tr("rysquests.shop.delivery.for_team") : "");
+            float headH = DetailPanel.header(u, bx, pen, bw, icon(offer), name(offer), sub, null, false, null);
+            u.interactive(goodsIcon(offer), bx, pen, 46, 46);
+            u.count(goods(offer).amount(), bx + 45, pen + 48);
+            pen += headH + DetailPanel.GAP;
+            String boss = bossName(offer);
+            if (state == State.LOCKED && boss != null) {
+                pen += note(u, bx, pen, bw, Icons.Shape.SKULL, text("rysquests.shop.after_kill_note", boss), boss, false) + DetailPanel.GAP;
+            } else if (state != State.LOCKED && boss != null) {
+                pen += note(u, bx, pen, bw, Icons.Shape.SKULL, text("rysquests.shop.delivery.boss_note", boss), boss, false) + DetailPanel.GAP;
+            } else if (state != State.LOCKED) {
+                pen += note(u, bx, pen, bw, Icons.Shape.USERS, tr(ClientShop.inTeam() ? "rysquests.shop.delivery.note_team" : "rysquests.shop.delivery.note"), null, false) + DetailPanel.GAP;
+            }
+            int percent = percent(offer);
+            pen += DetailPanel.rubric(u, bx, pen, bw, tr("rysquests.shop.delivery.rubric"),
+                    ClientShop.inTeam() ? text("rysquests.shop.delivery.team", percent) : percent + "%") + 8;
+            for (Map.Entry<String, Long> row : rows.entrySet()) {
+                ResourceLocation id = ResourceLocation.tryParse(row.getKey());
+                ItemStack stack = id == null ? ItemStack.EMPTY : TaskText.stackOf(id);
+                u.cell(stack, bx, pen, 26, 26, 5, 18, u.c("slot.bg"), u.c("slot.border"));
+                u.interactive(stack, bx, pen, 26, 26);
+                float cy = pen + 13;
+                long got = delivered.getOrDefault(row.getKey(), 0L);
+                String of = text("rysquests.shop.delivery.of", Sidebar.full(row.getValue()));
+                String count = Sidebar.full(got);
+                float ofW = u.width(of, 12.5f, Ui.REGULAR);
+                float countW = u.width(count, 12.5f, Ui.SEMIBOLD);
+                u.labelRight(of, bx + bw, cy, 12.5f, Ui.REGULAR, u.c("text.muted"));
+                u.labelRight(count, bx + bw - ofW - 4, cy, 12.5f, Ui.SEMIBOLD, u.c(got >= row.getValue() ? "state.ok" : "text.primary"));
+                u.labelFit(stack.getHoverName().getString(), bx + 34, cy, bw - 34 - ofW - countW - 16, 12.5f, Ui.MEDIUM, u.c("text.primary"));
+                pen += 26 + 8;
+            }
+            if (coins > 0) {
+                float cy = pen + 13;
+                u.circle(bx + 6, cy - 7, 14, u.c("coin"));
+                String value = text("rysquests.shop.delivery.coins_value", money(currency, coins));
+                float valueW = u.width(value, 12.5f, Ui.REGULAR);
+                u.labelRight(value, bx + bw, cy, 12.5f, Ui.REGULAR, u.c(full && have < coins ? "state.bad" : "text.muted"));
+                u.labelFit(tr("rysquests.shop.delivery.coins"), bx + 34, cy, bw - 34 - valueW - 12, 12.5f, Ui.MEDIUM, u.c("text.primary"));
+                pen += 26 + 8;
+            }
+            pen += DetailPanel.GAP - 8;
+            if (ClientShop.spendTreasury() && coins > 0) {
+                float cy = pen + Segments.HEIGHT / 2f;
+                u.label(tr("rysquests.shop.pay_from"), bx, cy, 12.5f, Ui.REGULAR, u.c("text.muted"));
+                List<Segments.Item> wallets = List.of(Segments.item(text("rysquests.shop.pay_own", Numbers.compact(ClientShop.balance(currency)))),
+                        Segments.item(text("rysquests.shop.pay_treasury", Numbers.compact(ClientShop.treasury(currency)))));
+                float sw = Segments.width(wallets, fromTreasury ? 1 : 0);
+                Segments.render(u, bx + bw - sw, pen, wallets, fromTreasury ? 1 : 0, index -> fromTreasury = index == 1);
+                pen += Segments.HEIGHT + DetailPanel.GAP;
+            }
+            if (status != null) {
+                u.labelFit(status, bx, pen + 8, bw, 12, Ui.REGULAR, u.c(statusBad ? "state.bad" : "state.ok"));
+                pen += 16 + DetailPanel.GAP;
+            }
+            pen = renderLast(u, bx, pen + 2, bw);
+            return pen - by;
+        }, action);
+    }
+
     private void renderBuyDetail(Ui ui, ShopOffer offer, int x, int y, int w, int h) {
+        if (offer.delivery()) {
+            renderDeliveryDetail(ui, offer, x, y, w, h);
+            return;
+        }
         State state = state(offer);
         boolean treasury = payFromTreasury(offer);
         int max = Math.max(1, Math.min(MAX_TIMES, left(offer)));

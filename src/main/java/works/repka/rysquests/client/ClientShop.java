@@ -42,6 +42,11 @@ public final class ClientShop {
         return state.history();
     }
 
+    /** What the player's team has delivered towards a delivery trade, by item id. */
+    public static Map<String, Long> delivered(ResourceLocation offer) {
+        return state.delivered().getOrDefault(offer.toString(), Map.of());
+    }
+
     /** For the in-game autotest: shows a shop state the server did not send (pictures 25 to 27b). */
     public static void showForTest(ShopStatePayload payload) {
         state = payload;

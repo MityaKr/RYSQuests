@@ -43,6 +43,7 @@ public final class ProgressStore extends SavedData {
     private static final String ACTIVE_TITLE = "active_title";
     private static final String LAST_CHAPTER = "last_chapter";
     private static final String OWED_ROUNDS = "owed_rounds";
+    private static final String DELIVERIES = "deliveries";
     private static final int HISTORY_LINES = 30;
     private static final UUID SERVER_TEAM = new UUID(0, 0);
 
@@ -82,6 +83,8 @@ public final class ProgressStore extends SavedData {
      * round first. See {@link TeamRewards#owedAtNewRound}.
      */
     private final Map<UUID, Map<ResourceLocation, QuestProgress>> owedRounds = new HashMap<>();
+    /** What teams, and players alone, have delivered towards trades paid in parts (shop plan, step M4). */
+    private final DeliveryLedger deliveries = new DeliveryLedger(this::setDirty);
 
     /**
      * One operation with money.
@@ -163,6 +166,9 @@ public final class ProgressStore extends SavedData {
             CODEC.parse(NbtOps.INSTANCE, tag.get(OWED_ROUNDS)).resultOrPartial(LOGGER::error).ifPresent(saved ->
                     saved.forEach((player, quests) -> store.owedRounds.put(player, new HashMap<>(quests))));
         }
+        if (tag.contains(DELIVERIES)) {
+            DeliveryLedger.CODEC.parse(NbtOps.INSTANCE, tag.get(DELIVERIES)).resultOrPartial(LOGGER::error).ifPresent(store.deliveries::load);
+        }
         return store;
     }
 
@@ -187,6 +193,7 @@ public final class ProgressStore extends SavedData {
         tag.put(SHOP_HISTORY, HISTORY_CODEC.encodeStart(NbtOps.INSTANCE, shopHistory).getOrThrow());
         tag.put(LAST_CHAPTER, LAST_CHAPTER_CODEC.encodeStart(NbtOps.INSTANCE, lastChapters).getOrThrow());
         tag.put(OWED_ROUNDS, CODEC.encodeStart(NbtOps.INSTANCE, owedRounds).getOrThrow());
+        tag.put(DELIVERIES, DeliveryLedger.CODEC.encodeStart(NbtOps.INSTANCE, deliveries.saved()).getOrThrow());
         return tag;
     }
 
@@ -445,6 +452,19 @@ public final class ProgressStore extends SavedData {
                 setShopUsage(into, entry.getKey(), ShopLimits.after(entry.getValue(), shopUsage(into).get(entry.getKey()), used, today));
             }
         }
+    }
+
+    /** What has been delivered towards trades paid in parts, by owner, goal and item. */
+    public DeliveryLedger deliveries() {
+        return deliveries;
+    }
+
+    /**
+     * A player joins a team: what they delivered alone moves into the team's count and leaves theirs, so joining twice adds it once.
+     * Leaving takes nothing along, whatever the team's rule on progress: the count stays with the team.
+     */
+    public void foldDeliveries(UUID player, UUID team) {
+        deliveries.move(player, team);
     }
 
     /** The latest first. */

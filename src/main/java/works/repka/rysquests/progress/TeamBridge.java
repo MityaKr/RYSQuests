@@ -22,6 +22,8 @@ public final class TeamBridge implements TeamsApi.Listener {
     private final Map<UUID, Map<ResourceLocation, QuestProgress>> beforeMerge = new HashMap<>();
     /** What each side had used of the shop's limits before a merge. */
     private final Map<UUID, Map<String, ShopLimits.Usage>> usageBeforeMerge = new HashMap<>();
+    /** What the merged team had delivered before a merge: an undo gives back no more of it than is still there. */
+    private final Map<UUID, Map<String, Map<String, Long>>> deliveredBeforeMerge = new HashMap<>();
 
     public static void register() {
         TeamsApi.listen(new TeamBridge());
@@ -83,6 +85,7 @@ public final class TeamBridge implements TeamsApi.Listener {
             beforeMerge.put(into, new HashMap<>(store.team(into)));
             usageBeforeMerge.put(from, store.copyShopUsage(from));
             usageBeforeMerge.put(into, store.copyShopUsage(into));
+            deliveredBeforeMerge.put(from, store.deliveries().copy(from));
             store.mergeInto(from, into);
             ShopService.mergedTeams(ServerLifecycleHooks.getCurrentServer(), from, into);
         }
@@ -99,6 +102,9 @@ public final class TeamBridge implements TeamsApi.Listener {
         if (store != null && usageBeforeMerge.containsKey(from) && usageBeforeMerge.containsKey(into)) {
             store.replaceShopUsage(from, usageBeforeMerge.remove(from));
             store.replaceShopUsage(into, usageBeforeMerge.remove(into));
+        }
+        if (store != null && deliveredBeforeMerge.containsKey(from)) {
+            store.deliveries().giveBack(into, from, deliveredBeforeMerge.remove(from));
         }
         resync();
     }

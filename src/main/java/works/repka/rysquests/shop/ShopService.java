@@ -23,6 +23,7 @@ import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.ProgressMode;
 import works.repka.rysquests.data.ShopOffer;
+import works.repka.rysquests.network.ShopDeliverPayload;
 import works.repka.rysquests.network.ShopResultPayload;
 import works.repka.rysquests.network.ShopStatePayload;
 import works.repka.rysquests.network.ShopTradePayload;
@@ -93,7 +94,8 @@ public final class ShopService {
 
     /** @return the lang key of why the trade cannot be made, or null when it was made */
     private static String trade(ServerPlayer player, ShopOffer offer, int times, boolean treasury) {
-        if (times < 1 || times > MAX_TIMES) {
+        // The goods of a delivery are taken one round at a time: each round is delivered anew.
+        if (times < 1 || times > (offer.delivery() ? 1 : MAX_TIMES)) {
             return "rysquests.shop.error.unknown";
         }
         MinecraftServer server = player.server;
@@ -118,9 +120,17 @@ public final class ShopService {
                 return !limit.onceForTeam() ? "rysquests.shop.error.limit" : inTeam(player) ? "rysquests.shop.error.team_bought" : "rysquests.shop.error.bought";
             }
         }
+        // The items of a delivery are in the team's count already; only its coins are paid now.
+        UUID deliveryOwner = team(player);
+        if (offer.delivery() && !offer.deliveryComplete(store.deliveries().get(deliveryOwner, offer.id().toString()))) {
+            return "rysquests.shop.error.delivery_short";
+        }
         UUID wallet = treasury ? team(player) : player.getUUID();
         Inventory inventory = player.getInventory();
         for (ShopOffer.Entry cost : offer.cost()) {
+            if (offer.delivery() && !cost.isCurrency()) {
+                continue;
+            }
             long needed = (long) cost.amount() * times;
             if (cost.isCurrency() ? store.balance(wallet, cost.id()) < needed : count(inventory, item(cost)) < needed) {
                 return "rysquests.shop.error.not_enough";
@@ -129,11 +139,14 @@ public final class ShopService {
         if (!hasRoom(inventory.items, offer, times)) {
             return "rysquests.shop.error.no_space";
         }
+        if (offer.delivery() && !store.deliveries().take(deliveryOwner, offer.id().toString(), offer.deliveryRows())) {
+            return "rysquests.shop.error.delivery_short";
+        }
         for (ShopOffer.Entry cost : offer.cost()) {
             long needed = (long) cost.amount() * times;
             if (cost.isCurrency()) {
                 store.addBalance(wallet, cost.id(), -needed);
-            } else {
+            } else if (!offer.delivery()) {
                 remove(inventory, item(cost), (int) needed);
             }
         }
@@ -152,6 +165,59 @@ public final class ShopService {
             long delta = (offer.isSale() ? 1 : -1) * (long) money.amount() * times;
             store.addShopHistory(player.getUUID(), new ProgressStore.ShopLine(System.currentTimeMillis(), delta, money.id(), offer.id().toString(), times, treasury));
         }
+        return null;
+    }
+
+    /** A request to deliver from the inventory towards a delivery trade (shop plan, step M4). */
+    public static void handleDeliver(ServerPlayer player, ShopDeliverPayload payload) {
+        ShopOffer offer = BookHolder.current().book().offers().get(payload.offer());
+        boolean closed = !BookHolder.current().book().meta().published() && !player.hasPermissions(BookHolder.OPERATOR);
+        String problem = offer == null || closed || !offer.delivery() ? "rysquests.shop.error.unknown" : deliver(player, offer);
+        PacketDistributor.sendToPlayer(player, new ShopResultPayload(problem == null, problem == null ? "" : problem));
+        if (problem == null) {
+            works.repka.rysquests.progress.Feedback.submit(player);
+            sendToTeam(player);
+        }
+    }
+
+    /**
+     * Gives what the inventory holds of a delivery's rows to the team's count, never more than a row still lacks, so that nothing is
+     * taken for nothing. Plain stacks of the main inventory only, as a trade pays. @return the lang key of a refusal, or null
+     */
+    private static String deliver(ServerPlayer player, ShopOffer offer) {
+        ProgressStore store = ProgressStore.get(player.server);
+        if (offer.stage().filter(stage -> !Stages.has(player, stage)).isPresent() || !questOpens(store, player.getUUID(), offer, mode())) {
+            return "rysquests.shop.error.locked";
+        }
+        UUID owner = team(player);
+        if (offer.limit().isPresent()) {
+            ShopOffer.Limit limit = offer.limit().get();
+            UUID limitOwner = limit.per() == ShopOffer.Per.TEAM ? owner : player.getUUID();
+            if (ShopLimits.used(limit, store.shopUsage(limitOwner).get(offer.id().toString()), LocalDate.now()) >= limit.count()) {
+                return "rysquests.shop.error.limit";
+            }
+        }
+        String goal = offer.id().toString();
+        Map<String, Long> delivered = store.deliveries().get(owner, goal);
+        if (offer.deliveryComplete(delivered)) {
+            return "rysquests.shop.error.delivery_full";
+        }
+        Inventory inventory = player.getInventory();
+        Map<String, Long> held = new HashMap<>();
+        for (String item : offer.deliveryRows().keySet()) {
+            ResourceLocation id = ResourceLocation.tryParse(item);
+            if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+                held.put(item, (long) count(inventory, BuiltInRegistries.ITEM.get(id)));
+            }
+        }
+        Map<String, Long> taken = offer.toDeliver(delivered, held);
+        if (taken.isEmpty()) {
+            return "rysquests.shop.error.nothing_to_deliver";
+        }
+        taken.forEach((item, amount) -> {
+            remove(inventory, BuiltInRegistries.ITEM.get(ResourceLocation.parse(item)), amount.intValue());
+            store.deliveries().add(owner, goal, item, amount);
+        });
         return null;
     }
 
@@ -334,19 +400,39 @@ public final class ShopService {
         return out;
     }
 
-    /** A player joined a team: what they bought alone of trades limited per team counts for the team too. */
+    /**
+     * A player joined a team: what they bought alone of trades limited per team counts for the team too, and what they delivered alone
+     * moves into the team's count.
+     */
     public static void joinedTeam(MinecraftServer server, UUID team, UUID player) {
-        ProgressStore.get(server).foldTeamLimits(player, team, teamLimits(), LocalDate.now());
+        ProgressStore store = ProgressStore.get(server);
+        store.foldTeamLimits(player, team, teamLimits(), LocalDate.now());
+        store.foldDeliveries(player, team);
     }
 
-    /** A player left a team, or it broke up: what the team bought of trades limited per team stays bought for them. */
+    /**
+     * A player left a team, or it broke up: what the team bought of trades limited per team stays bought for them. What the team
+     * delivered stays with the team: the player starts their own count from nothing, and what they deliver alone joins the team again
+     * if they come back.
+     */
     public static void leftTeam(MinecraftServer server, UUID team, UUID player) {
         ProgressStore.get(server).carryTeamLimits(team, player, teamLimits());
     }
 
-    /** Two teams became one: what each bought of trades limited per team adds up. */
+    /** Two teams became one: what each bought of trades limited per team adds up, and so does what each delivered. */
     public static void mergedTeams(MinecraftServer server, UUID from, UUID into) {
-        ProgressStore.get(server).addTeamLimits(from, into, teamLimits(), LocalDate.now());
+        ProgressStore store = ProgressStore.get(server);
+        store.addTeamLimits(from, into, teamLimits(), LocalDate.now());
+        store.deliveries().move(from, into);
+    }
+
+    /** Forgets what a player's team, and the player alone, delivered. @param offer one trade, or null for all */
+    public static void resetDeliveries(ServerPlayer player, @Nullable ResourceLocation offer) {
+        ProgressStore store = ProgressStore.get(player.server);
+        String key = offer == null ? null : offer.toString();
+        store.deliveries().clear(team(player), key);
+        store.deliveries().clear(player.getUUID(), key);
+        sendToTeam(player);
     }
 
     /** Forgets what a player has used of the limits, and their team's too. @param offer one trade, or null for all */
@@ -384,7 +470,16 @@ public final class ShopService {
                 }
             });
         }
+        // What the team delivered, only for the book's delivery trades: a count of anything else is no business of the client.
+        Map<String, Map<String, Long>> delivered = new HashMap<>();
+        store.deliveries().all(team).forEach((goal, items) -> {
+            ResourceLocation id = ResourceLocation.tryParse(goal);
+            ShopOffer offer = id == null ? null : BookHolder.current().book().offers().get(id);
+            if (offer != null && offer.delivery()) {
+                delivered.put(goal, items);
+            }
+        });
         PacketDistributor.sendToPlayer(player, new ShopStatePayload(Map.copyOf(store.balances(player.getUUID())), inTeam(player) ? Map.copyOf(store.balances(team)) : Map.of(),
-                inTeam(player), used, List.copyOf(store.shopHistory(player.getUUID())), inTeam(player) && maySpendTreasury(player.getUUID())));
+                inTeam(player), used, List.copyOf(store.shopHistory(player.getUUID())), inTeam(player) && maySpendTreasury(player.getUUID()), delivered));
     }
 }

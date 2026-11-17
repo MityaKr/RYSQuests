@@ -48,6 +48,11 @@ final class GridCard {
     private boolean selected;
     private boolean off;
     private boolean picture;
+    private boolean accent;
+    private float progress = -1;
+    @Nullable
+    private String progressLabel;
+    private boolean progressFull;
     @Nullable
     private String done;
     @Nullable
@@ -92,6 +97,24 @@ final class GridCard {
         button = label;
         buttonAction = action;
         buttonOff = false;
+        return this;
+    }
+
+    /** The card's own main action, amber as in the mockup ("Забрать" on a delivery that is complete, shop plan, picture 01). */
+    GridCard mainButton(String label, Runnable action) {
+        button(label, action);
+        accent = true;
+        return this;
+    }
+
+    /**
+     * A bar at the bottom left instead of the price: how far a delivery has come. The label ("62%") stands on its right unless a
+     * button takes that place. @param full painted as done, in green
+     */
+    GridCard progress(float ratio, String label, boolean full) {
+        progress = ratio;
+        progressLabel = label;
+        progressFull = full;
         return this;
     }
 
@@ -209,13 +232,28 @@ final class GridCard {
             ui.label(done, x + w - tw, cy, 12, Ui.REGULAR, ui.c("state.ok"));
             ui.icon(works.repka.ryscore.ui.Icons.Shape.CHECK, x + w - tw - 5 - 12, cy - 6, 12, ui.c("state.ok"));
         }
+        float buttonW = 0;
         if (button != null && buttonAction != null) {
             float bw = ui.buttonWidth(button, 12, Ui.MEDIUM, 10);
-            ui.button(button, x + w - bw, bottom - 28, bw, 28, 9, 12, Ui.MEDIUM, 10, Ui.Style.PLAIN, buttonAction);
+            buttonW = bw;
+            ui.button(button, x + w - bw, bottom - 28, bw, 28, 9, 12, Ui.MEDIUM, 10, accent ? Ui.Style.ACCENT : Ui.Style.PLAIN, buttonAction);
         } else if (button != null && buttonOff) {
             float bw = Math.min(w - 50, ui.buttonWidth(button, 12, Ui.MEDIUM, 10));
+            buttonW = bw;
             ui.box(x + w - bw, bottom - 28, bw, 28, 9, Draw.alpha(ui.c("button.bg"), 0.5f), Draw.alpha(ui.c("button.border"), 0.5f));
             ui.labelCentered(ui.fit(button, bw - 8, 12, Ui.MEDIUM), x + w - bw / 2f, bottom - 14, 12, Ui.MEDIUM, Draw.alpha(ui.c("text.secondary"), 0.5f));
+        }
+        if (progress >= 0) {
+            float cy = bottom - 14;
+            float right = x + w;
+            if (buttonW > 0) {
+                right -= buttonW + 10;
+            } else if (progressLabel != null) {
+                float lw = ui.width(progressLabel, 12, Ui.MEDIUM);
+                ui.label(progressLabel, right - lw, cy, 12, Ui.MEDIUM, ui.c("text.secondary"));
+                right -= lw + 14;
+            }
+            ui.bar(x, cy - 3, Math.max(0, right - x), 6, 3, progress, ui.c(progressFull ? "state.ok" : "text.secondary"));
         }
     }
 }

@@ -122,7 +122,11 @@ public final class QuestCommands {
                 .then(admin("shop").then(Commands.literal("reset").then(Commands.argument("players", EntityArgument.players())
                         .executes(context -> shopReset(context, null))
                         .then(Commands.argument("offer", ResourceLocationArgument.id()).suggests(OFFERS)
-                                .executes(context -> shopReset(context, ResourceLocationArgument.getId(context, "offer")))))))
+                                .executes(context -> shopReset(context, ResourceLocationArgument.getId(context, "offer"))))))
+                        .then(Commands.literal("delivery").then(Commands.literal("reset").then(Commands.argument("players", EntityArgument.players())
+                                .executes(context -> deliveryReset(context, null))
+                                .then(Commands.argument("offer", ResourceLocationArgument.id()).suggests(OFFERS)
+                                        .executes(context -> deliveryReset(context, ResourceLocationArgument.getId(context, "offer"))))))))
                 .then(admin("title").then(titleAction("give", true)).then(titleAction("take", false)))
                 .then(admin("achievement").then(achievementAction("complete", true)).then(achievementAction("reset", false)))
                 .then(admin("import").then(Commands.literal("patchouli").then(Commands.argument("book", StringArgumentType.word())
@@ -232,6 +236,18 @@ public final class QuestCommands {
         var players = EntityArgument.getPlayers(context, "players");
         players.forEach(player -> ShopService.resetLimits(player, offer));
         context.getSource().sendSuccess(() -> Component.translatable("rysquests.shop.limits_reset", players.size()), true);
+        return players.size();
+    }
+
+    /** Forgets what the players' teams, and the players alone, delivered towards delivery trades. */
+    private static int deliveryReset(CommandContext<CommandSourceStack> context, @Nullable ResourceLocation offer) throws CommandSyntaxException {
+        if (offer != null && !BookHolder.current().book().offers().containsKey(offer)) {
+            context.getSource().sendFailure(Component.translatable("rysquests.shop.unknown_offer", offer.toString()));
+            return 0;
+        }
+        var players = EntityArgument.getPlayers(context, "players");
+        players.forEach(player -> ShopService.resetDeliveries(player, offer));
+        context.getSource().sendSuccess(() -> Component.translatable("rysquests.shop.deliveries_reset", players.size()), true);
         return players.size();
     }
 
