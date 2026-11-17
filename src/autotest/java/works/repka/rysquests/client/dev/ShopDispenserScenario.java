@@ -73,6 +73,9 @@ final class ShopDispenserScenario {
     private static volatile BlockPos pos = BlockPos.ZERO;
     /** What the server says, read on its own thread and kept for the client's checks. */
     private static volatile String serverView = "";
+    /** The book before the reload: a world kept from an earlier run already has the offers. */
+    private static volatile works.repka.rysquests.data.QuestBook before;
+    private static volatile boolean asking;
     private static volatile String pipe = "";
     private static volatile int noticesBefore;
 
@@ -83,10 +86,11 @@ final class ShopDispenserScenario {
         openWorld();
         expect("the RepYS book reached the client", () -> ClientBook.current().quests().size() > 1300);
         step("a datapack with a purchase, then reload", () -> {
+            before = ClientBook.current();
             writePack();
             command("reload");
         }, 40);
-        expect("the purchase reached the client", () -> ClientBook.current().offers().containsKey(BUY));
+        expect("the purchase reached the client", () -> ClientBook.current() != before && ClientBook.current().offers().containsKey(BUY));
         step("a player alone with 100 coins and an empty hand, the block set beside them with a chest under it", () -> {
             BookRole.forceForTest(false);
             mc().options.guiScale().set(2);
@@ -96,10 +100,16 @@ final class ShopDispenserScenario {
             onServer(player -> {
                 pos = player.blockPosition().relative(player.getDirection(), 2);
                 player.serverLevel().setBlockAndUpdate(pos.above(), Blocks.AIR.defaultBlockState());
+                // The test world is kept between runs: clear the old block and chest, or their contents stay.
+                player.serverLevel().setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+                player.serverLevel().setBlockAndUpdate(pos.below(), Blocks.AIR.defaultBlockState());
                 player.serverLevel().setBlockAndUpdate(pos.below(), Blocks.CHEST.defaultBlockState());
                 player.serverLevel().setBlockAndUpdate(pos, ModBlocks.DISPENSER.get().defaultBlockState());
             });
         }, 20);
+        // After a reload the server thread stays busy for seconds on a large pack: wait for the block, not for a fixed time.
+        expect("the block reached the client", () -> !BlockPos.ZERO.equals(pos)
+                && mc().level.getBlockState(pos).is(ModBlocks.DISPENSER.get()));
         step("open it with a click", ShopDispenserScenario::click, 30);
         expect("the window opened and the block is the player's now", () -> mc().screen instanceof DispenserScreen
                 && mc().player.getUUID().equals(view().owner()));
@@ -109,7 +119,7 @@ final class ShopDispenserScenario {
         step("choose the purchase, the goods down into the chest, spend at most 30", () -> configure(s -> s.withOffer(Optional.of(BUY))
                 .withOutput(Optional.of(Direction.DOWN)).withBudget(true, 30)), 60);
         step("ask the server", () -> onServer(ShopDispenserScenario::look), 10);
-        expect("10 lots bought into the chest, the budget spent, the lamp yellow and the comparator at 10", () -> serverView.startsWith("wallet=70 chest=160 slot=0")
+        expect("10 lots bought into the chest, the budget spent, the lamp yellow and the comparator at 10", () -> ask() && serverView.startsWith("wallet=70 chest=160 slot=0")
                 && serverView.contains("status=BUDGET lamp=yellow signal=10"));
         expect("one notice: the dispenser stopped on its budget", () -> BlockStopNotice.shownForTest() == noticesBefore + 1
                 && BlockStopNotice.lastForTest().equals("dispenser BUDGET 0"));
@@ -119,21 +129,21 @@ final class ShopDispenserScenario {
         // "Keep on the account 61": 3 more lots; a second stop within the minute brings no second notice.
         step("reset the counter, no budget, keep 61 on the account", () -> configure(s -> s.withBudget(false, 30).withReserve(true, 61), true), 60);
         step("ask the server", () -> onServer(ShopDispenserScenario::look), 10);
-        expect("3 lots more, 61 coins left, the lamp yellow", () -> serverView.startsWith("wallet=61 chest=208") && serverView.contains("status=RESERVE lamp=yellow"));
+        expect("3 lots more, 61 coins left, the lamp yellow", () -> ask() && serverView.startsWith("wallet=61 chest=208") && serverView.contains("status=RESERVE lamp=yellow"));
         expect("no second notice within the minute", () -> BlockStopNotice.shownForTest() == noticesBefore + 1);
 
         // "Keep at most 240": the chest fills to 240 and the block waits, which is its aim.
         step("no reserve, keep at most 240 in the chest", () -> configure(s -> s.withReserve(false, 61).withStock(true, 240)), 60);
         step("ask the server", () -> onServer(ShopDispenserScenario::look), 10);
-        expect("2 lots more, 240 iron in the chest, the stock made up", () -> serverView.startsWith("wallet=55 chest=240") && serverView.contains("status=STOCKED"));
+        expect("2 lots more, 240 iron in the chest, the stock made up", () -> ask() && serverView.startsWith("wallet=55 chest=240") && serverView.contains("status=STOCKED"));
 
         // "Only on a signal": dark without one, buys with a redstone block on top.
         step("no stock limit, work only on a redstone signal", () -> configure(s -> s.withStock(false, 240).withRedstone(true)), 60);
         step("ask the server", () -> onServer(ShopDispenserScenario::look), 10);
-        expect("nothing bought without a signal, the lamp off", () -> serverView.startsWith("wallet=55 chest=240") && serverView.contains("status=REDSTONE lamp=off signal=0"));
+        expect("nothing bought without a signal, the lamp off", () -> ask() && serverView.startsWith("wallet=55 chest=240") && serverView.contains("status=REDSTONE lamp=off signal=0"));
         step("a redstone block on top", () -> command(String.format("setblock %d %d %d minecraft:redstone_block", pos.getX(), pos.getY() + 1, pos.getZ())), 60);
         step("ask the server", () -> onServer(ShopDispenserScenario::look), 10);
-        expect("the rest of the coins spent: 18 lots, then short of coins", () -> serverView.startsWith("wallet=1 chest=528") && serverView.contains("status=WAITING"));
+        expect("the rest of the coins spent: 18 lots, then short of coins", () -> ask() && serverView.startsWith("wallet=1 chest=528") && serverView.contains("status=WAITING"));
         step("the redstone block goes, no more signal needed", () -> {
             command(String.format("setblock %d %d %d minecraft:air", pos.getX(), pos.getY() + 1, pos.getZ()));
             configure(s -> s.withRedstone(false));
@@ -146,7 +156,7 @@ final class ShopDispenserScenario {
             command("rysquests wallet set @s coin 30");
         }, 60);
         step("ask the server", () -> onServer(ShopDispenserScenario::look), 10);
-        expect("10 lots in the own slot, the comparator at 4 (two stacks and a half in nine slots)", () -> serverView.startsWith("wallet=0 chest=528 slot=160")
+        expect("10 lots in the own slot, the comparator at 4 (two stacks and a half in nine slots)", () -> ask() && serverView.startsWith("wallet=0 chest=528 slot=160")
                 && serverView.contains("signal=4"));
         step("a pipe takes a stack and tries to put dirt in", () -> onServer(player -> {
             IItemHandler handler = player.serverLevel().getCapability(Capabilities.ItemHandler.BLOCK, pos, Direction.UP);
@@ -155,7 +165,7 @@ final class ShopDispenserScenario {
             pipe = "taken=" + taken + " refused=" + refused;
             look(player);
         }), 10);
-        expect("the pipe took 64 and the dirt stayed out", () -> "taken=64 refused=5".equals(pipe) && serverView.contains("slot=96"));
+        expect("the pipe took 64 and the dirt stayed out", () -> ask() && "taken=64 refused=5".equals(pipe) && serverView.contains("slot=96"));
         step("move the mouse away", () -> moveMouse(5, 5), 5);
         screenshot("dispenser_own_slot");
         step("open the list of outputs", () -> {
@@ -206,6 +216,25 @@ final class ShopDispenserScenario {
         if (mc().player.containerMenu instanceof DispenserMenu menu) {
             PacketDistributor.sendToServer(new DispenserConfigPayload(menu.containerId, change.apply(menu.view().settings()), reset));
         }
+    }
+
+    /** Asks the server again unless a question is on its way: a busy server answers late, a fixed wait reads an old view. */
+    private static boolean ask() {
+        if (!asking) {
+            asking = true;
+            MinecraftServer server = mc().getSingleplayerServer();
+            server.execute(() -> {
+                try {
+                    ServerPlayer player = server.getPlayerList().getPlayer(mc().player.getUUID());
+                    if (player != null) {
+                        look(player);
+                    }
+                } finally {
+                    asking = false;
+                }
+            });
+        }
+        return true;
     }
 
     private static void onServer(java.util.function.Consumer<ServerPlayer> action) {
