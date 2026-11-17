@@ -7,23 +7,32 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import works.repka.ryscore.ui.Icons;
+import works.repka.rysquests.data.Achievement;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.ShopOffer;
+import works.repka.rysquests.editor.OfferEdits;
 
 /**
  * The editor's "Магазин" (picture 39): the offers as the player's grid with "+ Товар" last, "Купить | Продать" and the same "Раздел"
  * as the player has; on the right the chosen offer: name, who buys, what the player gets, the price, the section, when it opens and
  * the limit. An offer is removed at once rather than archived (plan, section 6).
+ *
+ * <p>Since 0.2.7 (ADR-58) also a delivery with the items it asks for and their counts, opening after the first win over a boss, the
+ * line of the closed card ({@code lock_text}) and a note for what the book would leave out. Every edit goes through
+ * {@link OfferEdits}, which keeps the fields it does not touch.
  */
 final class ShopEditorView extends EditorPage {
     private static final int PANEL_W = 360;
@@ -48,17 +57,11 @@ final class ShopEditorView extends EditorPage {
     }
 
     private static int price(ShopOffer offer) {
-        List<ShopOffer.Entry> side = offer.isSale() ? offer.gives() : offer.cost();
-        return side.stream().filter(ShopOffer.Entry::isCurrency).mapToInt(ShopOffer.Entry::amount).sum();
+        return OfferEdits.price(offer);
     }
 
     private static List<ShopOffer.Entry> items(ShopOffer offer) {
-        return (offer.isSale() ? offer.cost() : offer.gives()).stream().filter(e -> !e.isCurrency()).toList();
-    }
-
-    private static ShopOffer with(ShopOffer o, Optional<String> title, Optional<ResourceLocation> icon, Optional<String> category, List<ShopOffer.Entry> cost,
-            List<ShopOffer.Entry> gives, Optional<ShopOffer.Limit> limit, Optional<ResourceLocation> quest) {
-        return new ShopOffer(o.id(), title, icon, category, cost, gives, limit, o.stage(), o.stageTitle(), quest, o.lockText(), o.delivery());
+        return OfferEdits.goods(offer);
     }
 
     @Override
@@ -161,9 +164,10 @@ final class ShopEditorView extends EditorPage {
         EdUi.input(ui, fields, "offer-title:" + offer.id(), bx + 56, pen + 6, bw - 56, EdUi.INPUT_H, 13, Ui.SEMIBOLD, shownTitle, tr("rysquests.ed.shop.title_hint"),
                 value -> typeTitle(offer, value));
         pen += 46 + 12;
-        // who buys
+        // who buys; a delivery is always a purchase
         ui.label(tr("rysquests.ed.shop.kind"), bx, pen + 17, 12.5f, Ui.REGULAR, ui.c("text.muted"));
-        List<Segments.Item> kinds = List.of(Segments.item(tr("rysquests.ed.shop.player_buys")), Segments.item(tr("rysquests.ed.shop.player_sells")));
+        List<Segments.Item> kinds = List.of(Segments.item(tr("rysquests.ed.shop.player_buys")),
+                new Segments.Item(tr("rysquests.ed.shop.player_sells"), null, offer.delivery(), offer.delivery() ? Component.translatable("rysquests.ed.shop.flip_delivery") : null));
         float sw = Segments.width(kinds, offer.isSale() ? 1 : 0);
         Segments.render(ui, bx + bw - sw, pen, kinds, offer.isSale() ? 1 : 0, i -> flip(offer, i == 1));
         pen += 34 + 12;
@@ -188,13 +192,16 @@ final class ShopEditorView extends EditorPage {
         pen += EdUi.add(ui, tr("rysquests.ed.shop.add_item"), bx, pen, bw, false, () -> addItemFromHand(offer)) + 12;
         // the price, with its coin
         ui.label(tr("rysquests.ed.shop.price"), bx, pen + 17, 12.5f, Ui.REGULAR, ui.c("text.muted"));
-        float iw = 110;
-        ui.box(bx + bw - iw, pen, iw, EdUi.INPUT_H, 8, ui.c("input.bg"), ui.c("panel.border"));
-        ui.circle(bx + bw - iw + 10, pen + 12.5f, 9, ui.c("coin"));
-        TextArea priceArea = fields.area("offer-price:" + offer.id(), false, 13, Ui.REGULAR, String.valueOf(price(offer)), value -> setPrice(offer, value));
-        priceArea.render(ui, bx + bw - iw + 26, pen + 8, iw - 36, 18, ui.inputText("text.primary"), "");
-        ui.hit(bx + bw - iw, pen, iw, EdUi.INPUT_H, () -> fields.click(priceArea));
-        pen += EdUi.INPUT_H + 12;
+        pen += numberBox(ui, "offer-price:" + offer.id(), bx + bw - 110, pen, 110, true, String.valueOf(price(offer)), value -> setPrice(offer, value)) + 12;
+        // A purchase can be paid in parts: the team brings the items, the coins go when the goods are taken (ADR-54, ADR-58).
+        if (!offer.isSale()) {
+            pen += EdUi.setting(ui, bx, pen, bw, tr("rysquests.ed.shop.delivery"), tr("rysquests.ed.shop.delivery_sub"), offer.delivery(),
+                    () -> setDelivery(offer, !offer.delivery())) + 12;
+            List<ShopOffer.Entry> pay = OfferEdits.payItems(offer);
+            if (offer.delivery() || !pay.isEmpty()) {
+                pen += payRows(ui, offer, pay, bx, pen, bw);
+            }
+        }
         pen += EdUi.label(ui, tr("rysquests.ed.shop.section_field"), bx, pen);
         float sy = pen;
         String current = offer.category().map(editor::text).orElse(tr("rysquests.ed.shop.no_section"));
@@ -204,22 +211,10 @@ final class ShopEditorView extends EditorPage {
             sections.forEach(s -> labels.add(editor.text(s)));
             choices.toggle("offer-section", bx, sy + EdUi.INPUT_H + 4, bw, labels, offer.category().map(c -> sections.indexOf(c) + 1).orElse(0), i -> {
                 Optional<String> category = i == 0 ? Optional.empty() : Optional.of(sections.get(i - 1));
-                editor.putOffer(with(offer, offer.title(), offer.icon(), category, offer.cost(), offer.gives(), offer.limit(), offer.quest()),
-                        tr("rysquests.ed.log.offer_section", name(editor, offer), labels.get(i)));
+                editor.putOffer(OfferEdits.withCategory(offer, category), tr("rysquests.ed.log.offer_section", name(editor, offer), labels.get(i)));
             });
         }) + 12;
-        pen += EdUi.label(ui, tr("rysquests.ed.shop.opens"), bx, pen);
-        float oy = pen;
-        String opens = offer.quest().map(q -> editor.view().quests().get(q)).map(q -> tr("rysquests.ed.shop.after_quest", editor.text(q.title()))).orElse(tr("rysquests.ed.shop.at_once"));
-        pen += EdUi.select(ui, bx, pen, bw, opens, choices.isOpen("offer-opens"), () -> {
-            List<Quest> points = opensAfter(editor.view(), offer.quest().orElse(null));
-            List<String> labels = new ArrayList<>();
-            labels.add(tr("rysquests.ed.shop.at_once"));
-            points.forEach(q -> labels.add(tr("rysquests.ed.shop.after_quest", editor.text(q.title()))));
-            int chosenIndex = offer.quest().map(id -> points.stream().map(Quest::id).toList().indexOf(id) + 1).orElse(0);
-            choices.toggle("offer-opens", bx, oy + EdUi.INPUT_H + 4, bw, labels, chosenIndex, i -> editor.putOffer(with(offer, offer.title(), offer.icon(), offer.category(), offer.cost(),
-                    offer.gives(), offer.limit(), i == 0 ? Optional.empty() : Optional.of(points.get(i - 1).id())), tr("rysquests.ed.log.offer_opens", name(editor, offer))));
-        }) + 12;
+        pen += opensField(ui, editor, offer, bx, pen, bw);
         pen += EdUi.label(ui, tr("rysquests.ed.shop.limit"), bx, pen);
         List<Segments.Item> limits = List.of(Segments.item(tr("rysquests.ed.shop.limit.none")), Segments.item(tr("rysquests.ed.shop.limit.daily")),
                 Segments.item(tr("rysquests.ed.shop.limit.weekly")), Segments.item(tr("rysquests.ed.shop.limit.never")));
@@ -242,11 +237,12 @@ final class ShopEditorView extends EditorPage {
         if (offer.limit().isPresent()) {
             pen += 10;
             ui.label(tr("rysquests.ed.shop.limit_count"), bx, pen + 17, 12.5f, Ui.REGULAR, ui.c("text.muted"));
-            ui.box(bx + bw - 80, pen, 80, EdUi.INPUT_H, 8, ui.c("input.bg"), ui.c("panel.border"));
-            TextArea countArea = fields.area("offer-limit:" + offer.id(), false, 13, Ui.REGULAR, String.valueOf(offer.limit().get().count()), value -> setLimitCount(offer, value));
-            countArea.render(ui, bx + bw - 70, pen + 8, 60, 18, ui.inputText("text.primary"), "");
-            ui.hit(bx + bw - 80, pen, 80, EdUi.INPUT_H, () -> fields.click(countArea));
-            pen += EdUi.INPUT_H;
+            pen += numberBox(ui, "offer-limit:" + offer.id(), bx + bw - 80, pen, 80, false, String.valueOf(offer.limit().get().count()), value -> setLimitCount(offer, value));
+        }
+        // what the book would leave out, or what no player would see, in words
+        for (String problem : OfferEdits.problems(offer)) {
+            pen += 12;
+            pen += EdUi.note(ui, bx, pen, bw, Icons.Shape.WARN, tr("rysquests.ed.shop.problem." + problem));
         }
         ui.unclip();
         panelScroll.content(pen + offset - y - 16 + 12, footY - y - 16);
@@ -255,6 +251,114 @@ final class ShopEditorView extends EditorPage {
             editor.removeOffer(offer.id(), tr("rysquests.ed.log.offer_removed", name(editor, offer)));
             chosen = null;
         });
+    }
+
+    /**
+     * A number on its plate, the coin before a price. The plate turns red while the typed text is not a whole number above zero, and
+     * nothing changes until it is. @return its height
+     */
+    private float numberBox(Ui ui, String id, float x, float y, float w, boolean coin, String value, Consumer<String> apply) {
+        TextArea area = fields.area(id, false, 13, Ui.REGULAR, value, apply);
+        boolean bad = area.focused() && OfferEdits.positive(area.text()).isEmpty();
+        ui.box(x, y, w, EdUi.INPUT_H, 8, ui.c("input.bg"), ui.c(bad ? "state.bad" : area.focused() ? "text.secondary" : "panel.border"));
+        float tx = x + 10;
+        if (coin) {
+            ui.circle(x + 10, y + 12.5f, 9, ui.c("coin"));
+            tx = x + 26;
+        }
+        area.render(ui, tx, y + 8, x + w - 10 - tx, 18, ui.inputText("text.primary"), "");
+        ui.hit(x, y, w, EdUi.INPUT_H, () -> fields.click(area));
+        return EdUi.INPUT_H;
+    }
+
+    /**
+     * The items a purchase asks for besides its coins: what a delivery brings in parts ("Сдать поставкой"), or what a barter takes at
+     * once ("Игрок отдаёт ещё"), each with its count, which runs into thousands. @return its height with the gap after
+     */
+    private float payRows(Ui ui, ShopOffer offer, List<ShopOffer.Entry> pay, float bx, float y, float bw) {
+        float pen = y;
+        pen += DetailPanel.rubric(ui, bx, pen, bw, tr(offer.delivery() ? "rysquests.ed.shop.delivery_rows" : "rysquests.ed.shop.barter_rows"), String.valueOf(pay.size())) + 6;
+        float countW = 96;
+        for (int i = 0; i < pay.size(); i++) {
+            ShopOffer.Entry entry = pay.get(i);
+            int index = i;
+            ItemStack stack = entry.stack();
+            float rowY = pen;
+            // a delivery keeps its last row: without one it would be no delivery
+            Runnable remove = offer.delivery() && pay.size() <= 1 ? null : () -> removePay(offer, index);
+            float rowH = EdUi.row(ui, bx, pen, bw - countW - 8, stack, null, EdText.item(entry.item().orElse(offer.id())), null, null, remove);
+            if (!stack.isEmpty()) {
+                ui.hoverItem(stack, bx + 9, rowY + rowH / 2f - 10, 20, 20);
+            }
+            numberBox(ui, "offer-pay:" + offer.id() + ":" + i, bx + bw - countW, rowY + (rowH - EdUi.INPUT_H) / 2f, countW, false, String.valueOf(entry.amount()),
+                    value -> setPayCount(offer, index, value));
+            pen += rowH + 6;
+        }
+        pen += EdUi.add(ui, tr("rysquests.ed.shop.add_item"), bx, pen, bw, false, () -> addPayFromHand(offer)) + 12;
+        return pen - y;
+    }
+
+    /**
+     * "Открывается": at once, after a quest of the book, or after the first win over a boss (the first tier of a kill achievement,
+     * shop plan, step M3); then the line of the closed card, which only a closed trade shows. @return its height with the gap after
+     */
+    private float opensField(Ui ui, EditorBook editor, ShopOffer offer, float bx, float y, float bw) {
+        float pen = y;
+        pen += EdUi.label(ui, tr("rysquests.ed.shop.opens"), bx, pen);
+        List<OfferEdits.Boss> bosses = OfferEdits.bosses(editor.view());
+        List<Quest> points = opensAfter(editor.view(), offer.quest().filter(q -> !Achievement.isTierQuest(q)).orElse(null));
+        int mode = offer.quest().map(q -> Achievement.isTierQuest(q) ? 2 : 1).orElse(0);
+        List<Segments.Item> modes = List.of(Segments.item(tr("rysquests.ed.shop.opens.at_once")),
+                new Segments.Item(tr("rysquests.ed.shop.opens.quest"), null, points.isEmpty() && mode != 1,
+                        points.isEmpty() ? Component.translatable("rysquests.ed.shop.no_quests") : null),
+                new Segments.Item(tr("rysquests.ed.shop.opens.boss"), null, bosses.isEmpty() && mode != 2,
+                        bosses.isEmpty() ? Component.translatable("rysquests.ed.shop.no_bosses") : null));
+        Segments.render(ui, bx, pen, modes, mode, i -> {
+            if (i == mode) {
+                return;
+            }
+            Optional<ResourceLocation> quest = i == 0 ? Optional.empty()
+                    : i == 1 ? points.stream().findFirst().map(Quest::id) : bosses.stream().findFirst().map(OfferEdits.Boss::quest);
+            if (i == 0 || quest.isPresent()) {
+                editor.putOffer(OfferEdits.withQuest(offer, quest), tr("rysquests.ed.log.offer_opens", name(editor, offer)));
+            }
+        });
+        pen += 34 + 8;
+        if (mode == 1) {
+            float oy = pen;
+            String opens = offer.quest().map(q -> editor.view().quests().get(q)).map(q -> tr("rysquests.ed.shop.after_quest", editor.text(q.title())))
+                    .orElse(offer.quest().map(ResourceLocation::toString).orElse(""));
+            pen += EdUi.select(ui, bx, pen, bw, opens, choices.isOpen("offer-opens"), () -> {
+                List<String> labels = points.stream().map(q -> tr("rysquests.ed.shop.after_quest", editor.text(q.title()))).toList();
+                int chosenIndex = offer.quest().map(id -> points.stream().map(Quest::id).toList().indexOf(id)).orElse(-1);
+                choices.toggle("offer-opens", bx, oy + EdUi.INPUT_H + 4, bw, labels, chosenIndex,
+                        i -> editor.putOffer(OfferEdits.withQuest(offer, Optional.of(points.get(i).id())), tr("rysquests.ed.log.offer_opens", name(editor, offer))));
+            }) + 8;
+        } else if (mode == 2) {
+            float oy = pen;
+            ResourceLocation entity = offer.bossToDefeat(editor.view().quests()).orElse(null);
+            String opens = entity == null ? offer.quest().map(ResourceLocation::toString).orElse("") : tr("rysquests.ed.shop.after_kill", entityName(entity));
+            pen += EdUi.select(ui, bx, pen, bw, opens, choices.isOpen("offer-boss"), () -> {
+                List<String> labels = bosses.stream().map(b -> tr("rysquests.ed.shop.after_kill", entityName(b.entity()))).toList();
+                int chosenIndex = offer.quest().map(id -> bosses.stream().map(OfferEdits.Boss::quest).toList().indexOf(id)).orElse(-1);
+                choices.toggle("offer-boss", bx, oy + EdUi.INPUT_H + 4, bw, labels, chosenIndex,
+                        i -> editor.putOffer(OfferEdits.withQuest(offer, Optional.of(bosses.get(i).quest())), tr("rysquests.ed.log.offer_opens", name(editor, offer))));
+            }) + 8;
+        }
+        // The line of the closed card: only a trade that waits for something shows it.
+        if (mode != 0 || offer.stage().isPresent() || offer.lockText().isPresent()) {
+            pen += 4;
+            String lock = offer.lockText().map(editor::text).orElse("");
+            pen += EdUi.field(ui, fields, "offer-lock:" + offer.id(), tr("rysquests.ed.shop.lock_text"), bx, pen, bw, EdUi.INPUT_H, lock, tr("rysquests.ed.shop.lock_hint"),
+                    value -> typeLock(offer, value));
+            pen += 8;
+        }
+        return pen - y + 4;
+    }
+
+    /** The name of an entity as the game says it ("Игнис"), its id when the game does not know it. */
+    private static String entityName(ResourceLocation id) {
+        return BuiltInRegistries.ENTITY_TYPE.getOptional(id).map(type -> type.getDescription().getString()).orElse(id.toString());
     }
 
     /** At most this many points in the list "Открывается": it does not scroll. */
@@ -340,33 +444,64 @@ final class ShopEditorView extends EditorPage {
     private void typeTitle(ShopOffer offer, String value) {
         EditorBook editor = book();
         String key = offer.title().filter(EditorBook::isKey).orElse("shop." + offer.id().getNamespace() + "." + offer.id().getPath().replace('/', '.'));
-        ShopOffer changed = with(offer, Optional.of(key), offer.icon(), offer.category(), offer.cost(), offer.gives(), offer.limit(), offer.quest());
+        ShopOffer changed = OfferEdits.withTitle(offer, Optional.of(key));
         editor.type("offer-title:" + offer.id(), "offer:" + offer.id(), tr("rysquests.ed.log.offer_title", name(editor, offer)), d -> d.withOffer(changed).withText(key, value));
+    }
+
+    /** The line of the closed card goes into a key of the trade's own; an empty field gives the card its own words back. */
+    private void typeLock(ShopOffer offer, String value) {
+        EditorBook editor = book();
+        String line = tr("rysquests.ed.log.offer_lock", name(editor, offer));
+        if (value.isBlank()) {
+            editor.type("offer-lock:" + offer.id(), "offer:" + offer.id(), line, d -> d.withOffer(OfferEdits.withLockText(offer, Optional.empty())));
+            return;
+        }
+        String key = OfferEdits.lockKey(offer, EditorBook::isKey);
+        ShopOffer changed = OfferEdits.withLockText(offer, Optional.of(key));
+        editor.type("offer-lock:" + offer.id(), "offer:" + offer.id(), line, d -> d.withOffer(changed).withText(key, value));
     }
 
     private void flip(ShopOffer offer, boolean sale) {
         if (offer.isSale() == sale) {
             return;
         }
-        book().putOffer(with(offer, offer.title(), offer.icon(), offer.category(), offer.gives(), offer.cost(), offer.limit(), offer.quest()),
-                tr("rysquests.ed.log.offer_kind", name(book(), offer)));
+        if (offer.delivery()) {
+            works.repka.rysquests.client.ClientMessages.show("rysquests.ed.shop.flip_delivery", List.of(), false);
+            return;
+        }
+        book().putOffer(OfferEdits.flipped(offer), tr("rysquests.ed.log.offer_kind", name(book(), offer)));
     }
 
     private void setPrice(ShopOffer offer, String value) {
-        int amount;
-        try {
-            amount = Integer.parseInt(value.trim());
-        } catch (NumberFormatException e) {
+        OptionalInt amount = OfferEdits.positive(value);
+        if (amount.isEmpty()) {
             return;
         }
-        if (amount <= 0) {
+        ShopOffer changed = OfferEdits.withPrice(offer, amount.getAsInt());
+        book().type("offer-price:" + offer.id(), "offer:" + offer.id(), tr("rysquests.ed.log.offer_price", name(book(), offer), amount.getAsInt()), d -> d.withOffer(changed));
+    }
+
+    /** Pays in parts or at once; a delivery without items of its own takes the held one as its first row. */
+    private void setDelivery(ShopOffer offer, boolean on) {
+        Optional<ShopOffer.Entry> held = heldPlain();
+        ShopOffer changed = OfferEdits.withDelivery(offer, on, held);
+        if (changed == offer) {
+            if (on && held.isEmpty()) {
+                works.repka.rysquests.client.ClientMessages.show("rysquests.ed.shop.delivery_hand", List.of(), false);
+            }
             return;
         }
-        List<ShopOffer.Entry> coins = List.of(new ShopOffer.Entry(ShopOffer.Kind.CURRENCY, COIN, amount));
-        List<ShopOffer.Entry> things = items(offer);
-        ShopOffer changed = offer.isSale() ? with(offer, offer.title(), offer.icon(), offer.category(), things, coins, offer.limit(), offer.quest())
-                : with(offer, offer.title(), offer.icon(), offer.category(), coins, things, offer.limit(), offer.quest());
-        book().type("offer-price:" + offer.id(), "offer:" + offer.id(), tr("rysquests.ed.log.offer_price", name(book(), offer), amount), d -> d.withOffer(changed));
+        book().putOffer(changed, tr("rysquests.ed.log.offer_delivery", name(book(), offer)));
+    }
+
+    /** The held item as a player brings it: plain, with its count; empty with an empty hand. */
+    private static Optional<ShopOffer.Entry> heldPlain() {
+        var player = Minecraft.getInstance().player;
+        if (player == null || player.getMainHandItem().isEmpty()) {
+            return Optional.empty();
+        }
+        ItemStack held = player.getMainHandItem();
+        return Optional.of(new ShopOffer.Entry(ShopOffer.Kind.ITEM, BuiltInRegistries.ITEM.getKey(held.getItem()).toString(), held.getCount()));
     }
 
     private void addItemFromHand(ShopOffer offer) {
@@ -380,7 +515,7 @@ final class ShopEditorView extends EditorPage {
         // What the player gets keeps the held item's components (a schematic with its file); what the player gives is always plain.
         Optional<DataComponentPatch> components = offer.isSale() || held.getComponentsPatch().isEmpty() ? Optional.empty() : Optional.of(held.getComponentsPatch());
         things.add(new ShopOffer.Entry(ShopOffer.Kind.ITEM, BuiltInRegistries.ITEM.getKey(held.getItem()).toString(), held.getCount(), components));
-        replaceItems(offer, things, tr("rysquests.ed.log.offer_item", name(book(), offer)));
+        book().putOffer(OfferEdits.withGoods(offer, things), tr("rysquests.ed.log.offer_item", name(book(), offer)));
     }
 
     private void removeItem(ShopOffer offer, int index) {
@@ -389,14 +524,42 @@ final class ShopEditorView extends EditorPage {
             return;
         }
         things.remove(index);
-        replaceItems(offer, things, tr("rysquests.ed.log.offer_item_removed", name(book(), offer)));
+        book().putOffer(OfferEdits.withGoods(offer, things), tr("rysquests.ed.log.offer_item_removed", name(book(), offer)));
     }
 
-    private void replaceItems(ShopOffer offer, List<ShopOffer.Entry> things, String line) {
-        List<ShopOffer.Entry> coins = (offer.isSale() ? offer.gives() : offer.cost()).stream().filter(ShopOffer.Entry::isCurrency).toList();
-        ShopOffer changed = offer.isSale() ? with(offer, offer.title(), offer.icon(), offer.category(), things, coins, offer.limit(), offer.quest())
-                : with(offer, offer.title(), offer.icon(), offer.category(), coins, things, offer.limit(), offer.quest());
-        book().putOffer(changed, line);
+    /** One more item to bring, from the hand and plain: a player pays with plain items. */
+    private void addPayFromHand(ShopOffer offer) {
+        Optional<ShopOffer.Entry> held = heldPlain();
+        if (held.isEmpty()) {
+            works.repka.rysquests.client.ClientMessages.show("rysquests.ed.hand_empty", List.of(), false);
+            return;
+        }
+        List<ShopOffer.Entry> pay = new ArrayList<>(OfferEdits.payItems(offer));
+        pay.add(held.get());
+        book().putOffer(OfferEdits.withPayItems(offer, pay), tr("rysquests.ed.log.offer_item", name(book(), offer)));
+    }
+
+    private void removePay(ShopOffer offer, int index) {
+        List<ShopOffer.Entry> pay = new ArrayList<>(OfferEdits.payItems(offer));
+        if (index >= pay.size()) {
+            return;
+        }
+        pay.remove(index);
+        ShopOffer changed = OfferEdits.withPayItems(offer, pay);
+        if (changed != offer) {
+            book().putOffer(changed, tr("rysquests.ed.log.offer_item_removed", name(book(), offer)));
+        }
+    }
+
+    private void setPayCount(ShopOffer offer, int index, String value) {
+        OptionalInt count = OfferEdits.positive(value);
+        if (count.isEmpty()) {
+            return;
+        }
+        ShopOffer changed = OfferEdits.withCount(offer, true, index, count.getAsInt());
+        if (changed != offer) {
+            book().type("offer-pay:" + offer.id() + ":" + index, "offer:" + offer.id(), tr("rysquests.ed.log.offer_count", name(book(), offer)), d -> d.withOffer(changed));
+        }
     }
 
     /** The names of an item's components, for the line under it: "create:schematic_file, minecraft:custom_name". */
@@ -426,7 +589,7 @@ final class ShopEditorView extends EditorPage {
 
     /** Typed components: an empty field takes them away, text that does not read yet is left until it does. */
     private void setComponents(ShopOffer offer, int index, String value) {
-        List<ShopOffer.Entry> things = new ArrayList<>(items(offer));
+        List<ShopOffer.Entry> things = items(offer);
         RegistryOps<JsonElement> ops = jsonOps();
         if (index >= things.size() || ops == null) {
             return;
@@ -444,13 +607,10 @@ final class ShopEditorView extends EditorPage {
                 return;
             }
         }
-        ShopOffer.Entry old = things.get(index);
-        if (old.components().equals(components)) {
+        if (things.get(index).components().equals(components)) {
             return;
         }
-        things.set(index, new ShopOffer.Entry(old.type(), old.id(), old.amount(), components));
-        List<ShopOffer.Entry> coins = offer.cost().stream().filter(ShopOffer.Entry::isCurrency).toList();
-        ShopOffer changed = with(offer, offer.title(), offer.icon(), offer.category(), coins, things, offer.limit(), offer.quest());
+        ShopOffer changed = OfferEdits.withComponents(offer, index, components);
         book().type("offer-data:" + offer.id() + ":" + index, "offer:" + offer.id(), tr("rysquests.ed.log.offer_components", name(book(), offer)), d -> d.withOffer(changed));
     }
 
@@ -460,28 +620,23 @@ final class ShopEditorView extends EditorPage {
             return;
         }
         ShopOffer.Limit limit = new ShopOffer.Limit(team ? ShopOffer.Per.TEAM : ShopOffer.Per.PLAYER, old.count(), old.reset());
-        book().putOffer(with(offer, offer.title(), offer.icon(), offer.category(), offer.cost(), offer.gives(), Optional.of(limit), offer.quest()), tr("rysquests.ed.log.offer_limit", name(book(), offer)));
+        book().putOffer(OfferEdits.withLimit(offer, Optional.of(limit)), tr("rysquests.ed.log.offer_limit", name(book(), offer)));
     }
 
     private void setLimit(ShopOffer offer, int index) {
         ShopOffer.Per per = offer.limit().map(ShopOffer.Limit::per).orElse(ShopOffer.Per.PLAYER);
         Optional<ShopOffer.Limit> limit = index == 0 ? Optional.empty() : Optional.of(new ShopOffer.Limit(per, offer.limit().map(ShopOffer.Limit::count).orElse(1),
                 index == 1 ? ShopOffer.Reset.DAILY : index == 2 ? ShopOffer.Reset.WEEKLY : ShopOffer.Reset.NEVER));
-        book().putOffer(with(offer, offer.title(), offer.icon(), offer.category(), offer.cost(), offer.gives(), limit, offer.quest()), tr("rysquests.ed.log.offer_limit", name(book(), offer)));
+        book().putOffer(OfferEdits.withLimit(offer, limit), tr("rysquests.ed.log.offer_limit", name(book(), offer)));
     }
 
     private void setLimitCount(ShopOffer offer, String value) {
-        int count;
-        try {
-            count = Integer.parseInt(value.trim());
-        } catch (NumberFormatException e) {
-            return;
-        }
-        if (count <= 0 || offer.limit().isEmpty()) {
+        OptionalInt count = OfferEdits.positive(value);
+        if (count.isEmpty() || offer.limit().isEmpty()) {
             return;
         }
         ShopOffer.Limit old = offer.limit().get();
-        ShopOffer changed = with(offer, offer.title(), offer.icon(), offer.category(), offer.cost(), offer.gives(), Optional.of(new ShopOffer.Limit(old.per(), count, old.reset())), offer.quest());
+        ShopOffer changed = OfferEdits.withLimit(offer, Optional.of(new ShopOffer.Limit(old.per(), count.getAsInt(), old.reset())));
         book().type("offer-limit:" + offer.id(), "offer:" + offer.id(), tr("rysquests.ed.log.offer_limit", name(book(), offer)), d -> d.withOffer(changed));
     }
 
@@ -505,5 +660,53 @@ final class ShopEditorView extends EditorPage {
     @Nullable
     ResourceLocation chosenForTest() {
         return chosen;
+    }
+
+    @Nullable
+    private ShopOffer chosenOffer() {
+        return chosen == null ? null : book().data().offers().get(chosen);
+    }
+
+    /** The switch "Поставка" of the chosen offer, as a click on it. */
+    void deliveryForTest(boolean on) {
+        ShopOffer offer = chosenOffer();
+        if (offer != null) {
+            setDelivery(offer, on);
+        }
+    }
+
+    /** A count typed into a row to deliver, then the field left. */
+    void payCountForTest(int index, String value) {
+        ShopOffer offer = chosenOffer();
+        if (offer != null) {
+            setPayCount(offer, index, value);
+            book().endTyping();
+        }
+    }
+
+    /** "Открывается: После победы", as a click on it: the first boss of the book. */
+    void opensBossForTest() {
+        ShopOffer offer = chosenOffer();
+        List<OfferEdits.Boss> bosses = OfferEdits.bosses(book().view());
+        if (offer != null && !bosses.isEmpty()) {
+            book().putOffer(OfferEdits.withQuest(offer, Optional.of(bosses.getFirst().quest())), tr("rysquests.ed.log.offer_opens", name(book(), offer)));
+        }
+    }
+
+    /** The line of the closed card typed, then the field left. */
+    void lockForTest(String value) {
+        ShopOffer offer = chosenOffer();
+        if (offer != null) {
+            typeLock(offer, value);
+            book().endTyping();
+        }
+    }
+
+    /** "Игрок покупает | Игрок продаёт", as a click on it. */
+    void flipForTest(boolean sale) {
+        ShopOffer offer = chosenOffer();
+        if (offer != null) {
+            flip(offer, sale);
+        }
     }
 }

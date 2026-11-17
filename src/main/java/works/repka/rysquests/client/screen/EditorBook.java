@@ -170,9 +170,8 @@ final class EditorBook {
         }).toList();
         List<Quest> quests = book.quests().values().stream().map(quest -> QuestEdits.withTexts(quest, text(quest.title()),
                 quest.subtitle().map(key -> text(key)), quest.text().map(key -> text(key)))).toList();
-        List<ShopOffer> offers = book.offers().values().stream().map(offer -> offer.title().map(this::text)
-                .map(text -> new ShopOffer(offer.id(), Optional.of(text), offer.icon(), offer.category(), offer.cost(), offer.gives(), offer.limit(), offer.stage(), offer.stageTitle(), offer.quest(), offer.lockText(), offer.delivery()))
-                .orElse(offer)).toList();
+        List<ShopOffer> offers = book.offers().values().stream().map(offer -> new ShopOffer(offer.id(), offer.title().map(this::text), offer.icon(), offer.category(),
+                offer.cost(), offer.gives(), offer.limit(), offer.stage(), offer.stageTitle(), offer.quest(), offer.lockText().map(this::text), offer.delivery())).toList();
         List<Achievement> achievements = book.achievements().values().stream().map(a -> new Achievement(a.id(), a.title().map(key -> text(key)),
                 a.text().map(key -> text(key)), a.hint(), a.icon(), a.category(), a.hidden(), a.tiers(), a.archived())).toList();
         BookMeta meta = book.meta().title().map(this::text).map(text -> new BookMeta(book.meta().progressMode(), book.meta().defaultView(), book.meta().defaultTheme(),
@@ -526,8 +525,7 @@ final class EditorBook {
             Set<String> keys = new java.util.HashSet<>();
             draft.meta().flatMap(BookMeta::title).ifPresent(keys::add);
             for (ShopOffer offer : draft.offers().values()) {
-                offer.title().ifPresent(keys::add);
-                offer.category().ifPresent(keys::add);
+                keys.addAll(offer.textKeys());
             }
             for (BookDraft.AchievementWork work : draft.achievements().values()) {
                 JsonObject json = Achievement.CODEC.encodeStart(ops(), work.achievement()).getOrThrow().getAsJsonObject();

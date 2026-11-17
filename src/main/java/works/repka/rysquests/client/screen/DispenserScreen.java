@@ -248,13 +248,14 @@ public final class DispenserScreen extends ScaledScreen implements MenuAccess<Di
         syncFields();
         Ui ui = new Ui(g, mouseX, mouseY, hits, rightHits, kitHits);
         int x = (width * 2 - W) / 2;
-        int y = Math.max(0, (height * 2 - H) / 2);
+        int windowH = windowH();
+        int y = Math.max(0, (height * 2 - windowH) / 2);
         windowX = x;
-        ui.shadow(x, y, W, H, 14, 1f);
-        ui.box(x, y, W, H, 14, ui.c("panel.bg"), ui.c("panel.border"));
+        ui.shadow(x, y, W, windowH, 14, 1f);
+        ui.box(x, y, W, windowH, 14, ui.c("panel.bg"), ui.c("panel.border"));
         renderHeader(ui, x, y);
         int bodyTop = y + HEAD;
-        int bodyH = H - HEAD - FOOT;
+        int bodyH = windowH - HEAD - FOOT;
         ui.rect(x + LEFT, bodyTop, 1, bodyH, ui.c("panel.border"));
         renderList(ui, x, bodyTop, LEFT, bodyH);
         float rightX = x + LEFT + 1 + RIGHT_PAD_X;
@@ -264,7 +265,7 @@ public final class DispenserScreen extends ScaledScreen implements MenuAccess<Di
         DispenserSettings now = settings();
         BlockSettings.render(ui, rightX, settingsY, rightW, now.comparator(), tr("rysquests.dispenser.comparator.fill"), now.notices(),
                 mode -> ask(settings().withComparator(mode), false), () -> ask(settings().withNotices(!settings().notices()), false));
-        renderFooter(ui, x, y + H - FOOT);
+        renderFooter(ui, x, y + windowH - FOOT);
         outputMenu(ui);
         hovered = ui.hoveredStack;
         if (outputList.open) {
@@ -386,6 +387,20 @@ public final class DispenserScreen extends ScaledScreen implements MenuAccess<Di
         }
     }
 
+    /**
+     * The window's height: the mockup's 608, taller when the right column with the block's settings under it would reach into the
+     * bottom padding (the counters grow a row "В своём слоте" with the own slot). Measured with the same numbers it is drawn with,
+     * rounded up to whole GUI pixels.
+     */
+    private int windowH() {
+        float limits = Ui.lineHeight(11.5f) + 6 + 3 * BlockSettings.ROW_STEP + BlockSettings.ROW_H;
+        ShopOffer offer = selected();
+        float tail = offer == null ? 20 : summaryHeight(counterRows(offer).size());
+        float column = Segments.HEIGHT + GAP + Kit.DROP_H * 2 + GAP + limits + GAP + tail;
+        int need = (int) Math.ceil(HEAD + RIGHT_PAD_Y + column + GAP + BlockSettings.height() + RIGHT_PAD_Y + FOOT);
+        return Math.max(H, need + (need & 1));
+    }
+
     /** @return where the column's content ends */
     private float renderRight(Ui ui, float x, float y, float w) {
         float pen = y;
@@ -500,6 +515,11 @@ public final class DispenserScreen extends ScaledScreen implements MenuAccess<Di
 
     /** The lot, the counters since the last reset and what lies in the own slot. @return its height */
     private float counters(Ui ui, ShopOffer offer, float x, float y, float w) {
+        return summary(ui, x, y, w, counterRows(offer));
+    }
+
+    /** The rows of the counters: the lot, bought, spent, and what lies in the own slot when the goods go there or something is left. */
+    private List<String[]> counterRows(ShopOffer offer) {
         DispenserView view = view();
         ShopOffer.Entry goods = Dispenser.goods(offer);
         String what = goods == null ? "" : goods.stack().getHoverName().getString();
@@ -511,13 +531,18 @@ public final class DispenserScreen extends ScaledScreen implements MenuAccess<Di
         if (settings().output().isEmpty() || view.held() > 0) {
             rows.add(new String[] {tr("rysquests.dispenser.held"), text("rysquests.receiver.pieces", Sidebar.full(view.held())), null});
         }
-        return summary(ui, x, y, w, rows);
+        return rows;
+    }
+
+    /** The height of the status plate with this many rows. */
+    private static float summaryHeight(int rows) {
+        return 20 + rows * Ui.lineHeight(12.5f) + Math.max(0, rows - 1) * 6;
     }
 
     /** Rows of a label and a value on the status plate (mockup {@code .sum}). @return its height */
     private static float summary(Ui ui, float x, float y, float w, List<String[]> rows) {
         float rowH = Ui.lineHeight(12.5f);
-        float h = 20 + rows.size() * rowH + Math.max(0, rows.size() - 1) * 6;
+        float h = summaryHeight(rows.size());
         ui.box(x, y, w, h, 10, ui.c("status.bg"), ui.c("panel.border"));
         float cy = y + 10 + rowH / 2f;
         for (String[] row : rows) {

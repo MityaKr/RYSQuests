@@ -244,7 +244,43 @@ public final class EditorTesting {
     // --- the other tabs ---
 
     public static void newOffer() {
-        ((ShopEditorView) screen().editor.page(EditorPages.SHOP)).newOfferForTest();
+        shop().newOfferForTest();
+    }
+
+    private static ShopEditorView shop() {
+        return (ShopEditorView) screen().editor.page(EditorPages.SHOP);
+    }
+
+    /** The offer chosen in the editor's shop, as the draft holds it; null when none is chosen. */
+    @Nullable
+    public static works.repka.rysquests.data.ShopOffer chosenOffer() {
+        ResourceLocation id = shop().chosenForTest();
+        return id == null ? null : EditorBook.get().data().offers().get(id);
+    }
+
+    public static void offerDelivery(boolean on) {
+        shop().deliveryForTest(on);
+    }
+
+    public static void offerPayCount(int index, String value) {
+        shop().payCountForTest(index, value);
+    }
+
+    public static void offerOpensAfterBoss() {
+        shop().opensBossForTest();
+    }
+
+    public static void offerLock(String value) {
+        shop().lockForTest(value);
+    }
+
+    public static void offerFlip(boolean sale) {
+        shop().flipForTest(sale);
+    }
+
+    /** What a lang key says in the editor now: the string typed in the draft, else the game's language. */
+    public static String text(String key) {
+        return EditorBook.get().text(key);
     }
 
     public static void newAchievement() {

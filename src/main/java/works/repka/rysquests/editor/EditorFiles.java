@@ -202,8 +202,7 @@ public final class EditorFiles {
         Map<Path, JsonElement> files = new java.util.LinkedHashMap<>();
         for (works.repka.rysquests.data.ShopOffer offer : offers) {
             files.put(fileOf(root, offer.id(), "rysquests/shop/"), ordered(works.repka.rysquests.data.ShopOffer.CODEC.encodeStart(ops, offer).getOrThrow(), FIELD_ORDER, RULE_ORDER));
-            offer.title().ifPresent(keys::add);
-            offer.category().ifPresent(keys::add);
+            keys.addAll(offer.textKeys());
         }
         for (JsonObject achievement : achievements) {
             ResourceLocation id = achievement.has("id") ? ResourceLocation.tryParse(achievement.get("id").getAsString()) : null;

@@ -225,6 +225,19 @@ public record ShopOffer(
                 .map(tier -> ((KillTask) tier.tasks().getFirst()).entity());
     }
 
+    /**
+     * The strings of the trade that may be lang keys, which the editor writes into the lang file on save: its name, its section, the
+     * line of its closed card and the name of its stage.
+     */
+    public List<String> textKeys() {
+        List<String> keys = new java.util.ArrayList<>();
+        title.ifPresent(keys::add);
+        category.ifPresent(keys::add);
+        lockText.ifPresent(keys::add);
+        stageTitle.ifPresent(keys::add);
+        return keys;
+    }
+
     /** Whether the player gets only currency out of it, which the shop lists under selling. */
     public boolean isSale() {
         return gives.stream().allMatch(Entry::isCurrency);
