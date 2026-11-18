@@ -128,6 +128,8 @@ neoForge {
             systemProperty 'rysquests.autotest.repysData', project.findProperty('repysData') ?: project.file('../../_shared/_audit/book2/repys-data').absolutePath
             systemProperty 'rysquests.autotest.asPlayer', 'true'
             systemProperty 'rysquests.autotest.ftbqSaves', project.findProperty('ftbqSaves') ?: ''
+            // migrate: the copy of the RepYS server's FTB files and the id table
+            systemProperty 'rysquests.autotest.fixtures', project.findProperty('fixtures') ?: project.file('../../_shared/_saved/fixtures/ftb-2026-11-18').absolutePath
             programArguments.addAll '--width', '1280', '--height', '800'
         }
     }
@@ -176,6 +178,9 @@ test {
     systemProperty 'rysquests.repysBook', project.findProperty('repysBook') ?: project.file('../../_shared/_fresh/book').absolutePath
     systemProperty 'rysquests.repysPack', project.findProperty('repysPack') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/RepYS/kubejs/data/repys/rysquests"
     systemProperty 'rysquests.atm10Quests', project.findProperty('atm10Quests') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/All the Mods 10 - ATM10/config/ftbquests/quests"
+    // The move from FTB (QuestsMigrationTest): the copy of the RepYS server's FTB files and the test server's copy of the world.
+    systemProperty 'rysquests.ftbFixtures', project.findProperty('ftbFixtures') ?: project.file('../../_shared/_saved/fixtures/ftb-2026-11-18').absolutePath
+    systemProperty 'rysquests.liveServer', project.findProperty('liveServer') ?: 'C:/Projects/RepYS-ServerTest'
     if (project.hasProperty('ftbqDir')) {
         systemProperty 'rysquests.ftbqDir', project.property('ftbqDir')
         outputs.upToDateWhen { false }

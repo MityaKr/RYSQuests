@@ -48,6 +48,7 @@ public final class RYSQuests {
         EditorFolder.register(modBus);
         container.registerConfig(ModConfig.Type.COMMON, CommonConfig.SPEC);
         TeamBridge.register();
+        works.repka.ryscore.migrate.Migrations.register(new works.repka.rysquests.integration.ftbq.QuestsMigration());
 
         NeoForge.EVENT_BUS.addListener((AddReloadListenerEvent event) -> event.addListener(new BookLoader(event.getRegistryAccess())));
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> QuestCommands.register(event.getDispatcher()));

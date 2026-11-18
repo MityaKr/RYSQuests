@@ -3,7 +3,6 @@ package works.repka.rysquests.integration.ftbq;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -11,8 +10,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.TaskDef;
@@ -29,7 +30,17 @@ public final class FtbqProgress {
     private FtbqProgress() {
     }
 
+    /** Reads every team file; the first one that cannot be read stops it. */
     public static Map<UUID, Map<ResourceLocation, QuestProgress>> read(Path dir, Ids ids, QuestBook book) throws IOException {
+        return read(dir, ids, book, null);
+    }
+
+    /**
+     * Reads the team files with the family's reader ({@link works.repka.ryscore.migrate.Snbt}).
+     *
+     * @param broken given the name and the reason of a file that could not be read, which is then left out; null stops at the first one
+     */
+    public static Map<UUID, Map<ResourceLocation, QuestProgress>> read(Path dir, Ids ids, QuestBook book, @Nullable BiConsumer<String, String> broken) throws IOException {
         Map<UUID, Map<ResourceLocation, QuestProgress>> teams = new HashMap<>();
         Map<UUID, Map<ResourceLocation, List<Integer>>> members = new HashMap<>();
         if (!Files.isDirectory(dir)) {
@@ -40,8 +51,19 @@ public final class FtbqProgress {
             files = paths.filter(file -> file.toString().endsWith(".snbt")).sorted().toList();
         }
         for (Path file : files) {
-            JsonObject team = Snbt.parse(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
-            teams.put(parseUuid(team.get("uuid").getAsString()), convert(team, ids, book, members));
+            try {
+                JsonObject team = works.repka.ryscore.migrate.Snbt.readObject(file);
+                Map<UUID, Map<ResourceLocation, List<Integer>>> own = new HashMap<>();
+                Map<ResourceLocation, QuestProgress> progress = convert(team, ids, book, own);
+                teams.put(parseUuid(team.get("uuid").getAsString()), progress);
+                own.forEach((player, quests) -> quests.forEach((quest, claimed) ->
+                        members.computeIfAbsent(player, id -> new HashMap<>()).computeIfAbsent(quest, id -> new ArrayList<>()).addAll(claimed)));
+            } catch (IOException | RuntimeException e) {
+                if (broken == null) {
+                    throw e;
+                }
+                broken.accept(file.getFileName().toString(), String.valueOf(e.getMessage()));
+            }
         }
         members.forEach((player, quests) -> quests.forEach((quest, claimed) -> addClaims(teams.computeIfAbsent(player, id -> new HashMap<>()), quest, claimed)));
         return teams;
@@ -75,13 +97,13 @@ public final class FtbqProgress {
             Ref ref = ids.tasks().get(hex);
             Quest quest = ref == null ? null : book.quests().get(ResourceLocation.parse(ref.quest()));
             if (quest != null && ref.index() < quest.tasks().size()) {
-                tasks.computeIfAbsent(quest.id(), key -> new int[quest.tasks().size()])[ref.index()] = (int) Math.min(Integer.MAX_VALUE, value.getAsLong());
+                tasks.computeIfAbsent(quest.id(), key -> new int[quest.tasks().size()])[ref.index()] = (int) Math.min(Integer.MAX_VALUE, asLong(value));
             }
         });
         forEachEntry(team, "completed", (hex, value) -> {
             String id = ids.quests().get(hex);
             if (id != null) {
-                completed.put(ResourceLocation.parse(id), Math.max(1, value.getAsLong()));
+                completed.put(ResourceLocation.parse(id), Math.max(1, asLong(value)));
             }
         });
         // The key is "<player>:<reward>" for per-player rewards and "<reward>" for team rewards.
@@ -92,6 +114,10 @@ public final class FtbqProgress {
                 return;
             }
             ResourceLocation quest = ResourceLocation.parse(ref.quest());
+            // a quest the book no longer has (RepYS turned its guide quests into guides) would only leave a dead record
+            if (!book.quests().containsKey(quest)) {
+                return;
+            }
             UUID player = colon < 0 ? owner : parseUuid(key.substring(0, colon));
             if (player.equals(owner) || sharedByTeam(book, quest, ref.index())) {
                 claimed.computeIfAbsent(quest, id -> new ArrayList<>()).add(ref.index());
@@ -120,6 +146,14 @@ public final class FtbqProgress {
             values.add(Math.min(task.target(), completed ? task.target() : value));
         }
         return values;
+    }
+
+    /** The family's reader gives {@code 1b} as a boolean; FTB writes numbers, but a flag counts as 1. */
+    private static long asLong(JsonElement value) {
+        if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isBoolean()) {
+            return value.getAsBoolean() ? 1 : 0;
+        }
+        return value.getAsLong();
     }
 
     private interface EntryConsumer {

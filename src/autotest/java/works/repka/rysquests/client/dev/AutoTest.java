@@ -154,6 +154,8 @@ public final class AutoTest {
             buildDockScenario();
         } else if ("repys".equals(scenario)) {
             RepysScenario.check();
+        } else if ("migrate".equals(scenario)) {
+            MigrateScenario.check();
         } else if ("items".equals(scenario)) {
             ItemsScenario.check();
         } else if ("shop_schematic".equals(scenario)) {

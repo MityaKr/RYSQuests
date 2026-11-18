@@ -64,7 +64,8 @@ public final class MigrationRunner {
         writeReport(server, result, "applied");
     }
 
-    private static void backup(MinecraftServer server) {
+    /** A copy of the store next to it, {@code data/rysquests_progress.backup-<time>.dat}, before anything replaces or adds records. */
+    public static void backup(MinecraftServer server) {
         Path file = server.getWorldPath(LevelResource.ROOT).resolve("data").resolve("rysquests_progress.backup-" + System.currentTimeMillis() + ".dat");
         try {
             CompoundTag tag = ProgressStore.get(server).save(new CompoundTag(), server.registryAccess());

@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-18. Руками не править: после структурных правок пересобрать.
 
-Java: 405 файлов, 74438 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 410 файлов, 75186 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -17,7 +17,7 @@ Java: 405 файлов, 74438 строк. Переводы: `examples/example_pa
 - `gradle/` — 2 файлов
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
-- `src/` — 610 файлов
+- `src/` — 615 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -25,8 +25,8 @@ Java: 405 файлов, 74438 строк. Переводы: `examples/example_pa
 **(корень)** (1)
 - `ImportShowcase` 36 — What the server says at the end of an FTB import, without importing anything: the report and the failure of the ATM10 run of the "first" scenario, for the screenshots of the wizard…
 
-**dev** (21)
-- `AutoTest` 2994 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
+**dev** (22)
+- `AutoTest` 2996 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
 - `CanvasBooks` 277 — The two books of the canvas scenario, read on the client without a server: RepYS from its files with the titles of its lang file, and ATM10 carried over from FTB Quests by the impo…
 - `CanvasTestScreen` 104 — A bare screen around the canvas for the canvas scenario: the canvas sits where the map area of the mockups is (1280×800 at GUI scale 2), so that screenshots lie over pictures 13 to…
 - `ChronicleScenario` 143 — The epoch's reward on the map, the pages "О книге" and the atlases for players (plan _audit/chronicle, B1 and B2; RYSQuests 0.2.7, ADR-60), on the small book of src/autotest/chroni…
@@ -35,6 +35,7 @@ Java: 405 файлов, 74438 строк. Переводы: `examples/example_pa
 - `ItemLinksScenario` 298 — The book in the recipe viewer's card of an item (RYSCore 1.10 links, plan _audit/ryscope-quests, step 2), on the copy of RepYS with RYScope 0.2.6 or later: the Gate Fragment ("Оско…
 - `ItemsScenario` 88 — Items in the book act like items of the recipe viewer (the author's note on 0.2.1): the game's tooltip on hover, the recipe on a click, the usages on the right button; a shop card …
 - `MapFixChecks` 191 — The notes of the RepYS server on the map (fb1), on RepYS as a spiral: hovering finds the chapter under the pointer at both ends of every chapter; a click near the edge of a tile ta…
+- `MigrateScenario` 119 — migrate (run with runRepysAutotest -Pautotest=migrate): the quests step of the move from FTB on the copy of the RepYS server's files (rysquests.autotest.fixtures, default _shared/_…
 - `NoticesScenario` 298 — The family's notices about finished quests (design _audit/notify, variant A, with the author's place: the game's column of toasts, top right), on the panel book that copies RepYS's…
 - `QuestMenuScenario` 82 — The quest's menu "⋯" in the head of its panel (the author's note on 0.2.0): its lines for an operator, "Завершить" completes the quest without its tasks and leaves the reward to ta…
 - `RepysScenario` 603 — The new book on a copy of the real pack (run-repys: the mods of RepYS, its kubejs with the book from _audit/book2/repys-data).
@@ -58,7 +59,7 @@ Java: 405 файлов, 74438 строк. Переводы: `examples/example_pa
 
 **(корень)** (2)
 - `CommonConfig` 20 — Settings that the client and the server both read.
-- `RYSQuests` 107 — Mod entry point shared by both physical sides.
+- `RYSQuests` 108 — Mod entry point shared by both physical sides.
 
 **api** (8)
 - `QuestCompletedEvent` 32 — Fired on the game bus when all tasks of a quest are done.
@@ -248,7 +249,7 @@ Java: 405 файлов, 74438 строк. Переводы: `examples/example_pa
 - `WebLinks` 49 — Opens a web address from a page of the book as the game's chat opens one: not at all when the player turned links off in the chat settings, through the game's own "Открыть ссылку?"…
 
 **command** (1)
-- `QuestCommands` 535 — The /rysquests command tree.
+- `QuestCommands` 539 — The /rysquests command tree.
 
 **data** (34)
 - `Achievement` 132 — An achievement: one file in rysquests/achievements/.
@@ -300,13 +301,15 @@ Java: 405 файлов, 74438 строк. Переводы: `examples/example_pa
 - `QuestEdits` 225 — Changes to quests as new immutable values.
 - `SectionEdits` 237 — Changes to a section as new immutable values.
 
-**integration.ftbq** (7)
+**integration.ftbq** (9)
 - `FtbqFiles` 218 — File side of the FTB Quests import: reads the FTB folder and writes the generated pack.
-- `FtbqImportService` 187 — Runs the FTB Quests import for the book's import wizard and for the command: read, convert, write, reload, and the progress of FTB Quests teams if asked.
+- `FtbqImportService` 192 — Runs the FTB Quests import for the book's import wizard and for the command: read, convert, write, reload, and the progress of FTB Quests teams if asked.
 - `FtbqImporter` 736 — Converts an FTB Quests book to our datapack layout.
-- `FtbqProgress` 135 — Reads FTB Quests team progress (world/ftbquests/*.snbt) and maps it to our quest ids.
+- `FtbqMerge` 75 — Folds FTB Quests progress into ours without overwriting anything (ADR-65): a quest that already has a record here keeps it, whatever FTB says, and only quests without a record come…
+- `FtbqProgress` 169 — Reads FTB Quests team progress (world/ftbquests/*.snbt) and maps it to our quest ids.
 - `ImportReport` 86 — What an FTB Quests import did, by kind, for the report page of the import (plan, picture 06): what came across, where it went, and what waits for the author's hand.
 - `ImportedPack` 46 — Serves the pack generated by the FTB Quests import as an always-on pack for data and for translations.
+- `QuestsMigration` 175 — The quests step (order 20, after teams) of the family's move from FTB (RYSCore migrate.Migrations, ADR-65).
 - `Snbt` 184 — Reads the relaxed SNBT that FTB Library writes: commas are optional and keys may be bare.
 
 **integration.kubejs** (4)
@@ -321,7 +324,7 @@ Java: 405 файлов, 74438 строк. Переводы: `examples/example_pa
 **migrate** (3)
 - `Migration` 86 — One step of migrations.json.
 - `MigrationEngine` 94 — Applies migrations to copies of the progress, so that a dry run is simply a run whose result is thrown away.
-- `MigrationRunner` 91 — Runs migrations against the live store: a backup first, then replacing the store's contents.
+- `MigrationRunner` 92 — Runs migrations against the live store: a backup first, then replacing the store's contents.
 
 **network** (35)
 - `AchievementStatePayload` 28 — How rare each tier is on this server, in percent, and the titles this player owns.
@@ -373,7 +376,7 @@ Java: 405 файлов, 74438 строк. Переводы: `examples/example_pa
 - `PinLimit` 40 — The limit of pinned cards (hud.max_pinned of the book), one rule for the server that refuses and the book that greys the pin out beforehand.
 - `ProgressRemap` 97 — Progress is kept by the position of a task or a reward.
 - `ProgressService` 1256 — Server-side quest rules.
-- `ProgressStore` 638 — Quest progress of all teams, saved with the world.
+- `ProgressStore` 655 — Quest progress of all teams, saved with the world.
 - `QuestLogic` 102 — Status rules shared by the server and the client's display.
 - `QuestPath` 217 — The way to a quest that is still closed (plan, section 3, "Closed quest"; pictures 21b, 22): every unfinished quest it still needs, in an order in which each comes after what it ne…
 - `QuestProgress` 62 — Progress of one quest: value per task, completion time (0 while open), indexes of claimed rewards, for a repeatable quest the time it becomes available again, and how many times it…
@@ -474,11 +477,12 @@ Java: 405 файлов, 74438 строк. Переводы: `examples/example_pa
 - `QuestEditsTest` 143
 - `SectionEditsTest` 152
 
-**integration.ftbq** (4)
+**integration.ftbq** (5)
 - `FtbqBrokenFileTest` 144 — A broken file stops the import with its file and line, and the import can go on without it; the new data of an import.
 - `FtbqImporterTest` 350
 - `FtbqProgressAccess` 14 — Exposes package-private importer helpers to tests in other packages.
 - `FtbqProgressTest` 113 — FTB keeps a party's claims as ":": one player taking a reward says nothing about another.
+- `QuestsMigrationTest` 301 — The quests step on the copy of the RepYS server's FTB files (_shared/_saved/fixtures/ftb-2026-11-18) with the RepYS book: a first run, a second, a failed write that the next start …
 
 **integration.patchouli** (1)
 - `PatchouliImporterTest` 105
@@ -486,7 +490,7 @@ Java: 405 файлов, 74438 строк. Переводы: `examples/example_pa
 **migrate** (1)
 - `MigrationEngineTest` 103
 
-**progress** (18)
+**progress** (19)
 - `AchievementTest` 72
 - `CollectionTest` 198 — A collection in the achievements (ADR-62): its marks are a hidden quest of observe tasks, its levels count them, and a team keeps, shares and passes them on as any quest progress.
 - `CommandPlaceholdersTest` 21
@@ -494,6 +498,7 @@ Java: 405 файлов, 74438 строк. Переводы: `examples/example_pa
 - `FullTasksOpenQuestTest` 115 — RepYS, «Тертиевая эссенция»: the server's record of the quest held its one task done (tasks [1]) but no completion, a record taken over from FTB Quests, which counts tasks of a que…
 - `GuidePagesStoreTest` 36
 - `PinLimitTest` 68 — The limit of pinned cards, one rule for the server that refuses and the achievements window that greys the pin out beforehand.
+- `ProgressStoreAccess` 14 — Reads a saved store in tests of other packages, as the world does on load.
 - `ProgressStoreLoadTest` 35 — One broken record in the save loses only itself: the rest of the progress loads, and is not written over with nothing.
 - `QuestLogicTest` 79
 - `QuestPathTest` 140 — The way to a closed quest and the next step on "Now" (plan, section 3).

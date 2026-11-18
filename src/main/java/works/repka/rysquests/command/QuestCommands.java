@@ -404,12 +404,16 @@ public final class QuestCommands {
             try {
                 Map<UUID, Map<ResourceLocation, QuestProgress>> teams = FtbqProgress.read(dir, FtbqFiles.readIds(root), book);
                 server.execute(() -> {
+                    // ADR-65: only quests without a record here come over, so running it again loses nothing
                     ProgressStore store = ProgressStore.get(server);
-                    teams.forEach(store::replaceTeam);
+                    works.repka.rysquests.integration.ftbq.FtbqMerge.Plan plan = works.repka.rysquests.integration.ftbq.FtbqMerge.plan(teams, store.allProgress());
+                    if (!plan.empty()) {
+                        works.repka.rysquests.migrate.MigrationRunner.backup(server);
+                        plan.additions().forEach(store::put);
+                    }
                     ProgressService.invalidateAll();
                     server.getPlayerList().getPlayers().forEach(ProgressService::sendAll);
-                    int quests = teams.values().stream().mapToInt(Map::size).sum();
-                    source.sendSuccess(() -> Component.translatable("rysquests.import.progress", teams.size(), quests), false);
+                    source.sendSuccess(() -> Component.translatable("rysquests.import.progress", plan.additions().size(), plan.added()), false);
                 });
             } catch (IOException | RuntimeException e) {
                 LOGGER.warn("FTB Quests progress import failed", e);

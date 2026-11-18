@@ -166,8 +166,13 @@ public final class FtbqImportService {
             try {
                 Map<UUID, Map<ResourceLocation, QuestProgress>> teams = FtbqProgress.read(dir, FtbqFiles.readIds(ImportedPack.root()), book);
                 server.execute(() -> {
+                    // ADR-65: only quests without a record here come over, so importing the book again loses no progress
                     ProgressStore store = ProgressStore.get(server);
-                    teams.forEach(store::replaceTeam);
+                    FtbqMerge.Plan plan = FtbqMerge.plan(teams, store.allProgress());
+                    if (!plan.empty()) {
+                        works.repka.rysquests.migrate.MigrationRunner.backup(server);
+                        plan.additions().forEach(store::put);
+                    }
                     ProgressService.invalidateAll();
                     server.getPlayerList().getPlayers().forEach(ProgressService::sendAll);
                     RUNNING.set(false);

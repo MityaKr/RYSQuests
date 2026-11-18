@@ -202,6 +202,23 @@ public final class ProgressStore extends SavedData {
         return tag;
     }
 
+    /**
+     * Writes the store to {@code data/rysquests_progress.dat} now, on this thread, and fails loudly: {@link SavedData#save(java.io.File,
+     * HolderLookup.Provider)} hands the write to a worker and only logs a failure. The FTB step needs to know the data is on disk before
+     * the family's migration marks it done. The store stays dirty, so the world's own save writes it again.
+     */
+    public void writeNow(MinecraftServer server) throws java.io.IOException {
+        java.nio.file.Path file = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("data").resolve(NAME + ".dat");
+        CompoundTag root = new CompoundTag();
+        root.put("data", save(new CompoundTag(), server.registryAccess()));
+        net.minecraft.nbt.NbtUtils.addCurrentDataVersion(root);
+        java.nio.file.Files.createDirectories(file.getParent());
+        java.nio.file.Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
+        net.minecraft.nbt.NbtIo.writeCompressed(root, tmp);
+        java.nio.file.Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        setDirty();
+    }
+
     public java.util.Optional<ResourceLocation> lastChapter(UUID player) {
         return java.util.Optional.ofNullable(lastChapters.get(player));
     }
