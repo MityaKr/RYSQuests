@@ -352,7 +352,8 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         } else if (ui.hoveredStack != null) {
             g.renderTooltip(font, ui.hoveredStack, mouseX, mouseY);
         } else if (ui.hoveredText != null) {
-            g.renderTooltip(font, ui.hoveredText, mouseX, mouseY);
+            // A tooltip of the interface in the family's look; an item keeps the game's own, as the kit says
+            Kit.tooltip(g, ui.theme, List.of(ui.hoveredText.getString().split("\n")), mouseX, mouseY);
         }
     }
 
@@ -923,6 +924,21 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         if (Minecraft.getInstance().screen instanceof BookScreen screen) {
             screen.achievementsView().selectForTest(id);
         }
+    }
+
+    /** The pin of an achievement's level as the window shows it: PINNED, FREE or FULL. */
+    public static String achievementPinForTest(ResourceLocation tierQuest) {
+        return AchievementsView.pin(tierQuest).name();
+    }
+
+    /** The pin button of the selected achievement in GUI pixels {x, y, w, h}, or null before it is drawn. */
+    @Nullable
+    public static float[] achievementPinButtonForTest() {
+        if (Minecraft.getInstance().screen instanceof BookScreen screen && screen.achievementsView().pinButtonForTest() != null) {
+            float[] r = screen.achievementsView().pinButtonForTest();
+            return new float[] {r[0] / 2f, r[1] / 2f, r[2] / 2f, r[3] / 2f};
+        }
+        return null;
     }
 
     public static boolean structureReadyForTest(ResourceLocation id) {

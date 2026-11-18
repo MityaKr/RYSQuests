@@ -11,6 +11,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.common.NeoForge;
 import works.repka.rysquests.api.QuestCompletedEvent;
+import works.repka.rysquests.api.QuestsApi;
 import works.repka.rysquests.api.ScriptHooks;
 import works.repka.rysquests.api.WalletApi;
 
@@ -60,6 +61,7 @@ public final class RYSQuestsKubePlugin implements KubeJSPlugin {
     public void registerBindings(BindingRegistry bindings) {
         if (bindings.type().isServer()) {
             bindings.add("RYSQuestsWallet", WalletApi.class);
+            bindings.add("RYSQuests", QuestsApi.class);
         }
     }
 }

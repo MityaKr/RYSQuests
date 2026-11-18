@@ -16,6 +16,7 @@ import org.jetbrains.annotations.Nullable;
 import works.repka.rysquests.data.BookReport.Issue;
 import works.repka.rysquests.data.BookReport.Severity;
 import works.repka.rysquests.migrate.Migration;
+import works.repka.rysquests.task.CollectionTask;
 
 /** Turns the files of a datapack into a {@link RawBook}. One broken file never stops the others. */
 public final class BookParser {
@@ -141,6 +142,13 @@ public final class BookParser {
         if (task == null || !task.isJsonObject()) {
             issues.add(new Issue(Severity.ERROR, "parse_error", file.toString(), "An achievement needs a 'task'"));
             return;
+        }
+        if (task.getAsJsonObject().has("type") && task.getAsJsonObject().get("type").getAsString().endsWith(":collection")) {
+            // The marks of a collection: one observe task per entry, kept and shared as any quest's progress (ADR-62).
+            decode(TaskDef.CODEC, task, ops, file, issues).filter(CollectionTask.class::isInstance).map(CollectionTask.class::cast).ifPresent(collection ->
+                    quests.add(new Quest(achievement.collectionQuestId(), Optional.of(achievement.holderChapter()), Optional.empty(), achievement.titleKey(),
+                            Optional.empty(), Optional.empty(), achievement.icon(), List.of(), RequiresMode.ALL, Optional.empty(), List.copyOf(collection.items()), List.of(), Optional.empty(),
+                            new QuestOptions(Layout.DEFAULT, 1, false, true, Optional.empty(), false, List.of()).withArchived(achievement.archived()))));
         }
         for (Achievement.Tier tier : achievement.tiers()) {
             JsonObject counted = task.getAsJsonObject().deepCopy();

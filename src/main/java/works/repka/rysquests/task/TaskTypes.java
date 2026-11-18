@@ -26,6 +26,8 @@ public final class TaskTypes {
     public static final DeferredHolder<TaskType<?>, TaskType<FluidTask>> FLUID = register("fluid", FluidTask.CODEC);
     public static final DeferredHolder<TaskType<?>, TaskType<ScriptTask>> SCRIPT = register("script", ScriptTask.CODEC);
     public static final DeferredHolder<TaskType<?>, TaskType<XpTask>> XP = register("xp", XpTask.CODEC);
+    /** Only in an achievement: its levels count the entries collected (ADR-62). */
+    public static final DeferredHolder<TaskType<?>, TaskType<CollectionTask>> COLLECTION = register("collection", CollectionTask.CODEC);
 
     private TaskTypes() {
     }

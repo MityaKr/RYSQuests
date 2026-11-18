@@ -10,7 +10,8 @@ import net.minecraft.util.ExtraCodecs;
 
 /**
  * An achievement: one file in {@code rysquests/achievements/}. Its {@code task} is read by the parser, which makes one
- * hidden quest per tier from it, so counting works exactly as it does for quests.
+ * hidden quest per tier from it, so counting works exactly as it does for quests. A {@code rysquests:collection} task adds one more
+ * hidden quest, {@link #collectionQuestId}, that keeps which of its items are collected (ADR-62).
  */
 public record Achievement(
         ResourceLocation id,
@@ -58,6 +59,7 @@ public record Achievement(
             : DataResult.success(achievement));
 
     private static final String CHAPTER_PATH = "_achievements";
+    private static final String COLLECTION_SUFFIX = "/_collection";
 
     /**
      * The medal of the tier at this place: the last tier is gold, the one before it silver, every earlier one bronze. A single
@@ -104,7 +106,26 @@ public record Achievement(
         return id.withPath(CHAPTER_PATH + "/" + id.getPath() + "/" + tier.tier());
     }
 
+    /** A level of an achievement; the marks of a collection are not one. */
     public static boolean isTierQuest(ResourceLocation quest) {
-        return quest.getPath().startsWith(CHAPTER_PATH + "/");
+        return quest.getPath().startsWith(CHAPTER_PATH + "/") && !isCollectionQuest(quest);
+    }
+
+    /**
+     * The hidden quest that keeps what of a collection is collected (ADR-62): one {@code observe} item task per entry, so the marks are
+     * ordinary task progress. Its name begins with an underscore, which a level's name may not.
+     */
+    public ResourceLocation collectionQuestId() {
+        return id.withPath(CHAPTER_PATH + "/" + id.getPath() + COLLECTION_SUFFIX);
+    }
+
+    public static boolean isCollectionQuest(ResourceLocation quest) {
+        return quest.getPath().startsWith(CHAPTER_PATH + "/") && quest.getPath().endsWith(COLLECTION_SUFFIX);
+    }
+
+    /** The quest of marks beside a level's quest: the same achievement, whatever the level. */
+    public static ResourceLocation collectionQuestOf(ResourceLocation tierQuest) {
+        String path = tierQuest.getPath();
+        return tierQuest.withPath(path.substring(0, Math.max(0, path.lastIndexOf('/'))) + COLLECTION_SUFFIX);
     }
 }

@@ -2303,5 +2303,17 @@
   "rysquests.plural.block.many": "%s блоков",
   "rysquests.plural.lot.one": "%s лот",
   "rysquests.plural.lot.few": "%s лота",
-  "rysquests.plural.lot.many": "%s лотов"
+  "rysquests.plural.lot.many": "%s лотов",
+  "rysquests.task.collection": "Предметы коллекции",
+  "rysquests.ed.task.text.collection": "Коллекция: %s",
+  "rysquests.achievements.collection": "Коллекция",
+  "rysquests.achievements.collected": "Собрано",
+  "rysquests.achievements.not_collected": "Ещё не собрано",
+  "rysquests.achievements.collect_at_once": "Нужно %s сразу, больше всего было %s",
+  "rysquests.achievements.unpin": "Открепить с HUD",
+  "rysquests.achievements.pin_full": "Закреплено %s из %s. Открепи одно, чтобы закрепить это",
+  "rysquests.achievements.pinned_mark": "Закреплено на HUD",
+  "rysquests.validate.issue.achievement_collection_amount": "Достижение %s: уровень просит больше предметов, чем есть в коллекции (%s)",
+  "rysquests.validate.issue.achievement_tier_name": "Достижение %s: имя уровня не может начинаться с подчёркивания",
+  "rysquests.validate.issue.collection_outside_achievement": "Квест %s: задача-коллекция считается только в достижении"
 }

@@ -194,7 +194,15 @@ ServerEvents.recipes(event => {
 
 ## Достижения
 
-Достижение это файл `data/<ns>/rysquests/achievements/<id>.json` с задачей и уровнями, формат в `02-data-format.md`, примеры в `examples/example_pack`. Раздел включается строкой `achievements` в `sections`. Подходят задачи `kill`, `stat`, `item` и `advancement`. Награды выдаются сами, тип `rysquests:title` даёт титул перед именем.
+Достижение это файл `data/<ns>/rysquests/achievements/<id>.json` с задачей и уровнями, формат в `02-data-format.md`, примеры в `examples/example_pack`. Раздел включается строкой `achievements` в `sections`. Подходят задачи `kill`, `stat`, `item`, `advancement` и `collection`. Награды выдаются сами, тип `rysquests:title` даёт титул перед именем.
+
+### Коллекция (0.2.8)
+
+Если достижение просит собрать набор предметов, задача `rysquests:collection` со списком `items`, а `amount` уровней это число собранных. Игрок видит в окне достижений каждый предмет: собран он или нет, подсказку предмета и «нужно 64 сразу» для набора штук; карточка пишет «5 из 8», закреплённый уровень на HUD рисует полоску. В команде предмет засчитан, если побывал у кого-то из неё, держать все сразу не нужно. Счётчик скриптом (`rysquests:script` плюс своё хранилище) больше не нужен.
+
+Переход со скрипта без потери отметок: оставить старое хранилище, сменить задачу достижения на `collection` и один раз пройти по отметкам скрипта вызовом `RYSQuests.collect(server, owner, achievement, item)` (KubeJS, серверный скрипт). Повтор безопасен, поэтому скрипт переноса можно оставить на одну-две версии. Пример переноса для хранилища вида `server.persistentData.<ключ>.<команда>.<коллекция>|<предмет>` лежит в ADR-62 (`07-decisions.md`).
+
+Окно достижений: кнопка булавки серая, когда на HUD уже закреплено `hud.max_pinned` карточек (по умолчанию 3), подсказка объясняет, что открепить. У закреплённого достижения булавка видна на карточке.
 
 ## Монеты из скриптов (KubeJS)
 
@@ -269,7 +277,7 @@ python tools/rysquests_check.py <корень пака> --registry logs/rysquest
 
 ## Из кода мода и скриптов
 
-- `works.repka.rysquests.api.QuestsApi`: книга, отметка квеста, регистрация стадий.
+- `works.repka.rysquests.api.QuestsApi` (в KubeJS `RYSQuests`): книга, отметка квеста, регистрация стадий, владелец прогресса и отметка предмета коллекции (`collect`, 0.2.8).
 - `QuestCompletedEvent` на игровой шине NeoForge.
 - Свои типы задач и наград: реестры `rysquests:task_type` и `rysquests:reward_type`.
 - Из KubeJS: `RYSQuestsEvents.completed`, `task` и `reward` в серверных скриптах, задача и награда `rysquests:script`, примеры в `03-api.md`.

@@ -79,7 +79,8 @@ public final class ClientProgress {
             if (progress.completed() && !get(id).completed()) {
                 Quest quest = ClientBook.current().quests().get(id);
                 // A hidden quest that has opened is an ordinary quest by now and gets its message like any other.
-                if (quest != null && (!quest.options().hidden() || Achievement.isTierQuest(quest.id())
+                // The marks of a collection fill up in silence: its level tells that it is done (ADR-62).
+                if (quest != null && !Achievement.isCollectionQuest(quest.id()) && (!quest.options().hidden() || Achievement.isTierQuest(quest.id())
                         || works.repka.rysquests.progress.QuestLogic.isUnlocked(quest, ClientProgress::get))) {
                     finished.add(quest);
                 }

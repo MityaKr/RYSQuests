@@ -2262,5 +2262,17 @@
   "rysquests.plural.block.many": "%s blocks",
   "rysquests.plural.lot.one": "%s lot",
   "rysquests.plural.lot.few": "%s lots",
-  "rysquests.plural.lot.many": "%s lots"
+  "rysquests.plural.lot.many": "%s lots",
+  "rysquests.task.collection": "Collection items",
+  "rysquests.ed.task.text.collection": "Collection: %s",
+  "rysquests.achievements.collection": "Collection",
+  "rysquests.achievements.collected": "Collected",
+  "rysquests.achievements.not_collected": "Not collected yet",
+  "rysquests.achievements.collect_at_once": "Needs %s at once, most held so far %s",
+  "rysquests.achievements.unpin": "Unpin from the HUD",
+  "rysquests.achievements.pin_full": "%s of %s pinned. Unpin one to pin this one",
+  "rysquests.achievements.pinned_mark": "Pinned to the HUD",
+  "rysquests.validate.issue.achievement_collection_amount": "Achievement %s: a level asks for more items than the collection has (%s)",
+  "rysquests.validate.issue.achievement_tier_name": "Achievement %s: a level name may not start with an underscore",
+  "rysquests.validate.issue.collection_outside_achievement": "Quest %s: a collection task only counts in an achievement"
 }

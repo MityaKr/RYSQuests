@@ -3,6 +3,7 @@ package works.repka.rysquests.data;
 import works.repka.rysquests.task.ItemTask;
 import works.repka.rysquests.task.FluidTask;
 import works.repka.rysquests.task.CheckboxTask;
+import works.repka.rysquests.task.CollectionTask;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.DynamicOps;
 import java.util.ArrayDeque;
@@ -248,8 +249,22 @@ public final class BookValidator {
                 if (takesItems || task instanceof CheckboxTask) {
                     issues.add(warning("achievement_task", achievement.id(), task.type().toString()));
                 }
+                // A level of a collection cannot ask for more entries than there are (ADR-62).
+                if (task instanceof CollectionTask collection && achievement.tiers().getLast().amount() > collection.items().size()) {
+                    issues.add(error("achievement_collection_amount", achievement.id(), String.valueOf(collection.items().size())));
+                }
             });
+            if (achievement.tiers().stream().anyMatch(tier -> tier.tier().startsWith("_"))) {
+                // _collection is the quest of a collection's marks
+                issues.add(error("achievement_tier_name", achievement.id(), ""));
+            }
             achievements.put(achievement.id(), achievement);
+        }
+        for (Quest quest : raw.quests()) {
+            if (!quest.id().getPath().startsWith("_achievements/") && quest.tasks().stream().anyMatch(CollectionTask.class::isInstance)) {
+                // Its value comes from the marks an achievement keeps: in a quest it would never move.
+                issues.add(warning("collection_outside_achievement", quest.id(), ""));
+            }
         }
         return List.copyOf(achievements.values());
     }

@@ -41,6 +41,7 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraft.server.MinecraftServer;
 import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.api.QuestCompletedEvent;
@@ -79,6 +80,7 @@ import works.repka.rysquests.task.AdvancementTask;
 import works.repka.rysquests.task.CheckboxTask;
 import works.repka.rysquests.task.FluidTask;
 import works.repka.rysquests.task.ItemRef;
+import works.repka.rysquests.task.CollectionTask;
 import works.repka.rysquests.task.ItemTask;
 import works.repka.rysquests.task.KillTask;
 import works.repka.rysquests.task.StatTask;
@@ -171,8 +173,12 @@ public final class ProgressService {
         Map<ResourceLocation, QuestProgress> changes = new HashMap<>();
         // Who shares the progress is asked once a poll, and only when a statistic is counted.
         Supplier<List<UUID>> sharers = Suppliers.memoize(() -> sharers(player));
+        ProgressStore store = ProgressStore.get(player.server);
+        UUID team = team(player);
+        // A collection's level reads the marks this same poll may have just raised (ADR-62).
+        Function<ResourceLocation, QuestProgress> seen = id -> changes.containsKey(id) ? changes.get(id) : store.get(team, id);
         for (Quest quest : active) {
-            poll(player, quest, inventoryChanged, sharers).ifPresent(updated -> changes.put(quest.id(), updated));
+            poll(player, quest, inventoryChanged, sharers, seen).ifPresent(updated -> changes.put(quest.id(), updated));
         }
         apply(player, changes);
     }
@@ -254,7 +260,8 @@ public final class ProgressService {
                 continue;
             }
             QuestProgress own = progress.apply(quest.id());
-            if (own.completed()) {
+            // The marks of a collection the author made longer are asked again for the new items (ADR-62).
+            if (own.completed() && !(Achievement.isCollectionQuest(quest.id()) && !QuestLogic.allTasksDone(quest, own.tasks()))) {
                 continue;
             }
             if (own.coolingDown()) {
@@ -272,15 +279,18 @@ public final class ProgressService {
         return quests;
     }
 
-    private static Optional<QuestProgress> poll(ServerPlayer player, Quest quest, boolean inventoryChanged, Supplier<List<UUID>> sharers) {
-        QuestProgress before = ProgressStore.get(player.server).get(team(player), quest.id());
+    private static Optional<QuestProgress> poll(ServerPlayer player, Quest quest, boolean inventoryChanged, Supplier<List<UUID>> sharers,
+            Function<ResourceLocation, QuestProgress> seen) {
+        QuestProgress before = seen.apply(quest.id());
         List<Integer> values = before.taskValues(quest.tasks().size());
         boolean changed = false;
         for (int i = 0; i < quest.tasks().size(); i++) {
             TaskDef task = quest.tasks().get(i);
             int current = values.get(i);
             if (current < task.target()) {
-                int next = Math.min(task.target(), pollTask(player, task, current, inventoryChanged, sharers));
+                int next = task instanceof CollectionTask
+                        ? collectionLevel(quest, current, task.target(), seen)
+                        : Math.min(task.target(), pollTask(player, task, current, inventoryChanged, sharers));
                 // A streak starts again from zero, and its counter with it (ADR-61); every other value only grows.
                 if (next > current || next < current && task instanceof StatTask stat && StatCount.isStreak(stat)) {
                     values.set(i, next);
@@ -289,6 +299,13 @@ public final class ProgressService {
             }
         }
         return QuestLogic.afterPoll(quest, before, values, changed, System.currentTimeMillis());
+    }
+
+    /** A level of a collection counts the marks of its achievement (ADR-62). */
+    private static int collectionLevel(Quest level, int current, int target, Function<ResourceLocation, QuestProgress> seen) {
+        ResourceLocation marksId = Achievement.collectionQuestOf(level.id());
+        Quest marks = book().quests().get(marksId);
+        return marks == null ? current : CollectionMarks.levelValue(current, CollectionMarks.count(marks, seen.apply(marksId)), target);
     }
 
     private static int pollTask(ServerPlayer player, TaskDef task, int current, boolean inventoryChanged, Supplier<List<UUID>> sharers) {
@@ -321,6 +338,8 @@ public final class ProgressService {
         ProgressStore store = ProgressStore.get(player.server);
         List<ResourceLocation> newlyCompleted = changes.entrySet().stream()
                 .filter(entry -> entry.getValue().completed() && !store.get(team, entry.getKey()).completed())
+                // the marks of a collection fill up in silence: its level tells that it is done (ADR-62)
+                .filter(entry -> !Achievement.isCollectionQuest(entry.getKey()))
                 .map(Map.Entry::getKey)
                 .toList();
         Optional<ResourceLocation> lastChapter = byPlayer ? lastChapterOf(newlyCompleted).filter(chapter -> store.setLastChapter(player.getUUID(), chapter)) : Optional.empty();
@@ -788,11 +807,8 @@ public final class ProgressService {
     /** Pinned quests that still show on the board: a finished one leaves the board and frees its place. */
     private static int openPinned(ServerPlayer player, List<ResourceLocation> pinned) {
         ProgressStore store = ProgressStore.get(player.server);
-        return (int) pinned.stream().filter(id -> {
-            Quest quest = book().quests().get(id);
-            // A repeatable quest comes back to the board after its round, so it keeps its place; a removed one never does.
-            return quest != null && (quest.options().repeatable().isPresent() || !store.get(team(player), id).completed());
-        }).count();
+        UUID team = team(player);
+        return PinLimit.taken(pinned, book().quests()::get, id -> store.get(team, id));
     }
 
     /** Quests and ways share the player's limit of pinned cards. */
@@ -1191,6 +1207,39 @@ public final class ProgressService {
         // polled again from scratch: what lies in the inventory counts at once
         ACTIVE.remove(team);
         player.server.getPlayerList().getPlayers().stream().filter(member -> team(member).equals(team)).forEach(member -> INVENTORY_HASH.remove(member.getUUID()));
+    }
+
+    /** Who owns the progress this player counts towards: their team, themselves alone, or the whole server, by the book's mode. */
+    public static UUID owner(ServerPlayer player) {
+        return team(player);
+    }
+
+    /**
+     * Marks an entry of an achievement's collection as collected for an owner of progress (ADR-62), online or not: what a script calls
+     * to carry over marks it kept itself before collections came to the book. Marking twice changes nothing.
+     *
+     * @param owner a team, a player alone or the server, as {@link #owner} gives it
+     * @param item an item id, or a tag written with {@code #}, as the collection names it
+     * @return whether the entry is collected now; false when there is no such collection or entry
+     */
+    public static boolean collect(MinecraftServer server, UUID owner, Achievement achievement, String item) {
+        Quest marks = book().quests().get(achievement.collectionQuestId());
+        int index = marks == null ? -1 : CollectionMarks.indexOf(marks, item);
+        if (index < 0) {
+            return false;
+        }
+        ProgressStore store = ProgressStore.get(server);
+        CollectionMarks.mark(marks, store.get(owner, marks.id()), index, System.currentTimeMillis()).ifPresent(updated -> {
+            store.put(owner, Map.of(marks.id(), updated));
+            ACTIVE.remove(owner);
+            for (ServerPlayer member : server.getPlayerList().getPlayers()) {
+                if (team(member).equals(owner)) {
+                    PacketDistributor.sendToPlayer(member, new ProgressPayload(false, Map.of(marks.id(), viewFor(member, marks.id(), updated)), Optional.empty(), Map.of()));
+                }
+            }
+        });
+        // The levels catch up at the next poll of a member, and an offline team's at its next login.
+        return true;
     }
 
     /** The server stopped: the statistics kept of offline players belong to its world. */

@@ -190,6 +190,8 @@ public final class AutoTest {
             buildAchievementsScenario();
         } else if ("stat_team".equals(scenario)) {
             StatTeamScenario.build();
+        } else if ("collection".equals(scenario)) {
+            CollectionScenario.build();
         } else if ("constructor".equals(scenario)) {
             buildConstructorScenario();
         } else if ("sections".equals(scenario)) {

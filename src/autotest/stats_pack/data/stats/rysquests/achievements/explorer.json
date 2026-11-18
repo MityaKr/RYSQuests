@@ -1,0 +1,11 @@
+{
+  "id": "stats:explorer",
+  "title": "Путешественник",
+  "text": "Подержи в руках компас.",
+  "category": "Жизнь",
+  "icon": "minecraft:compass",
+  "task": { "type": "rysquests:item", "item": "minecraft:compass" },
+  "tiers": [
+    { "tier": "gold", "amount": 1 }
+  ]
+}

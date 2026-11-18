@@ -140,6 +140,8 @@ BlockEvents.rightClicked('mypack:exchanger', e => {
 });
 ```
 
+Квесты в серверных скриптах это `RYSQuests` (`works.repka.rysquests.api.QuestsApi`). С 0.2.8 в нём `progressOwner(player)` (id команды или игрока, чей прогресс он двигает) и `collect(server, owner, achievement, item)` или `collect(player, achievement, item)`: отметить предмет коллекции достижения, в игре владелец или нет, для переноса отметок из своего скрипта (ADR-62).
+
 ## Совместимость и стабильность
 
 - Пакет `api` следует семантическому версионированию отдельно от мода: `api_version` в `neoforge.mods.toml` как свойство.

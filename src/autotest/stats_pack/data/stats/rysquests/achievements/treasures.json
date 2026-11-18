@@ -1,0 +1,25 @@
+{
+  "id": "stats:treasures",
+  "title": "Сокровища недр",
+  "text": "Подержи в инвентаре каждое сокровище: оно засчитывается, если побывало у кого-то из команды, держать все сразу не нужно.",
+  "category": "Коллекции",
+  "icon": "minecraft:diamond",
+  "task": {
+    "type": "rysquests:collection",
+    "items": [
+      "minecraft:diamond",
+      "minecraft:emerald",
+      "minecraft:gold_ingot",
+      "minecraft:iron_ingot",
+      "minecraft:lapis_lazuli",
+      "minecraft:redstone",
+      { "item": "minecraft:coal", "count": 16 },
+      "minecraft:amethyst_shard"
+    ]
+  },
+  "tiers": [
+    { "tier": "bronze", "amount": 3 },
+    { "tier": "silver", "amount": 6 },
+    { "tier": "gold", "amount": 8 }
+  ]
+}

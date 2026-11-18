@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-18. Руками не править: после структурных правок пересобрать.
 
-Java: 394 файлов, 72273 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 400 файлов, 73179 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -17,7 +17,7 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 - `gradle/` — 2 файлов
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
-- `src/` — 597 файлов
+- `src/` — 605 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -25,11 +25,12 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 **(корень)** (1)
 - `ImportShowcase` 36 — What the server says at the end of an FTB import, without importing anything: the report and the failure of the ATM10 run of the "first" scenario, for the screenshots of the wizard…
 
-**dev** (19)
-- `AutoTest` 2990 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
+**dev** (20)
+- `AutoTest` 2992 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
 - `CanvasBooks` 277 — The two books of the canvas scenario, read on the client without a server: RepYS from its files with the titles of its lang file, and ATM10 carried over from FTB Quests by the impo…
 - `CanvasTestScreen` 104 — A bare screen around the canvas for the canvas scenario: the canvas sits where the map area of the mockups is (1280×800 at GUI scale 2), so that screenshots lie over pictures 13 to…
 - `ChronicleScenario` 143 — The epoch's reward on the map, the pages "О книге" and the atlases for players (plan _audit/chronicle, B1 and B2; RYSQuests 0.2.7, ADR-60), on the small book of src/autotest/chroni…
+- `CollectionScenario` 181 — A collection in the achievements and the limit of pinned cards (RYSQuests 0.2.8, ADR-62), on the small team book of src/autotest/stats_pack: "Сокровища недр" collects eight items (…
 - `EditorScenario` 334 — The acceptance of the book's editor (plan step 10), in two runs on the same world: book_editor: a book from nothing, its first chapter typed into the table, quests linked (a circle…
 - `ItemsScenario` 88 — Items in the book act like items of the recipe viewer (the author's note on 0.2.1): the game's tooltip on hover, the recipe on a click, the usages on the right button; a shop card …
 - `MapFixChecks` 191 — The notes of the RepYS server on the map (fb1), on RepYS as a spiral: hovering finds the chapter under the pointer at both ends of every chapter; a click near the edge of a tile ta…
@@ -61,7 +62,7 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 **api** (8)
 - `QuestCompletedEvent` 32 — Fired on the game bus when all tasks of a quest are done.
 - `QuestRegistries` 18 — Keys of the registries other mods add task and reward types to.
-- `QuestsApi` 34 — What other mods and scripts can do with quests.
+- `QuestsApi` 69 — What other mods and scripts can do with quests.
 - `RewardType` 10 — A kind of quest reward, selected by the type field of its JSON.
 - `ScriptHooks` 38 — How a scripting mod answers for script tasks and rewards.
 - `StageProvider` 14 — A source of progression stages.
@@ -101,7 +102,7 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 - `ClientImport` 107 — The client's side of the FTB Quests import wizard (plan, pictures 06, 07, 50): it starts the import and keeps what the server said last, for the wizard to draw.
 - `ClientLayout` 98 — The baked map on the client.
 - `ClientMessages` 52 — The server's latest word about what the player did (plan, picture 48).
-- `ClientProgress` 178 — The client's copy of its own progress.
+- `ClientProgress` 179 — The client's copy of its own progress.
 - `ClientShop` 59 — The client's copy of its money.
 - `QuestLinks` 61 — Turns [[quest:id]] in chat into a link that opens the book on that quest.
 - `RYSQuestsClient` 140 — Client-only entry point; never loaded on a dedicated server.
@@ -154,14 +155,14 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 - `AboutView` 131 — The pages "О книге" (mockup _audit/chronicle/01_about_brand, ADR-60): opened by the book's name in the header as a page over the open tab, the way the settings open.
 - `AchievementEditorView` 398 — The editor's "Достижения" (picture 39b): the player's grid by category with "+ Достижение" last; on the right the chosen one: icon, name, "Секретное", description, the one conditio…
 - `AchievementRing` 35 — The ring around an achievement's icon (mockup .medal, picture 28): 3 wide in the color of the highest level reached, grey while none is; a secret achievement has no icon yet.
-- `AchievementsView` 790 — Achievements (plan, section 3, pictures 28, 45, 46d), laid out as the author's sample: categories and the totals on the left, cards in the middle, the selected one with its levels …
+- `AchievementsView` 905 — Achievements (plan, section 3, pictures 28, 45, 46d), laid out as the author's sample: categories and the totals on the left, cards in the middle, the selected one with its levels …
 - `BlockSettings` 88 — What both shop block windows share (shop plan, step M7): a row with a switch and two lines of words (mockup 06, the limits), and the block's own settings at the bottom of the right…
 - `BlockStopNotice` 59 — "Your block stopped" as one of the family's notices (decision on question 17 of the shop plan): the block's icon, what stopped it, the trade and where it stands.
 - `BookData` 110 — Lookups into the client's book that every page of the book shares.
 - `BookHeader` 371 — The header of the book (mockup .head, pictures 03, 08, 11, 32, 46): the book's icon and name ("Квесты" and the mod's icon when the book names none), the tabs with the badge on "Now…
 - `BookMessageLine` 147 — The book's message line (picture 48, plan section 3): the server's answer or refusal as one line over the bottom edge of the page, with a red border, its words, its actions and a c…
 - `BookRole` 42 — Who looks at the book.
-- `BookScreen` 1102 — The quest book window (plan, sections 2 and 7): one frame for everything.
+- `BookScreen` 1118 — The quest book window (plan, sections 2 and 7): one frame for everything.
 - `BookState` 291 — What the book shows.
 - `BookTabs` 133 — The tabs of the book, in the order of the header: Now, Map, Guides, Shop, Achievements (plan, section 2).
 - `BookTallies` 214 — The numbers the frame and the sidebar show: rewards waiting (the badge of "Now"), quests ready to hand in, and per chapter its main quests done and the chapter's state.
@@ -174,7 +175,7 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 - `ClosedBookLine` 50 — "Книга закрыта для игроков" (picture 08, plan section 4): a narrow line under the header while the book is closed, for operators only.
 - `DetailPanel` 223 — The detail panel on the right: a quest, a chapter, an offer, an achievement, an issue of the check (mockup .panel, pictures 11, 16, 17, 25, 28).
 - `DispenserScreen` 644 — The window of the dispenser (shop plan, section 4.2, mockup 06): on the left the trades a dispenser can buy, with a search; on the right where the coins come from, where the goods …
-- `EdText` 170 — Tasks, rewards and types of quests in the editor's plain words (pictures 33, 34, 35b): "Получить: Медная катушка ×1", "25 опыта".
+- `EdText` 171 — Tasks, rewards and types of quests in the editor's plain words (pictures 33, 34, 35b): "Получить: Медная катушка ×1", "25 опыта".
 - `EdUi` 562 — The small pieces the editor's pages share, at the sizes of the mockups (ui.css): an input (.inp), a field with its label (.fld), buttons (.btn, .btn.sm, .tb), the dashed "+" button…
 - `EditorBook` 687 — The editor's draft on this client (plan, section 6): one for the book, whatever editor page is open.
 - `EditorChecks` 242 — What "Проверка" finds in the draft (pictures 37, 37b), in the author's words, each with ways to fix it: errors a player runs into (a link to a page that is not there, a quest waiti…
@@ -236,7 +237,7 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 - `TabsEditorView` 488 — The editor's "Вкладки" (picture 40): the sidebar lists the book's tabs as players see them and the author's tabs inside "Гайды", the matrices "Атлас сборки" and "Атлас добычи" amon…
 - `TaskPicker` 457 — "Что нужно сделать?" (picture 34): the kinds of tasks in plain words on the left, the form of the chosen kind on the right with the line "Игрок увидит: …", and "Добавить задачу".
 - `TaskRow` 223 — A task of a quest in the detail panel (mockup .task, picture 20): the task's action as its title ("Получить: Электромеханизм"), one line of state under it, the progress written onc…
-- `TaskText` 89 — How tasks read and look on the screen and on the board.
+- `TaskText` 93 — How tasks read and look on the screen and on the board.
 - `TextArea` 389 — An editable text in the interface's own font, in one line or wrapped.
 - `TextBlock` 398 — Lays out parsed quest text with word wrap, inline item icons, clickable links and spoilers.
 - `Ui` 835 — One frame of drawing.
@@ -246,17 +247,17 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 - `QuestCommands` 535 — The /rysquests command tree.
 
 **data** (34)
-- `Achievement` 111 — An achievement: one file in rysquests/achievements/.
+- `Achievement` 132 — An achievement: one file in rysquests/achievements/.
 - `BookAssets` 160 — The translations and pictures of the editor's folder that the book refers to.
 - `BookHash` 108 — SHA-256 of the canonical JSON of the linked book: sorted entries, sorted object keys.
 - `BookHolder` 37 — The book currently loaded on the server, replaced as a whole on each reload.
 - `BookLayout` 101 — The baked map of the book, rysquests/layout.json beside book.json.
 - `BookLoader` 105 — Loads the book from datapacks.
 - `BookMeta` 191 — Book-wide settings, from book.json.
-- `BookParser` 197 — Turns the files of a datapack into a RawBook.
+- `BookParser` 205 — Turns the files of a datapack into a RawBook.
 - `BookReport` 29 — What validation found.
 - `BookSerializer` 42 — Converts a book to and from the gzipped NBT sent to clients.
-- `BookValidator` 499 — Links a parsed book and reports what is wrong.
+- `BookValidator` 514 — Links a parsed book and reports what is wrong.
 - `CardsSection` 99 — The "cards" template: a catalog with filters.
 - `Chapter` 82 — Metadata of a chapter, from its _chapter.json.
 - `Guide` 53 — A guide: a title, an icon and pages of text.
@@ -306,7 +307,7 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 
 **integration.kubejs** (4)
 - `QuestCompletedKubeEvent` 34 — RYSQuestsEvents.completed: all tasks of a quest are done.
-- `RYSQuestsKubePlugin` 66 — RYSQuestsEvents for server scripts.
+- `RYSQuestsKubePlugin` 68 — RYSQuestsEvents for server scripts.
 - `ScriptRewardKubeEvent` 30 — RYSQuestsEvents.reward: the player claimed a script reward.
 - `ScriptTaskKubeEvent` 40 — RYSQuestsEvents.task: asked about once a second while the quest is open.
 
@@ -355,17 +356,19 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 - `StageLocksPayload` 29 — Quests and guides closed to the player because a stage is missing, and which of the stages named by custom sections the player has: the client has no way to tell by itself.
 - `TeamInfoPayload` 23 — How many players are in this player's team, for the chip in the top bar of the book.
 
-**progress** (18)
+**progress** (20)
 - `AchievementService` 119 — Titles and how rare each tier is.
 - `BookCounts` 50 — The one count of the book: main quests.
+- `CollectionMarks` 75 — The rules of an achievement's collection (ADR-62), shared by the server, the window and the tests.
 - `CommandPlaceholders` 30 — Placeholders in reward commands, written as FTB Quests writes them: {p} for the player's name, {x}, {y}, {z} for where they stand, {quest}, {chapter}, {team}, {member_count} and {o…
 - `DeliveryLedger` 176 — What has been delivered towards a goal that is paid in parts (shop plan, step M4): per owner (a team, or a player alone), per goal (a delivery trade of the shop, later perhaps a tr…
 - `EpochRewards` 81 — The reward of an epoch (ADR-60): a quest the epoch names in book.json, shown and claimed at the epoch on the map rather than as a card of its chapter.
 - `Feedback` 48 — Quiet sounds that confirm a reward or a trade, heard only by the player who made it, and the book's message line.
 - `MemberStats` 74 — The statistics of the players who share progress, for StatCount: an online player's live ones, an offline player's as they were when the player left.
 - `NextStep` 80 — The next step on "Now", one rule for every book (plan, section 3, "Now"): the nearest unfinished main quest of the chapter where the player last completed a quest; when there is no…
+- `PinLimit` 40 — The limit of pinned cards (hud.max_pinned of the book), one rule for the server that refuses and the book that greys the pin out beforehand.
 - `ProgressRemap` 97 — Progress is kept by the position of a task or a reward.
-- `ProgressService` 1207 — Server-side quest rules.
+- `ProgressService` 1255 — Server-side quest rules.
 - `ProgressStore` 638 — Quest progress of all teams, saved with the world.
 - `QuestLogic` 102 — Status rules shared by the server and the client's display.
 - `QuestPath` 217 — The way to a quest that is still closed (plan, section 3, "Closed quest"; pictures 21b, 22): every unfinished quest it still needs, in an order in which each comes after what it ne…
@@ -401,16 +404,17 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 **stage** (1)
 - `Stages` 57 — All stage providers.
 
-**task** (11)
+**task** (12)
 - `AdvancementTask` 23 — Completed when the player earns an advancement.
 - `CheckboxTask` 21 — Completed when the player ticks it.
+- `CollectionTask` 74 — A collection of an achievement (ADR-62): a list of items, each counted once it has been in the inventory of anyone who shares the progress.
 - `FluidTask` 45 — Requires an amount of a fluid in containers the player carries, in millibuckets.
 - `ItemRef` 37 — An item id or, written with a leading #, an item tag.
 - `ItemTask` 106 — Requires an item, a tag, or any of several of them.
 - `KillTask` 30 — Completed after killing a number of entities of one type.
 - `ScriptTask` 30 — Progress comes from a script, asked on the same schedule as other polled tasks.
 - `StatTask` 31 — Completed when a player statistic reaches a value.
-- `TaskTypes` 38 — The task type registry and the built-in task types.
+- `TaskTypes` 40 — The task type registry and the built-in task types.
 - `VisitTask` 38 — Completed by being somewhere: a dimension, a biome or structure (each may be a #tag), or near a position.
 - `XpTask` 68 — Experience, in levels or in points, as FTB Quests' and Heracles' experience tasks.
 
@@ -475,12 +479,14 @@ Java: 394 файлов, 72273 строк. Переводы: `examples/example_pa
 **migrate** (1)
 - `MigrationEngineTest` 103
 
-**progress** (16)
+**progress** (18)
 - `AchievementTest` 72
+- `CollectionTest` 198 — A collection in the achievements (ADR-62): its marks are a hidden quest of observe tasks, its levels count them, and a team keeps, shares and passes them on as any quest progress.
 - `CommandPlaceholdersTest` 21
 - `EpochRewardsTest` 204 — The reward of an epoch on the map (ADR-60): it opens when the epoch is passed, is taken once, and moving between teams in any way never makes it claimable again.
 - `FullTasksOpenQuestTest` 115 — RepYS, «Тертиевая эссенция»: the server's record of the quest held its one task done (tasks [1]) but no completion, a record taken over from FTB Quests, which counts tasks of a que…
 - `GuidePagesStoreTest` 36
+- `PinLimitTest` 68 — The limit of pinned cards, one rule for the server that refuses and the achievements window that greys the pin out beforehand.
 - `ProgressStoreLoadTest` 35 — One broken record in the save loses only itself: the rest of the progress loads, and is not written over with nothing.
 - `QuestLogicTest` 79
 - `QuestPathTest` 140 — The way to a closed quest and the next step on "Now" (plan, section 3).

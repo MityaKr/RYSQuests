@@ -67,6 +67,7 @@ final class EdText {
             case CheckboxTask box -> tr("rysquests.ed.task.text.checkbox");
             case AdvancementTask advancement -> tr("rysquests.ed.task.text.advancement", advancement.advancement().getPath());
             case ScriptTask script -> tr("rysquests.ed.task.text.script", script.script().toString());
+            case works.repka.rysquests.task.CollectionTask collection -> tr("rysquests.ed.task.text.collection", Plural.full("rysquests.plural.item", collection.items().size()));
             default -> task.type().toString();
         };
     }

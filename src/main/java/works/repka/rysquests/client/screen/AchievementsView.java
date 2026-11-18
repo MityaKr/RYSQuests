@@ -17,7 +17,12 @@ import works.repka.rysquests.client.ClientAchievements;
 import works.repka.rysquests.client.ClientBook;
 import works.repka.rysquests.client.ClientProgress;
 import works.repka.rysquests.data.Achievement;
+import works.repka.rysquests.progress.CollectionMarks;
+import works.repka.rysquests.progress.PinLimit;
 import works.repka.rysquests.progress.StatCount;
+import works.repka.rysquests.data.Quest;
+import works.repka.rysquests.data.TaskDef;
+import net.minecraft.ChatFormatting;
 import works.repka.rysquests.task.StatTask;
 import works.repka.rysquests.data.Achievement.Tier;
 import works.repka.rysquests.data.RewardDef;
@@ -50,6 +55,9 @@ final class AchievementsView implements BookView {
     private static final int FOOT_H = 38;
     private static final int PANEL_COMPACT = 300;
     private static final int WHEEL = 48;
+    private static final int PIN_MARK = 13;
+    private static final int SLOT = 36;
+    private static final int SLOT_GAP = 6;
 
     private enum Show {
         ALL, IN_WORK, GOT
@@ -114,12 +122,27 @@ final class AchievementsView implements BookView {
             // A streak starts again from zero: the count is the current one, not the level it once reached (ADR-61).
             return ClientProgress.get(achievement.questId(next)).task(0);
         }
-        int most = 0;
+        // A collection counts its marks, which move before its level's quest is asked again (ADR-62).
+        Quest marks = marks(achievement);
+        int most = marks == null ? 0 : CollectionMarks.count(marks, ClientProgress.get(marks.id()));
         for (Tier tier : achievement.tiers()) {
             QuestProgress own = ClientProgress.get(achievement.questId(tier));
             most = Math.max(most, own.completed() ? tier.amount() : own.task(0));
         }
         return most;
+    }
+
+    /** The quest that keeps what of a collection is collected, or null for an achievement that is not a collection (ADR-62). */
+    @Nullable
+    static Quest marks(Achievement achievement) {
+        Quest marks = ClientBook.current().quests().get(achievement.collectionQuestId());
+        return marks == null || marks.tasks().isEmpty() ? null : marks;
+    }
+
+    /** Whether this level is pinned to the HUD. */
+    private static boolean pinned(Achievement achievement) {
+        Tier next = next(achievement);
+        return next != null && ClientProgress.pinned().contains(achievement.questId(next));
     }
 
     private static float ratio(Achievement achievement) {
@@ -508,6 +531,12 @@ final class AchievementsView implements BookView {
         AchievementRing.render(ui, x, y, RING, concealed ? null : icon(achievement), ringToken(achievement));
         float segX = x + RING + 12;
         float segW = w - RING - 12;
+        if (!concealed && pinned(achievement)) {
+            // pinned to the HUD: the pin at the end of the levels' line, as the panel's button shows it
+            ui.icon(Icons.Shape.PIN, x + w - PIN_MARK, y + RING / 2f - PIN_MARK / 2f, PIN_MARK, ui.c("text.secondary"));
+            ui.tooltipIfOver(x + w - PIN_MARK - 2, y + RING / 2f - PIN_MARK / 2f - 2, PIN_MARK + 4, PIN_MARK + 4, Component.translatable("rysquests.achievements.pinned_mark"));
+            segW -= PIN_MARK + 8;
+        }
         if (concealed) {
             LevelSegments.render(ui, segX, y + RING / 2f - LevelSegments.HEIGHT / 2f, segW, new float[] {0f});
         } else {
@@ -583,13 +612,22 @@ final class AchievementsView implements BookView {
             }
             if (next != null && !concealed) {
                 ResourceLocation quest = achievement.questId(next);
-                boolean pinned = ClientProgress.pinned().contains(quest);
+                Pin pin = pin(quest);
                 float px = bx + bw - buttons - 34;
-                boolean over = u.over(px, pen + 11, 34, 34);
-                u.box(px, pen + 11, 34, 34, 9, u.c(over ? "slot.hover" : "button.bg"), u.c(pinned ? "text.secondary" : "button.border"));
-                u.icon(Icons.Shape.PIN, px + 9, pen + 20, 16, u.c(pinned ? "text.primary" : "text.secondary"));
-                u.tooltipIfOver(px, pen + 11, 34, 34, Component.translatable(pinned ? "rysquests.book.unpin" : "rysquests.achievements.pin"));
-                u.hit(px, pen + 11, 34, 34, () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, quest, 0, List.of())));
+                boolean over = pin != Pin.FULL && u.over(px, pen + 11, 34, 34);
+                int border = u.c(pin == Pin.PINNED ? "text.secondary" : "button.border");
+                u.box(px, pen + 11, 34, 34, 9, u.c(over ? "slot.hover" : pin == Pin.FULL ? "card.bg" : "button.bg"), border);
+                u.icon(Icons.Shape.PIN, px + 9, pen + 20, 16, u.c(pin == Pin.PINNED ? "text.primary" : pin == Pin.FULL ? "text.dim" : "text.secondary"));
+                int limit = ClientBook.current().meta().hud().maxPinned();
+                u.tooltipIfOver(px, pen + 11, 34, 34, switch (pin) {
+                    case PINNED -> Component.translatable("rysquests.achievements.unpin");
+                    case FREE -> Component.translatable("rysquests.achievements.pin");
+                    case FULL -> Component.translatable("rysquests.achievements.pin_full", limit, limit);
+                });
+                pinButton = new float[] {px, pen + 11, 34, 34};
+                if (pin != Pin.FULL) {
+                    u.hit(px, pen + 11, 34, 34, () -> PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, quest, 0, List.of())));
+                }
                 buttons += 34 + 8;
             }
             float textW = bx + bw - buttons - textX;
@@ -616,6 +654,10 @@ final class AchievementsView implements BookView {
             if (concealed) {
                 return pen - by;
             }
+            Quest marks = marks(achievement);
+            if (marks != null) {
+                pen += renderCollection(u, marks, bx, pen, bw) + DetailPanel.GAP;
+            }
             pen += DetailPanel.rubric(u, bx, pen, bw, tr("rysquests.achievements.tiers"), null) + 6;
             for (int i = 0; i < n; i++) {
                 pen += renderTier(u, achievement, i, bx, pen, bw) + 6;
@@ -630,6 +672,70 @@ final class AchievementsView implements BookView {
             }
             return pen - by;
         }, action);
+    }
+
+    /** The pin of a level: pinned, free to pin, or not, since the HUD holds as many cards as the book allows. */
+    enum Pin {
+        PINNED, FREE, FULL
+    }
+
+    static Pin pin(ResourceLocation quest) {
+        if (ClientProgress.pinned().contains(quest)) {
+            return Pin.PINNED;
+        }
+        boolean free = PinLimit.canPin(quest, ClientProgress.pinned(), ClientProgress.pinnedWays().size(), ClientBook.current().meta().hud().maxPinned(),
+                ClientBook.current().quests()::get, ClientProgress::get);
+        return free ? Pin.FREE : Pin.FULL;
+    }
+
+    /**
+     * The items of a collection (ADR-62): "Коллекция · 5 из 8" and a slot per item, a collected one with a check in its corner and a
+     * green edge, one still missing faded. The tooltip is the item's own with a line of its state. @return its height
+     */
+    private static float renderCollection(Ui ui, Quest marks, float x, float y, float w) {
+        QuestProgress own = ClientProgress.get(marks.id());
+        int size = marks.tasks().size();
+        float pen = y;
+        pen += DetailPanel.rubric(ui, x, pen, w, tr("rysquests.achievements.collection"),
+                text("rysquests.count.of", CollectionMarks.count(marks, own), size)) + 8;
+        int perRow = Math.max(1, (int) ((w + SLOT_GAP) / (SLOT + SLOT_GAP)));
+        for (int i = 0; i < size; i++) {
+            float sx = x + (i % perRow) * (SLOT + SLOT_GAP);
+            float sy = pen + (i / perRow) * (SLOT + SLOT_GAP);
+            TaskDef task = marks.tasks().get(i);
+            boolean got = CollectionMarks.collected(marks, own, i);
+            ItemStack stack = TaskText.icon(task);
+            ui.cell(stack, sx, sy, SLOT, SLOT, 8, 22, ui.c("slot.bg"), ui.c(got ? "state.ok" : "slot.border"));
+            if (got) {
+                ui.aboveItems(() -> {
+                    ui.circle(sx + SLOT - 13, sy + 1, 12, ui.c("state.ok"));
+                    ui.icon(Icons.Shape.CHECK, sx + SLOT - 11, sy + 3, 8, ui.c("accent.text"));
+                });
+            } else {
+                ui.veil(sx + 1, sy + 1, SLOT - 2, SLOT - 2, 7, ui.c("slot.bg"), 0.55f);
+            }
+            if (ui.over(sx, sy, SLOT, SLOT)) {
+                Component note = collectionNote(task, own.task(i), got);
+                ui.hoveredNote = note;
+                if (stack.isEmpty()) {
+                    ui.hoveredText = Component.literal(TaskText.name(task) + " · ").append(note);
+                }
+            }
+        }
+        int rows = (size + perRow - 1) / perRow;
+        pen += rows * SLOT + Math.max(0, rows - 1) * SLOT_GAP;
+        return pen - y;
+    }
+
+    /** The line under an item of a collection: collected, or what is missing, "нужно 64 сразу" for an item counted by the stack. */
+    private static Component collectionNote(TaskDef task, int value, boolean got) {
+        if (got) {
+            return Component.translatable("rysquests.achievements.collected").withStyle(ChatFormatting.GREEN);
+        }
+        if (task.target() > 1) {
+            return Component.translatable("rysquests.achievements.collect_at_once", task.target(), Math.min(value, task.target())).withStyle(ChatFormatting.GRAY);
+        }
+        return Component.translatable("rysquests.achievements.not_collected").withStyle(ChatFormatting.GRAY);
     }
 
     /** How a vanilla statistic is counted for players: ticks as hours or minutes, centimetres as kilometres or metres, damage in tenths as points. */
@@ -771,6 +877,15 @@ final class AchievementsView implements BookView {
     public void closed() {
         categories.close();
         titleListOpen = false;
+    }
+
+    /** Where the pin of the selected achievement was last drawn, in the book's pixels, for the autotest to hover it. */
+    @Nullable
+    private float[] pinButton;
+
+    @Nullable
+    float[] pinButtonForTest() {
+        return pinButton;
     }
 
     void selectForTest(ResourceLocation id) {

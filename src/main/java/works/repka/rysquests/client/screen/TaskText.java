@@ -28,6 +28,9 @@ public final class TaskText {
         if (task instanceof works.repka.rysquests.task.XpTask) {
             return new ItemStack(net.minecraft.world.item.Items.EXPERIENCE_BOTTLE);
         }
+        if (task instanceof works.repka.rysquests.task.CollectionTask collection) {
+            return icon(collection.items().getFirst());
+        }
         if (!(task instanceof ItemTask item) || item.itemRefs().isEmpty()) {
             return ItemStack.EMPTY;
         }
@@ -73,6 +76,7 @@ public final class TaskText {
                     .orElseGet(() -> visit.pos().map(Object::toString).orElse("")));
             case FluidTask fluid -> Component.translatable("rysquests.task.fluid", BuiltInRegistries.FLUID.get(fluid.fluid()).getFluidType().getDescription());
             case works.repka.rysquests.task.ScriptTask script -> Component.literal(script.script().toString());
+            case works.repka.rysquests.task.CollectionTask collection -> Component.translatable("rysquests.task.collection");
             case AdvancementTask advancement -> Component.translatable("rysquests.task.advancement", advancement.advancement().toString());
             default -> Component.translatable("rysquests.task.checkbox");
         };
