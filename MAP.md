@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-18. Руками не править: после структурных правок пересобрать.
 
-Java: 410 файлов, 75186 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 415 файлов, 75832 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -17,7 +17,8 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 - `gradle/` — 2 файлов
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
-- `src/` — 615 файлов
+- `run-map/` — 1 файлов
+- `src/` — 626 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -25,13 +26,14 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 **(корень)** (1)
 - `ImportShowcase` 36 — What the server says at the end of an FTB import, without importing anything: the report and the failure of the ATM10 run of the "first" scenario, for the screenshots of the wizard…
 
-**dev** (22)
-- `AutoTest` 2996 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
+**dev** (23)
+- `AutoTest` 2998 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
 - `CanvasBooks` 277 — The two books of the canvas scenario, read on the client without a server: RepYS from its files with the titles of its lang file, and ATM10 carried over from FTB Quests by the impo…
 - `CanvasTestScreen` 104 — A bare screen around the canvas for the canvas scenario: the canvas sits where the map area of the mockups is (1280×800 at GUI scale 2), so that screenshots lie over pictures 13 to…
 - `ChronicleScenario` 143 — The epoch's reward on the map, the pages "О книге" and the atlases for players (plan _audit/chronicle, B1 and B2; RYSQuests 0.2.7, ADR-60), on the small book of src/autotest/chroni…
 - `CollectionScenario` 181 — A collection in the achievements and the limit of pinned cards (RYSQuests 0.2.8, ADR-62), on the small team book of src/autotest/stats_pack: "Сокровища недр" collects eight items (…
 - `EditorScenario` 334 — The acceptance of the book's editor (plan step 10), in two runs on the same world: book_editor: a book from nothing, its first chapter typed into the table, quests linked (a circle…
+- `GoalsScenario` 167 — Goals of quests on the family's map (RYSMap plan, step T3; RYSQuests 0.2.9), on the small book of src/autotest/goals_pack: "Лагерь у реки" sends the player to 40 70 40, "Форт в Нез…
 - `ItemLinksScenario` 298 — The book in the recipe viewer's card of an item (RYSCore 1.10 links, plan _audit/ryscope-quests, step 2), on the copy of RepYS with RYScope 0.2.6 or later: the Gate Fragment ("Оско…
 - `ItemsScenario` 88 — Items in the book act like items of the recipe viewer (the author's note on 0.2.1): the game's tooltip on hover, the recipe on a click, the usages on the right button; a shop card …
 - `MapFixChecks` 191 — The notes of the RepYS server on the map (fb1), on RepYS as a spiral: hovering finds the chapter under the pointer at both ends of every chapter; a click near the edge of a tile ta…
@@ -64,7 +66,7 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 **api** (8)
 - `QuestCompletedEvent` 32 — Fired on the game bus when all tasks of a quest are done.
 - `QuestRegistries` 18 — Keys of the registries other mods add task and reward types to.
-- `QuestsApi` 69 — What other mods and scripts can do with quests.
+- `QuestsApi` 122 — What other mods and scripts can do with quests.
 - `RewardType` 10 — A kind of quest reward, selected by the type field of its JSON.
 - `ScriptHooks` 38 — How a scripting mod answers for script tasks and rewards.
 - `StageProvider` 14 — A source of progression stages.
@@ -107,7 +109,7 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 - `ClientProgress` 179 — The client's copy of its own progress.
 - `ClientShop` 69 — The client's copy of its money.
 - `QuestLinks` 61 — Turns [[quest:id]] in chat into a link that opens the book on that quest.
-- `RYSQuestsClient` 142 — Client-only entry point; never loaded on a dedicated server.
+- `RYSQuestsClient` 144 — Client-only entry point; never loaded on a dedicated server.
 
 **client.canvas** (4)
 - `Camera` 117 — Where the canvas looks: the canvas point in the middle of the view and the scale in mockup pixels per canvas unit.
@@ -127,7 +129,7 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 **client.input** (1)
 - `QuestKeys` 61 — Key bindings of the mod: K, P and B.
 
-**client.integration** (8)
+**client.integration** (9)
 - `BookLinks` 179 — The book in the recipe viewer's card of an item (RYSCore 1.10 links.ItemLinks, plan _audit/ryscope-quests, step 2): the shop's offers as a category "Магазин" (an offer that gives t…
 - `ItemLinkIndex` 225 — Where an item stands in one book, for the recipe viewer's item links (RYSCore links.ItemLinks, plan _audit/ryscope-quests): the shop offers that give it or take it, the quests that…
 - `JeiQuestPlugin` 150 — Found by JEI itself, so this class is never loaded without JEI.
@@ -135,6 +137,7 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 - `PatchouliBridge` 38 — The only class that touches Patchouli.
 - `PonderBridge` 26 — The only class that touches Ponder.
 - `Ponders` 55 — Scenes of Ponder, the mod Create brings along.
+- `QuestGoals` 253 — The book on the family's map (RYSMap plan, step T3; RYSCore 1.13 map.MapApi and world.Labels): the layer "Цели квестов" with a mark at the place of every open quest that sends the …
 - `Recipes` 68 — The recipe viewer, if any.
 
 **client.layout** (12)
@@ -155,7 +158,7 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 - `GuideTopics` 64 — What a guide page is about, gathered from its text: nobody has to list it by hand.
 - `Markup` 158 — Parses quest text: [[kind:target|label]] links as in RYScope, **bold**, __italic__, !!warning!!
 
-**client.screen** (91)
+**client.screen** (92)
 - `AboutView` 131 — The pages "О книге" (mockup _audit/chronicle/01_about_brand, ADR-60): opened by the book's name in the header as a page over the open tab, the way the settings open.
 - `AchievementEditorView` 398 — The editor's "Достижения" (picture 39b): the player's grid by category with "+ Достижение" last; on the right the chosen one: icon, name, "Секретное", description, the one conditio…
 - `AchievementRing` 35 — The ring around an achievement's icon (mockup .medal, picture 28): 3 wide in the color of the highest level reached, grey while none is; a secret achievement has no icon yet.
@@ -222,8 +225,9 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 - `QuestFacts` 248 — What the pages of the book need to know about a quest and do with it, without drawing anything: tasks done, what it takes and what the player holds of it, its rewards as items, cla…
 - `QuestForm` 378 — The form of a quest on the right of the editor's map (pictures 33, 34, 33c; compact 46e): name and icon, the type as one switch "Основной | Побочный | Веха", "+ Следующий", "+ Побо…
 - `QuestListView` 943 — The list mode of the "Map" tab (plan, section 3, "List"; pictures 19, 19b, 19c): the same sidebar, "Карта | Список" above, and the level the sidebar chose.
-- `QuestPanel` 1475 — The quest panel (plan, section 3, "Quest"; pictures 17, 20, 21, 21b, 22): one panel for the map, the list and "Now".
+- `QuestPanel` 1480 — The quest panel (plan, section 3, "Quest"; pictures 17, 20, 21, 21b, 22): one panel for the map, the list and "Now".
 - `QuestTable` 696 — A chapter as a table (pictures 35b and 09): a row per quest, columns "Квест, Тип, Что сделать, Награда, После", side quests right under their main one.
+- `QuestWords` 33 — The book's words and icons for a quest, for what draws a quest outside the book's window: the goals on the map (RYSMap, step T3).
 - `ReceiverScreen` 579 — The window of the intake block (shop plan, section 4.1, mockups 04 and 05): on the left the trades of its mode with a search, on the right the mode, where the coins go, the trade i…
 - `RecipeLayoutView` 46 — A recipe as the viewer itself draws it, machines and their animations included, fitted to a width of the book.
 - `RecipePreview` 152 — The recipe of a quest's item, for the small preview in the book.
@@ -363,7 +367,7 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 - `StageLocksPayload` 29 — Quests and guides closed to the player because a stage is missing, and which of the stages named by custom sections the player has: the client has no way to tell by itself.
 - `TeamInfoPayload` 23 — How many players are in this player's team, for the chip in the top bar of the book.
 
-**progress** (20)
+**progress** (21)
 - `AchievementService` 119 — Titles and how rare each tier is.
 - `BookCounts` 50 — The one count of the book: main quests.
 - `CollectionMarks` 75 — The rules of an achievement's collection (ADR-62), shared by the server, the window and the tests.
@@ -379,6 +383,7 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 - `ProgressStore` 655 — Quest progress of all teams, saved with the world.
 - `QuestLogic` 102 — Status rules shared by the server and the client's display.
 - `QuestPath` 217 — The way to a quest that is still closed (plan, section 3, "Closed quest"; pictures 21b, 22): every unfinished quest it still needs, in an order in which each comes after what it ne…
+- `QuestPlace` 60 — Where a quest sends the player, for the map (RYSMap plan, step T3): the first visit task of the quest that names a position.
 - `QuestProgress` 62 — Progress of one quest: value per task, completion time (0 while open), indexes of claimed rewards, for a repeatable quest the time it becomes available again, and how many times it…
 - `QuestStatus` 11 — Where a quest stands for a team.
 - `StatCount` 61 — How progress that is shared counts a player statistic (ADR-61).
@@ -490,7 +495,7 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 **migrate** (1)
 - `MigrationEngineTest` 103
 
-**progress** (19)
+**progress** (20)
 - `AchievementTest` 72
 - `CollectionTest` 198 — A collection in the achievements (ADR-62): its marks are a hidden quest of observe tasks, its levels count them, and a team keeps, shares and passes them on as any quest progress.
 - `CommandPlaceholdersTest` 21
@@ -502,6 +507,7 @@ Java: 410 файлов, 75186 строк. Переводы: `examples/example_pa
 - `ProgressStoreLoadTest` 35 — One broken record in the save loses only itself: the rest of the progress loads, and is not written over with nothing.
 - `QuestLogicTest` 79
 - `QuestPathTest` 140 — The way to a closed quest and the next step on "Now" (plan, section 3).
+- `QuestPlaceTest` 71 — Where a quest's goal stands on the map (RYSMap plan, step T3).
 - `RepeatableRoundTest` 75 — Repeatable quests between rounds (ADR-46): what they opened stays open, and a new round clears every member.
 - `ReviewFixesTest` 95 — The fixes the review asked for that live in shared rules: optional quests, craft mode, and progress that follows its task.
 - `StatCountTest` 85 — A team's counter of a statistic comes from all its members (ADR-61).
