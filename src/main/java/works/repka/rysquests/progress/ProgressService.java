@@ -95,11 +95,13 @@ public final class ProgressService {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ProgressService.class);
     private static final ResourceLocation FEED_SOURCE = ResourceLocation.fromNamespaceAndPath("rysquests", "quests");
 
-    /** Open, unlocked quests per team, so that polling does not walk the whole book. */
-    /** The open quests of each team, and when the first cooldown among the rest runs out and the list is due again. */
+    /**
+     * The open quests of each team, the locked ones whose tasks count early (ADR-66), and when the first cooldown among the rest runs
+     * out and the lists are due again.
+     */
     private static final Map<UUID, Active> ACTIVE = new HashMap<>();
 
-    private record Active(List<Quest> quests, long expires) {
+    private record Active(List<Quest> quests, List<Quest> early, long expires) {
     }
     private static final Map<UUID, Integer> INVENTORY_HASH = new HashMap<>();
     private static final Map<UUID, Set<ResourceLocation>> STAGE_LOCKS = new HashMap<>();
@@ -178,7 +180,11 @@ public final class ProgressService {
         // A collection's level reads the marks this same poll may have just raised (ADR-62).
         Function<ResourceLocation, QuestProgress> seen = id -> changes.containsKey(id) ? changes.get(id) : store.get(team, id);
         for (Quest quest : active) {
-            poll(player, quest, inventoryChanged, sharers, seen).ifPresent(updated -> changes.put(quest.id(), updated));
+            poll(player, quest, inventoryChanged, sharers, seen, false).ifPresent(updated -> changes.put(quest.id(), updated));
+        }
+        // Locked quests that count early gather their task values and wait to open for the completion (ADR-66).
+        for (Quest quest : earlyFor(player)) {
+            poll(player, quest, inventoryChanged, sharers, seen, true).ifPresent(updated -> changes.put(quest.id(), updated));
         }
         apply(player, changes);
     }
@@ -229,9 +235,17 @@ public final class ProgressService {
 
     /** The team's open quests that this player's own stages allow. */
     private static List<Quest> openFor(ServerPlayer player) {
-        List<Quest> open = active(player);
-        List<Quest> allowed = new ArrayList<>(open.size());
-        for (Quest quest : open) {
+        return allowed(player, active(player).quests());
+    }
+
+    /** The team's locked quests whose tasks count early (ADR-66) and that this player's own stages allow. */
+    private static List<Quest> earlyFor(ServerPlayer player) {
+        return allowed(player, active(player).early());
+    }
+
+    private static List<Quest> allowed(ServerPlayer player, List<Quest> quests) {
+        List<Quest> allowed = new ArrayList<>(quests.size());
+        for (Quest quest : quests) {
             if (stageAllows(player, quest)) {
                 allowed.add(quest);
             }
@@ -239,7 +253,7 @@ public final class ProgressService {
         return allowed;
     }
 
-    private static List<Quest> active(ServerPlayer player) {
+    private static Active active(ServerPlayer player) {
         if (activeBook != book()) {
             activeBook = book();
             invalidateAll();
@@ -248,11 +262,12 @@ public final class ProgressService {
         long now = System.currentTimeMillis();
         Active cached = ACTIVE.get(team);
         if (cached != null && now < cached.expires()) {
-            return cached.quests();
+            return cached;
         }
         // What is open is the same for every member, whatever rewards one of them still has to take of an earlier round.
         Function<ResourceLocation, QuestProgress> progress = teamLookup(player);
         List<Quest> open = new ArrayList<>();
+        List<Quest> early = new ArrayList<>();
         long expires = Long.MAX_VALUE;
         for (Quest quest : activeBook.quests().values()) {
             // Drafts and archived quests are not counted: players are never sent them.
@@ -270,17 +285,22 @@ public final class ProgressService {
             } else if (QuestLogic.isUnlocked(quest, progress)) {
                 // Stages are each player's own: the shared list leaves them out, openFor applies the asking player's.
                 open.add(quest);
+            } else if (QuestLogic.countsEarly(activeBook, quest, progress)) {
+                // A dependency that completes changes what is open, and so rebuilds both lists: the quest moves to the open ones and
+                // the poll completes it at once when its tasks were done early (QuestLogic.afterPoll).
+                early.add(quest);
             }
         }
-        List<Quest> quests = List.copyOf(open);
-        ACTIVE.put(team, new Active(quests, expires));
+        Active built = new Active(List.copyOf(open), List.copyOf(early), expires);
+        ACTIVE.put(team, built);
         // A quest that has just opened or come back reads the inventory at once, not after the next change in it.
         player.server.getPlayerList().getPlayers().stream().filter(member -> team(member).equals(team)).forEach(member -> INVENTORY_HASH.remove(member.getUUID()));
-        return quests;
+        return built;
     }
 
+    /** @param early the quest is locked and counts early (ADR-66): its values grow, its completion waits for it to open */
     private static Optional<QuestProgress> poll(ServerPlayer player, Quest quest, boolean inventoryChanged, Supplier<List<UUID>> sharers,
-            Function<ResourceLocation, QuestProgress> seen) {
+            Function<ResourceLocation, QuestProgress> seen, boolean early) {
         QuestProgress before = seen.apply(quest.id());
         List<Integer> values = before.taskValues(quest.tasks().size());
         boolean changed = false;
@@ -298,7 +318,7 @@ public final class ProgressService {
                 }
             }
         }
-        return QuestLogic.afterPoll(quest, before, values, changed, System.currentTimeMillis());
+        return early ? QuestLogic.earlyPoll(before, values, changed) : QuestLogic.afterPoll(quest, before, values, changed, System.currentTimeMillis());
     }
 
     /** A level of a collection counts the marks of its achievement (ADR-62). */
@@ -569,6 +589,23 @@ public final class ProgressService {
         return target != null && level.structureManager().getStructureWithPieceAt(player.blockPosition(), target).isValid();
     }
 
+    /** The open quests and, after them, the locked ones that count early (ADR-66). */
+    private static List<Quest> openAndEarly(ServerPlayer player) {
+        List<Quest> early = earlyFor(player);
+        if (early.isEmpty()) {
+            return openFor(player);
+        }
+        List<Quest> all = new ArrayList<>(openFor(player));
+        all.addAll(early);
+        return all;
+    }
+
+    /** New task values from an event: a locked quest only keeps them, an open one completes when they are all done (ADR-66). */
+    private static QuestProgress countFor(ServerPlayer player, Quest quest, QuestProgress before, List<Integer> values) {
+        boolean locked = !QuestLogic.isUnlocked(quest, teamLookup(player));
+        return locked ? QuestLogic.earlyPoll(before, values, true).orElseThrow() : finish(quest, before, values);
+    }
+
     /** Crafted or smelted items count towards open tasks in craft mode. */
     public static void onCrafted(ServerPlayer player, ItemStack stack) {
         if (stack.isEmpty() || !counts(player)) {
@@ -576,7 +613,8 @@ public final class ProgressService {
         }
         ProgressStore store = ProgressStore.get(player.server);
         Map<ResourceLocation, QuestProgress> changes = new HashMap<>();
-        for (Quest quest : openFor(player)) {
+        // A locked quest that counts early counts crafts too: for it the craft counts from when it is followed (ADR-66).
+        for (Quest quest : openAndEarly(player)) {
             QuestProgress before = store.get(team(player), quest.id());
             List<Integer> values = before.taskValues(quest.tasks().size());
             boolean changed = false;
@@ -587,7 +625,7 @@ public final class ProgressService {
                 }
             }
             if (changed) {
-                changes.put(quest.id(), finish(quest, before, values));
+                changes.put(quest.id(), countFor(player, quest, before, values));
             }
         }
         apply(player, changes);
@@ -599,7 +637,7 @@ public final class ProgressService {
         }
         ProgressStore store = ProgressStore.get(player.server);
         Map<ResourceLocation, QuestProgress> changes = new HashMap<>();
-        for (Quest quest : openFor(player)) {
+        for (Quest quest : openAndEarly(player)) {
             QuestProgress before = store.get(team(player), quest.id());
             List<Integer> values = before.taskValues(quest.tasks().size());
             boolean changed = false;
@@ -610,7 +648,7 @@ public final class ProgressService {
                 }
             }
             if (changed) {
-                changes.put(quest.id(), finish(quest, before, values));
+                changes.put(quest.id(), countFor(player, quest, before, values));
             }
         }
         apply(player, changes);
