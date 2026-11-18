@@ -1,0 +1,13 @@
+{
+  "progress_mode": "team",
+  "default_view": "map",
+  "default_theme": "ryscore:slate",
+  "title": "Цели",
+  "icon": "minecraft:compass",
+  "chapter_order": [
+    "goals:trip"
+  ],
+  "sections": [
+    "story"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "goals:trip/fort",
+  "chapter": "goals:trip",
+  "title": "Форт в Незере",
+  "icon": "minecraft:nether_bricks",
+  "requires": ["goals:trip/camp"],
+  "tasks": [
+    {
+      "type": "rysquests:visit",
+      "dimension": "minecraft:the_nether",
+      "pos": [100, 60, -20],
+      "size": [20, 10, 40]
+    }
+  ]
+}

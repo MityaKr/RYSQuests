@@ -1,0 +1,12 @@
+{
+  "id": "goals:trip/village",
+  "chapter": "goals:trip",
+  "title": "Любая деревня",
+  "icon": "minecraft:bell",
+  "tasks": [
+    {
+      "type": "rysquests:visit",
+      "structure": "#minecraft:village"
+    }
+  ]
+}

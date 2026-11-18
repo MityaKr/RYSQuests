@@ -1,0 +1,20 @@
+{
+  "id": "goals:trip/camp",
+  "chapter": "goals:trip",
+  "title": "Лагерь у реки",
+  "subtitle": "Разведи костёр на берегу",
+  "icon": "minecraft:campfire",
+  "tasks": [
+    {
+      "type": "rysquests:visit",
+      "pos": [40, 70, 40],
+      "radius": 6
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "levels": 2
+    }
+  ]
+}
