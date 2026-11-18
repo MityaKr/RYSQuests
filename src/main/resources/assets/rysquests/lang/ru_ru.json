@@ -999,6 +999,7 @@
   "rysquests.now.chapter_done": "выполнено %s из %s основных",
   "rysquests.now.section": "раздел «%s»",
   "rysquests.now.team": "Команда · %s",
+  "rysquests.now.team_named": "%s · %s",
   "rysquests.now.claim": "Забрать награды",
   "rysquests.now.claim_count": "Забрать награды · %s",
   "rysquests.now.claim_all": "забрать всё",

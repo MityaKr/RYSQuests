@@ -991,6 +991,7 @@
   "rysquests.now.chapter_done": "%s of %s main completed",
   "rysquests.now.section": "section “%s”",
   "rysquests.now.team": "Team · %s",
+  "rysquests.now.team_named": "%s · %s",
   "rysquests.now.claim": "Take rewards",
   "rysquests.now.claim_count": "Take rewards · %s",
   "rysquests.now.claim_all": "take all",

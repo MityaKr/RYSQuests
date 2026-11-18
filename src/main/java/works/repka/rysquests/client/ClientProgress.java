@@ -28,6 +28,7 @@ public final class ClientProgress {
     private static List<String> pinnedWays = List.of();
     private static final Set<String> GUIDE_PAGES = new HashSet<>();
     private static int teamSize = 1;
+    private static String teamName = "";
     private static Optional<ResourceLocation> lastChapter = Optional.empty();
     /** Grows with every packet that changes what the book shows: caches of counts and statuses compare it. */
     private static int version;
@@ -98,6 +99,12 @@ public final class ClientProgress {
 
     static void receiveTeamInfo(TeamInfoPayload payload) {
         teamSize = payload.members();
+        teamName = payload.name();
+    }
+
+    /** The team's name, empty for a player alone or when the team mod gives none. */
+    public static String teamName() {
+        return teamName;
     }
 
     static void receivePinned(PinnedPayload payload) {
@@ -174,5 +181,8 @@ public final class ClientProgress {
         openStages = Set.of();
         pinnedWays = List.of();
         GUIDE_PAGES.clear();
+        // Another server may have another team: until its word comes the player counts as alone.
+        teamSize = 1;
+        teamName = "";
     }
 }

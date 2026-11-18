@@ -261,7 +261,10 @@ final class NowView implements BookView {
         ui.labelFit(sub, x, y + titleH + 3 + Ui.lineHeight(12) / 2f, w * 0.7f, 12, Ui.REGULAR, ui.c("text.muted"));
         int members = ClientProgress.teamSize();
         if (members > 1) {
-            String team = t("rysquests.now.team", Ui.counted("rysquests.now.plural.member", members));
+            // The team's own name when the team mod gives one ("Репка · 3 участника"), else the word "Команда".
+            String name = ClientProgress.teamName();
+            String counted = Ui.counted("rysquests.now.plural.member", members);
+            String team = name.isBlank() ? t("rysquests.now.team", counted) : t("rysquests.now.team_named", name, counted);
             float tw = ui.width(team, 12, Ui.REGULAR);
             float cy = y + (titleH + 3 + Ui.lineHeight(12)) / 2f;
             ui.label(team, x + w - tw, cy, 12, Ui.REGULAR, ui.c("text.muted"));

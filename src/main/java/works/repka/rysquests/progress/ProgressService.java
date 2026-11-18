@@ -1176,8 +1176,11 @@ public final class ProgressService {
         AchievementService.send(player);
         PacketDistributor.sendToPlayer(player, new GuidePagesPayload(true, List.copyOf(store.guidePages(player.getUUID()))));
         TeamsApi teams = TeamsApi.get();
-        int members = Math.max(teams.members(teams.teamOf(player.getUUID())).size(), store.memberCount(team(player)));
-        PacketDistributor.sendToPlayer(player, new TeamInfoPayload(members));
+        UUID teamId = teams.teamOf(player.getUUID());
+        int members = Math.max(teams.members(teamId).size(), store.memberCount(team(player)));
+        // The team mod names the team; a player alone has no line of a team, so no name is sent.
+        String teamName = members > 1 && !teams.isSolo(teamId) ? teams.name(teamId).getString() : "";
+        PacketDistributor.sendToPlayer(player, new TeamInfoPayload(members, teamName));
         STAGE_LOCKS.remove(player.getUUID());
         GUIDE_LOCKS.remove(player.getUUID());
         OPEN_STAGES.remove(player.getUUID());
