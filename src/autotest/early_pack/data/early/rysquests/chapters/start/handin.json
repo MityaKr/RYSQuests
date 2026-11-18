@@ -1,0 +1,15 @@
+{
+  "id": "early:start/handin",
+  "chapter": "early:start",
+  "title": "Сдать изумруд",
+  "icon": "minecraft:emerald",
+  "requires": ["early:start/gate"],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:emerald",
+      "count": 1,
+      "mode": "consume"
+    }
+  ]
+}

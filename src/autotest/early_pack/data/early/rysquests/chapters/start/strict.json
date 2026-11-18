@@ -1,0 +1,16 @@
+{
+  "id": "early:start/strict",
+  "chapter": "early:start",
+  "title": "Строго по порядку",
+  "icon": "minecraft:iron_bars",
+  "requires": ["early:start/gate"],
+  "pre_complete": false,
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:diamond",
+      "count": 1,
+      "mode": "observe"
+    }
+  ]
+}

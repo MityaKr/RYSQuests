@@ -1,0 +1,14 @@
+{
+  "progress_mode": "team",
+  "default_view": "map",
+  "default_theme": "ryscore:slate",
+  "title": "Заранее",
+  "icon": "minecraft:clock",
+  "chapter_order": [
+    "early:start"
+  ],
+  "sections": [
+    "story"
+  ],
+  "pre_complete": true
+}

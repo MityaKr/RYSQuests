@@ -198,6 +198,8 @@ public final class AutoTest {
             CollectionScenario.build();
         } else if ("goals".equals(scenario)) {
             GoalsScenario.build();
+        } else if ("early".equals(scenario)) {
+            EarlyScenario.build();
         } else if ("constructor".equals(scenario)) {
             buildConstructorScenario();
         } else if ("sections".equals(scenario)) {

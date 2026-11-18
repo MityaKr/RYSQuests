@@ -1,0 +1,6 @@
+{
+  "pack": {
+    "pack_format": 48,
+    "description": "RYSQuests autotest: early completion of locked quests (ADR-66)"
+  }
+}

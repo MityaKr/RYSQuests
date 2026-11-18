@@ -1,0 +1,11 @@
+{
+  "id": "early:start/gate",
+  "chapter": "early:start",
+  "title": "Ворота",
+  "icon": "minecraft:oak_door",
+  "tasks": [
+    {
+      "type": "rysquests:checkbox"
+    }
+  ]
+}

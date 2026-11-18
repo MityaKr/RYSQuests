@@ -1,0 +1,21 @@
+{
+  "id": "early:start/watch",
+  "chapter": "early:start",
+  "title": "Алмаз заранее",
+  "icon": "minecraft:diamond",
+  "requires": ["early:start/gate"],
+  "tasks": [
+    {
+      "type": "rysquests:item",
+      "item": "minecraft:diamond",
+      "count": 1,
+      "mode": "observe"
+    }
+  ],
+  "rewards": [
+    {
+      "type": "rysquests:xp",
+      "levels": 1
+    }
+  ]
+}
