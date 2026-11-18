@@ -1,14 +1,21 @@
 package works.repka.rysquests.api;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import org.jetbrains.annotations.Nullable;
 import works.repka.rysquests.data.Achievement;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.Quest;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.progress.ProgressService;
+import works.repka.rysquests.progress.ProgressStore;
+import works.repka.rysquests.progress.QuestProgress;
 import works.repka.rysquests.stage.Stages;
 
 /** What other mods and scripts can do with quests. Everything outside the {@code api} package may change. */
@@ -37,6 +44,52 @@ public final class QuestsApi {
     /** The owner of the progress the player counts towards: the team, the player alone or the server, by the book's mode. */
     public static UUID progressOwner(ServerPlayer player) {
         return ProgressService.owner(player);
+    }
+
+    /**
+     * Whether an owner of progress has done a quest: done now, or in an earlier round of a repeatable quest, which is what opens
+     * the quests after it. Reads the saved progress, so the owner may be offline. On the server only; false without a running
+     * server. KubeJS server scripts see this class as {@code RYSQuests}, so {@code RYSQuests.isCompleted(owner, 'repys:quest')}
+     * replaces reading {@code ProgressStore.allProgress()}, which keeps working.
+     *
+     * @param owner a team or player id as {@link #progressOwner} gives it
+     */
+    public static boolean isCompleted(UUID owner, ResourceLocation quest) {
+        Map<ResourceLocation, QuestProgress> quests = progressOf(owner);
+        return quests != null && quests.getOrDefault(quest, QuestProgress.EMPTY).everDone();
+    }
+
+    /** The same for the owner of the progress this player counts towards. */
+    public static boolean isCompleted(ServerPlayer player, ResourceLocation quest) {
+        return isCompleted(progressOwner(player), quest);
+    }
+
+    /**
+     * Every quest an owner of progress has done, as {@link #isCompleted} counts them: a new set, which the caller may keep or
+     * change. Empty for an owner without progress or without a running server.
+     */
+    public static Set<ResourceLocation> completed(UUID owner) {
+        Map<ResourceLocation, QuestProgress> quests = progressOf(owner);
+        Set<ResourceLocation> out = new HashSet<>();
+        if (quests != null) {
+            quests.forEach((id, progress) -> {
+                if (progress.everDone()) {
+                    out.add(id);
+                }
+            });
+        }
+        return out;
+    }
+
+    /** The same for the owner of the progress this player counts towards. */
+    public static Set<ResourceLocation> completed(ServerPlayer player) {
+        return completed(progressOwner(player));
+    }
+
+    /** The owner's saved progress without creating a record for an unknown owner, or null. */
+    private static @Nullable Map<ResourceLocation, QuestProgress> progressOf(UUID owner) {
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        return server == null || owner == null ? null : ProgressStore.get(server).allProgress().get(owner);
     }
 
     /**
