@@ -43,6 +43,7 @@ import works.repka.rysquests.task.ItemTask;
 import works.repka.rysquests.task.KillTask;
 import works.repka.rysquests.task.ScriptTask;
 import works.repka.rysquests.task.StatTask;
+import works.repka.rysquests.client.integration.QuestGoals;
 import works.repka.rysquests.task.VisitTask;
 import works.repka.rysquests.task.XpTask;
 import works.repka.ryscore.ui.Draw;
@@ -911,6 +912,10 @@ final class QuestPanel {
                 row.glyph(Icons.Shape.COMPASS);
                 line = done ? t("rysquests.qpanel.line.ready") : visit.structure().isPresent() ? t("rysquests.qpanel.line.find")
                         : visit.biome().isPresent() || visit.dimension().isPresent() ? t("rysquests.qpanel.line.visit") : t("rysquests.qpanel.line.place");
+                // A place with a position opens on the family's map (RYSMap, step T3); without RYSMap there is no button.
+                if (visit.pos().isPresent() && QuestGoals.mapPresent()) {
+                    row.button(t("rysquests.qpanel.show_on_map"), () -> QuestGoals.show(quest, index));
+                }
             }
             case XpTask xp -> {
                 int held = xp.have(Minecraft.getInstance().player);
