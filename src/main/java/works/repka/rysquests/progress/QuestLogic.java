@@ -24,6 +24,46 @@ public final class QuestLogic {
         };
     }
 
+    /**
+     * Whether the tasks of the quest count while it is still locked (ADR-66, FTB Quests' flexible progression): the quest's own word,
+     * else its chapter's, else the book's (off by default).
+     */
+    public static boolean preComplete(works.repka.rysquests.data.QuestBook book, Quest quest) {
+        return preComplete(quest.options().preComplete(),
+                quest.chapter().map(id -> book.chapters().get(id)).flatMap(works.repka.rysquests.data.Chapter::preComplete), book.meta().preComplete());
+    }
+
+    /** The rule of {@link #preComplete(works.repka.rysquests.data.QuestBook, Quest)} on its three words: the nearest one that is set wins. */
+    public static boolean preComplete(java.util.Optional<Boolean> quest, java.util.Optional<Boolean> chapter, boolean book) {
+        return quest.or(() -> chapter).orElse(book);
+    }
+
+    /**
+     * Whether the tasks of a locked quest are counted now (ADR-66): the quest counts early, is live, not done, not between the rounds
+     * of a repeatable quest, and still waits for its dependencies. Stages are each player's own and stay the server's to add.
+     */
+    public static boolean countsEarly(works.repka.rysquests.data.QuestBook book, Quest quest, Function<ResourceLocation, QuestProgress> progress) {
+        QuestProgress own = progress.apply(quest.id());
+        return isLive(quest) && !own.completed() && !own.coolingDown() && !isUnlocked(quest, progress) && preComplete(book, quest);
+    }
+
+    /**
+     * A locked quest whose tasks were all done early (ADR-66): it stays locked and completes as soon as it opens. The book marks it
+     * "условие уже выполнено".
+     */
+    public static boolean doneEarly(works.repka.rysquests.data.QuestBook book, Quest quest, Function<ResourceLocation, QuestProgress> progress) {
+        return !quest.tasks().isEmpty() && countsEarly(book, quest, progress) && allTasksDone(quest, progress.apply(quest.id()).tasks());
+    }
+
+    /**
+     * The task values a poll of a locked quest writes (ADR-66): the new values, never the completion, which waits for the quest to
+     * open. Empty when nothing grew.
+     */
+    public static java.util.Optional<QuestProgress> earlyPoll(QuestProgress before, java.util.List<Integer> values, boolean changed) {
+        return changed ? java.util.Optional.of(new QuestProgress(java.util.List.copyOf(values), before.completedAt(), before.claimed(), before.nextAt(), before.times()))
+                : java.util.Optional.empty();
+    }
+
     /** A quest players see and the server counts: neither a draft nor in the archive. */
     public static boolean isLive(Quest quest) {
         return quest.options().live();

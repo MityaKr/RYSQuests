@@ -19,7 +19,8 @@ public record Chapter(
         boolean hidden,
         String section,
         List<ResourceLocation> links,
-        boolean offMap) {
+        boolean offMap,
+        Optional<Boolean> preComplete) {
     /** The section of the book that holds the progression chapters, and the only one shown so far. */
     public static final String STORY = "story";
 
@@ -27,6 +28,13 @@ public record Chapter(
         // Epochs count from 1. Books written before off_map put their intro and chronicle into epoch 0 (RepYS up to 0.1.0): that is
         // no epoch, so in a book with epochs those chapters stay off the map, as off_map puts them now.
         epoch = epoch.filter(number -> number > 0);
+    }
+
+    /** A chapter as it was before the early count (ADR-66): it takes the book's. */
+    public Chapter(ResourceLocation id, String title, Optional<String> subtitle, Optional<ResourceLocation> icon, Optional<Integer> epoch,
+            Optional<ViewMode> defaultView, List<Group> groups, List<ResourceLocation> requires, boolean hidden, String section,
+            List<ResourceLocation> links, boolean offMap) {
+        this(id, title, subtitle, icon, epoch, defaultView, groups, requires, hidden, section, links, offMap, Optional.empty());
     }
 
     /** A chapter on the map, without quests of other chapters shown on it. */
@@ -56,7 +64,9 @@ public record Chapter(
             // Quests of other chapters shown on this chapter's map, as FTB Quests' quest links (ADR-46).
             ResourceLocation.CODEC.listOf().optionalFieldOf("links", List.of()).forGetter(Chapter::links),
             // Off the map: listed under "Off the map" and opened as a list, as the book's intro and chronicle are.
-            Codec.BOOL.optionalFieldOf("off_map", false).forGetter(Chapter::offMap)
+            Codec.BOOL.optionalFieldOf("off_map", false).forGetter(Chapter::offMap),
+            // Whether the tasks of its locked quests count already; absent: as the book says (ADR-66).
+            Codec.BOOL.optionalFieldOf("pre_complete").forGetter(Chapter::preComplete)
     ).apply(instance, Chapter::new));
 
     public boolean isStory() {
@@ -64,18 +74,22 @@ public record Chapter(
     }
 
     public Chapter withEpoch(Optional<Integer> newEpoch) {
-        return new Chapter(id, title, subtitle, icon, newEpoch, defaultView, groups, requires, hidden, section, links, offMap);
+        return new Chapter(id, title, subtitle, icon, newEpoch, defaultView, groups, requires, hidden, section, links, offMap, preComplete);
     }
 
     public Chapter withGroups(List<Group> newGroups) {
-        return new Chapter(id, title, subtitle, icon, epoch, defaultView, List.copyOf(newGroups), requires, hidden, section, links, offMap);
+        return new Chapter(id, title, subtitle, icon, epoch, defaultView, List.copyOf(newGroups), requires, hidden, section, links, offMap, preComplete);
     }
 
     public Chapter withTitle(String newTitle) {
-        return new Chapter(id, newTitle, subtitle, icon, epoch, defaultView, groups, requires, hidden, section, links, offMap);
+        return new Chapter(id, newTitle, subtitle, icon, epoch, defaultView, groups, requires, hidden, section, links, offMap, preComplete);
+    }
+
+    public Chapter withPreComplete(Optional<Boolean> value) {
+        return new Chapter(id, title, subtitle, icon, epoch, defaultView, groups, requires, hidden, section, links, offMap, value);
     }
 
     public Chapter withOffMap(boolean off) {
-        return new Chapter(id, title, subtitle, icon, epoch, defaultView, groups, requires, hidden, section, links, off);
+        return new Chapter(id, title, subtitle, icon, epoch, defaultView, groups, requires, hidden, section, links, off, preComplete);
     }
 }

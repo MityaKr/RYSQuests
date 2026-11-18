@@ -143,13 +143,13 @@ public final class QuestEdits {
 
     public static Quest withHidden(Quest quest, boolean hidden) {
         QuestOptions o = quest.options();
-        return withOptions(quest, new QuestOptions(o.layout(), o.milestone(), o.optional(), hidden, o.repeatable(), o.page(), o.tags(), o.draft(), o.archived()));
+        return withOptions(quest, new QuestOptions(o.layout(), o.milestone(), o.optional(), hidden, o.repeatable(), o.page(), o.tags(), o.draft(), o.archived(), o.preComplete()));
     }
 
     public static Quest withRepeatable(Quest quest, boolean repeatable) {
         QuestOptions o = quest.options();
         return withOptions(quest, new QuestOptions(o.layout(), o.milestone(), o.optional(), o.hidden(), repeatable ? Optional.of(new QuestOptions.Repeatable(0)) : Optional.empty(),
-                o.page(), o.tags(), o.draft(), o.archived()));
+                o.page(), o.tags(), o.draft(), o.archived(), o.preComplete()));
     }
 
     /** A new quest without a place of its own: the map puts it where its links say (quests are not moved by hand any more). */

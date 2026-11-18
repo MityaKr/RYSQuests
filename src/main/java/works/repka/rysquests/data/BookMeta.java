@@ -17,6 +17,7 @@ import net.minecraft.util.ExtraCodecs;
  * @param mapForm the shape of the map, {@link MapForm#AUTO} by default
  * @param published whether players see the book; a book without the field is open, so that existing books stay open
  * @param about the pages "О книге" that the book's name in the header opens: a guide of the book, or pages of their own
+ * @param preComplete whether the tasks of a locked quest count already, for chapters and quests that do not say (ADR-66)
  */
 public record BookMeta(
         ProgressMode progressMode,
@@ -30,7 +31,8 @@ public record BookMeta(
         List<Epoch> epochs,
         MapForm mapForm,
         boolean published,
-        Optional<About> about) {
+        Optional<About> about,
+        boolean preComplete) {
 
     public record Hud(int maxPinned) {
         static final Hud DEFAULT = new Hud(3);
@@ -104,7 +106,13 @@ public record BookMeta(
     private static final ResourceLocation SLATE = ResourceLocation.fromNamespaceAndPath("ryscore", "slate");
 
     public static final BookMeta DEFAULT = new BookMeta(ProgressMode.SOLO, ViewMode.FLOW, SLATE,
-            Optional.empty(), Optional.empty(), List.of(), Hud.DEFAULT, List.of(), List.of(), MapForm.AUTO, true, Optional.empty());
+            Optional.empty(), Optional.empty(), List.of(), Hud.DEFAULT, List.of(), List.of(), MapForm.AUTO, true, Optional.empty(), false);
+
+    /** Settings as they were before the early count (ADR-66): off. */
+    public BookMeta(ProgressMode progressMode, ViewMode defaultView, ResourceLocation defaultTheme, Optional<String> title, Optional<ResourceLocation> icon,
+            List<ResourceLocation> chapterOrder, Hud hud, List<String> sections, List<Epoch> epochs, MapForm mapForm, boolean published, Optional<About> about) {
+        this(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, sections, epochs, mapForm, published, about, false);
+    }
 
     /** Settings as they were before epochs, map forms and the publication lock. */
     public BookMeta(ProgressMode progressMode, ViewMode defaultView, ResourceLocation defaultTheme, Optional<String> title, Optional<ResourceLocation> icon,
@@ -130,7 +138,8 @@ public record BookMeta(
             Epoch.CODEC.listOf().optionalFieldOf("epochs", List.of()).forGetter(BookMeta::epochs),
             MapForm.CODEC.optionalFieldOf("map_form", MapForm.AUTO).forGetter(BookMeta::mapForm),
             Codec.BOOL.optionalFieldOf("published", true).forGetter(BookMeta::published),
-            About.CODEC.optionalFieldOf("about").forGetter(BookMeta::about)
+            About.CODEC.optionalFieldOf("about").forGetter(BookMeta::about),
+            Codec.BOOL.optionalFieldOf("pre_complete", false).forGetter(BookMeta::preComplete)
     ).apply(instance, BookMeta::new));
 
     /** The epoch of a chapter by its number, if the book names it. */
@@ -159,32 +168,36 @@ public record BookMeta(
     }
 
     public BookMeta withSections(List<String> newSections) {
-        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, List.copyOf(newSections), epochs, mapForm, published, about);
+        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, List.copyOf(newSections), epochs, mapForm, published, about, preComplete);
     }
 
     public BookMeta withPublished(boolean open) {
-        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, sections, epochs, mapForm, open, about);
+        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, sections, epochs, mapForm, open, about, preComplete);
     }
 
     public BookMeta withMapForm(MapForm form) {
-        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, sections, epochs, form, published, about);
+        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, sections, epochs, form, published, about, preComplete);
     }
 
     public BookMeta withEpochs(List<Epoch> newEpochs) {
-        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, sections, List.copyOf(newEpochs), mapForm, published, about);
+        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, sections, List.copyOf(newEpochs), mapForm, published, about, preComplete);
     }
 
     public BookMeta withAbout(Optional<About> newAbout) {
-        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, sections, epochs, mapForm, published, newAbout);
+        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, sections, epochs, mapForm, published, newAbout, preComplete);
     }
 
     /** The same settings under another name and icon: the editor's "Новая книга" and the name typed in the draft. */
     public BookMeta withTitleAndIcon(Optional<String> newTitle, Optional<ResourceLocation> newIcon) {
-        return new BookMeta(progressMode, defaultView, defaultTheme, newTitle, newIcon, chapterOrder, hud, sections, epochs, mapForm, published, about);
+        return new BookMeta(progressMode, defaultView, defaultTheme, newTitle, newIcon, chapterOrder, hud, sections, epochs, mapForm, published, about, preComplete);
     }
 
     /** What a player is sent while the book is closed: its name and icon, nothing in it. */
     public BookMeta closedView() {
-        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, List.of(), hud, List.of(), List.of(), mapForm, false, Optional.empty());
+        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, List.of(), hud, List.of(), List.of(), mapForm, false, Optional.empty(), preComplete);
+    }
+
+    public BookMeta withPreComplete(boolean value) {
+        return new BookMeta(progressMode, defaultView, defaultTheme, title, icon, chapterOrder, hud, sections, epochs, mapForm, published, about, value);
     }
 }

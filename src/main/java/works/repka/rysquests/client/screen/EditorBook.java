@@ -166,7 +166,7 @@ final class EditorBook {
         List<Chapter> chapters = book.chapters().values().stream().map(chapter -> {
             Chapter out = chapter.withTitle(text(chapter.title()));
             return chapter.subtitle().map(this::text).map(text -> new Chapter(out.id(), out.title(), Optional.of(text), out.icon(), out.epoch(), out.defaultView(),
-                    out.groups(), out.requires(), out.hidden(), out.section(), out.links(), out.offMap())).orElse(out);
+                    out.groups(), out.requires(), out.hidden(), out.section(), out.links(), out.offMap(), out.preComplete())).orElse(out);
         }).toList();
         List<Quest> quests = book.quests().values().stream().map(quest -> QuestEdits.withTexts(quest, text(quest.title()),
                 quest.subtitle().map(key -> text(key)), quest.text().map(key -> text(key)))).toList();
@@ -392,7 +392,7 @@ final class EditorBook {
         String dotted = chapter.getNamespace() + "." + chapter.getPath().replace('/', '.');
         String key = current.filter(EditorBook::isKey).orElse(which.equals("title") ? QuestEdits.chapterTitleKey(chapter) : "chapter." + dotted + ".subtitle");
         Chapter changed = which.equals("title") ? c.withTitle(key)
-                : new Chapter(c.id(), c.title(), Optional.of(key), c.icon(), c.epoch(), c.defaultView(), c.groups(), c.requires(), c.hidden(), c.section(), c.links(), c.offMap());
+                : new Chapter(c.id(), c.title(), Optional.of(key), c.icon(), c.epoch(), c.defaultView(), c.groups(), c.requires(), c.hidden(), c.section(), c.links(), c.offMap(), c.preComplete());
         String line = tr("rysquests.ed.log.chapter_" + which, text(c.title()));
         type("chapter-" + which + ":" + chapter, chapterScope(chapter), line, d -> {
             Work own = d.chapters().containsKey(chapter) ? d.chapters().get(chapter) : work(chapter);

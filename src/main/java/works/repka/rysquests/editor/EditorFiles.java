@@ -42,9 +42,9 @@ public final class EditorFiles {
             "advancement", "spoilers", "compact", "search", "row_title", "group", "groups", "art", "mark", "best", "hint", "stage", "stage_title", "done", "needs", "gives", "delivery", "page", "quest", "lock_text",
             "links", "columns", "rows", "cells", "cards", "pages");
     private static final List<String> QUEST_ORDER = List.of("id", "chapter", "group", "title", "subtitle", "text", "icon", "requires", "requires_mode", "stage_required", "guide", "tasks", "rewards",
-            "layout", "milestone", "optional", "hidden", "repeatable", "page", "tags", "draft", "archived");
-    private static final List<String> CHAPTER_ORDER = List.of("id", "title", "subtitle", "icon", "epoch", "default_view", "section", "hidden", "off_map", "requires", "groups", "links");
-    private static final List<String> BOOK_ORDER = List.of("progress_mode", "default_view", "default_theme", "title", "icon", "chapter_order", "hud", "sections", "epochs", "map_form", "published", "about");
+            "layout", "milestone", "optional", "hidden", "repeatable", "pre_complete", "page", "tags", "draft", "archived");
+    private static final List<String> CHAPTER_ORDER = List.of("id", "title", "subtitle", "icon", "epoch", "default_view", "section", "hidden", "off_map", "pre_complete", "requires", "groups", "links");
+    private static final List<String> BOOK_ORDER = List.of("progress_mode", "default_view", "default_theme", "title", "icon", "chapter_order", "hud", "sections", "epochs", "map_form", "published", "pre_complete", "about");
 
     /** Tasks and rewards start with their type, as the files written by hand do. */
     private static final List<String> RULE_ORDER = List.of("type", "id", "item", "any_of", "entity", "stat", "target", "advancement", "dimension", "biome", "structure", "pos", "size", "radius", "fluid", "script", "table", "stage", "command",
