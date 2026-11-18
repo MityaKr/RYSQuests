@@ -63,6 +63,8 @@ public final class RYSQuestsClient {
         works.repka.rysquests.client.canvas.MapLayouts.register();
         // The book in the recipe viewer's card of an item: the shop, rewards of quests and the chip of quests (RYSCore links).
         works.repka.rysquests.client.integration.BookLinks.register();
+        // The goals of quests on the family's map and their labels in the world (RYSMap, step T3; RYSCore 1.13 map.MapApi).
+        works.repka.rysquests.client.integration.QuestGoals.register();
         ModNetwork.setClientImportHandlers(ClientImport::receiveProgress, ClientImport::receiveReport, ClientImport::receiveError);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> QuestKeys.tick());
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> Ponders.tick());
