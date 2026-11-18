@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import net.minecraft.resources.ResourceLocation;
@@ -16,6 +17,7 @@ import works.repka.ryscore.migrate.Migrations;
 import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.data.BookHolder;
+import works.repka.rysquests.data.ProgressMode;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.migrate.MigrationRunner;
 import works.repka.rysquests.progress.ProgressService;
@@ -30,6 +32,10 @@ import works.repka.rysquests.progress.QuestProgress;
  * <p>It folds FTB Quests progress ({@code world/ftbquests/*.snbt}) into ours with {@link FtbqMerge}: what a team has here stays, only
  * quests without a record come over. Run again it adds nothing; on a world whose progress was moved by hand (the RepYS server) it only
  * sets the mark, adding at most quests that have no record here at all.
+ *
+ * <p>A player of an FTB team who plays in another team now (they were in a team of the team mod already, or there is no team mod)
+ * also gets that FTB team's progress in the team they play in, with a line in the report ({@link FtbqMembers}). A file that could
+ * not be read makes the step partial: with RYSCore 1.13.1 it runs again at the next start and adds what is missing.
  *
  * <p>It waits, without a mark, while FTB Quests is loaded, while the id table {@code config/rysquests/import/ftbq-ids.json} is missing
  * and while no book is loaded: each of these is said once in the log at start.
@@ -47,6 +53,11 @@ public final class QuestsMigration implements Migrations.Step {
 
         /** Adds the records and writes the store to disk before returning. */
         void add(Migrations.Context c, Map<UUID, Map<ResourceLocation, QuestProgress>> additions) throws IOException;
+
+        /** Whose progress a player works on now (their team, or themselves when alone). */
+        default UUID teamOf(Migrations.Context c, UUID player) {
+            return TeamsApi.get().teamOf(player);
+        }
     }
 
     private final Backend backend;
@@ -124,6 +135,17 @@ public final class QuestsMigration implements Migrations.Step {
         List<String> broken = new ArrayList<>();
         Map<UUID, Map<ResourceLocation, QuestProgress>> ftb = FtbqProgress.read(world.resolve("ftbquests"), ids, book, (file, why) -> broken.add(file + ": " + why));
         broken.forEach(line -> report.partial("файл " + line));
+        // a player who plays in another team now also gets their FTB team's progress there (ADR-65, review of 18.11)
+        Map<UUID, Set<UUID>> parties = FtbqMembers.parties(world, (file, why) ->
+                report.partial("файл команды FTB " + file + " не прочитан, её игроки не сверены: " + why));
+        List<FtbqMembers.Moved> moved = new ArrayList<>();
+        ftb = FtbqMembers.redirect(ftb, parties, player -> backend.teamOf(c, player), book, moved);
+        for (FtbqMembers.Moved m : moved) {
+            String player = FtbqMembers.name(world, m.player());
+            report.line(label(m.source()) + ": прогресс FTB добавлен и " + (m.target().equals(m.player())
+                    ? "в личный прогресс " + player + " (играет без команды)" : "в команду " + label(m.target()) + ", где сейчас " + player));
+        }
+        report.count("moved", moved.size());
         FtbqMerge.Plan plan = FtbqMerge.plan(ftb, backend.progress(c));
         if (!plan.empty()) {
             backend.add(c, plan.additions());
@@ -165,6 +187,12 @@ public final class QuestsMigration implements Migrations.Step {
             additions.forEach(store::put);
             store.writeNow(server);
             ProgressService.invalidateAll();
+        }
+
+        @Override
+        public UUID teamOf(Migrations.Context c, UUID player) {
+            QuestBook book = BookHolder.current().book();
+            return ProgressStore.get(server(c)).teamOf(player, book == null ? ProgressMode.TEAM : book.meta().progressMode());
         }
 
         private static MinecraftServer server(Migrations.Context c) {

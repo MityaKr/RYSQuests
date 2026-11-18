@@ -82,7 +82,7 @@ public final class FtbqProgress {
         return new UUID(Long.parseUnsignedLong(hex.substring(0, 16), 16), Long.parseUnsignedLong(hex.substring(16), 16));
     }
 
-    private static boolean sharedByTeam(QuestBook book, ResourceLocation quest, int reward) {
+    static boolean sharedByTeam(QuestBook book, ResourceLocation quest, int reward) {
         Quest definition = book.quests().get(quest);
         return definition != null && reward < definition.rewards().size() && definition.rewards().get(reward).teamMode() == TeamMode.ONCE;
     }

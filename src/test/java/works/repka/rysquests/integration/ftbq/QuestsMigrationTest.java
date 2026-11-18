@@ -45,6 +45,8 @@ class QuestsMigrationTest {
     Map<UUID, Map<ResourceLocation, QuestProgress>> own = new HashMap<>();
     Map<UUID, Map<ResourceLocation, QuestProgress>> disk = new HashMap<>();
     QuestBook book;
+    /** Where a player plays now; absent means alone. */
+    Map<UUID, UUID> teams = new HashMap<>();
     boolean failWrite;
     int writes;
 
@@ -89,6 +91,11 @@ class QuestsMigrationTest {
                 }
                 writes++;
                 disk = deepCopy(own);
+            }
+
+            @Override
+            public UUID teamOf(Migrations.Context c, UUID player) {
+                return teams.getOrDefault(player, player);
             }
         }));
     }
@@ -269,6 +276,60 @@ class QuestsMigrationTest {
         assertEquals(Migrations.Status.DONE, start().status());
         restart();
         assertEquals(Migrations.Status.ALREADY_DONE, start().status());
+    }
+
+    private static final UUID MITYA = UUID.fromString("216ea99a-d6eb-45be-8a5b-3da7852588a5");
+    private static final UUID KIFA = UUID.fromString("633d6f3f-f318-4004-a3fb-b5131b22c28b");
+
+    private void withFtbTeams() throws IOException {
+        Path fixtures = property("rysquests.ftbFixtures", "../../_shared/_saved/fixtures/ftb-2026-11-18");
+        copy(fixtures.resolve("world/ftbteams"), world.resolve("ftbteams"));
+    }
+
+    @Test
+    void playerInAnotherTeamGetsTheProgressThere() throws IOException {
+        withFtbTeams();
+        UUID other = UUID.randomUUID();
+        teams.put(MITYA, VENIK);
+        teams.put(KIFA, other);
+        Migrations.Outcome o = start();
+        assertEquals(Migrations.Status.DONE, o.status(), o.toString());
+        assertTrue(own.get(VENIK).size() > 100, "the party keeps its progress");
+        assertTrue(own.containsKey(other), "Kifa65 plays in another team now: " + o);
+        assertTrue(own.get(other).keySet().containsAll(own.get(VENIK).keySet()), "the team gets every quest of VENIK");
+        assertEquals(1L, o.report().counts().get("moved"), "MityaYS is in VENIK; his own FTB file was hidden by the party");
+        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("в команду") && l.contains("Kifa65")), o.toString());
+        // run again (mark lost): nothing more
+        Map<UUID, Map<ResourceLocation, QuestProgress>> before = deepCopy(own);
+        Files.writeString(world.resolve("rys/migrate.json"), "{ not json", StandardCharsets.UTF_8);
+        restart();
+        Migrations.Outcome again = start();
+        assertEquals(0L, again.report().counts().get("quests"));
+        assertEquals(before, own);
+    }
+
+    @Test
+    void withoutTeamsEachPlayerOfThePartyGetsItAlone() throws IOException {
+        withFtbTeams();
+        Migrations.Outcome o = start();
+        assertEquals(Migrations.Status.DONE, o.status(), o.toString());
+        assertTrue(own.get(VENIK).size() > 100);
+        assertTrue(own.get(KIFA).keySet().containsAll(own.get(VENIK).keySet()), "Kifa65 plays alone and has the party's quests");
+        assertTrue(own.get(MITYA).keySet().containsAll(own.get(VENIK).keySet()));
+        assertEquals(2L, o.report().counts().get("moved"));
+        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("личный прогресс")), o.toString());
+    }
+
+    @Test
+    void brokenTeamFileMakesItPartial() throws IOException {
+        withFtbTeams();
+        teams.put(MITYA, VENIK);
+        teams.put(KIFA, VENIK);
+        Files.writeString(world.resolve("ftbteams/party/ffffffff-0000-0000-0000-000000000000.snbt"), "{ id: \"x\" ranks: {", StandardCharsets.UTF_8);
+        Migrations.Outcome o = start();
+        assertEquals(Migrations.Status.PARTIAL, o.status(), o.toString());
+        assertEquals(0L, o.report().counts().get("moved"));
+        assertTrue(own.get(VENIK).size() > 100);
     }
 
     @Test
