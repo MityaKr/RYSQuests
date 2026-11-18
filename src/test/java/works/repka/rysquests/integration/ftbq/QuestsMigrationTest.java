@@ -250,11 +250,25 @@ class QuestsMigrationTest {
     }
 
     @Test
-    void brokenFileMakesItPartial() throws IOException {
-        Files.writeString(world.resolve("ftbquests/ffffffff-0000-0000-0000-000000000000.snbt"), "{ uuid: \"x\" completed: {", StandardCharsets.UTF_8);
+    void brokenFileMakesItPartialAndTheNextStartFinishes() throws IOException {
+        Path broken = world.resolve("ftbquests/ffffffff-0000-0000-0000-000000000000.snbt");
+        Files.writeString(broken, "{ uuid: \"x\" completed: {", StandardCharsets.UTF_8);
         Migrations.Outcome o = start();
         assertEquals(Migrations.Status.PARTIAL, o.status(), o.toString());
         assertTrue(own.containsKey(VENIK), "the other files came over");
+        // no "done" mark (RYSCore 1.13.1): the next start runs again and adds nothing twice
+        Map<UUID, Map<ResourceLocation, QuestProgress>> before = deepCopy(own);
+        restart();
+        Migrations.Outcome again = start();
+        assertEquals(Migrations.Status.PARTIAL, again.status(), again.toString());
+        assertEquals(0L, again.report().counts().get("quests"));
+        assertEquals(before, own);
+        // the broken file is taken away: the step finishes and sets the mark
+        Files.move(broken, game.resolve("broken.off"));
+        restart();
+        assertEquals(Migrations.Status.DONE, start().status());
+        restart();
+        assertEquals(Migrations.Status.ALREADY_DONE, start().status());
     }
 
     @Test
