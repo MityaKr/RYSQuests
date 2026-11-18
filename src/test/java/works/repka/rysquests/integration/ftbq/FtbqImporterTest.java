@@ -79,6 +79,28 @@ class FtbqImporterTest {
             { id: "556D7C00", rewards: [ { item: { count: 1, id: "minecraft:gold_ingot" }, weight: 3 }, { item: { count: 1, id: "minecraft:coal" } } ] }
             """;
 
+    /** FTB Quests' flexible progression becomes early completion (ADR-66): file, chapter and quest, default takes the parent's. */
+    @Test
+    void progressionModeBecomesEarlyCompletion() {
+        String chapter = CHAPTER.replace("quest_links: [ ]", "progression_mode: \"linear\"\nquest_links: [ ]")
+                .replace("dependency_requirement: \"one_completed\"", "dependency_requirement: \"one_completed\"\nprogression_mode: \"flexible\"");
+        Source source = fixture();
+        JsonObject data = new JsonObject();
+        data.addProperty("progression_mode", "flexible");
+        Result result = FtbqImporter.convert(new Source(data, source.groups(), List.of(parse(chapter)), source.tables(), source.lang()), "pack", Ids.empty());
+        JsonObject book = result.files().get("data/pack/rysquests/book.json");
+        assertTrue(book.get("pre_complete").getAsBoolean(), "the file's flexible is the book's default");
+        JsonObject chapterFile = result.files().entrySet().stream().filter(e -> e.getKey().endsWith("_chapter.json")).findFirst().orElseThrow().getValue();
+        assertEquals(false, chapterFile.get("pre_complete").getAsBoolean(), "the chapter's linear overrides it");
+        List<JsonObject> quests = result.files().entrySet().stream().filter(e -> e.getKey().contains("/chapters/") && !e.getKey().endsWith("_chapter.json"))
+                .map(Map.Entry::getValue).toList();
+        assertEquals(1, quests.stream().filter(q -> q.has("pre_complete") && q.get("pre_complete").getAsBoolean()).count(), "the flexible quest");
+        assertEquals(1, quests.stream().filter(q -> !q.has("pre_complete")).count(), "the default quest takes the chapter's");
+
+        Result plain = FtbqImporter.convert(fixture(), "pack", Ids.empty());
+        assertTrue(!plain.files().get("data/pack/rysquests/book.json").has("pre_complete"), "a linear or silent file leaves the book off");
+    }
+
     private static Source fixture() {
         Map<Long, JsonObject> tables = new HashMap<>();
         tables.put(1433225472L, parse(TABLE));

@@ -225,6 +225,8 @@ public final class FtbqImporter {
         if (!epochs.isEmpty()) {
             book.add("epochs", epochs);
         }
+        // FTB Quests' flexible progression is our early completion (ADR-66): the file says linear (the default) or flexible.
+        progression(source.data()).filter(flexible -> flexible).ifPresent(flexible -> book.addProperty("pre_complete", true));
         // A carried over book stays closed to players until an operator has looked at it and opened it.
         book.addProperty("published", false);
         files.put("data/" + namespace + "/rysquests/book.json", book);
@@ -261,6 +263,7 @@ public final class FtbqImporter {
         if (!links.isEmpty()) {
             out.add("links", links);
         }
+        progression(chapter).ifPresent(flexible -> out.addProperty("pre_complete", flexible));
         files.put("data/" + namespace + "/rysquests/chapters/" + dir + "/_chapter.json", out);
         for (JsonElement quest : array(chapter, "quests")) {
             writeQuest(quest.getAsJsonObject(), chapterId, dir);
@@ -377,6 +380,7 @@ public final class FtbqImporter {
         if (bool(quest, "hide_until_deps_complete")) {
             out.addProperty("hidden", true);
         }
+        progression(quest).ifPresent(flexible -> out.addProperty("pre_complete", flexible));
         if (bool(quest, "can_repeat")) {
             JsonObject repeatable = new JsonObject();
             repeatable.addProperty("cooldown_minutes", 0);
@@ -690,6 +694,18 @@ public final class FtbqImporter {
     }
 
     // --- JSON helpers ---
+
+    /**
+     * FTB Quests' {@code progression_mode} of the file, a chapter or a quest as our {@code pre_complete} (ADR-66): {@code flexible}
+     * counts the tasks of a locked quest, {@code linear} does not, {@code default} or nothing takes the parent's.
+     */
+    static Optional<Boolean> progression(JsonObject object) {
+        return string(object, "progression_mode").flatMap(mode -> switch (mode) {
+            case "flexible" -> Optional.of(true);
+            case "linear" -> Optional.of(false);
+            default -> Optional.empty();
+        });
+    }
 
     private static Optional<String> string(JsonObject object, String key) {
         JsonElement value = object.get(key);
