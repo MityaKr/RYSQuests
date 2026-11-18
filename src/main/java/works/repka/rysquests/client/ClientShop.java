@@ -13,8 +13,16 @@ public final class ClientShop {
     private ClientShop() {
     }
 
+    /** Grows with every new state of the shop: what the recipe viewer's item links compare. */
+    private static int version;
+
+    public static int version() {
+        return version;
+    }
+
     static void receive(ShopStatePayload payload) {
         state = payload;
+        version++;
     }
 
     public static long balance(String currency) {
@@ -50,9 +58,11 @@ public final class ClientShop {
     /** For the in-game autotest: shows a shop state the server did not send (pictures 25 to 27b). */
     public static void showForTest(ShopStatePayload payload) {
         state = payload;
+        version++;
     }
 
     static void clear() {
         state = new ShopStatePayload(Map.of(), Map.of(), false, Map.of(), List.of());
+        version++;
     }
 }

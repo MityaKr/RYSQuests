@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-18. Руками не править: после структурных правок пересобрать.
 
-Java: 400 файлов, 73179 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 405 файлов, 74438 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -17,7 +17,7 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 - `gradle/` — 2 файлов
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
-- `src/` — 605 файлов
+- `src/` — 610 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -25,13 +25,14 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 **(корень)** (1)
 - `ImportShowcase` 36 — What the server says at the end of an FTB import, without importing anything: the report and the failure of the ATM10 run of the "first" scenario, for the screenshots of the wizard…
 
-**dev** (20)
-- `AutoTest` 2992 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
+**dev** (21)
+- `AutoTest` 2994 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
 - `CanvasBooks` 277 — The two books of the canvas scenario, read on the client without a server: RepYS from its files with the titles of its lang file, and ATM10 carried over from FTB Quests by the impo…
 - `CanvasTestScreen` 104 — A bare screen around the canvas for the canvas scenario: the canvas sits where the map area of the mockups is (1280×800 at GUI scale 2), so that screenshots lie over pictures 13 to…
 - `ChronicleScenario` 143 — The epoch's reward on the map, the pages "О книге" and the atlases for players (plan _audit/chronicle, B1 and B2; RYSQuests 0.2.7, ADR-60), on the small book of src/autotest/chroni…
 - `CollectionScenario` 181 — A collection in the achievements and the limit of pinned cards (RYSQuests 0.2.8, ADR-62), on the small team book of src/autotest/stats_pack: "Сокровища недр" collects eight items (…
 - `EditorScenario` 334 — The acceptance of the book's editor (plan step 10), in two runs on the same world: book_editor: a book from nothing, its first chapter typed into the table, quests linked (a circle…
+- `ItemLinksScenario` 298 — The book in the recipe viewer's card of an item (RYSCore 1.10 links, plan _audit/ryscope-quests, step 2), on the copy of RepYS with RYScope 0.2.6 or later: the Gate Fragment ("Оско…
 - `ItemsScenario` 88 — Items in the book act like items of the recipe viewer (the author's note on 0.2.1): the game's tooltip on hover, the recipe on a click, the usages on the right button; a shop card …
 - `MapFixChecks` 191 — The notes of the RepYS server on the map (fb1), on RepYS as a spiral: hovering finds the chapter under the pointer at both ends of every chapter; a click near the edge of a tile ta…
 - `NoticesScenario` 298 — The family's notices about finished quests (design _audit/notify, variant A, with the author's place: the game's column of toasts, top right), on the panel book that copies RepYS's…
@@ -51,7 +52,7 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 - `ExtrasShowcase` 277 — The shop, the achievements, the guides and the search with the words and numbers of the mockups (pictures 23 to 31b), for the autotest's screenshots: the example book with offers, …
 - `FrameShowcase` 108 — Every shared component of the frame on one page, with the words of the mockups, for the autotest's screenshot and as an example of their use.
 - `PanelShowcase` 210 — Hooks of the "panel" autotest into the quest panel, "Now" and the list (plan steps 5 and 6), and a page with three panels side by side as the mockup sheets 20, 21 and 21b lay them …
-- `RepysHooks` 105 — Hooks of the "repys" autotest into the open book on the real RepYS book: the shop, the achievements, the guides, the search and the quest panel's main button, as a player reaches t…
+- `RepysHooks` 117 — Hooks of the "repys" autotest into the open book on the real RepYS book: the shop, the achievements, the guides, the search and the quest panel's main button, as a player reaches t…
 
 ## `src/main/java` — пакет `works.repka.rysquests`
 
@@ -95,7 +96,7 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 **client** (13)
 - `ClientAchievements` 41 — What the server says about achievements beyond their own progress.
 - `ClientAssets` 114 — Puts the translations and pictures that came with the book on top of the client's own resources (ADR-35).
-- `ClientBook` 109 — The client's copy of the book.
+- `ClientBook` 120 — The client's copy of the book.
 - `ClientConfig` 68 — Client settings.
 - `ClientDev` 24 — The last book report sent by the server to this operator.
 - `ClientDrafts` 74 — Where this client keeps the quest editor's unsaved work: rysquests/drafts// in the game folder, so that drafts of one server never turn up on another.
@@ -103,9 +104,9 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 - `ClientLayout` 98 — The baked map on the client.
 - `ClientMessages` 52 — The server's latest word about what the player did (plan, picture 48).
 - `ClientProgress` 179 — The client's copy of its own progress.
-- `ClientShop` 59 — The client's copy of its money.
+- `ClientShop` 69 — The client's copy of its money.
 - `QuestLinks` 61 — Turns [[quest:id]] in chat into a link that opens the book on that quest.
-- `RYSQuestsClient` 140 — Client-only entry point; never loaded on a dedicated server.
+- `RYSQuestsClient` 142 — Client-only entry point; never loaded on a dedicated server.
 
 **client.canvas** (4)
 - `Camera` 117 — Where the canvas looks: the canvas point in the middle of the view and the scale in mockup pixels per canvas unit.
@@ -125,7 +126,9 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 **client.input** (1)
 - `QuestKeys` 61 — Key bindings of the mod: K, P and B.
 
-**client.integration** (6)
+**client.integration** (8)
+- `BookLinks` 179 — The book in the recipe viewer's card of an item (RYSCore 1.10 links.ItemLinks, plan _audit/ryscope-quests, step 2): the shop's offers as a category "Магазин" (an offer that gives t…
+- `ItemLinkIndex` 225 — Where an item stands in one book, for the recipe viewer's item links (RYSCore links.ItemLinks, plan _audit/ryscope-quests): the shop offers that give it or take it, the quests that…
 - `JeiQuestPlugin` 150 — Found by JEI itself, so this class is never loaded without JEI.
 - `Multiblocks` 43 — Blocks of a structure, and its hologram in the world, which only Patchouli can draw.
 - `PatchouliBridge` 38 — The only class that touches Patchouli.
@@ -151,7 +154,7 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 - `GuideTopics` 64 — What a guide page is about, gathered from its text: nobody has to list it by hand.
 - `Markup` 158 — Parses quest text: [[kind:target|label]] links as in RYScope, **bold**, __italic__, !!warning!!
 
-**client.screen** (90)
+**client.screen** (91)
 - `AboutView` 131 — The pages "О книге" (mockup _audit/chronicle/01_about_brand, ADR-60): opened by the book's name in the header as a page over the open tab, the way the settings open.
 - `AchievementEditorView` 398 — The editor's "Достижения" (picture 39b): the player's grid by category with "+ Достижение" last; on the right the chosen one: icon, name, "Секретное", description, the one conditio…
 - `AchievementRing` 35 — The ring around an achievement's icon (mockup .medal, picture 28): 3 wide in the color of the highest level reached, grey while none is; a secret achievement has no icon yet.
@@ -162,7 +165,7 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 - `BookHeader` 371 — The header of the book (mockup .head, pictures 03, 08, 11, 32, 46): the book's icon and name ("Квесты" and the mod's icon when the book names none), the tabs with the badge on "Now…
 - `BookMessageLine` 147 — The book's message line (picture 48, plan section 3): the server's answer or refusal as one line over the bottom edge of the page, with a red border, its words, its actions and a c…
 - `BookRole` 42 — Who looks at the book.
-- `BookScreen` 1118 — The quest book window (plan, sections 2 and 7): one frame for everything.
+- `BookScreen` 1132 — The quest book window (plan, sections 2 and 7): one frame for everything.
 - `BookState` 291 — What the book shows.
 - `BookTabs` 133 — The tabs of the book, in the order of the header: Now, Map, Guides, Shop, Achievements (plan, section 2).
 - `BookTallies` 214 — The numbers the frame and the sidebar show: rewards waiting (the badge of "Now"), quests ready to hand in, and per chapter its main quests done and the chapter's state.
@@ -203,6 +206,7 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 - `GuidesTab` 253 — The "Guides" tab (plan, section 3, pictures 23, 24): on the left the topics of the library and, as a group of their own, the author's tabs (cards, pages and matrices); beside them …
 - `ImportWizardView` 344 — The FTB Quests import wizard (plan, section 5): two steps, "Перенос" and "Вид карты", in a bare header that names the window.
 - `LevelSegments` 50 — The levels of an achievement as segments (mockup .lv, picture 28): one segment per level, the current one filled in part.
+- `LinkCards` 303 — The book's cards and mentions for the recipe viewer (RYSCore links.ItemLinks, plan _audit/ryscope-quests, mockups 1 to 3): a shop offer and a quest that gives an item as the viewer…
 - `ListRow` 302 — A row of a list: icon, title, a line under it, the state on the right (mockup .lrow, pictures 11, 19, 19c).
 - `LoadingView` 39 — The book has not come from the server yet (picture 04b, plan section 2): "Книга загружается", not "Квестов пока нет".
 - `MapFormPage` 241 — "Вид карты" (picture 36): the four forms laid out on the author's own quests, dots coloured by epoch, a line of reason under each.
@@ -229,7 +233,7 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 - `Segments` 105 — A segmented switch: "Map | List", "Buy | Sell | History", "Slate | Glass | Vanilla".
 - `SettingsView` 188 — The book's settings as a page of their own (picture 32, plan section 3): one column, no sidebar, "Назад: Сейчас" above.
 - `ShopEditorView` 713 — The editor's "Магазин" (picture 39): the offers as the player's grid with "+ Товар" last, "Купить | Продать" and the same "Раздел" as the player has; on the right the chosen offer:…
-- `ShopView` 1537 — The shop (plan, section 3, pictures 25 to 27b, 46c).
+- `ShopView` 1552 — The shop (plan, section 3, pictures 25 to 27b, 46c).
 - `SideList` 80 — The plain left column of a page that is not the map (mockup .side, pictures 23, 24, 28): a rubric on top, rows with a count, group rubrics, a footer.
 - `Sidebar` 576 — The book's contents on the left (mockup .side, pictures 13, 14, 14b, 19, 42, 43): "Вся книга" with the count of main quests, epochs that fold, each with its chapters, numbers, a ch…
 - `StructureBlock` 195 — A build on a page, from the structure block of design/GuidePage.dc.html: turned with the mouse, shown layer by layer.
@@ -368,7 +372,7 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 - `NextStep` 80 — The next step on "Now", one rule for every book (plan, section 3, "Now"): the nearest unfinished main quest of the chapter where the player last completed a quest; when there is no…
 - `PinLimit` 40 — The limit of pinned cards (hud.max_pinned of the book), one rule for the server that refuses and the book that greys the pin out beforehand.
 - `ProgressRemap` 97 — Progress is kept by the position of a task or a reward.
-- `ProgressService` 1255 — Server-side quest rules.
+- `ProgressService` 1256 — Server-side quest rules.
 - `ProgressStore` 638 — Quest progress of all teams, saved with the world.
 - `QuestLogic` 102 — Status rules shared by the server and the client's display.
 - `QuestPath` 217 — The way to a quest that is still closed (plan, section 3, "Closed quest"; pictures 21b, 22): every unfinished quest it still needs, in an order in which each comes after what it ne…
@@ -429,6 +433,9 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 - `ReceiverTest` 466 — The intake block without a world (shop plan, step M6): what a pipe is told and what really goes in, the sale of whole lots once a second, the buffer's ceiling, a delivery that take…
 - `ShopRecipesTest` 74 — The shop blocks ship default vanilla recipes; a modpack replaces them by id, so the ids and the files must stay exactly where the docs say.
 
+**client.integration** (1)
+- `ItemLinkIndexTest` 180 — The book's index for the recipe viewer's item links (plan _audit/ryscope-quests, step 2): which offers and quests an item leads to, in which role, and the spoiler rule: only what t…
+
 **client.layout** (7)
 - `CanvasLayoutTest` 273 — The canvas layout on made up books and on the real books of RepYS and ATM10: chapters never overlap, labels stay in their chapters, every quest on the map is placed inside its chap…
 - `ChapterLayoutTest` 217
@@ -442,7 +449,7 @@ Java: 400 файлов, 73179 строк. Переводы: `examples/example_pa
 - `MarkupTest` 141
 
 **client.screen** (3)
-- `ExtrasLogicTest` 36 — The logic under the achievements' segments and the search's "может быть".
+- `ExtrasLogicTest` 43 — The logic under the achievements' segments and the search's "может быть".
 - `FirstRunTest` 144 — What the first-run pages say (plan, sections 4 and 5), worked out without the game.
 - `FramePartsTest` 37 — The frame's small rules that need no game: numbers, the bold sentence of a message, the color of a level.
 

@@ -26,6 +26,13 @@ class ExtrasLogicTest {
     }
 
     @Test
+    void aLineOfTheShopStartsASentenceInTheViewer() {
+        assertEquals("Победи: Игнис", LinkCards.capital("победи: Игнис"));
+        assertEquals("После квеста «Первый»", LinkCards.capital("после квеста «Первый»"));
+        assertEquals("", LinkCards.capital(""));
+    }
+
+    @Test
     void typosAreCloseWords() {
         assertEquals(1, SearchIndex.distance("катшка", "катушка"));
         assertEquals(1, SearchIndex.distance("кирак", "кирка"));

@@ -505,6 +505,20 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
         }
     }
 
+    /**
+     * Opens the book on a shop offer, from outside the book: "Открыть в магазине" on a card of the recipe viewer (RYScope, the
+     * family's item links). The shop's filters are reset so that the offer is the one in the detail.
+     */
+    public static void openOffer(ResourceLocation id) {
+        if (!BookData.book().offers().containsKey(id)) {
+            return;
+        }
+        BookScreen screen = new BookScreen();
+        Minecraft.getInstance().setScreen(screen);
+        screen.openTab(BookTabs.byId(BookTabs.SHOP));
+        screen.shopView().show(id);
+    }
+
     // --- input ---
 
     private boolean typing() {

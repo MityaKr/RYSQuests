@@ -34,6 +34,13 @@ public final class ClientBook {
         return test != null ? test : current;
     }
 
+    /** Grows whenever {@link #current()} may be another book: what the recipe viewer's item links compare. */
+    public static int version() {
+        return version;
+    }
+
+    private static volatile int version;
+
     /**
      * Whether the server has sent the book since joining. Until then the book is loading, which is not the same as an empty book:
      * a player of a closed book gets an empty one (plan, pictures 04 and 04b).
@@ -55,6 +62,7 @@ public final class ClientBook {
     public static void overrideForTest(@org.jetbrains.annotations.Nullable QuestBook book, @org.jetbrains.annotations.Nullable Boolean arrived) {
         testBook = book;
         testReceived = arrived;
+        version++;
     }
 
     /** Opens the book to players or closes it again; only an operator may, and the server answers with an editor result. */
@@ -82,10 +90,12 @@ public final class ClientBook {
                     } else if (generation == GENERATION.get()) {
                         current = book;
                         received = true;
+                        version++;
                         ClientAssets.apply(book.assets());
                         LOGGER.info("Received book: {} chapters, {} quests", book.chapters().size(), book.quests().size());
                         reloadForNewTranslations(book);
                         ClientLayout.onBook(book);
+                        works.repka.rysquests.client.integration.BookLinks.prepare();
                     }
                 }, Minecraft.getInstance());
     }
@@ -103,6 +113,7 @@ public final class ClientBook {
         GENERATION.incrementAndGet();
         current = QuestBook.EMPTY;
         received = false;
+        version++;
         ClientAssets.apply(BookAssets.EMPTY);
     }
 }

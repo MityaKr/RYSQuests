@@ -32,6 +32,18 @@ public final class RepysHooks {
         }
     }
 
+    /** The quest the open book has chosen, or null when no book is open: where a link from the recipe viewer led. */
+    @Nullable
+    public static ResourceLocation chosenQuest() {
+        return screen() == null ? null : BookState.quest;
+    }
+
+    /** Whether the open book shows the shop with this offer in its detail. */
+    public static boolean shopOn(ResourceLocation offer) {
+        BookScreen screen = screen();
+        return screen != null && BookState.inShop() && offer.equals(screen.shopView().selectedIdForTest());
+    }
+
     public static void shopHistory() {
         BookScreen screen = screen();
         if (screen != null) {

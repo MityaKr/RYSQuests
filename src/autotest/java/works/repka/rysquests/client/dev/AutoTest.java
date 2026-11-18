@@ -158,6 +158,8 @@ public final class AutoTest {
             ItemsScenario.check();
         } else if ("shop_schematic".equals(scenario)) {
             ShopSchematicScenario.check();
+        } else if ("links".equals(scenario)) {
+            ItemLinksScenario.check();
         } else if ("shop_trophy".equals(scenario)) {
             ShopTrophyScenario.check();
         } else if ("shop_delivery".equals(scenario)) {

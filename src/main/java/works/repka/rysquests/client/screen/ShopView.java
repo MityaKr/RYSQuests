@@ -131,12 +131,12 @@ final class ShopView implements BookView {
         return entries.stream().filter(entry -> !entry.isCurrency()).findFirst().orElse(entries.getFirst());
     }
 
-    private static ShopOffer.Entry goods(ShopOffer offer) {
+    static ShopOffer.Entry goods(ShopOffer offer) {
         return firstItem(offer.isSale() ? offer.cost() : offer.gives());
     }
 
     @Nullable
-    private static ShopOffer.Entry price(ShopOffer offer) {
+    static ShopOffer.Entry price(ShopOffer offer) {
         List<ShopOffer.Entry> side = offer.isSale() ? offer.gives() : offer.cost();
         return side.stream().filter(ShopOffer.Entry::isCurrency).findFirst().orElse(null);
     }
@@ -152,7 +152,7 @@ final class ShopView implements BookView {
     }
 
     /** The offer's picture, or the goods themselves when it has none or names their own item. */
-    private static ItemStack icon(ShopOffer offer) {
+    static ItemStack icon(ShopOffer offer) {
         return picture(offer) ? offer.icon().map(TaskText::stackOf).orElse(ItemStack.EMPTY) : stackOf(goods(offer));
     }
 
@@ -162,7 +162,7 @@ final class ShopView implements BookView {
     }
 
     /** The icon is a picture when it is set and differs from the goods (a crate for a stack of ingots); the goods' own item is not. */
-    private static boolean picture(ShopOffer offer) {
+    static boolean picture(ShopOffer offer) {
         return offer.icon().filter(icon -> !goods(offer).item().filter(icon::equals).isPresent()).isPresent();
     }
 
@@ -170,12 +170,12 @@ final class ShopView implements BookView {
         return offer.title().map(ShopView::tr).orElseGet(() -> stackOf(goods(offer)).getHoverName().getString());
     }
 
-    private static boolean locked(ShopOffer offer) {
+    static boolean locked(ShopOffer offer) {
         boolean stage = offer.stage().filter(required -> !ClientProgress.hasStage(required)).isPresent();
         return stage || offer.quest().filter(quest -> !ClientProgress.get(quest).everDone()).isPresent();
     }
 
-    private static int left(ShopOffer offer) {
+    static int left(ShopOffer offer) {
         return offer.limit().map(limit -> limit.count() - ClientShop.used(offer.id())).orElse(MAX_TIMES);
     }
 
@@ -216,7 +216,7 @@ final class ShopView implements BookView {
      * Why a closed trade is closed, in one line: the book's own words ({@code lock_text}), the stage, the boss to defeat when the
      * trade waits for an achievement's kill ("победи: Игнис", shop plan, picture 01), or the quest.
      */
-    private static String lockedLine(ShopOffer offer) {
+    static String lockedLine(ShopOffer offer) {
         if (offer.lockText().isPresent()) {
             return tr(offer.lockText().get());
         }
@@ -252,13 +252,13 @@ final class ShopView implements BookView {
     }
 
     /** A trade the team has bought as many times as it ever may (picture 02 of the shop plan: "куплено командой"). */
-    private static boolean boughtByTeam(ShopOffer offer) {
+    static boolean boughtByTeam(ShopOffer offer) {
         return offer.limit().filter(ShopOffer.Limit::onceForTeam).isPresent() && left(offer) <= 0;
     }
 
     /** The limit on a card, short: "1 из 3 сегодня". Null without a limit: the name then takes two lines. */
     @Nullable
-    private static String limitShort(ShopOffer offer) {
+    static String limitShort(ShopOffer offer) {
         if (oncePerTeam(offer)) {
             return tr("rysquests.shop.limit_short.team_once");
         }
@@ -756,7 +756,7 @@ final class ShopView implements BookView {
     }
 
     /** How far a delivery has come in whole percent: 100 only when every row is full. */
-    private static int percent(ShopOffer offer) {
+    static int percent(ShopOffer offer) {
         Map<String, Long> delivered = delivered(offer);
         return offer.deliveryComplete(delivered) ? 100 : Math.min(99, (int) Math.floor(offer.deliveryProgress(delivered) * 100));
     }
@@ -1478,6 +1478,16 @@ final class ShopView implements BookView {
 
     // --- for the autotest ---
 
+    /** Opens the shop on an offer from outside the book (a card of the recipe viewer): no filter of the grid may hide it. */
+    void show(ResourceLocation offer) {
+        if (ClientBook.current().offers().containsKey(offer)) {
+            filter = Filter.ALL;
+            section = "";
+            onlyAvailable = false;
+            selectForTest(offer);
+        }
+    }
+
     void selectForTest(ResourceLocation offer) {
         ShopOffer found = ClientBook.current().offers().get(offer);
         if (found == null) {
@@ -1489,6 +1499,11 @@ final class ShopView implements BookView {
         }
         selectedId = offer;
         times = 1;
+    }
+
+    @Nullable
+    ResourceLocation selectedIdForTest() {
+        return selectedId;
     }
 
     void showHistoryForTest() {

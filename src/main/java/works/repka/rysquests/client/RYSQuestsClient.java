@@ -61,6 +61,8 @@ public final class RYSQuestsClient {
         ModNetwork.setClientBlockNoticeHandler(works.repka.rysquests.client.screen.BlockStopNotice::show);
         ModNetwork.setClientLayoutBakeHandler(ClientLayout::onBakeRequest);
         works.repka.rysquests.client.canvas.MapLayouts.register();
+        // The book in the recipe viewer's card of an item: the shop, rewards of quests and the chip of quests (RYSCore links).
+        works.repka.rysquests.client.integration.BookLinks.register();
         ModNetwork.setClientImportHandlers(ClientImport::receiveProgress, ClientImport::receiveReport, ClientImport::receiveError);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> QuestKeys.tick());
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> Ponders.tick());
