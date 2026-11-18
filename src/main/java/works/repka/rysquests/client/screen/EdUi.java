@@ -453,6 +453,32 @@ final class EdUi {
         return Math.max(0, w - 4);
     }
 
+    /**
+     * "Предварительное выполнение" of a quest or a chapter (ADR-66): its label and a select of "Как у главы (выкл)", "Вкл", "Выкл",
+     * where the first says what the parent gives now. @return its height
+     *
+     * @param id the select's id in the page's {@link Choices}
+     * @param inherit the key of the first choice, which takes one argument: the parent's value in words
+     * @param parent what the parent (chapter or book) says now
+     * @param own the quest's or chapter's own word, empty when it takes the parent's
+     */
+    static float preComplete(Ui ui, Choices choices, String id, float x, float y, float w, String inherit, boolean parent,
+            java.util.Optional<Boolean> own, java.util.function.Consumer<java.util.Optional<Boolean>> pick) {
+        float pen = y + label(ui, EditorBook.tr("rysquests.ed.pre_complete"), x, y);
+        List<String> labels = List.of(EditorBook.tr(inherit, EditorBook.tr(parent ? "rysquests.ed.pre_complete.on_lower" : "rysquests.ed.pre_complete.off_lower")),
+                EditorBook.tr("rysquests.ed.pre_complete.on"), EditorBook.tr("rysquests.ed.pre_complete.off"));
+        int chosen = own.map(value -> value ? 1 : 2).orElse(0);
+        float sy = pen;
+        pen += select(ui, x, pen, w, labels.get(chosen), choices.isOpen(id), () -> choices.toggle(id, x, sy + INPUT_H + 4, w, labels, chosen,
+                index -> pick.accept(index == 0 ? java.util.Optional.empty() : java.util.Optional.of(index == 1))));
+        List<String> lines = ui.wrap(EditorBook.tr("rysquests.ed.pre_complete.sub"), w, 11.5f, Ui.REGULAR, 4);
+        for (String line : lines) {
+            ui.label(line, x, pen + 4 + Ui.lineHeight(11.5f) / 2f, 11.5f, Ui.REGULAR, ui.c("text.muted"));
+            pen += Ui.lineHeight(11.5f);
+        }
+        return pen + 4 - y;
+    }
+
     /** A select that looks like an input with a chevron; the list it opens is the page's ({@link Choices}). @return its height */
     static float select(Ui ui, float x, float y, float w, String value, boolean open, Runnable toggle) {
         boolean over = ui.over(x, y, w, INPUT_H);

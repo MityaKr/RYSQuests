@@ -48,6 +48,7 @@ import works.repka.rysquests.task.VisitTask;
 import works.repka.rysquests.task.XpTask;
 import works.repka.ryscore.ui.Draw;
 import works.repka.ryscore.ui.Icons;
+import works.repka.rysquests.progress.QuestLogic;
 import works.repka.ryscore.ui.Kit;
 import works.repka.ryscore.ui.Numbers;
 
@@ -512,6 +513,9 @@ final class QuestPanel {
             parts.add(t(f.team ? "rysquests.qpanel.sub.done_team" : "rysquests.qpanel.sub.done"));
         } else if (f.status == QuestStatus.LOCKED) {
             parts.add(t("rysquests.qpanel.sub.locked"));
+            if (QuestLogic.doneEarly(BookData.book(), quest, ClientProgress::get)) {
+                parts.add(t("rysquests.qpanel.sub.done_early"));
+            }
         }
         return String.join(" · ", parts);
     }
@@ -541,18 +545,37 @@ final class QuestPanel {
                 String words = t("rysquests.qpanel.repeat_wait", times(f.own.times()), waitText(f.own.nextAt()));
                 return note(ui, Icons.Shape.REPEAT, "text.secondary", words, x, y, w) + GAP;
             }
+            // Tasks that count while the quest is locked (ADR-66): a quiet word above the way, so that the player knows the work is kept.
+            float top = early(ui, quest, x, y, w);
             if (f.path == null) {
-                return lockbox(ui, BookData.waitingFor(quest).getString() + ".", 0, null, x, y, w) + GAP;
+                return lockbox(ui, BookData.waitingFor(quest).getString() + ".", 0, null, x, top, w) + GAP;
             }
             if (QuestPath.anyOf(quest)) {
-                return anyOf(ui, f, x, y, w);
+                return anyOf(ui, f, x, top, w);
             }
-            return way(ui, f, look, x, y, w);
+            return way(ui, f, look, x, top, w);
         }
         if (f.open && QuestPath.anyOf(quest)) {
             return openedVia(ui, f, x, y, w);
         }
         return y;
+    }
+
+    /**
+     * The note of a locked quest whose tasks count early (ADR-66): "Условие уже выполнено" with a green check once every task is done,
+     * otherwise that the work counts and is kept, and, when the quest hands items in, that those wait for it to open.
+     *
+     * @return the y below the note and its gap, or {@code y} when the quest does not count early
+     */
+    private static float early(Ui ui, Quest quest, float x, float y, float w) {
+        if (quest.tasks().isEmpty() || !QuestLogic.countsEarly(BookData.book(), quest, ClientProgress::get)) {
+            return y;
+        }
+        if (QuestLogic.doneEarly(BookData.book(), quest, ClientProgress::get)) {
+            return note(ui, Icons.Shape.CHECK, "state.ok", t("rysquests.qpanel.early_done"), x, y, w) + GAP;
+        }
+        boolean hands = quest.tasks().stream().anyMatch(QuestFacts::takes);
+        return note(ui, Icons.Shape.SAVE, "text.secondary", t(hands ? "rysquests.qpanel.early_hand_in" : "rysquests.qpanel.early"), x, y, w) + GAP;
     }
 
     /** A plain note: icon and words in a quiet box (mockup {@code .note}). @return the y below it */

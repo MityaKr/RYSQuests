@@ -257,6 +257,13 @@ final class QuestForm {
                 () -> editor.editQuest(quest.id(), EdText.tr("rysquests.ed.log.hidden", title), q -> QuestEdits.withHidden(q, !q.options().hidden()))) + 4;
         pen += EdUi.setting(ui, x, pen, w, EdText.tr("rysquests.ed.quest.repeatable"), EdText.tr("rysquests.ed.quest.repeatable_sub"), quest.options().repeatable().isPresent(),
                 () -> editor.editQuest(quest.id(), EdText.tr("rysquests.ed.log.repeatable", title), q -> QuestEdits.withRepeatable(q, q.options().repeatable().isEmpty()))) + 4;
+        // Whether the tasks count while the quest is locked (ADR-66): its own word, or the chapter's.
+        works.repka.rysquests.data.QuestBook draft = editor.data();
+        boolean chapterSays = works.repka.rysquests.progress.QuestLogic.preComplete(java.util.Optional.empty(),
+                quest.chapter().map(id -> draft.chapters().get(id)).flatMap(works.repka.rysquests.data.Chapter::preComplete), draft.meta().preComplete());
+        pen += EdUi.preComplete(ui, page.choices, "pre-complete:" + quest.id(), x, pen, w, "rysquests.ed.pre_complete.as_chapter", chapterSays,
+                quest.options().preComplete(), value -> editor.editQuest(quest.id(), EdText.tr("rysquests.ed.log.pre_complete", title),
+                        q -> QuestEdits.withOptions(q, q.options().withPreComplete(value)))) + 6;
         pen += EdUi.field(ui, page.fields, "quest-stage:" + quest.id(), EdText.tr("rysquests.ed.quest.stage"), x, pen, w, EdUi.INPUT_H, quest.stageRequired().orElse(""),
                 EdText.tr("rysquests.ed.quest.stage_hint"), value -> editor.type("quest-stage:" + quest.id(), EditorBook.chapterScope(quest.chapter().get()),
                         EdText.tr("rysquests.ed.log.stage", title), d -> {

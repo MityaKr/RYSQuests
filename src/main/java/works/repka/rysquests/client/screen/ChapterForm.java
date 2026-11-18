@@ -90,7 +90,14 @@ final class ChapterForm {
         pen += EdUi.setting(ui, bx, pen, bw, EdText.tr("rysquests.ed.chapter.on_map"), EdText.tr("rysquests.ed.chapter.on_map_sub"), !chapter.offMap(),
                 () -> editor.editChapter(id, EdText.tr("rysquests.ed.log.chapter_map", editor.text(chapter.title())), work -> work.withChapter(work.chapter().withOffMap(!work.chapter().offMap())))) + 8;
         pen += EdUi.setting(ui, bx, pen, bw, EdText.tr("rysquests.ed.chapter.hidden"), EdText.tr("rysquests.ed.chapter.hidden_sub"), chapter.hidden(),
-                () -> editor.editChapter(id, EdText.tr("rysquests.ed.log.chapter_hidden", editor.text(chapter.title())), work -> work.withChapter(hidden(work.chapter(), !work.chapter().hidden())))) + 12;
+                () -> editor.editChapter(id, EdText.tr("rysquests.ed.log.chapter_hidden", editor.text(chapter.title())), work -> work.withChapter(hidden(work.chapter(), !work.chapter().hidden())))) + 8;
+        // Whether the tasks of locked quests count already (ADR-66): the chapter's word, or the book's, which is set right here too.
+        pen += EdUi.preComplete(ui, page.choices, "pre-complete:" + id, bx, pen, bw, "rysquests.ed.pre_complete.as_book", meta.preComplete(), chapter.preComplete(),
+                value -> editor.editChapter(id, EdText.tr("rysquests.ed.log.chapter_pre_complete", editor.text(chapter.title())),
+                        work -> work.withChapter(work.chapter().withPreComplete(value)))) + 4;
+        pen += EdUi.setting(ui, bx, pen, bw, EdText.tr("rysquests.ed.pre_complete.book"), EdText.tr("rysquests.ed.pre_complete.book_sub"), meta.preComplete(),
+                () -> editor.setMeta(EdText.tr(meta.preComplete() ? "rysquests.ed.log.book_pre_complete_off" : "rysquests.ed.log.book_pre_complete_on"),
+                        m -> m.withPreComplete(!m.preComplete()))) + 12;
         pen += DetailPanel.rubric(ui, bx, pen, bw, EdText.tr("rysquests.ed.chapter.inside"), null) + 6;
         pen += summary(ui, book, id, bx, pen, bw);
         ui.unclip();
@@ -100,7 +107,7 @@ final class ChapterForm {
     }
 
     private static Chapter hidden(Chapter c, boolean value) {
-        return new Chapter(c.id(), c.title(), c.subtitle(), c.icon(), c.epoch(), c.defaultView(), c.groups(), c.requires(), value, c.section(), c.links(), c.offMap());
+        return new Chapter(c.id(), c.title(), c.subtitle(), c.icon(), c.epoch(), c.defaultView(), c.groups(), c.requires(), value, c.section(), c.links(), c.offMap(), c.preComplete());
     }
 
     /** "В главе": quests, main and side, milestones, links to other chapters. */
@@ -145,7 +152,7 @@ final class ChapterForm {
         editor.editChapter(id, EdText.tr("rysquests.ed.log.chapter_icon", editor.text(chapter.title())), work -> {
             Chapter c = work.chapter();
             return work.withChapter(new Chapter(c.id(), c.title(), c.subtitle(), Optional.of(item), c.epoch(), c.defaultView(), c.groups(), c.requires(), c.hidden(), c.section(),
-                    c.links(), c.offMap()));
+                    c.links(), c.offMap(), c.preComplete()));
         });
     }
 
