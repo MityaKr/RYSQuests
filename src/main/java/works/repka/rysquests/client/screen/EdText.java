@@ -68,6 +68,7 @@ final class EdText {
             case AdvancementTask advancement -> tr("rysquests.ed.task.text.advancement", advancement.advancement().getPath());
             case ScriptTask script -> tr("rysquests.ed.task.text.script", script.script().toString());
             case works.repka.rysquests.task.CollectionTask collection -> tr("rysquests.ed.task.text.collection", Plural.full("rysquests.plural.item", collection.items().size()));
+            case works.repka.rysquests.task.ClaimTask claims -> tr("rysquests.task.claims", claims.count());
             default -> task.type().toString();
         };
     }
@@ -98,6 +99,7 @@ final class EdText {
             case CheckboxTask box -> Icons.Shape.CHECK;
             case AdvancementTask advancement -> Icons.Shape.STAR;
             case ScriptTask script -> Icons.Shape.SPARK;
+            case works.repka.rysquests.task.ClaimTask claims -> Icons.Shape.SHIELD;
             default -> null;
         };
     }
@@ -111,6 +113,7 @@ final class EdText {
             case ChoiceReward choice -> tr("rysquests.ed.reward.short.choice");
             case RandomReward random -> tr("rysquests.ed.reward.short.random");
             case TitleReward title -> tr("rysquests.ed.reward.short.title");
+            case works.repka.rysquests.reward.ClaimLimitReward land -> QuestPanel.landPhrase(land);
             default -> reward.type().toString();
         };
     }

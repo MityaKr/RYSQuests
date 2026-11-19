@@ -465,7 +465,7 @@ public final class BookValidator {
     /** A task that is done by what the player already has or has done: lifetime statistics, advancements, standing in a place. */
     private static boolean passive(TaskDef task) {
         return task instanceof works.repka.rysquests.task.StatTask || task instanceof works.repka.rysquests.task.AdvancementTask
-                || task instanceof works.repka.rysquests.task.VisitTask
+                || task instanceof works.repka.rysquests.task.VisitTask || task instanceof works.repka.rysquests.task.ClaimTask
                 || task instanceof works.repka.rysquests.task.XpTask xp && !xp.consume()
                 || task instanceof works.repka.rysquests.task.FluidTask fluid && fluid.mode() != works.repka.rysquests.task.ItemTask.Mode.CONSUME
                         && fluid.mode() != works.repka.rysquests.task.ItemTask.Mode.CRAFT

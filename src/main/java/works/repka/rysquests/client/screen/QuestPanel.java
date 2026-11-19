@@ -970,6 +970,13 @@ final class QuestPanel {
                 row.glyph(Icons.Shape.STAR);
                 line = done ? t("rysquests.qpanel.line.ready") : t("rysquests.qpanel.line.advancement");
             }
+            case works.repka.rysquests.task.ClaimTask claims -> {
+                row.glyph(Icons.Shape.SHIELD);
+                line = done ? t("rysquests.qpanel.line.ready") : t("rysquests.qpanel.line.claims", n(value), n(target)) + (teamCounts ? t("rysquests.qpanel.line.team_counts") : "");
+                if (!done && value > 0) {
+                    row.progress((float) value / target);
+                }
+            }
             case ScriptTask script -> {
                 row.glyph(Icons.Shape.GEAR);
                 line = done ? t("rysquests.qpanel.line.ready") : target > 1 ? t("rysquests.qpanel.line.script_count", n(value), n(target)) : t("rysquests.qpanel.line.script");
@@ -1011,6 +1018,7 @@ final class QuestPanel {
             case AdvancementTask advancement -> t("rysquests.qpanel.task.advancement", advancementName(advancement.advancement()));
             case ScriptTask script -> t("rysquests.qpanel.task.script");
             case StatTask stat -> TaskText.name(stat);
+            case works.repka.rysquests.task.ClaimTask claims -> t("rysquests.task.claims", n(claims.count()));
             default -> TaskText.name(task);
         };
     }
@@ -1176,6 +1184,7 @@ final class QuestPanel {
                     Ui.counted(shared ? "rysquests.qpanel.plural.coin_team" : "rysquests.qpanel.plural.coin", currency.amount()));
             case TitleReward title -> RewardChip.glyph(Icons.Shape.FLAG, t("rysquests.qpanel.title", Component.translatable(title.id()).getString()));
             case StageReward stage -> RewardChip.glyph(Icons.Shape.KEY, t("rysquests.qpanel.stage", stage.stage()));
+            case works.repka.rysquests.reward.ClaimLimitReward land -> RewardChip.glyph(Icons.Shape.SHIELD, landPhrase(land));
             case LootTableReward loot -> RewardChip.picture(new ItemStack(Items.CHEST), 1, t("rysquests.qpanel.loot"));
             case CommandReward command -> RewardChip.glyph(Icons.Shape.SPARK, t("rysquests.qpanel.special"));
             case ScriptReward script -> RewardChip.glyph(Icons.Shape.SPARK, t("rysquests.qpanel.special"));
@@ -1283,6 +1292,18 @@ final class QuestPanel {
         return pen + size;
     }
 
+    /** More land in words: "+4 к лимиту земли", "+1 к прогрузке", or both joined. */
+    static String landPhrase(works.repka.rysquests.reward.ClaimLimitReward land) {
+        List<String> parts = new ArrayList<>();
+        if (land.claims() > 0) {
+            parts.add(t("rysquests.qpanel.claim_limit", n(land.claims())));
+        }
+        if (land.forceLoaded() > 0) {
+            parts.add(t("rysquests.qpanel.force_limit", n(land.forceLoaded())));
+        }
+        return String.join(", ", parts);
+    }
+
     /** A reward in words, for the claim button and options that are not items: "25 опыта", "1 монету", "Стальной слиток ×32". */
     static String phrase(RewardDef reward, boolean accusative) {
         return switch (reward) {
@@ -1292,6 +1313,7 @@ final class QuestPanel {
             case CurrencyReward currency -> Ui.counted(accusative ? "rysquests.qpanel.plural.coin_acc" : "rysquests.qpanel.plural.coin_n", currency.amount());
             case TitleReward title -> t("rysquests.qpanel.title", Component.translatable(title.id()).getString());
             case StageReward stage -> t("rysquests.qpanel.stage", stage.stage());
+            case works.repka.rysquests.reward.ClaimLimitReward land -> landPhrase(land);
             case LootTableReward loot -> t("rysquests.qpanel.loot");
             case RandomReward random -> t(accusative ? "rysquests.qpanel.random_acc" : "rysquests.qpanel.random_short", random.of().size());
             default -> t(accusative ? "rysquests.qpanel.special_acc" : "rysquests.qpanel.special");

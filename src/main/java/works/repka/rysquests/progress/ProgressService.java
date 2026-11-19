@@ -42,6 +42,7 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.server.MinecraftServer;
+import works.repka.ryscore.claims.ClaimsApi;
 import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.api.QuestCompletedEvent;
@@ -336,6 +337,7 @@ public final class ProgressService {
             case StatTask stat -> statCount(player, stat, current, sharers.get());
             case AdvancementTask advancement -> isEarned(player, advancement) ? 1 : current;
             case VisitTask visit -> isVisiting(player, visit) ? 1 : current;
+            case works.repka.rysquests.task.ClaimTask claims -> Math.max(current, ClaimsApi.get().claimed(TeamsApi.get().teamOf(player.getUUID())));
             case works.repka.rysquests.task.ScriptTask script -> ScriptHooks.get().taskProgress(player, script.script(), current);
             default -> current;
         };
@@ -1056,6 +1058,14 @@ public final class ProgressService {
             }
             case CommandReward command -> runCommand(player, quest, command);
             case StageReward stage -> Stages.grant(player, stage.stage());
+            case works.repka.rysquests.reward.ClaimLimitReward land -> {
+                // "Каждому": the player's own bonus goes with them; "на команду": the team keeps it (ClaimsApi).
+                if (land.teamMode() == TeamMode.ONCE) {
+                    ClaimsApi.get().addBonus(TeamsApi.get().teamOf(player.getUUID()), land.claims(), land.forceLoaded());
+                } else {
+                    ClaimsApi.get().addPlayerBonus(player.getUUID(), land.claims(), land.forceLoaded());
+                }
+            }
             case TitleReward title -> AchievementService.grantTitle(player, title.id());
             case CurrencyReward currency -> ShopService.deposit(player, currency.id(), currency.amount(), currency.teamMode() == TeamMode.ONCE, ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "reward"));
             case LootTableReward loot -> rollLoot(player, loot);

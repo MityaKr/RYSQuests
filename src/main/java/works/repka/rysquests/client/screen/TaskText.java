@@ -78,6 +78,7 @@ public final class TaskText {
             case works.repka.rysquests.task.ScriptTask script -> Component.literal(script.script().toString());
             case works.repka.rysquests.task.CollectionTask collection -> Component.translatable("rysquests.task.collection");
             case AdvancementTask advancement -> Component.translatable("rysquests.task.advancement", advancement.advancement().toString());
+            case works.repka.rysquests.task.ClaimTask claims -> Component.translatable("rysquests.task.claims", claims.count());
             default -> Component.translatable("rysquests.task.checkbox");
         };
     }

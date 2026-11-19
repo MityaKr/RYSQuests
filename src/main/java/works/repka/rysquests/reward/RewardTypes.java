@@ -31,6 +31,9 @@ public final class RewardTypes {
 
     public static final DeferredHolder<RewardType<?>, RewardType<TitleReward>> TITLE = register("title", TitleReward.CODEC);
 
+    /** More land to claim and keep loaded, with RYSClaims (plan of the map, section 8). */
+    public static final DeferredHolder<RewardType<?>, RewardType<ClaimLimitReward>> CLAIM_LIMIT = register("claim_limit", ClaimLimitReward.CODEC);
+
     private RewardTypes() {
     }
 

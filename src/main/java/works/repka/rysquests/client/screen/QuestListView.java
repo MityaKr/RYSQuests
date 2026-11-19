@@ -694,6 +694,7 @@ final class QuestListView implements BookView {
             case XpTask xp -> "xp";
             case StatTask stat -> "stat";
             case AdvancementTask advancement -> "advancement";
+            case works.repka.rysquests.task.ClaimTask claims -> "claims";
             default -> "other";
         };
         return t("rysquests.qlist.verb." + key);

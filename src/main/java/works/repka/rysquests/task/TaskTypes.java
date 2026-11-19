@@ -28,6 +28,8 @@ public final class TaskTypes {
     public static final DeferredHolder<TaskType<?>, TaskType<XpTask>> XP = register("xp", XpTask.CODEC);
     /** Only in an achievement: its levels count the entries collected (ADR-62). */
     public static final DeferredHolder<TaskType<?>, TaskType<CollectionTask>> COLLECTION = register("collection", CollectionTask.CODEC);
+    /** Chunks the team holds, with RYSClaims (plan of the map, section 8). */
+    public static final DeferredHolder<TaskType<?>, TaskType<ClaimTask>> CLAIMS = register("claims", ClaimTask.CODEC);
 
     private TaskTypes() {
     }
