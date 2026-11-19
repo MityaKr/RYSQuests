@@ -102,3 +102,11 @@
   EN (draft):
   - Early completion. A book's author can let the tasks of a locked quest count in advance: for the whole book, a chapter or a single quest. An item picked up, a mob killed, a place found then count while the quest is still locked. The quest stays locked, its panel says "Already done", and as soon as it opens it completes, the notice comes and the reward waits for "Claim". Items to hand in are not taken from a locked quest; they are handed in once it opens. Without the setting nothing changes.
   - For pack authors: the field `pre_complete` in `book.json`, `_chapter.json` and a quest's file (absent takes the level above), "Early completion" in the editor's chapter and quest forms. The FTB Quests import carries `progression_mode` over: `flexible` turns it on.
+- 0.2.11 (черновик):
+  - На «Сейчас» строка команды называет её по имени: «Репка · 3 участника» вместо «Команда · 3 участника», если мод команд дал ей имя.
+  - Земля в книге. С RYSClaims квест может просить занять землю («Занять чанков: 16», полоска «занято 9 из 16») и давать её больше: награда «+4 к лимиту земли, +1 к прогрузке» каждому участнику или одна на команду.
+  - Для авторов сборок: задача `rysquests:claims` с `count`, награда `rysquests:claim_limit` с `claims`, `force_loaded` и `team_mode`.
+  EN (draft):
+  - The team line on "Now" names the team: "Turnip · 3 members" instead of "Team · 3 members" when the team mod gives it a name.
+  - Land in the book. With RYSClaims a quest can ask to claim land ("Claim chunks: 16", a bar "9 of 16 claimed") and give more of it: a reward "+4 to the land limit, +1 to force loading" for each member or once for the team.
+  - For pack authors: the task `rysquests:claims` with `count`, the reward `rysquests:claim_limit` with `claims`, `force_loaded` and `team_mode`.

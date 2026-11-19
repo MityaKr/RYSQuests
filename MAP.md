@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-19. Руками не править: после структурных правок пересобрать.
 
-Java: 418 файлов, 76592 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 422 файлов, 76781 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -18,7 +18,7 @@ Java: 418 файлов, 76592 строк. Переводы: `examples/example_pa
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
 - `run-map/` — 1 файлов
-- `src/` — 636 файлов
+- `src/` — 640 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -107,7 +107,7 @@ Java: 418 файлов, 76592 строк. Переводы: `examples/example_pa
 - `ClientImport` 107 — The client's side of the FTB Quests import wizard (plan, pictures 06, 07, 50): it starts the import and keeps what the server said last, for the wizard to draw.
 - `ClientLayout` 98 — The baked map on the client.
 - `ClientMessages` 52 — The server's latest word about what the player did (plan, picture 48).
-- `ClientProgress` 179 — The client's copy of its own progress.
+- `ClientProgress` 189 — The client's copy of its own progress.
 - `ClientShop` 69 — The client's copy of its money.
 - `QuestLinks` 61 — Turns [[quest:id]] in chat into a link that opens the book on that quest.
 - `RYSQuestsClient` 144 — Client-only entry point; never loaded on a dedicated server.
@@ -183,7 +183,7 @@ Java: 418 файлов, 76592 строк. Переводы: `examples/example_pa
 - `ClosedBookLine` 50 — "Книга закрыта для игроков" (picture 08, plan section 4): a narrow line under the header while the book is closed, for operators only.
 - `DetailPanel` 223 — The detail panel on the right: a quest, a chapter, an offer, an achievement, an issue of the check (mockup .panel, pictures 11, 16, 17, 25, 28).
 - `DispenserScreen` 644 — The window of the dispenser (shop plan, section 4.2, mockup 06): on the left the trades a dispenser can buy, with a search; on the right where the coins come from, where the goods …
-- `EdText` 171 — Tasks, rewards and types of quests in the editor's plain words (pictures 33, 34, 35b): "Получить: Медная катушка ×1", "25 опыта".
+- `EdText` 174 — Tasks, rewards and types of quests in the editor's plain words (pictures 33, 34, 35b): "Получить: Медная катушка ×1", "25 опыта".
 - `EdUi` 588 — The small pieces the editor's pages share, at the sizes of the mockups (ui.css): an input (.inp), a field with its label (.fld), buttons (.btn, .btn.sm, .tb), the dashed "+" button…
 - `EditorBook` 687 — The editor's draft on this client (plan, section 6): one for the book, whatever editor page is open.
 - `EditorChecks` 242 — What "Проверка" finds in the draft (pictures 37, 37b), in the author's words, each with ways to fix it: errors a player runs into (a link to a page that is not there, a quest waiti…
@@ -220,13 +220,13 @@ Java: 418 файлов, 76592 строк. Переводы: `examples/example_pa
 - `MapView` 1144 — The map ("Полотно", pictures 13 to 18, 22, 41 to 47, 49): the MapCanvas with the tools over it and the panel on the right.
 - `MatrixView` 612 — The matrix template: design/Mining.dc.html, and with compact the grid of design/Atlas.dc.html.
 - `NewBookView` 289 — "Новая книга" (picture 09a): the book's name, an icon from the hand, and one question that may go unanswered, "Как устроена сборка?": the answer picks the map form (FirstRun.Answer…
-- `NowView` 684 — "Now" (plan, section 3; pictures 11, 12, 12b, 12c, 46b): the next step of the book in a card, rewards to take and quests in work on the left, what can be done in the current chapte…
+- `NowView` 687 — "Now" (plan, section 3; pictures 11, 12, 12b, 12c, 46b): the next step of the book in a card, rewards to take and quests in work on the left, what can be done in the current chapte…
 - `Plural` 38 — Word forms for a number written in full ("2 400 монет", "1 монета"), with the .one, .few, .many keys that counted reads.
 - `PublishQuestion` 125 — "Открыть книгу игрокам?" (picture 10, plan section 4): before the book opens, the question says whether the check found errors, how many chapters and quests players will see and in…
 - `QuestFacts` 248 — What the pages of the book need to know about a quest and do with it, without drawing anything: tasks done, what it takes and what the player holds of it, its rewards as items, cla…
 - `QuestForm` 385 — The form of a quest on the right of the editor's map (pictures 33, 34, 33c; compact 46e): name and icon, the type as one switch "Основной | Побочный | Веха", "+ Следующий", "+ Побо…
-- `QuestListView` 943 — The list mode of the "Map" tab (plan, section 3, "List"; pictures 19, 19b, 19c): the same sidebar, "Карта | Список" above, and the level the sidebar chose.
-- `QuestPanel` 1503 — The quest panel (plan, section 3, "Quest"; pictures 17, 20, 21, 21b, 22): one panel for the map, the list and "Now".
+- `QuestListView` 944 — The list mode of the "Map" tab (plan, section 3, "List"; pictures 19, 19b, 19c): the same sidebar, "Карта | Список" above, and the level the sidebar chose.
+- `QuestPanel` 1525 — The quest panel (plan, section 3, "Quest"; pictures 17, 20, 21, 21b, 22): one panel for the map, the list and "Now".
 - `QuestTable` 696 — A chapter as a table (pictures 35b and 09): a row per quest, columns "Квест, Тип, Что сделать, Награда, После", side quests right under their main one.
 - `QuestWords` 33 — The book's words and icons for a quest, for what draws a quest outside the book's window: the goals on the map (RYSMap, step T3).
 - `ReceiverScreen` 579 — The window of the intake block (shop plan, section 4.1, mockups 04 and 05): on the left the trades of its mode with a search, on the right the mode, where the coins go, the trade i…
@@ -247,7 +247,7 @@ Java: 418 файлов, 76592 строк. Переводы: `examples/example_pa
 - `TabsEditorView` 488 — The editor's "Вкладки" (picture 40): the sidebar lists the book's tabs as players see them and the author's tabs inside "Гайды", the matrices "Атлас сборки" and "Атлас добычи" amon…
 - `TaskPicker` 457 — "Что нужно сделать?" (picture 34): the kinds of tasks in plain words on the left, the form of the chosen kind on the right with the line "Игрок увидит: …", and "Добавить задачу".
 - `TaskRow` 223 — A task of a quest in the detail panel (mockup .task, picture 20): the task's action as its title ("Получить: Электромеханизм"), one line of state under it, the progress written onc…
-- `TaskText` 93 — How tasks read and look on the screen and on the board.
+- `TaskText` 94 — How tasks read and look on the screen and on the board.
 - `TextArea` 389 — An editable text in the interface's own font, in one line or wrapped.
 - `TextBlock` 398 — Lays out parsed quest text with word wrap, inline item icons, clickable links and spoilers.
 - `Ui` 835 — One frame of drawing.
@@ -367,7 +367,7 @@ Java: 418 файлов, 76592 строк. Переводы: `examples/example_pa
 - `ShopStatePayload` 58 — A player's money, what the limits have used up and the latest operations.
 - `ShopTradePayload` 25 — A request to make a trade.
 - `StageLocksPayload` 29 — Quests and guides closed to the player because a stage is missing, and which of the stages named by custom sections the player has: the client has no way to tell by itself.
-- `TeamInfoPayload` 23 — How many players are in this player's team, for the chip in the top bar of the book.
+- `TeamInfoPayload` 35 — How many players are in this player's team and its name, for the line of the team on "Сейчас".
 
 **progress** (21)
 - `AchievementService` 119 — Titles and how rare each tier is.
@@ -381,7 +381,7 @@ Java: 418 файлов, 76592 строк. Переводы: `examples/example_pa
 - `NextStep` 80 — The next step on "Now", one rule for every book (plan, section 3, "Now"): the nearest unfinished main quest of the chapter where the player last completed a quest; when there is no…
 - `PinLimit` 40 — The limit of pinned cards (hud.max_pinned of the book), one rule for the server that refuses and the book that greys the pin out beforehand.
 - `ProgressRemap` 97 — Progress is kept by the position of a task or a reward.
-- `ProgressService` 1294 — Server-side quest rules.
+- `ProgressService` 1307 — Server-side quest rules.
 - `ProgressStore` 655 — Quest progress of all teams, saved with the world.
 - `QuestLogic` 142 — Status rules shared by the server and the client's display.
 - `QuestPath` 217 — The way to a quest that is still closed (plan, section 3, "Closed quest"; pictures 21b, 22): every unfinished quest it still needs, in an order in which each comes after what it ne…
@@ -392,14 +392,15 @@ Java: 418 файлов, 76592 строк. Переводы: `examples/example_pa
 - `TeamBridge` 112 — Moves quest progress when a team mod, through RYSCore, reports that teams changed.
 - `TeamRewards` 136 — Which rewards count as taken for a team member: their own, plus those only one member could take.
 
-**reward** (11)
+**reward** (12)
 - `ChoiceReward` 34 — Lets the player pick one of several rewards.
+- `ClaimLimitReward` 30 — More land: chunks to claim and chunks to keep loaded on top of the limit (RYSClaims, RYSCore claims.ClaimsApi; plan of the map, section 8, RYSQuests).
 - `CommandReward` 25 — Runs a command for the player claiming the reward.
 - `CurrencyReward` 24 — Gives currency.
 - `ItemReward` 33 — Gives a stack of an item.
 - `LootTableReward` 26 — Rolls a loot table for the player.
 - `RandomReward` 42 — Gives one of several rewards at random; weights is parallel to of, empty means equal odds.
-- `RewardTypes` 42 — The reward type registry and the built-in reward types.
+- `RewardTypes` 45 — The reward type registry and the built-in reward types.
 - `ScriptReward` 22 — What the player gets is up to a script.
 - `StageReward` 22 — Grants a progression stage through every stage provider.
 - `TitleReward` 22 — Gives a title, which a player can then show beside their name.
@@ -418,9 +419,10 @@ Java: 418 файлов, 76592 строк. Переводы: `examples/example_pa
 **stage** (1)
 - `Stages` 57 — All stage providers.
 
-**task** (12)
+**task** (13)
 - `AdvancementTask` 23 — Completed when the player earns an advancement.
 - `CheckboxTask` 21 — Completed when the player ticks it.
+- `ClaimTask` 32 — Completed when the player's team holds a number of chunks (RYSClaims, RYSCore claims.ClaimsApi.claimed; plan of the map, section 8, RYSQuests).
 - `CollectionTask` 74 — A collection of an achievement (ADR-62): a list of items, each counted once it has been in the inventory of anyone who shares the progress.
 - `FluidTask` 45 — Requires an amount of a fluid in containers the player carries, in millibuckets.
 - `ItemRef` 37 — An item id or, written with a leading #, an item tag.
@@ -428,7 +430,7 @@ Java: 418 файлов, 76592 строк. Переводы: `examples/example_pa
 - `KillTask` 30 — Completed after killing a number of entities of one type.
 - `ScriptTask` 30 — Progress comes from a script, asked on the same schedule as other polled tasks.
 - `StatTask` 31 — Completed when a player statistic reaches a value.
-- `TaskTypes` 40 — The task type registry and the built-in task types.
+- `TaskTypes` 42 — The task type registry and the built-in task types.
 - `VisitTask` 38 — Completed by being somewhere: a dimension, a biome or structure (each may be a #tag), or near a position.
 - `XpTask` 68 — Experience, in levels or in points, as FTB Quests' and Heracles' experience tasks.
 
@@ -497,8 +499,12 @@ Java: 418 файлов, 76592 строк. Переводы: `examples/example_pa
 **migrate** (1)
 - `MigrationEngineTest` 103
 
-**progress** (21)
+**network** (1)
+- `TeamInfoPayloadTest` 24 — The team's size and name for "Сейчас" cross the wire as they are; a very long name is cut to the room of the line.
+
+**progress** (22)
 - `AchievementTest` 72
+- `ClaimRulesTest` 33 — The land task and reward of the book (plan of the map, section 8): what their JSON says.
 - `CollectionTest` 198 — A collection in the achievements (ADR-62): its marks are a hidden quest of observe tasks, its levels count them, and a team keeps, shares and passes them on as any quest progress.
 - `CommandPlaceholdersTest` 21
 - `EpochRewardsTest` 204 — The reward of an epoch on the map (ADR-60): it opens when the epoch is passed, is taken once, and moving between teams in any way never makes it claimable again.
