@@ -125,7 +125,12 @@ final class GoalsScenario {
         screenshot("goals_map");
         step("back to the world", () -> mc().setScreen(null), 10);
 
-        step("walk to the camp", () -> command("execute in minecraft:overworld run tp @s 40 70 40"), 80);
+        // night-1119: in the flat world the ground is at y -60, the player fell out of the camp's 6 block sphere between polls
+        step("walk to the camp", () -> {
+            mc().player.getAbilities().flying = true;
+            mc().player.onUpdateAbilities();
+            command("execute in minecraft:overworld run tp @s 40 70 40");
+        }, 80);
         expect("the camp is done", () -> ClientProgress.get(CAMP).completed());
         expect("the camp's goal dropped off, the fort's stands in the Nether at the middle of its box", () -> {
             Collection<MapApi.Marker> nether = QuestGoals.markersForTest(Level.NETHER);
