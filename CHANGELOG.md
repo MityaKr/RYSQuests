@@ -121,3 +121,7 @@
   - Сценарий `goals`: игрок не падает мимо лагеря.
   EN (draft):
   - RYSCore 1.15.1.
+- 0.2.13 (черновик):
+  - Закреплённые квесты по умолчанию снова у верхнего края (настройка книги «Высота: У края»). «Ниже» осталось на выбор. У кого настройка уже сохранена, у того она не меняется.
+  EN (draft):
+  - Pinned quests stand at the top edge again by default (book settings, "Height: At the edge"); "Lower" stays as a choice. A setting already saved is kept.
