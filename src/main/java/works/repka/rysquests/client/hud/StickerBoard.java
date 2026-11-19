@@ -40,7 +40,6 @@ public final class StickerBoard {
     private static final int LOW_WINDOW = 540;
     private static final int CARDS = 3;
     private static final int CARDS_LOW = 2;
-    private static boolean collapsed;
 
     private StickerBoard() {
     }
@@ -59,8 +58,10 @@ public final class StickerBoard {
         }
     }
 
+    /** Folds the cards to their titles or unfolds them: the setting of the book, kept across games, and the key if one is bound. */
     public static void toggleCollapsed() {
-        collapsed = !collapsed;
+        ClientConfig.HUD_COLLAPSED.set(!ClientConfig.HUD_COLLAPSED.get());
+        ClientConfig.HUD_COLLAPSED.save();
     }
 
     /** How many cards the stack holds: two when the window is low. */
@@ -121,6 +122,7 @@ public final class StickerBoard {
         Ui ui = new Ui(g, 0, 0, List.of(), List.of(), new Kit.Hits());
         int height = 0;
         int widest = WIDTH;
+        boolean collapsed = ClientConfig.HUD_COLLAPSED.get();
         for (Sticker sticker : stack) {
             height += sticker.height(ui, WIDTH, collapsed) + GAP;
         }

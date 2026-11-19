@@ -23,6 +23,10 @@ public final class ClientConfig {
             .comment("Pinned quests on the right side of the screen instead of the left.")
             .define("hudRight", false);
 
+    public static final ModConfigSpec.BooleanValue HUD_COLLAPSED = BUILDER
+            .comment("Pinned quests folded to their titles, without the lines of their tasks.")
+            .define("hudCollapsed", false);
+
     public static final ModConfigSpec.BooleanValue COMPLETION_TOAST = BUILDER
             .comment("Show a message when a quest is completed.")
             .define("completionToast", true);

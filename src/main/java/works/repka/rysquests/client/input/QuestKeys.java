@@ -14,15 +14,17 @@ import works.repka.rysquests.client.screen.BookScreen;
 import works.repka.rysquests.network.QuestActionPayload;
 
 /**
- * Key bindings of the mod: K, P and B. {@code P} rather than {@code A} pins, because RYScope claims {@code A} over items. The G key
- * that handed in everything ready is gone (plan, section 8); "Hand in all ready" is a button of the book.
+ * Key bindings of the mod: K opens the book. "Закрепить" and "Свернуть закреплённое" are there to bind but have no key by default
+ * (logic review 19.11): P opened the game's social interactions too and B the backpack of Sophisticated Backpacks, since every
+ * action on a key fires. Pinning is the pin of the book, folding the cards is a setting of the book. The G key that handed in
+ * everything ready is gone (plan, section 8); "Hand in all ready" is a button of the book.
  */
 public final class QuestKeys {
     private static final String CATEGORY = "key.categories.rysquests";
     public static final KeyMapping OPEN_BOOK = new KeyMapping("key.rysquests.open_book", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, CATEGORY);
-    public static final KeyMapping PIN = new KeyMapping("key.rysquests.pin", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_P, CATEGORY);
+    public static final KeyMapping PIN = new KeyMapping("key.rysquests.pin", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
 
-    public static final KeyMapping BOARD = new KeyMapping("key.rysquests.board", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, CATEGORY);
+    public static final KeyMapping BOARD = new KeyMapping("key.rysquests.board", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
 
     private QuestKeys() {
     }

@@ -85,8 +85,11 @@ final class SettingsView implements BookView {
                 index -> UiScale.set(SCALES[index]));
         pen += 6;
         pen = rubric(ui, left, pen, column, t("rysquests.settings.over_game"), null, null);
-        pen = toggleRow(ui, left, pen, column, t("rysquests.settings.pinned"), t("rysquests.settings.pinned_sub", QuestKeys.label(QuestKeys.PIN)),
+        pen = toggleRow(ui, left, pen, column, t("rysquests.settings.pinned"), t("rysquests.settings.pinned_sub"),
                 ClientConfig.HUD_PINNED::get, on -> set(ClientConfig.HUD_PINNED, on));
+        // The cards over the world cannot be clicked (they show only with no window open), so folding them is a setting here.
+        pen = toggleRow(ui, left, pen, column, t("rysquests.settings.collapsed"), t("rysquests.settings.collapsed_sub"),
+                ClientConfig.HUD_COLLAPSED::get, on -> set(ClientConfig.HUD_COLLAPSED, on));
         pen = segmentsRow(ui, left, pen, column, t("rysquests.settings.side"), t("rysquests.settings.side_sub"),
                 List.of(Segments.item(t("rysquests.settings.side_left")), Segments.item(t("rysquests.settings.side_right"))),
                 ClientConfig.HUD_RIGHT.get() ? 1 : 0, index -> set(ClientConfig.HUD_RIGHT, index == 1));
@@ -162,11 +165,17 @@ final class SettingsView implements BookView {
 
     /** The book's keys as key caps with their meaning, in rows that wrap. */
     private static float keys(Ui ui, float x, float y, float w) {
-        String[][] keys = {
-                {QuestKeys.label(QuestKeys.OPEN_BOOK).getString(), t("rysquests.settings.key_book")},
-                {QuestKeys.label(QuestKeys.PIN).getString(), t("rysquests.settings.key_pin")},
-                {QuestKeys.label(QuestKeys.BOARD).getString(), t("rysquests.settings.key_board")},
-                {"/", t("rysquests.settings.key_search")}};
+        // Keys without a binding (pin and fold have none by default) are left out rather than shown as "not bound".
+        List<String[]> rows = new java.util.ArrayList<>();
+        rows.add(new String[] {QuestKeys.label(QuestKeys.OPEN_BOOK).getString(), t("rysquests.settings.key_book")});
+        if (!QuestKeys.PIN.isUnbound()) {
+            rows.add(new String[] {QuestKeys.label(QuestKeys.PIN).getString(), t("rysquests.settings.key_pin")});
+        }
+        if (!QuestKeys.BOARD.isUnbound()) {
+            rows.add(new String[] {QuestKeys.label(QuestKeys.BOARD).getString(), t("rysquests.settings.key_board")});
+        }
+        rows.add(new String[] {"/", t("rysquests.settings.key_search")});
+        String[][] keys = rows.toArray(new String[0][]);
         float pen = x;
         float row = y;
         float rowH = 18;

@@ -106,7 +106,9 @@
   - На «Сейчас» строка команды называет её по имени: «Репка · 3 участника» вместо «Команда · 3 участника», если мод команд дал ей имя.
   - Земля в книге. С RYSClaims квест может просить занять землю («Занять чанков: 16», полоска «занято 9 из 16») и давать её больше: награда «+4 к лимиту земли, +1 к прогрузке» каждому участнику или одна на команду.
   - Для авторов сборок: задача `rysquests:claims` с `count`, награда `rysquests:claim_limit` с `claims`, `force_loaded` и `team_mode`.
+  - У «Закрепить квест» и «Свернуть закреплённое» больше нет клавиш по умолчанию: P заодно открывал «Социальные взаимодействия» игры, B рюкзак Sophisticated Backpacks. Закрепляет булавка у квеста в книге, свернуть карточки можно в настройках книги («Свернуть карточки», запоминается). Клавиши можно назначить в «Управлении»; у кого они уже были сохранены, они остаются, пока их не сбросить.
   EN (draft):
   - The team line on "Now" names the team: "Turnip · 3 members" instead of "Team · 3 members" when the team mod gives it a name.
   - Land in the book. With RYSClaims a quest can ask to claim land ("Claim chunks: 16", a bar "9 of 16 claimed") and give more of it: a reward "+4 to the land limit, +1 to force loading" for each member or once for the team.
   - For pack authors: the task `rysquests:claims` with `count`, the reward `rysquests:claim_limit` with `claims`, `force_loaded` and `team_mode`.
+  - "Pin quest" and "Fold the pinned cards" no longer have default keys: P also opened the game's social interactions, B the backpack of Sophisticated Backpacks. The pin of a quest in the book pins it; the book's settings fold the cards ("Fold the cards", remembered). Keys can be bound in Controls; bindings already saved stay until reset.
