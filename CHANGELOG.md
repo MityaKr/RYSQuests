@@ -116,3 +116,8 @@
   - "Pin quest" and "Fold the pinned cards" no longer have default keys: P also opened the game's social interactions, B the backpack of Sophisticated Backpacks. The pin of a quest in the book pins it; the book's settings fold the cards ("Fold the cards", remembered). Keys can be bound in Controls; bindings already saved stay until reset.
   - Pinned quests stand a little lower by default, below the lines other mods write in the top left. The book's settings bring them back to the edge ("Height").
   - The book is lighter on the server and the client: statistics (time played, steps) are checked every 5 seconds, a team's changes in a tick reach each member as one packet, and the client does not recount the book on every step.
+- 0.2.12 (черновик):
+  - Ядро RYSCore 1.15.1 (было 1.13.1): книга из кода запускается рядом с RYSMap 0.2.x, которому нужно ядро от 1.14 (ночные проверки 19.11). Игрокам ничего не меняет: в сборке загрузчик и так брал старшее ядро.
+  - Сценарий `goals`: игрок не падает мимо лагеря.
+  EN (draft):
+  - RYSCore 1.15.1.
