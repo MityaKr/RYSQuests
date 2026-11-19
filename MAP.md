@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-19. Руками не править: после структурных правок пересобрать.
 
-Java: 422 файлов, 76781 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 424 файлов, 77060 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -18,7 +18,7 @@ Java: 422 файлов, 76781 строк. Переводы: `examples/example_pa
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
 - `run-map/` — 1 файлов
-- `src/` — 640 файлов
+- `src/` — 642 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -62,7 +62,7 @@ Java: 422 файлов, 76781 строк. Переводы: `examples/example_pa
 
 **(корень)** (2)
 - `CommonConfig` 20 — Settings that the client and the server both read.
-- `RYSQuests` 108 — Mod entry point shared by both physical sides.
+- `RYSQuests` 110 — Mod entry point shared by both physical sides.
 
 **api** (8)
 - `QuestCompletedEvent` 32 — Fired on the game bus when all tasks of a quest are done.
@@ -101,13 +101,13 @@ Java: 422 файлов, 76781 строк. Переводы: `examples/example_pa
 - `ClientAchievements` 41 — What the server says about achievements beyond their own progress.
 - `ClientAssets` 114 — Puts the translations and pictures that came with the book on top of the client's own resources (ADR-35).
 - `ClientBook` 120 — The client's copy of the book.
-- `ClientConfig` 68 — Client settings.
+- `ClientConfig` 76 — Client settings.
 - `ClientDev` 24 — The last book report sent by the server to this operator.
 - `ClientDrafts` 74 — Where this client keeps the quest editor's unsaved work: rysquests/drafts// in the game folder, so that drafts of one server never turn up on another.
 - `ClientImport` 107 — The client's side of the FTB Quests import wizard (plan, pictures 06, 07, 50): it starts the import and keeps what the server said last, for the wizard to draw.
 - `ClientLayout` 98 — The baked map on the client.
 - `ClientMessages` 52 — The server's latest word about what the player did (plan, picture 48).
-- `ClientProgress` 189 — The client's copy of its own progress.
+- `ClientProgress` 242 — The client's copy of its own progress.
 - `ClientShop` 69 — The client's copy of its money.
 - `QuestLinks` 61 — Turns [[quest:id]] in chat into a link that opens the book on that quest.
 - `RYSQuestsClient` 144 — Client-only entry point; never loaded on a dedicated server.
@@ -124,11 +124,11 @@ Java: 422 файлов, 76781 строк. Переводы: `examples/example_pa
 - `QuestNotices` 354 — Messages about finished quests through the family's notices (RYSCore Notice, design _audit/notify, variant A): they stand in the game's own column of toasts, top right.
 - `QuestSticker` 186 — A pinned quest (mockup .hud, picture 31): its icon and title, which wraps to a second line rather than being cut (nothing can be hovered over the world), and a row per task with it…
 - `Sticker` 24 — One card over the world, in mockup pixels.
-- `StickerBoard` 158 — Everything the book draws over the game, in one place (plan, section 3, pictures 31, 31b): one stack of pinned cards in the corner Anchors gives.
+- `StickerBoard` 182 — Everything the book draws over the game, in one place (plan, section 3, pictures 31, 31b): one stack of pinned cards in the corner Anchors gives.
 - `WaySticker` 46 — A pinned way of a matrix section: what it is and where in the section it comes from.
 
 **client.input** (1)
-- `QuestKeys` 61 — Key bindings of the mod: K, P and B.
+- `QuestKeys` 63 — Key bindings of the mod: K opens the book.
 
 **client.integration** (9)
 - `BookLinks` 179 — The book in the recipe viewer's card of an item (RYSCore 1.10 links.ItemLinks, plan _audit/ryscope-quests, step 2): the shop's offers as a category "Магазин" (an offer that gives t…
@@ -237,7 +237,7 @@ Java: 422 файлов, 76781 строк. Переводы: `examples/example_pa
 - `SearchIndex` 351 — Search over the whole book: quest names, the items of their tasks and rewards, and chapter names.
 - `SearchPopover` 500 — The window of results under the search field (plan, section 3, pictures 30, 30b): groups of quests, items, guides, offers and achievements, three rows each and "ещё N" for the rest…
 - `Segments` 105 — A segmented switch: "Map | List", "Buy | Sell | History", "Slate | Glass | Vanilla".
-- `SettingsView` 188 — The book's settings as a page of their own (picture 32, plan section 3): one column, no sidebar, "Назад: Сейчас" above.
+- `SettingsView` 200 — The book's settings as a page of their own (picture 32, plan section 3): one column, no sidebar, "Назад: Сейчас" above.
 - `ShopEditorView` 713 — The editor's "Магазин" (picture 39): the offers as the player's grid with "+ Товар" last, "Купить | Продать" and the same "Раздел" as the player has; on the right the chosen offer:…
 - `ShopView` 1552 — The shop (plan, section 3, pictures 25 to 27b, 46c).
 - `SideList` 80 — The plain left column of a page that is not the map (mockup .side, pictures 23, 24, 28): a rubric on top, rows with a count, group rubrics, a footer.
@@ -377,12 +377,12 @@ Java: 422 файлов, 76781 строк. Переводы: `examples/example_pa
 - `DeliveryLedger` 176 — What has been delivered towards a goal that is paid in parts (shop plan, step M4): per owner (a team, or a player alone), per goal (a delivery trade of the shop, later perhaps a tr…
 - `EpochRewards` 81 — The reward of an epoch (ADR-60): a quest the epoch names in book.json, shown and claimed at the epoch on the map rather than as a card of its chapter.
 - `Feedback` 48 — Quiet sounds that confirm a reward or a trade, heard only by the player who made it, and the book's message line.
-- `MemberStats` 74 — The statistics of the players who share progress, for StatCount: an online player's live ones, an offline player's as they were when the player left.
+- `MemberStats` 79 — The statistics of the players who share progress, for StatCount: an online player's live ones, an offline player's as they were when the player left.
 - `NextStep` 80 — The next step on "Now", one rule for every book (plan, section 3, "Now"): the nearest unfinished main quest of the chapter where the player last completed a quest; when there is no…
 - `PinLimit` 40 — The limit of pinned cards (hud.max_pinned of the book), one rule for the server that refuses and the book that greys the pin out beforehand.
 - `ProgressRemap` 97 — Progress is kept by the position of a task or a reward.
-- `ProgressService` 1307 — Server-side quest rules.
-- `ProgressStore` 655 — Quest progress of all teams, saved with the world.
+- `ProgressService` 1414 — Server-side quest rules.
+- `ProgressStore` 656 — Quest progress of all teams, saved with the world.
 - `QuestLogic` 142 — Status rules shared by the server and the client's display.
 - `QuestPath` 217 — The way to a quest that is still closed (plan, section 3, "Closed quest"; pictures 21b, 22): every unfinished quest it still needs, in an order in which each comes after what it ne…
 - `QuestPlace` 60 — Where a quest sends the player, for the map (RYSMap plan, step T3): the first visit task of the quest that names a position.
@@ -445,6 +445,9 @@ Java: 422 файлов, 76781 строк. Переводы: `examples/example_pa
 - `ReceiverTest` 466 — The intake block without a world (shop plan, step M6): what a pipe is told and what really goes in, the sale of whole lots once a second, the buffer's ceiling, a delivery that take…
 - `ShopRecipesTest` 74 — The shop blocks ship default vanilla recipes; a modpack replaces them by id, so the ids and the files must stay exactly where the docs say.
 
+**client** (1)
+- `StandingChangedTest` 46 — The version of statuses (logic review 19.11): a statistic that counts on every second leaves the caches that walk the whole book alone; only what changes how a quest stands moves t…
+
 **client.integration** (1)
 - `ItemLinkIndexTest` 180 — The book's index for the recipe viewer's item links (plan _audit/ryscope-quests, step 2): which offers and quests an item leads to, in which role, and the spoiler rule: only what t…
 
@@ -502,7 +505,7 @@ Java: 422 файлов, 76781 строк. Переводы: `examples/example_pa
 **network** (1)
 - `TeamInfoPayloadTest` 24 — The team's size and name for "Сейчас" cross the wire as they are; a very long name is cut to the room of the line.
 
-**progress** (22)
+**progress** (23)
 - `AchievementTest` 72
 - `ClaimRulesTest` 33 — The land task and reward of the book (plan of the map, section 8): what their JSON says.
 - `CollectionTest` 198 — A collection in the achievements (ADR-62): its marks are a hidden quest of observe tasks, its levels count them, and a team keeps, shares and passes them on as any quest progress.
@@ -520,6 +523,7 @@ Java: 422 файлов, 76781 строк. Переводы: `examples/example_pa
 - `RepeatableRoundTest` 75 — Repeatable quests between rounds (ADR-46): what they opened stays open, and a new round clears every member.
 - `ReviewFixesTest` 95 — The fixes the review asked for that live in shared rules: optional quests, craft mode, and progress that follows its task.
 - `StatCountTest` 85 — A team's counter of a statistic comes from all its members (ADR-61).
+- `StoreReadTest` 19 — Reading a record makes no row (logic review 19.11): asking about any UUID used to leave an empty owner in the save.
 - `TeamDeliveryTest` 248 — What a team delivers towards a trade paid in parts (shop plan, step M4) stays with the team, and no way of moving between teams delivers one item twice: leaving, delivering alone a…
 - `TeamLeaveCopyTest` 49 — Leaving a team with a copy of its progress never gives back the rewards the player already took in it.
 - `TeamRewardsTest` 40
