@@ -64,6 +64,11 @@ final class MemberStats {
         KNOWN.add(player.getUUID());
     }
 
+    /** A player came back: their own statistics count again, the copy kept while they were away is dropped. */
+    static void joined(ServerPlayer player) {
+        OFFLINE.remove(player.getUUID());
+    }
+
     /** The server stopped: another world may be opened next, in single player. */
     static void clear() {
         OFFLINE.clear();

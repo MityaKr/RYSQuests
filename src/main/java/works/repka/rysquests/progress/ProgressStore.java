@@ -303,8 +303,9 @@ public final class ProgressStore extends SavedData {
         return List.copyOf(candidates);
     }
 
+    /** A quest's record, without making an empty row for an owner that has none (logic review 19.11). */
     public QuestProgress get(UUID team, ResourceLocation quest) {
-        return team(team).getOrDefault(quest, QuestProgress.EMPTY);
+        return teams.getOrDefault(team, Map.of()).getOrDefault(quest, QuestProgress.EMPTY);
     }
 
     public Map<ResourceLocation, QuestProgress> team(UUID team) {

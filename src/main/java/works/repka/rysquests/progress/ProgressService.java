@@ -178,6 +178,7 @@ public final class ProgressService {
             return;
         }
         boolean statsDue = (teamPhase / POLL_INTERVAL) % STAT_POLLS == 0;
+        PLACES.clear();
         List<Quest> active = openFor(player);
         int hash = inventoryHash(player.getInventory());
         boolean inventoryChanged = !Objects.equals(INVENTORY_HASH.put(player.getUUID(), hash), hash);
@@ -202,9 +203,28 @@ public final class ProgressService {
         apply(player, changes);
     }
 
+    /** What the stage check walks, once per book (logic review 19.11): the quests that name a stage and the stages sections look at. */
+    private record StageScope(QuestBook book, List<Quest> quests, Set<String> sections) {
+    }
+
+    @Nullable
+    private static StageScope stageScope;
+
+    private static StageScope stageScope() {
+        QuestBook current = book();
+        StageScope scope = stageScope;
+        if (scope == null || scope.book() != current) {
+            List<Quest> staged = current.quests().values().stream().filter(quest -> quest.stageRequired().isPresent()).toList();
+            scope = new StageScope(current, staged, Set.copyOf(sectionStages()));
+            stageScope = scope;
+        }
+        return scope;
+    }
+
     private static void refreshStageLocks(ServerPlayer player) {
+        StageScope scope = stageScope();
         Set<ResourceLocation> locks = new HashSet<>();
-        for (Quest quest : book().quests().values()) {
+        for (Quest quest : scope.quests()) {
             if (!stageAllows(player, quest)) {
                 locks.add(quest.id());
             }
@@ -216,7 +236,7 @@ public final class ProgressService {
             }
         }
         Set<String> open = new HashSet<>();
-        for (String stage : sectionStages()) {
+        for (String stage : scope.sections()) {
             if (Stages.has(player, stage)) {
                 open.add(stage);
             }
@@ -646,14 +666,28 @@ public final class ProgressService {
                 && task.structure().map(structure -> isInside(player, structure)).orElse(true);
     }
 
+    /**
+     * Biomes and structures already looked up in this poll, by {@code b:} or {@code s:} and the id (logic review 19.11): many open
+     * quests may ask for the same village at the same spot. Cleared at the start of each poll.
+     */
+    private static final Map<String, Boolean> PLACES = new HashMap<>();
+
     private static boolean isInBiome(ServerPlayer player, ItemRef biome) {
+        return PLACES.computeIfAbsent("b:" + biome, key -> lookBiome(player, biome));
+    }
+
+    private static boolean isInside(ServerPlayer player, ItemRef structure) {
+        return PLACES.computeIfAbsent("s:" + structure, key -> lookStructure(player, structure));
+    }
+
+    private static boolean lookBiome(ServerPlayer player, ItemRef biome) {
         var holder = player.level().getBiome(player.blockPosition());
         return biome.tag()
                 ? holder.is(TagKey.create(Registries.BIOME, biome.id()))
                 : holder.is(ResourceKey.create(Registries.BIOME, biome.id()));
     }
 
-    private static boolean isInside(ServerPlayer player, ItemRef structure) {
+    private static boolean lookStructure(ServerPlayer player, ItemRef structure) {
         ServerLevel level = player.serverLevel();
         if (structure.tag()) {
             return level.structureManager().getStructureWithPieceAt(player.blockPosition(), TagKey.create(Registries.STRUCTURE, structure.id())).isValid();
@@ -1247,6 +1281,7 @@ public final class ProgressService {
     // --- sync and admin ---
 
     public static void sendAll(ServerPlayer player) {
+        MemberStats.joined(player);
         ProgressStore store = ProgressStore.get(player.server);
         Map<ResourceLocation, QuestProgress> view = new HashMap<>();
         store.team(team(player)).forEach((id, progress) -> view.put(id, viewFor(player, id, progress)));
