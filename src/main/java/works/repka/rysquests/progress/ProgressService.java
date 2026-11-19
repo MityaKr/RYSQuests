@@ -191,9 +191,13 @@ public final class ProgressService {
         for (Quest quest : active) {
             poll(player, quest, inventoryChanged, statsDue, sharers, seen, false).ifPresent(updated -> changes.put(quest.id(), updated));
         }
-        // Locked quests that count early gather their task values and wait to open for the completion (ADR-66).
-        for (Quest quest : earlyFor(player)) {
-            poll(player, quest, inventoryChanged, statsDue, sharers, seen, true).ifPresent(updated -> changes.put(quest.id(), updated));
+        // Locked quests that count early gather their task values and wait to open for the completion (ADR-66). With the whole book
+        // counting early that is most of the book, so they are polled only when there is something to read (logic review 19.11):
+        // items and fluids when the inventory changed, the rest with the statistics, every 5 seconds. Kills and crafts come as events.
+        if (inventoryChanged || statsDue) {
+            for (Quest quest : earlyFor(player)) {
+                poll(player, quest, inventoryChanged, statsDue, sharers, seen, true).ifPresent(updated -> changes.put(quest.id(), updated));
+            }
         }
         apply(player, changes);
     }
@@ -294,7 +298,7 @@ public final class ProgressService {
             } else if (QuestLogic.isUnlocked(quest, progress)) {
                 // Stages are each player's own: the shared list leaves them out, openFor applies the asking player's.
                 open.add(quest);
-            } else if (QuestLogic.countsEarly(activeBook, quest, progress)) {
+            } else if (QuestLogic.countsEarly(activeBook, quest, progress) && countableEarly(quest, progress.apply(quest.id()))) {
                 // A dependency that completes changes what is open, and so rebuilds both lists: the quest moves to the open ones and
                 // the poll completes it at once when its tasks were done early (QuestLogic.afterPoll).
                 early.add(quest);
@@ -307,6 +311,22 @@ public final class ProgressService {
         return built;
     }
 
+    /**
+     * Whether a locked quest has a task left that can count before it opens (ADR-66): hand ins, checkboxes and collections wait, and a
+     * quest whose other tasks are all done has nothing to poll until it opens.
+     */
+    private static boolean countableEarly(Quest quest, QuestProgress own) {
+        for (int i = 0; i < quest.tasks().size(); i++) {
+            TaskDef task = quest.tasks().get(i);
+            boolean waits = task instanceof ItemTask item && item.mode() == ItemTask.Mode.CONSUME || task instanceof FluidTask fluid && fluid.mode() == ItemTask.Mode.CONSUME
+                    || task instanceof XpTask xp && xp.consume() || task instanceof works.repka.rysquests.task.CheckboxTask || task instanceof CollectionTask;
+            if (!waits && own.task(i) < task.target()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** @param early the quest is locked and counts early (ADR-66): its values grow, its completion waits for it to open */
     private static Optional<QuestProgress> poll(ServerPlayer player, Quest quest, boolean inventoryChanged, boolean statsDue, Supplier<List<UUID>> sharers,
             Function<ResourceLocation, QuestProgress> seen, boolean early) {
@@ -316,6 +336,10 @@ public final class ProgressService {
         for (int i = 0; i < quest.tasks().size(); i++) {
             TaskDef task = quest.tasks().get(i);
             int current = values.get(i);
+            // A locked quest reads what is not in the inventory only every 5 seconds (see tick).
+            if (early && !statsDue && !(task instanceof ItemTask) && !(task instanceof FluidTask)) {
+                continue;
+            }
             if (current < task.target()) {
                 int next = task instanceof CollectionTask
                         ? collectionLevel(quest, current, task.target(), seen)
