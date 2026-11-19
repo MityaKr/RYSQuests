@@ -91,6 +91,11 @@ import works.repka.rysquests.task.VisitTask;
 /** Server-side quest rules. Runs on the main thread only. */
 public final class ProgressService {
     private static final int POLL_INTERVAL = 20;
+    /**
+     * Statistics are asked every fifth poll, every 5 seconds (logic review 19.11): time played and steps change every second, and
+     * each change went to every member of the team.
+     */
+    private static final int STAT_POLLS = 5;
     private static final int STAGE_INTERVAL = 100;
     private static final long MINUTE_MS = 60_000;
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ProgressService.class);
@@ -167,9 +172,12 @@ public final class ProgressService {
         if (phase % STAGE_INTERVAL == 0) {
             refreshStageLocks(player);
         }
-        if (phase % POLL_INTERVAL != 0) {
+        // The members of a team poll in the same tick, so that their changes leave as one packet per member (flush).
+        int teamPhase = (team(player).hashCode() & Integer.MAX_VALUE) + player.server.getTickCount();
+        if (teamPhase % POLL_INTERVAL != 0) {
             return;
         }
+        boolean statsDue = (teamPhase / POLL_INTERVAL) % STAT_POLLS == 0;
         List<Quest> active = openFor(player);
         int hash = inventoryHash(player.getInventory());
         boolean inventoryChanged = !Objects.equals(INVENTORY_HASH.put(player.getUUID(), hash), hash);
@@ -181,11 +189,11 @@ public final class ProgressService {
         // A collection's level reads the marks this same poll may have just raised (ADR-62).
         Function<ResourceLocation, QuestProgress> seen = id -> changes.containsKey(id) ? changes.get(id) : store.get(team, id);
         for (Quest quest : active) {
-            poll(player, quest, inventoryChanged, sharers, seen, false).ifPresent(updated -> changes.put(quest.id(), updated));
+            poll(player, quest, inventoryChanged, statsDue, sharers, seen, false).ifPresent(updated -> changes.put(quest.id(), updated));
         }
         // Locked quests that count early gather their task values and wait to open for the completion (ADR-66).
         for (Quest quest : earlyFor(player)) {
-            poll(player, quest, inventoryChanged, sharers, seen, true).ifPresent(updated -> changes.put(quest.id(), updated));
+            poll(player, quest, inventoryChanged, statsDue, sharers, seen, true).ifPresent(updated -> changes.put(quest.id(), updated));
         }
         apply(player, changes);
     }
@@ -300,7 +308,7 @@ public final class ProgressService {
     }
 
     /** @param early the quest is locked and counts early (ADR-66): its values grow, its completion waits for it to open */
-    private static Optional<QuestProgress> poll(ServerPlayer player, Quest quest, boolean inventoryChanged, Supplier<List<UUID>> sharers,
+    private static Optional<QuestProgress> poll(ServerPlayer player, Quest quest, boolean inventoryChanged, boolean statsDue, Supplier<List<UUID>> sharers,
             Function<ResourceLocation, QuestProgress> seen, boolean early) {
         QuestProgress before = seen.apply(quest.id());
         List<Integer> values = before.taskValues(quest.tasks().size());
@@ -311,7 +319,7 @@ public final class ProgressService {
             if (current < task.target()) {
                 int next = task instanceof CollectionTask
                         ? collectionLevel(quest, current, task.target(), seen)
-                        : Math.min(task.target(), pollTask(player, task, current, inventoryChanged, sharers));
+                        : Math.min(task.target(), pollTask(player, task, current, inventoryChanged, statsDue, sharers));
                 // A streak starts again from zero, and its counter with it (ADR-61); every other value only grows.
                 if (next > current || next < current && task instanceof StatTask stat && StatCount.isStreak(stat)) {
                     values.set(i, next);
@@ -329,12 +337,12 @@ public final class ProgressService {
         return marks == null ? current : CollectionMarks.levelValue(current, CollectionMarks.count(marks, seen.apply(marksId)), target);
     }
 
-    private static int pollTask(ServerPlayer player, TaskDef task, int current, boolean inventoryChanged, Supplier<List<UUID>> sharers) {
+    private static int pollTask(ServerPlayer player, TaskDef task, int current, boolean inventoryChanged, boolean statsDue, Supplier<List<UUID>> sharers) {
         return switch (task) {
             case ItemTask item when item.mode() != ItemTask.Mode.CONSUME && item.mode() != ItemTask.Mode.CRAFT && inventoryChanged -> Math.max(current, countIn(player.getInventory(), item));
             case FluidTask fluid when fluid.mode() != ItemTask.Mode.CONSUME && fluid.mode() != ItemTask.Mode.CRAFT && inventoryChanged -> Math.max(current, fluidIn(player.getInventory(), fluid));
             case XpTask xp when !xp.consume() -> Math.max(current, xp.have(player));
-            case StatTask stat -> statCount(player, stat, current, sharers.get());
+            case StatTask stat when statsDue -> statCount(player, stat, current, sharers.get());
             case AdvancementTask advancement -> isEarned(player, advancement) ? 1 : current;
             case VisitTask visit -> isVisiting(player, visit) ? 1 : current;
             case works.repka.rysquests.task.ClaimTask claims -> Math.max(current, ClaimsApi.get().claimed(TeamsApi.get().teamOf(player.getUUID())));
@@ -382,21 +390,60 @@ public final class ProgressService {
         if (tierReached) {
             AchievementService.invalidateRarity();
         }
-        for (ServerPlayer member : player.server.getPlayerList().getPlayers()) {
-            if (team(member).equals(team)) {
-                Map<ResourceLocation, QuestProgress> view = new HashMap<>();
-                changes.forEach((id, progress) -> view.put(id, viewFor(member, id, progress)));
-                Map<ResourceLocation, ProgressPayload.Done> done = new HashMap<>();
-                for (ResourceLocation id : newlyCompleted) {
-                    done.put(id, new ProgressPayload.Done(byPlayer ? Optional.of(player.getUUID()) : Optional.empty(),
-                            player.getGameProfile().getName(), rewardState(id, view.get(id))));
-                }
-                // The chapter of the last completion belongs to whoever did it: teammates keep their own.
-                PacketDistributor.sendToPlayer(member, new ProgressPayload(false, view, member == player ? lastChapter : Optional.empty(), done));
-                if (tierReached) {
-                    claimAchievements(member);
-                    AchievementService.send(member);
-                }
+        // What the members are told leaves at the end of the tick, one packet each, however many members changed something (flush).
+        Outbox outbox = OUTBOX.computeIfAbsent(team, key -> new Outbox());
+        outbox.quests.addAll(changes.keySet());
+        for (ResourceLocation id : newlyCompleted) {
+            outbox.done.put(id, new Actor(byPlayer ? Optional.of(player.getUUID()) : Optional.empty(), player.getGameProfile().getName()));
+        }
+        lastChapter.ifPresent(chapter -> outbox.lastChapters.put(player.getUUID(), chapter));
+        outbox.tierReached |= tierReached;
+    }
+
+    /** Who completed a quest, for the message about it. */
+    private record Actor(Optional<UUID> by, String name) {
+    }
+
+    /** What a team's members are to be told at the end of this tick: the quests that changed, who completed which, whose last chapter moved. */
+    private static final class Outbox {
+        final Set<ResourceLocation> quests = new java.util.LinkedHashSet<>();
+        final Map<ResourceLocation, Actor> done = new HashMap<>();
+        final Map<UUID, ResourceLocation> lastChapters = new HashMap<>();
+        boolean tierReached;
+    }
+
+    private static final Map<UUID, Outbox> OUTBOX = new HashMap<>();
+
+    /**
+     * Sends what changed this tick, one packet per member of each team that changed (logic review 19.11): before, every change went to
+     * every member at once, and with the team polling together a team of N got N² packets a second. The records are read now, so a
+     * quest changed twice in a tick is sent once, as it stands. Called at the end of each server tick.
+     */
+    public static void flush(MinecraftServer server) {
+        if (OUTBOX.isEmpty()) {
+            return;
+        }
+        Map<UUID, Outbox> due = new HashMap<>(OUTBOX);
+        OUTBOX.clear();
+        ProgressStore store = ProgressStore.get(server);
+        for (ServerPlayer member : server.getPlayerList().getPlayers()) {
+            UUID team = team(member);
+            Outbox outbox = due.get(team);
+            if (outbox == null) {
+                continue;
+            }
+            Map<ResourceLocation, QuestProgress> view = new HashMap<>();
+            for (ResourceLocation id : outbox.quests) {
+                view.put(id, viewFor(member, id, store.get(team, id)));
+            }
+            Map<ResourceLocation, ProgressPayload.Done> done = new HashMap<>();
+            outbox.done.forEach((id, actor) -> done.put(id, new ProgressPayload.Done(actor.by(), actor.name(), rewardState(id, view.get(id)))));
+            // The chapter of the last completion belongs to whoever did it: teammates keep their own.
+            Optional<ResourceLocation> lastChapter = Optional.ofNullable(outbox.lastChapters.get(member.getUUID()));
+            PacketDistributor.sendToPlayer(member, new ProgressPayload(false, view, lastChapter, done));
+            if (outbox.tierReached) {
+                claimAchievements(member);
+                AchievementService.send(member);
             }
         }
     }
@@ -1295,6 +1342,7 @@ public final class ProgressService {
 
     /** The server stopped: the statistics kept of offline players belong to its world. */
     public static void onServerStopped() {
+        OUTBOX.clear();
         MemberStats.clear();
     }
 

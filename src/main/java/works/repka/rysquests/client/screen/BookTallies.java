@@ -83,10 +83,10 @@ final class BookTallies {
     }
 
     static Tally chapter(ResourceLocation chapter) {
-        if (chaptersVersion != ClientProgress.version() || chaptersBook != BookData.book() || chaptersAll != countAll()) {
+        if (chaptersVersion != ClientProgress.statusVersion() || chaptersBook != BookData.book() || chaptersAll != countAll()) {
             CHAPTERS.clear();
             chaptersAll = countAll();
-            chaptersVersion = ClientProgress.version();
+            chaptersVersion = ClientProgress.statusVersion();
             chaptersBook = BookData.book();
         }
         return CHAPTERS.computeIfAbsent(chapter, BookTallies::count);

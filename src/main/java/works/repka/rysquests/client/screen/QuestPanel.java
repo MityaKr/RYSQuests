@@ -170,10 +170,10 @@ final class QuestPanel {
 
     /** The way to a quest, worked out once per book and progress: what "вести к цели" lights. */
     static QuestPath pathTo(Quest goal) {
-        if (pathBook != BookData.book() || pathVersion != ClientProgress.version()) {
+        if (pathBook != BookData.book() || pathVersion != ClientProgress.statusVersion()) {
             PATHS.clear();
             pathBook = BookData.book();
-            pathVersion = ClientProgress.version();
+            pathVersion = ClientProgress.statusVersion();
         }
         return PATHS.computeIfAbsent(goal.id(), id -> QuestPath.of(goal, BookData.book().quests(), ClientProgress::get));
     }

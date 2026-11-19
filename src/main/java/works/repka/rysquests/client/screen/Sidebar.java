@@ -121,10 +121,10 @@ final class Sidebar {
 
     static Model model() {
         QuestBook book = BookData.book();
-        if (cached == null || cachedBook != book || cachedVersion != ClientProgress.version()) {
+        if (cached == null || cachedBook != book || cachedVersion != ClientProgress.statusVersion()) {
             cached = build(book);
             cachedBook = book;
-            cachedVersion = ClientProgress.version();
+            cachedVersion = ClientProgress.statusVersion();
         }
         return cached;
     }

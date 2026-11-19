@@ -81,9 +81,9 @@ final class NowView implements BookView {
 
     /** The next step by the plan's one rule, worked out once per book and progress. */
     static Optional<NextStep.Result> nextStep() {
-        if (stepBook != BookData.book() || stepVersion != ClientProgress.version()) {
+        if (stepBook != BookData.book() || stepVersion != ClientProgress.statusVersion()) {
             stepBook = BookData.book();
-            stepVersion = ClientProgress.version();
+            stepVersion = ClientProgress.statusVersion();
             List<ResourceLocation> order = new ArrayList<>();
             for (Chapter chapter : BookData.chapters()) {
                 if (!Sidebar.isOffMap(chapter)) {

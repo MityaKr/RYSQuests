@@ -107,7 +107,7 @@ public final class QuestGoals implements MapApi.Layer, Labels.Source {
 
     @Override
     public long revision() {
-        return (long) ClientBook.version() << 32 | ClientProgress.version() & 0xFFFFFFFFL;
+        return (long) ClientBook.version() << 32 | ClientProgress.statusVersion() & 0xFFFFFFFFL;
     }
 
     @Override

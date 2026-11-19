@@ -981,7 +981,7 @@ final class MapView implements BookView {
      * completed a quest; else the first unfinished main quest of the first unfinished chapter.
      */
     private void refreshHere(QuestBook book) {
-        int version = ClientProgress.version();
+        int version = ClientProgress.statusVersion();
         if (version == hereVersion && hereBook == book) {
             return;
         }

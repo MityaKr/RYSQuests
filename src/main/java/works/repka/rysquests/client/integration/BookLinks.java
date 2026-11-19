@@ -127,7 +127,7 @@ public final class BookLinks implements ItemLinks.Provider {
     public int version() {
         prepare();
         int hash = ClientBook.version();
-        hash = hash * 31 + ClientProgress.version();
+        hash = hash * 31 + ClientProgress.statusVersion();
         hash = hash * 31 + ClientShop.version();
         return hash * 31 + ready;
     }

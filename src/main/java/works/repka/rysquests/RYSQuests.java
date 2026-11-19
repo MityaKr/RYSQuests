@@ -57,6 +57,8 @@ public final class RYSQuests {
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppedEvent event) -> ProgressService.onServerStopped());
         NeoForge.EVENT_BUS.addListener(RYSQuests::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(works.repka.rysquests.shop.ShopService::onServerTick);
+        // What changed in a tick goes to each member of a team as one packet, at the end of the tick.
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) -> ProgressService.flush(event.getServer()));
         NeoForge.EVENT_BUS.addListener(AchievementService::onNameFormat);
         NeoForge.EVENT_BUS.addListener(AchievementService::onTabListName);
         NeoForge.EVENT_BUS.addListener(RYSQuests::onLivingDeath);

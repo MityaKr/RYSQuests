@@ -30,11 +30,22 @@ public final class ClientProgress {
     private static int teamSize = 1;
     private static String teamName = "";
     private static Optional<ResourceLocation> lastChapter = Optional.empty();
-    /** Grows with every packet that changes what the book shows: caches of counts and statuses compare it. */
+    /** Grows with every packet that changes what the book shows: caches of words and task lines compare it. */
     private static int version;
+    /**
+     * Grows only when a quest's standing changes: done, rewards taken, a round, a task reaching its target or the first step of a
+     * quest, a full packet, stages, pins. A task that only counts on (steps, time played) leaves it, so the caches that walk the
+     * whole book (the map's layer of goals, the sidebar, the canvas, the counts, the recipe viewer's links) are not rebuilt every
+     * second (logic review 19.11).
+     */
+    private static int statusVersion;
 
     public static int version() {
         return version;
+    }
+
+    public static int statusVersion() {
+        return statusVersion;
     }
 
     private ClientProgress() {
@@ -69,10 +80,20 @@ public final class ClientProgress {
     static void receive(ProgressPayload payload) {
         version++;
         if (payload.full()) {
+            statusVersion++;
             QUESTS.clear();
             QUESTS.putAll(payload.quests());
             lastChapter = payload.lastChapter();
             return;
+        }
+        boolean standing = payload.lastChapter().isPresent();
+        for (Map.Entry<ResourceLocation, QuestProgress> entry : payload.quests().entrySet()) {
+            if (!standing && standingChanged(ClientBook.current().quests().get(entry.getKey()), get(entry.getKey()), entry.getValue())) {
+                standing = true;
+            }
+        }
+        if (standing) {
+            statusVersion++;
         }
         payload.lastChapter().ifPresent(chapter -> lastChapter = Optional.of(chapter));
         List<Quest> finished = new java.util.ArrayList<>();
@@ -92,6 +113,31 @@ public final class ClientProgress {
         StickerBoard.celebrate(finished, payload.done());
     }
 
+    /**
+     * Whether a quest's new record changes how it stands, not only how far a task has counted: done, rewards taken, a round or its
+     * cooldown, a task reaching its target, or the quest's first step (available to started). A quest the book does not know counts
+     * as changed.
+     */
+    public static boolean standingChanged(@org.jetbrains.annotations.Nullable Quest quest, QuestProgress before, QuestProgress after) {
+        if (quest == null || before.completed() != after.completed() || !before.claimed().equals(after.claimed())
+                || before.nextAt() != after.nextAt() || before.times() != after.times()) {
+            return true;
+        }
+        boolean startedBefore = false;
+        boolean startedAfter = false;
+        for (int i = 0; i < quest.tasks().size(); i++) {
+            int target = quest.tasks().get(i).target();
+            int was = before.task(i);
+            int now = after.task(i);
+            if (was >= target != now >= target) {
+                return true;
+            }
+            startedBefore |= was > 0;
+            startedAfter |= now > 0;
+        }
+        return startedBefore != startedAfter;
+    }
+
     /** How many players share this player's progress. */
     public static int teamSize() {
         return teamSize;
@@ -109,12 +155,14 @@ public final class ClientProgress {
 
     static void receivePinned(PinnedPayload payload) {
         version++;
+        statusVersion++;
         pinned = payload.quests();
         pinnedWays = payload.ways();
     }
 
     static void receiveStageLocks(StageLocksPayload payload) {
         version++;
+        statusVersion++;
         stageLocked = Set.copyOf(payload.quests());
         guideLocked = Set.copyOf(payload.guides());
         openStages = Set.copyOf(payload.openStages());
@@ -135,6 +183,7 @@ public final class ClientProgress {
 
     static void receiveGuidePages(GuidePagesPayload payload) {
         version++;
+        statusVersion++;
         if (payload.full()) {
             GUIDE_PAGES.clear();
         }
@@ -157,22 +206,26 @@ public final class ClientProgress {
 
     public static void progressForTest(ResourceLocation quest, QuestProgress progress) {
         version++;
+        statusVersion++;
         QUESTS.put(quest, progress);
     }
 
     public static void pinnedForTest(List<ResourceLocation> quests) {
         version++;
+        statusVersion++;
         pinned = List.copyOf(quests);
     }
 
     public static void guidePagesForTest(java.util.Collection<String> readKeys, Set<ResourceLocation> locked) {
         version++;
+        statusVersion++;
         GUIDE_PAGES.addAll(readKeys);
         guideLocked = Set.copyOf(locked);
     }
 
     static void clear() {
         version++;
+        statusVersion++;
         QUESTS.clear();
         pinned = List.of();
         lastChapter = Optional.empty();
