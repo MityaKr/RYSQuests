@@ -93,6 +93,9 @@ final class SettingsView implements BookView {
         pen = segmentsRow(ui, left, pen, column, t("rysquests.settings.side"), t("rysquests.settings.side_sub"),
                 List.of(Segments.item(t("rysquests.settings.side_left")), Segments.item(t("rysquests.settings.side_right"))),
                 ClientConfig.HUD_RIGHT.get() ? 1 : 0, index -> set(ClientConfig.HUD_RIGHT, index == 1));
+        pen = segmentsRow(ui, left, pen, column, t("rysquests.settings.height"), t("rysquests.settings.height_sub"),
+                List.of(Segments.item(t("rysquests.settings.height_top")), Segments.item(t("rysquests.settings.height_lower"))),
+                ClientConfig.HUD_BELOW_LINES.get() ? 1 : 0, index -> set(ClientConfig.HUD_BELOW_LINES, index == 1));
         pen = toggleRow(ui, left, pen, column, t("rysquests.settings.toast"), null, ClientConfig.COMPLETION_TOAST::get, on -> set(ClientConfig.COMPLETION_TOAST, on));
         pen = toggleRow(ui, left, pen, column, t("rysquests.settings.team_toasts"), null, ClientConfig.TEAM_QUEST_TOASTS::get, on -> set(ClientConfig.TEAM_QUEST_TOASTS, on));
         // The sound of notices is one setting for the whole family, kept by RYSCore.

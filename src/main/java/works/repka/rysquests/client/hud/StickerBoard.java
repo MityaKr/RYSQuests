@@ -40,6 +40,11 @@ public final class StickerBoard {
     private static final int LOW_WINDOW = 540;
     private static final int CARDS = 3;
     private static final int CARDS_LOW = 2;
+    /** How far below the top the stack starts by default, a share of the screen's height: under the lines of other mods (logic review 19.11). */
+    private static final float BELOW_LINES = 0.2f;
+    @org.jetbrains.annotations.Nullable
+    private static List<Sticker> cached;
+    private static Object cachedKey;
 
     private StickerBoard() {
     }
@@ -71,8 +76,20 @@ public final class StickerBoard {
         return book > 0 ? Math.min(most, book) : most;
     }
 
-    /** The cards of the stack, in their order, at most {@link #capacity}. */
+    /**
+     * The cards of the stack, in their order, at most {@link #capacity}: made again only when the progress, the pins, the book, the
+     * window's height or the setting changed, not every frame (logic review 19.11).
+     */
     static List<Sticker> cards() {
+        Object key = List.of(ClientProgress.version(), System.identityHashCode(ClientBook.current()), capacity(), ClientConfig.HUD_PINNED.get());
+        if (cached == null || !key.equals(cachedKey)) {
+            cached = build();
+            cachedKey = key;
+        }
+        return cached;
+    }
+
+    private static List<Sticker> build() {
         List<Sticker> stickers = new ArrayList<>();
         if (ClientConfig.HUD_PINNED.get()) {
             for (ResourceLocation id : ClientProgress.pinned()) {
@@ -126,10 +143,15 @@ public final class StickerBoard {
         for (Sticker sticker : stack) {
             height += sticker.height(ui, WIDTH, collapsed) + GAP;
         }
-        int[] place = Anchors.place(Anchors.Element.PINNED_QUESTS, Math.round(widest * k / 2f), Math.round(height * k / 2f), MARGIN / 2, MARGIN / 2);
+        // Below the lines other mods write in the top left (Create, AE2 and others), as long as the stack still fits the screen. The
+        // shift is part of the stack's height for Anchors, so whatever stands under it in the corner moves down with it.
+        float screenH = g.guiHeight() * 2 / k;
+        boolean top = Anchors.corner(Anchors.Element.PINNED_QUESTS).name().startsWith("TOP");
+        int shift = top && ClientConfig.HUD_BELOW_LINES.get() ? Math.max(0, Math.min(Math.round(screenH * BELOW_LINES), Math.round(screenH - height - MARGIN * 2))) : 0;
+        int[] place = Anchors.place(Anchors.Element.PINNED_QUESTS, Math.round(widest * k / 2f), Math.round((height + shift) * k / 2f), MARGIN / 2, MARGIN / 2);
         float screenW = g.guiWidth() * 2 / k;
         int x = ClientConfig.HUD_RIGHT.get() ? Math.round(screenW - widest - MARGIN) : Math.round(place[0] * 2 / k);
-        int y = Math.round(place[1] * 2 / k);
+        int y = Math.round(place[1] * 2 / k) + shift;
         for (Sticker sticker : stack) {
             sticker.render(ui, x, y, WIDTH, collapsed);
             y += sticker.height(ui, WIDTH, collapsed) + GAP;

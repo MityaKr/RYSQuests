@@ -23,6 +23,10 @@ public final class ClientConfig {
             .comment("Pinned quests on the right side of the screen instead of the left.")
             .define("hudRight", false);
 
+    public static final ModConfigSpec.BooleanValue HUD_BELOW_LINES = BUILDER
+            .comment("Pinned quests stand a fifth of the screen lower, below the lines other mods write in the top left corner.")
+            .define("hudBelowLines", true);
+
     public static final ModConfigSpec.BooleanValue HUD_COLLAPSED = BUILDER
             .comment("Pinned quests folded to their titles, without the lines of their tasks.")
             .define("hudCollapsed", false);
