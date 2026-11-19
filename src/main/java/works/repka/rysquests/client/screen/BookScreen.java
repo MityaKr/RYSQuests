@@ -506,7 +506,7 @@ public final class BookScreen extends ScaledScreen implements BookHeader.Host {
     }
 
     /**
-     * Opens the book on a shop offer, from outside the book: "Открыть в магазине" on a card of the recipe viewer (RYScope, the
+     * Opens the book on a shop offer, from outside the book: "Открыть в магазине" on a card of the recipe viewer (RYSIndex, the
      * family's item links). The shop's filters are reset so that the offer is the one in the detail.
      */
     public static void openOffer(ResourceLocation id) {

@@ -40,7 +40,7 @@ final class RecipePreview {
     }
 
     static String viewerName() {
-        return ModList.get().isLoaded("ryscope") ? "RYScope" : "JEI";
+        return ModList.get().isLoaded("rysindex") ? "RYSIndex" : "JEI";
     }
 
     @Nullable

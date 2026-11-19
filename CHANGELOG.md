@@ -125,3 +125,7 @@
   - Закреплённые квесты по умолчанию снова у верхнего края (настройка книги «Высота: У края»). «Ниже» осталось на выбор. У кого настройка уже сохранена, у того она не меняется.
   EN (draft):
   - Pinned quests stand at the top edge again by default (book settings, "Height: At the edge"); "Lower" stays as a choice. A setting already saved is kept.
+- 0.2.14 (черновик):
+  - Просмотрщик рецептов RYScope переименован в RYSIndex: книга узнаёт его под новым именем, подпись у рецепта в квесте «RYSIndex».
+  EN (draft):
+  - The recipe viewer RYScope is now called RYSIndex: the book finds it under the new name, and a quest's recipe is signed "RYSIndex".

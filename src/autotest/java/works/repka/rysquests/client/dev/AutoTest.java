@@ -2690,7 +2690,7 @@ public final class AutoTest {
         return null;
     }
 
-    /** The panel in a pack with FTB Library ({@code run-ftb}): its own panel (02), or replaced by the panel of RYScope (02b). */
+    /** The panel in a pack with FTB Library ({@code run-ftb}): its own panel (02), or replaced by the panel of RYSIndex (02b). */
     private static void buildDockScenario() {
         String tag = System.getProperty("rysquests.autotest.tag", "");
         openWorld();

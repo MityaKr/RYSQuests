@@ -635,7 +635,7 @@ public final class Ui {
 
     /**
      * An item on something clicked for another reason (a shop card selects its offer, a reward card is picked): the game's
-     * tooltip, the usages on the right button and the recipe keys of RYScope, but the left click stays the card's.
+     * tooltip, the usages on the right button and the recipe keys of RYSIndex, but the left click stays the card's.
      */
     void hoverItem(ItemStack stack, float x, float y, float w, float h) {
         if (!stack.isEmpty() && over(x, y, w, h)) {

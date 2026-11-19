@@ -5,7 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
-/** The recipe viewer, if any. With RYScope in the game JEI is always there, and its recipe window is RYScope's own. */
+/** The recipe viewer, if any. With RYSIndex in the game JEI is always there, and its recipe window is RYSIndex's own. */
 public final class Recipes {
     /** What the book needs from a recipe viewer. */
     public interface Bridge {

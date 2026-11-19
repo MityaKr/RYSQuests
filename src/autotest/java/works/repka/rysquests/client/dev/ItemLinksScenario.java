@@ -38,7 +38,7 @@ import works.repka.ryscore.links.ItemLinks;
 
 /**
  * The book in the recipe viewer's card of an item (RYSCore 1.10 links, plan _audit/ryscope-quests, step 2), on the copy of RepYS with
- * RYScope 0.2.6 or later: the Gate Fragment ("Осколок Врат") has the shop's category with its closed trophy delivery, the lock in the
+ * RYSIndex 0.2.6 or later: the Gate Fragment ("Осколок Врат") has the shop's category with its closed trophy delivery, the lock in the
  * book's words and the quest that opens it; the chip counts the quests that ask for it; a quest reward is a source of its item; the
  * chip's row and the card's button open the book on the quest and on the offer; once the quest is done the card opens and shows what
  * the team has delivered. {@code gradlew runRepysAutotest -Pautotest=links --offline}.
@@ -150,12 +150,12 @@ final class ItemLinksScenario {
             return !cards.isEmpty() && cards.getFirst().open() != null;
         });
 
-        boolean viewer = ModList.get().isLoaded("ryscope");
-        step("the recipe viewer on the fragment (RYScope " + version("ryscope") + ")", () -> {
+        boolean viewer = ModList.get().isLoaded("rysindex");
+        step("the recipe viewer on the fragment (RYSIndex " + version("rysindex") + ")", () -> {
             if (viewer && Recipes.available()) {
                 Recipes.showRecipes(stack(FRAGMENT));
             } else {
-                LOGGER.info("[autotest] links: no RYScope in this copy, the viewer's pictures are left out");
+                LOGGER.info("[autotest] links: no RYSIndex in this copy, the viewer's pictures are left out");
             }
             moveMouse(5, 5);
         }, 60);

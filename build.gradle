@@ -69,7 +69,7 @@ neoForge {
         autotest {
             client()
             // JEI and Create are in run-int/mods, copied from a pack, so that nothing else has to load them.
-            // 'dock' looks at the panel of buttons beside FTB Library (and RYScope) from run-ftb/mods, picture 02 and 02b.
+            // 'dock' looks at the panel of buttons beside FTB Library (and RYSIndex) from run-ftb/mods, picture 02 and 02b.
             // 'goals' runs in run-map, whose mods hold a RYSMap jar (RYSMap step T3), so that the map really shows the book's goals.
             gameDirectory = project.file(project.findProperty('autotest') == 'integrations' ? 'run-int' : project.findProperty('autotest') == 'dock' ? 'run-ftb' : project.findProperty('autotest') == 'goals' ? 'run-map' : 'run')
             // 'layout' reads a copy of the RepYS book from run-layout/pack, made by tools/layout_pack.py.

@@ -7,7 +7,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Parses quest text: {@code [[kind:target|label]]} links as in RYScope, {@code **bold**}, {@code __italic__},
+ * Parses quest text: {@code [[kind:target|label]]} links as in RYSIndex, {@code **bold**}, {@code __italic__},
  * {@code !!warning!!} blocks and {@code >>spoiler<<}. Works on plain strings, so it can be tested without a client.
  *
  * <p>A web address is a link of kind {@code url} written three ways: {@code [[url:https://discord.gg/x|discord.gg/x]]},

@@ -42,7 +42,7 @@ public final class JeiQuestPlugin implements IModPlugin {
         return ResourceLocation.fromNamespaceAndPath(RYSQuests.MODID, "book");
     }
 
-    /** Tells JEI what is under the cursor in the book, so that its keys and RYScope's lens work there. */
+    /** Tells JEI what is under the cursor in the book, so that its keys and RYSIndex's lens work there. */
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
         IIngredientManager ingredients = registration.getJeiHelpers().getIngredientManager();

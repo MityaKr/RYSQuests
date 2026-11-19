@@ -24,7 +24,7 @@ import works.repka.rysquests.task.ItemTask;
 /**
  * Items in the book act like items of the recipe viewer (the author's note on 0.2.1): the game's tooltip on hover, the recipe on a
  * click, the usages on the right button; a shop card keeps its click for selecting the offer and gives the tooltip and usages.
- * {@code gradlew repysAutotest -Pautotest=items}, on the copy of RepYS with JEI and RYScope.
+ * {@code gradlew repysAutotest -Pautotest=items}, on the copy of RepYS with JEI and RYSIndex.
  */
 final class ItemsScenario {
     private static final Logger LOGGER = LoggerFactory.getLogger(ItemsScenario.class);
@@ -57,7 +57,7 @@ final class ItemsScenario {
         screenshot("items_task_tooltip");
         expect("the item is hovered", () -> !BookScreen.hoveredStack().isEmpty());
         step("click it", () -> clickMouse(0), 20);
-        expect("RYScope shows its recipes", () -> mc().screen != null && mc().screen.getClass().getName().contains("ryscope"));
+        expect("RYSIndex shows its recipes", () -> mc().screen != null && mc().screen.getClass().getName().contains("rysindex"));
         screenshot("items_task_recipes");
         step("back to the book, the shop", () -> {
             mc().setScreen(new BookScreen());
@@ -67,7 +67,7 @@ final class ItemsScenario {
         screenshot("items_shop_tooltip");
         expect("the card's item is hovered", () -> !BookScreen.hoveredStack().isEmpty());
         step("right click it", () -> clickMouse(1), 20);
-        expect("RYScope shows its usages", () -> mc().screen != null && mc().screen.getClass().getName().contains("ryscope"));
+        expect("RYSIndex shows its usages", () -> mc().screen != null && mc().screen.getClass().getName().contains("rysindex"));
         screenshot("items_shop_usages");
         step("close", () -> mc().setScreen(null), 5);
     }

@@ -55,7 +55,7 @@ import works.repka.ryscore.ui.Numbers;
 /**
  * The quest panel (plan, section 3, "Quest"; pictures 17, 20, 21, 21b, 22): one panel for the map, the list and "Now". Head, the
  * state in words, the text, "Что сделать" with a row per task, the rewards in groups ("каждому", "один раз на команду"), the choice
- * shown whole, "Откроет", and at the bottom one main button that says what it does: "Как сделать: X" (with RYScope only), "Сдать",
+ * shown whole, "Откроет", and at the bottom one main button that says what it does: "Как сделать: X" (with RYSIndex only), "Сдать",
  * "Отметить", "Забрать: ...", "Начать с: ..." for a closed quest; a state in words where nothing is to be pressed.
  *
  * <p>A closed quest shows its way in steps: three nearest steps, "ещё N шагов" and the goal ({@link QuestPath}). The map lights the

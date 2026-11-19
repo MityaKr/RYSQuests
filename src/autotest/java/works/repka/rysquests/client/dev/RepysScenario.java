@@ -54,7 +54,7 @@ import works.repka.rysquests.task.ItemTask;
  * The new book on a copy of the real pack (run-repys: the mods of RepYS, its kubejs with the book from _audit/book2/repys-data).
  *
  * <p>{@code repys}: every tab as a player in the middle of epoch II, the map on all its levels with the pack's own icons, the quest
- * panel and its "Как сделать" into RYScope, the shop, the achievements, the guides, the search, the HUD, the themes and the compact
+ * panel and its "Как сделать" into RYSIndex, the shop, the achievements, the guides, the search, the HUD, the themes and the compact
  * layout, then the editor as an operator; times the opening of the book and the frame of the whole map.
  *
  * <p>{@code upgrade_new}: the second half of the update check. The world {@code upgrade_old} filled on RYSQuests 0.1.0 with the old
@@ -240,7 +240,7 @@ final class RepysScenario {
         // a chapter off the map opens as a list, as the sidebar does it (19b)
         shot("list_off_map_chapter", () -> PanelShowcase.list(ResourceLocation.parse("repys:a2_chronicle"), 0, "ALL", null, false), 20);
         step("back to the map", () -> BookScreen.showForTest(ViewMode.MAP), 10);
-        // the quest panel with the pack's items, and its "Как сделать" into RYScope
+        // the quest panel with the pack's items, and its "Как сделать" into RYSIndex
         shot("panel_short", () -> {
             BookScreen.selectForTest(ClientBook.current().quests().get(SHORT[0]).chapter().orElseThrow(), SHORT[0]);
             BookScreen.mapFlyForTest(null, 0, SHORT[0]);
