@@ -129,3 +129,8 @@
   - Просмотрщик рецептов RYScope переименован в RYSIndex: книга узнаёт его под новым именем, подпись у рецепта в квесте «RYSIndex».
   EN (draft):
   - The recipe viewer RYScope is now called RYSIndex: the book finds it under the new name, and a quest's recipe is signed "RYSIndex".
+- 0.2.15 (черновик):
+  - Ядро RYSCore 1.17.0. Клавиши закрепления (P) и доски (B) сняты по умолчанию ещё в 0.2.11, но у игравших раньше они оставались в `options.txt`. Теперь ядро один раз снимает их, если там всё ещё прежнее умолчание; своё назначение игрока не трогается.
+  - Уведомления книги (ядро 1.17.0) больше не ложатся на миникарту: по умолчанию справа под ней, выезжают сверху.
+  EN (draft):
+  - RYSCore 1.17.0. Pin (P) and board (B) lost their default keys in 0.2.11, but players who had launched earlier kept them in options.txt. The core now clears them once if they still hold the old default; a key you chose yourself stays.

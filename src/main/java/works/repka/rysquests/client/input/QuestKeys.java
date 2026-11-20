@@ -33,6 +33,9 @@ public final class QuestKeys {
         event.register(OPEN_BOOK);
         event.register(PIN);
         event.register(BOARD);
+        // players who launched 0.2.10 or older still have P and B in options.txt: the core clears them once if untouched
+        works.repka.ryscore.action.KeyDefaults.retire("rysquests.pin.p", PIN, "key.keyboard.p");
+        works.repka.ryscore.action.KeyDefaults.retire("rysquests.board.b", BOARD, "key.keyboard.b");
     }
 
     /** A letter key by its Latin name, the way it is printed in the book, whatever the keyboard layout is. */

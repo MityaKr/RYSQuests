@@ -120,13 +120,56 @@ final class NoticesScenario {
         expect("the card stands in the toasts' column", () -> on("done:" + NS + "current/copper_coil"));
         expect("it rang once, at the normal volume", () -> Notices.playedForTest().stream().anyMatch(line -> line.startsWith("minecraft:block.note_block.chime volume 1.0")));
         screenshot("notify_card_slate");
-        step("the card is at the top right, flush with the edge", () -> {
+        step("the card is at the right edge, under the map zone (core 1.17)", () -> {
             int[] b = Notices.boundsForTest(Notice.QUESTS, "done:" + NS + "current/copper_coil");
-            LOGGER.info("[autotest] card bounds {} of {}x{}", java.util.Arrays.toString(b), mc().getWindow().getGuiScaledWidth(), mc().getWindow().getGuiScaledHeight());
-            if (b == null || b[1] != 0 || Math.abs(b[0] + b[2] - mc().getWindow().getGuiScaledWidth()) > 1) {
-                AutoTest.fail("the card is not in the top right corner: " + java.util.Arrays.toString(b));
+            int zone = works.repka.ryscore.ui.Anchors.topInset(works.repka.ryscore.ui.Anchors.Corner.TOP_RIGHT);
+            double top = zone > 0 ? works.repka.ryscore.ui.UiScale.toGui(zone) + 2 : 0;
+            LOGGER.info("[autotest] card bounds {} of {}x{}, map zone {} -> top {}", java.util.Arrays.toString(b), mc().getWindow().getGuiScaledWidth(), mc().getWindow().getGuiScaledHeight(), zone, top);
+            if (b == null || Math.abs(b[1] - top) > 1.5 || Math.abs(b[0] + b[2] - mc().getWindow().getGuiScaledWidth()) > 1) {
+                AutoTest.fail("the card is not at the right edge under the map zone: " + java.util.Arrays.toString(b));
             }
         }, 2);
+        step("the card slides in from above: half way it is higher", () -> {
+            clear();
+            done(quest("current/copper_coil"), own(ProgressPayload.Done.WAITING));
+        }, 6);
+        step("half way down", () -> {
+            int[] b = Notices.boundsForTest(Notice.QUESTS, "done:" + NS + "current/copper_coil");
+            LOGGER.info("[autotest] sliding card bounds {}", java.util.Arrays.toString(b));
+        }, 0);
+        screenshot("notify_sliding");
+        step("place: centre", () -> {
+            clear();
+            Notices.setPlace(Notices.Place.CENTER);
+            done(quest("current/copper_coil"), own(ProgressPayload.Done.WAITING));
+            done(quest("current/capacitor"), own(ProgressPayload.Done.RECEIVED));
+        }, SHOWN);
+        step("the centre cards stand in the middle, one under another", () -> {
+            int[] a = Notices.boundsForTest(Notice.QUESTS, "done:" + NS + "current/copper_coil");
+            int[] b = Notices.boundsForTest(Notice.QUESTS, "done:" + NS + "current/capacitor");
+            int w = mc().getWindow().getGuiScaledWidth();
+            LOGGER.info("[autotest] centre bounds {} {} of {}", java.util.Arrays.toString(a), java.util.Arrays.toString(b), w);
+            if (a == null || b == null || Math.abs(a[0] + a[2] / 2.0 - w / 2.0) > 1.5 || a[1] > 1 || b[1] < a[1] + a[3]) {
+                AutoTest.fail("the centre stack is wrong: " + java.util.Arrays.toString(a) + " " + java.util.Arrays.toString(b));
+            }
+        }, 2);
+        screenshot("notify_place_center");
+        step("place: left", () -> {
+            clear();
+            Notices.setPlace(Notices.Place.LEFT);
+            done(quest("current/copper_coil"), own(ProgressPayload.Done.WAITING));
+        }, SHOWN);
+        step("the left card is flush with the left edge", () -> {
+            int[] a = Notices.boundsForTest(Notice.QUESTS, "done:" + NS + "current/copper_coil");
+            LOGGER.info("[autotest] left bounds {}", java.util.Arrays.toString(a));
+            if (a == null || a[0] != 0) AutoTest.fail("the left card is not at the left edge: " + java.util.Arrays.toString(a));
+        }, 2);
+        screenshot("notify_place_left");
+        step("place: right again", () -> {
+            clear();
+            Notices.setPlace(Notices.Place.RIGHT);
+            done(quest("current/copper_coil"), own(ProgressPayload.Done.WAITING));
+        }, SHOWN);
         step("received by itself, below it", () -> done(quest("current/capacitor"), own(ProgressPayload.Done.RECEIVED)), SHOWN);
         screenshot("notify_cards_waiting_received");
 
