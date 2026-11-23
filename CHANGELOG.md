@@ -134,3 +134,8 @@
   - Уведомления книги (ядро 1.17.0) больше не ложатся на миникарту: по умолчанию справа под ней, выезжают сверху.
   EN (draft):
   - RYSCore 1.17.0. Pin (P) and board (B) lost their default keys in 0.2.11, but players who had launched earlier kept them in options.txt. The core now clears them once if they still hold the old default; a key you chose yourself stays.
+- 0.2.16 (черновик):
+  - Ядро RYSCore 1.17.1 (подписи клавиш и кнопок мыши по языку игры).
+  - Отчёт переезда прогресса с FTB Quests идёт ключами языка с английским запасом (`rysquests.migrate.ftbq.*`, en и ru).
+  EN (draft):
+  - RYSCore 1.17.1. The FTB Quests progress migration report uses lang keys with an English fallback.
