@@ -94,7 +94,8 @@ public final class AutoTest {
     private static final boolean AS_PLAYER = Boolean.getBoolean("rysquests.autotest.asPlayer");
     /** The first run carries a whole FTB book over and lays out four maps of it: longer than the other scenarios. */
     private static final boolean LONG_SCENARIO = List.of("first", "themes", "panel_notify").contains(System.getProperty(SCENARIO_PROPERTY));
-    private static final int TOTAL_TICK_LIMIT = 20 * (AS_PLAYER || LONG_SCENARIO ? 1200 : 300);
+    // "check" joins a server of the whole pack and looks at a lot: up to an hour.
+    private static final int TOTAL_TICK_LIMIT = 20 * ("check".equals(System.getProperty(SCENARIO_PROPERTY)) ? 3600 : AS_PLAYER || LONG_SCENARIO ? 1200 : 300);
     private static final int STEP_TICK_LIMIT = 20 * (AS_PLAYER ? 600 : 120);
     private static final int REPYS_MIN_QUESTS = 2000;
     private static final UUID REPYS_PLAYER = UUID.fromString("216ea99a-d6eb-45be-8a5b-3da7852588a5");
@@ -230,6 +231,8 @@ public final class AutoTest {
             EditorScenario.build(true);
         } else if ("chronicle".equals(scenario)) {
             ChronicleScenario.build();
+        } else if ("check".equals(scenario)) {
+            CheckScenario.build();
         } else if ("team_a".equals(scenario)) {
             buildTeamLeaderScenario();
         } else if ("team_b".equals(scenario)) {
@@ -2774,6 +2777,11 @@ public final class AutoTest {
     }
 
     // --- steps ---
+
+    /** System chat lines received so far in this run. */
+    static List<String> chatLines() {
+        return CHAT;
+    }
 
     static void step(String name, Runnable action, int waitAfter) {
         STEPS.add(new Step(name, () -> true, action, waitAfter));
