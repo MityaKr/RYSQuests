@@ -139,3 +139,7 @@
   - Отчёт переезда прогресса с FTB Quests идёт ключами языка с английским запасом (`rysquests.migrate.ftbq.*`, en и ru).
   EN (draft):
   - RYSCore 1.17.1. The FTB Quests progress migration report uses lang keys with an English fallback.
+- 0.2.17 (черновик):
+  - Ядро RYSCore 1.17.2: цифры клавиш у секторов колеса плашками, вкладки колец «Моё | Оператор» больше не наезжают на цифру «1».
+  EN (draft):
+  - RYSCore 1.17.2: wheel sector keys drawn as key caps, ring tabs no longer overlap the "1".
