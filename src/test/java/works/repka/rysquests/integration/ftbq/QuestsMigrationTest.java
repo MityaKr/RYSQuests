@@ -194,7 +194,7 @@ class QuestsMigrationTest {
         assertEquals(Migrations.Status.DONE, again.status(), again.toString());
         assertEquals(0L, again.report().counts().get("quests"));
         assertEquals(before, own);
-        assertTrue(again.report().skipped().stream().anyMatch(s -> s.endsWith("уже есть")), again.toString());
+        assertTrue(again.report().skipped().stream().anyMatch(s -> s.endsWith("already exists")), again.toString());
     }
 
     @Test
@@ -298,7 +298,7 @@ class QuestsMigrationTest {
         assertTrue(own.containsKey(other), "Kifa65 plays in another team now: " + o);
         assertTrue(own.get(other).keySet().containsAll(own.get(VENIK).keySet()), "the team gets every quest of VENIK");
         assertEquals(1L, o.report().counts().get("moved"), "MityaYS is in VENIK; his own FTB file was hidden by the party");
-        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("в команду") && l.contains("Kifa65")), o.toString());
+        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("to team") && l.contains("Kifa65")), o.toString());
         // run again (mark lost): nothing more
         Map<UUID, Map<ResourceLocation, QuestProgress>> before = deepCopy(own);
         Files.writeString(world.resolve("rys/migrate.json"), "{ not json", StandardCharsets.UTF_8);
@@ -317,7 +317,7 @@ class QuestsMigrationTest {
         assertTrue(own.get(KIFA).keySet().containsAll(own.get(VENIK).keySet()), "Kifa65 plays alone and has the party's quests");
         assertTrue(own.get(MITYA).keySet().containsAll(own.get(VENIK).keySet()));
         assertEquals(2L, o.report().counts().get("moved"));
-        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("личный прогресс")), o.toString());
+        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("personal progress")), o.toString());
     }
 
     @Test

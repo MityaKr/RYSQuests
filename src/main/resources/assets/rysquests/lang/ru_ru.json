@@ -915,7 +915,7 @@
   "rysquests.qpanel.opens_chapter": "главу «%s»",
   "rysquests.qpanel.opens_epoch": "награду эпохи %s",
   "rysquests.qpanel.more_text": "дальше",
-  "rysquests.qpanel.show_on_map": "Показать на карте",
+  "rysquests.qpanel.show_on_map": "На карте",
   "rysquests.qpanel.hours": "%s ч %s мин",
   "rysquests.qpanel.minutes": "%s мин",
   "rysquests.qpanel.millibuckets": "%s мВ",
@@ -963,7 +963,6 @@
   "rysquests.qpanel.need": "Не хватает %s шт.",
   "rysquests.qpanel.how": "Как сделать",
   "rysquests.qpanel.give_row": "Сдать",
-  "rysquests.qpanel.show_on_map": "На карте",
   "rysquests.map.goals": "Цели квестов",
   "rysquests.map.goal.subtitle": "Цель квеста",
   "rysquests.map.goal.chapter": "Глава",
@@ -2392,5 +2391,11 @@
   "rysquests.links.title": "В книге квестов",
   "rysquests.links.plural.offer.one": "%s сделка",
   "rysquests.links.plural.offer.few": "%s сделки",
-  "rysquests.links.plural.offer.many": "%s сделок"
+  "rysquests.links.plural.offer.many": "%s сделок",
+  "rysquests.migrate.ftbq.file": "файл %s",
+  "rysquests.migrate.ftbq.party_unread": "файл команды FTB %s не прочитан, её игроки не сверены: %s",
+  "rysquests.migrate.ftbq.moved_personal": "%s: прогресс FTB добавлен и в личный прогресс %s (играет без команды)",
+  "rysquests.migrate.ftbq.moved_team": "%s: прогресс FTB добавлен и в команду %s, где сейчас %s",
+  "rysquests.migrate.ftbq.added": "%s: добавлено недостающих квестов %s",
+  "rysquests.migrate.ftbq.exists": "уже есть"
 }

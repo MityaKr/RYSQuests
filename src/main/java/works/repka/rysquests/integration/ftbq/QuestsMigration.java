@@ -111,16 +111,16 @@ public final class QuestsMigration implements Migrations.Step {
             return false;
         }
         if (c.isLoaded("ftbquests")) {
-            c.log("FTB Quests ещё стоит: прогресс ведёт он, шаг ждёт");
+            c.log("FTB Quests is still installed: it keeps the progress, the step waits");
             return false;
         }
         if (!Files.isRegularFile(idsFile(c))) {
-            c.log("нет таблицы id квестов " + idsFile(c) + ": шаг ждёт, ничего не тронуто");
+            c.log("no quest id table " + idsFile(c) + ": the step waits, nothing touched");
             return false;
         }
         QuestBook book = backend.book(c);
         if (book == null || book.quests().isEmpty()) {
-            c.log("книга не загружена: шаг ждёт");
+            c.log("the book is not loaded: the step waits");
             return false;
         }
         return true;
@@ -134,16 +134,17 @@ public final class QuestsMigration implements Migrations.Step {
         Migrations.Report report = Migrations.Report.create();
         List<String> broken = new ArrayList<>();
         Map<UUID, Map<ResourceLocation, QuestProgress>> ftb = FtbqProgress.read(world.resolve("ftbquests"), ids, book, (file, why) -> broken.add(file + ": " + why));
-        broken.forEach(line -> report.partial("файл " + line));
+        broken.forEach(line -> report.partial(Say.t("file", "file %s", line)));
         // a player who plays in another team now also gets their FTB team's progress there (ADR-65, review of 18.11)
         Map<UUID, Set<UUID>> parties = FtbqMembers.parties(world, (file, why) ->
-                report.partial("файл команды FTB " + file + " не прочитан, её игроки не сверены: " + why));
+                report.partial(Say.t("party_unread", "FTB team file %s could not be read, its players were not reconciled: %s", file, why)));
         List<FtbqMembers.Moved> moved = new ArrayList<>();
         ftb = FtbqMembers.redirect(ftb, parties, player -> backend.teamOf(c, player), book, moved);
         for (FtbqMembers.Moved m : moved) {
             String player = FtbqMembers.name(world, m.player());
-            report.line(label(m.source()) + ": прогресс FTB добавлен и " + (m.target().equals(m.player())
-                    ? "в личный прогресс " + player + " (играет без команды)" : "в команду " + label(m.target()) + ", где сейчас " + player));
+            report.line(m.target().equals(m.player())
+                    ? Say.t("moved_personal", "%s: FTB progress was also added to the personal progress of %s (plays without a team)", label(m.source()), player)
+                    : Say.t("moved_team", "%s: FTB progress was also added to team %s, where %s plays now", label(m.source()), label(m.target()), player));
         }
         report.count("moved", moved.size());
         FtbqMerge.Plan plan = FtbqMerge.plan(ftb, backend.progress(c));
@@ -151,8 +152,8 @@ public final class QuestsMigration implements Migrations.Step {
             backend.add(c, plan.additions());
         }
         report.count("teams", plan.newTeams()).count("merged", plan.mergedTeams()).count("quests", plan.added()).count("kept", plan.kept());
-        plan.merged().forEach((team, n) -> report.line(label(team) + ": добавлено недостающих квестов " + n));
-        plan.same().forEach(team -> report.skipped(label(team), "уже есть"));
+        plan.merged().forEach((team, n) -> report.line(Say.t("added", "%s: missing quests added: %s", label(team), n)));
+        plan.same().forEach(team -> report.skipped(label(team), Say.t("exists", "already exists")));
         return report;
     }
 

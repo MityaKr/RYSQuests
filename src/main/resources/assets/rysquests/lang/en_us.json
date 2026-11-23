@@ -907,7 +907,7 @@
   "rysquests.qpanel.opens_chapter": "chapter “%s”",
   "rysquests.qpanel.opens_epoch": "the reward of epoch %s",
   "rysquests.qpanel.more_text": "more",
-  "rysquests.qpanel.show_on_map": "Show on the map",
+  "rysquests.qpanel.show_on_map": "On the map",
   "rysquests.qpanel.hours": "%s h %s min",
   "rysquests.qpanel.minutes": "%s min",
   "rysquests.qpanel.millibuckets": "%s mB",
@@ -955,7 +955,6 @@
   "rysquests.qpanel.need": "%s short",
   "rysquests.qpanel.how": "How to make",
   "rysquests.qpanel.give_row": "Hand in",
-  "rysquests.qpanel.show_on_map": "On the map",
   "rysquests.map.goals": "Quest goals",
   "rysquests.map.goal.subtitle": "Quest goal",
   "rysquests.map.goal.chapter": "Chapter",
@@ -2351,5 +2350,11 @@
   "rysquests.links.title": "In the quest book",
   "rysquests.links.plural.offer.one": "%s offer",
   "rysquests.links.plural.offer.few": "%s offers",
-  "rysquests.links.plural.offer.many": "%s offers"
+  "rysquests.links.plural.offer.many": "%s offers",
+  "rysquests.migrate.ftbq.file": "file %s",
+  "rysquests.migrate.ftbq.party_unread": "FTB team file %s could not be read, its players were not reconciled: %s",
+  "rysquests.migrate.ftbq.moved_personal": "%s: FTB progress was also added to the personal progress of %s (plays without a team)",
+  "rysquests.migrate.ftbq.moved_team": "%s: FTB progress was also added to team %s, where %s plays now",
+  "rysquests.migrate.ftbq.added": "%s: missing quests added: %s",
+  "rysquests.migrate.ftbq.exists": "already exists"
 }
