@@ -143,3 +143,7 @@
   - Ядро RYSCore 1.17.2: цифры клавиш у секторов колеса плашками, вкладки колец «Моё | Оператор» больше не наезжают на цифру «1».
   EN (draft):
   - RYSCore 1.17.2: wheel sector keys drawn as key caps, ring tabs no longer overlap the "1".
+- 0.2.18 (черновик):
+  - Иконка мода (витраж «Роза») в списке модов игры; файл иконки для страницы CurseForge лежит в `docs/icon-400.png`.
+  EN (draft):
+  - Mod icon (stained-glass "Rose") shown in the in-game mod list; a 400x400 icon for the CurseForge page is in `docs/icon-400.png`.
