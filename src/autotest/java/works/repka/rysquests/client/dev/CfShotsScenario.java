@@ -133,6 +133,8 @@ final class CfShotsScenario {
             mc().getWindow().setWindowed(1920, 1080);
             mc().options.guiScale().set(3);
             mc().options.hideGui = false;
+            // F3+H: the lens yields to the advanced tooltips, and they add the tags under every item
+            mc().options.advancedItemTooltips = false;
             mc().options.renderDistance().set(12);
             mc().resizeDisplay();
         }, 40);
@@ -183,6 +185,40 @@ final class CfShotsScenario {
             set(data, "back", List.of());
         } catch (RuntimeException e) {
             log("places", "FAIL", e.toString());
+        }
+    }
+
+    /**
+     * One player on the test copy makes Dev's team "solo" for RYSClaims (rights by roles hidden). For the pictures the client's
+     * copy of the server's hello says a team of five; nothing of it goes to the server.
+     */
+    private static void claimsAsTeam() {
+        try {
+            Class<?> cache = cls("works.repka.rysclaims.client.LandCache");
+            Object hello = get(cache, "hello");
+            if (hello == null) {
+                return;
+            }
+            Class<?> type = hello.getClass();
+            java.lang.reflect.RecordComponent[] parts = type.getRecordComponents();
+            Object[] values = new Object[parts.length];
+            Class<?>[] types = new Class<?>[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                types[i] = parts[i].getType();
+                values[i] = parts[i].getAccessor().invoke(hello);
+                if (parts[i].getName().equals("solo")) {
+                    values[i] = false;
+                } else if (parts[i].getName().equals("members")) {
+                    values[i] = 5;
+                } else if (parts[i].getName().equals("role")) {
+                    values[i] = "leader";
+                }
+            }
+            Constructor<?> c = type.getDeclaredConstructor(types);
+            c.setAccessible(true);
+            set(cache, "hello", c.newInstance(values));
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            log("claims as team", "FAIL", e.toString());
         }
     }
 
@@ -270,6 +306,7 @@ final class CfShotsScenario {
             command(String.format(Locale.ROOT, "tp @s %d 150 %d", HOME_CX * 16 + 8, HOME_CZ * 16 + 8));
         }, 60);
         safe("land window open", () -> {
+            claimsAsTeam();
             Object screen = call(cls("works.repka.rysclaims.client.LandScreen"), "window", OVERWORLD, (double) (HOME_CX * 16 + 8), (double) (HOME_CZ * 16 + 8));
             mc().setScreen((net.minecraft.client.gui.screens.Screen) screen);
         }, 40);
@@ -284,7 +321,10 @@ final class CfShotsScenario {
         shot("rysclaims", 1, "grid");
         safe("rights", () -> call(mc().screen, "rightsForTest"), 20);
         shot("rysclaims", 2, "rights_simple");
-        safe("rights detail", () -> set(get(mc().screen, "view"), "rightsDetail", true), 20);
+        safe("rights detail", () -> {
+            claimsAsTeam();
+            set(get(mc().screen, "view"), "rightsDetail", true);
+        }, 20);
         shot("rysclaims", 2, "rights_detail");
         safe("plots", () -> {
             Object view = get(mc().screen, "view");
@@ -357,13 +397,11 @@ final class CfShotsScenario {
             }
         }, 80);
         // the cave floors under the base: the player goes underground, the map scans the floors around him
-        safe("underground", () -> {
-            command("gamemode spectator");
-            command(String.format(Locale.ROOT, "tp @s %d -10 %d", BASE_X, BASE_Z));
-        }, 200);
-        softWait("floors scanned", CfShotsScenario::mapSettled, 20 * 120);
-        safe("underground 2", () -> command(String.format(Locale.ROOT, "tp @s %d -10 %d", BASE_X - 150, BASE_Z - 120)), 200);
-        softWait("floors scanned 2", CfShotsScenario::mapSettled, 20 * 120);
+        safe("underground", () -> command("gamemode spectator"), 10);
+        for (int[] d : new int[][] {{0, 0}, {-140, -110}, {140, -110}, {140, 110}, {-140, 110}, {0, 0}}) {
+            safe("underground " + d[0] + " " + d[1], () -> command(String.format(Locale.ROOT, "tp @s %d -8 %d", BASE_X + d[0], BASE_Z + d[1])), 260);
+            softWait("floors scanned " + d[0] + " " + d[1], CfShotsScenario::mapSettled, 20 * 60);
+        }
         safe("back up", () -> {
             command("gamemode creative");
             command(String.format(Locale.ROOT, "tp @s %d 150 %d", HOME_CX * 16 + 8, HOME_CZ * 16 + 8));
@@ -394,6 +432,8 @@ final class CfShotsScenario {
         }, 20);
         safe("close up", () -> {
             mc().setScreen(null);
+            mc().player.getAbilities().flying = true;
+            command(String.format(Locale.ROOT, "tp @s %d 110 %d", HOME_CX * 16 + 8, (HOME_CZ + 5) * 16 + 4));
             MapApi.get().open(MapApi.Target.builder(OVERWORLD, HOME_CX * 16 + 12, 80, (HOME_CZ + 5) * 16 + 8).build());
         }, 60);
         safe("close up zoom", () -> call(mc().screen, "setZoom", 3.0), 80);
@@ -502,16 +542,14 @@ final class CfShotsScenario {
         safe("search 3", () -> call(cls("works.repka.rysindex.ui.Overlay"), "setSearch", "@mekanism circuit"), 40);
         shot("rysindex", 2, "list_mekanism");
         safe("search clear", () -> call(cls("works.repka.rysindex.ui.Overlay"), "setSearch", ""), 10);
-        for (String item : new String[] {"mekanism:steel_casing", "mekanism:basic_control_circuit", "create:electron_tube",
-                "create:mechanical_crafter", "mekanism:metallurgic_infuser", "create:precision_mechanism"}) {
+        for (String item : new String[] {"mekanism:basic_control_circuit", "create:precision_mechanism", "mekanism:metallurgic_infuser"}) {
             safe("tree " + item, () -> {
                 mc().setScreen(new InventoryScreen(mc().player));
                 call(cls("works.repka.rysindex.ui.TreeScreen"), "open", stack(item));
             }, 80);
             shot("rysindex", 3, "tree_" + item.substring(item.indexOf(':') + 1));
         }
-        for (String item : new String[] {"mekanism:ingot_steel", "create:brass_ingot", "mekanism:alloy_infused", "mekanism:basic_control_circuit",
-                "mekanism:steel_casing"}) {
+        for (String item : new String[] {"mekanism:basic_control_circuit", "mekanism:enriched_iron", "minecraft:glass", "mekanism:dust_osmium"}) {
             safe("planner " + item, () -> {
                 mc().setScreen(new InventoryScreen(mc().player));
                 call(cls("works.repka.rysindex.ui.PlannerScreen"), "open", stack(item));
@@ -649,8 +687,13 @@ final class CfShotsScenario {
         }, 40);
         safe("panel on the whole book", () -> BookScreen.selectForTest(HERE_CHAPTER, HERE), 30);
         shot("rysquests", 1, "map_book");
-        safe("fly to the quest", () -> BookScreen.mapFlyForTest(null, 0, HERE), 40);
+        // close to a quest the side links (dashed roads, roads of side quests) are hidden: the author's wish for these pictures
+        safe("fly to the quest", () -> {
+            works.repka.rysquests.client.screen.CfHooks.mapSideLinks(false);
+            BookScreen.mapFlyForTest(null, 0, HERE);
+        }, 40);
         shot("rysquests", 1, "map_quest");
+        safe("side links back", () -> works.repka.rysquests.client.screen.CfHooks.mapSideLinks(true), 5);
         // 2: the four forms of the map, canvas only
         for (MapForm form : new MapForm[] {MapForm.SERPENTINE, MapForm.SPIRAL, MapForm.GALAXY, MapForm.GENERATOR}) {
             safe("form " + form, () -> {
@@ -757,10 +800,12 @@ final class CfShotsScenario {
                 BookScreen.showForTest(ViewMode.MAP);
                 BookScreen.selectForTest(HERE_CHAPTER, HERE);
                 BookScreen.mapFlyForTest(null, 0, HERE);
-            }, 40);
+                works.repka.rysquests.client.screen.CfHooks.mapSideLinks(false);
+            }, 70);
             shot("rysquests", 8, "theme_map_" + theme);
         }
         safe("slate again", () -> {
+            works.repka.rysquests.client.screen.CfHooks.mapSideLinks(true);
             ThemeManager.select("ryscore:slate");
             mc().setScreen(null);
         }, 20);
@@ -871,8 +916,8 @@ final class CfShotsScenario {
         t.putString("ladder", "Grib_ok has 1 warning and 1 punishment in 2 days. Next step by server rules: ban for 1 day. After that: ban for 7 days.");
         t.putString("nextKind", "ban");
         t.putLong("nextTerm", 86_400_000L);
-        t.putLong("muteMax", 0L);
-        t.putLong("banMax", 0L);
+        t.putLong("muteMax", 86_400_000L);
+        t.putLong("banMax", 7L * 86_400_000L);
         for (String k : new String[] {"warn", "mute", "kick", "ban"}) {
             t.putBoolean("can_" + k, true);
         }
@@ -1273,6 +1318,12 @@ final class CfShotsScenario {
     private static void shot(String mod, int nn, String name) {
         step("clean " + mod + " " + name, () -> {
             clean();
+            if (mod.equals("rysclaims")) {
+                claimsAsTeam();
+            }
+            if (mc().player != null) {
+                mc().player.getInventory().selected = 8;
+            }
             quietPlaces();
             if (mc().screen != null) {
                 mouseAway();
