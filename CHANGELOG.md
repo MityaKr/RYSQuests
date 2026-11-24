@@ -161,3 +161,8 @@
   - Карточки поверх мира в теме Vanilla Refined по-прежнему светлым текстом на тёмной плашке (берут `hud.fg`).
   EN (draft):
   - RYSCore 1.18.0: tooltips in the Vanilla Refined theme are light, in the window's colours, instead of near-black with a purple border; the selected option of a segmented switch ("Theme", "Interface size") sits with an equal inset on all sides at any scale. The cards over the world in Vanilla Refined keep light text on the dark plate (`hud.fg`).
+- 0.2.22 (черновик):
+  - Редкость достижения видна в его подробностях: строка под уровнем «есть у 12 % сервера», а после первого уровня «Уровень 3 у 2 % сервера» для высшего полученного; «пока нет ни у кого на сервере», если его ещё никто не получил. Сервер считал редкость и раньше, но окно её не показывало. У секретного достижения строки нет.
+  - Документы `docs/07-decisions.md` и `docs/09-sections.md` говорят словами нынешней книги: вкладки «Сейчас», «Карта», «Гайды», «Магазин», «Достижения», редактор внутри книги (ADR-69).
+  EN (draft):
+  - An achievement's rarity shows in its details: a line under its level, "12 % of the server have it", and after the first level "Level 3: 2 % of the server" for the highest one reached; "nobody on the server has it yet" when no one has. The server counted rarity before, but the window never showed it. A secret achievement has no such line.

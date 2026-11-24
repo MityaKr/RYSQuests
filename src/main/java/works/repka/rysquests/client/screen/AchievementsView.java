@@ -105,6 +105,32 @@ final class AchievementsView implements BookView {
         return found;
     }
 
+    /**
+     * How rare the achievement is on this server, a line under its state: the server counts it once a minute. Before the
+     * first level it is the share who have the achievement ("есть у 12 % сервера"), after it the share who have the
+     * player's highest level ("Уровень 3 у 2 % сервера"). Nothing until the server has said.
+     */
+    @Nullable
+    static String rarityLine(Achievement achievement) {
+        if (achievement.tiers().isEmpty()) {
+            return null;
+        }
+        int best = best(achievement);
+        Integer known = ClientAchievements.rarityIfKnown(achievement.questId(achievement.tiers().get(Math.max(0, best))));
+        if (known == null) {
+            return null;
+        }
+        // the player is one of those who have it, even if the minute's count came before they got it
+        int percent = best >= 0 ? Math.max(1, known) : known;
+        if (percent <= 0) {
+            return tr("rysquests.achievements.nobody");
+        }
+        if (best > 0) {
+            return text("rysquests.achievements.tier_has", text("rysquests.achievements.level_n", best + 1), percent);
+        }
+        return text("rysquests.achievements.has", percent);
+    }
+
     @Nullable
     private static Tier next(Achievement achievement) {
         for (Tier tier : achievement.tiers()) {
@@ -645,7 +671,13 @@ final class AchievementsView implements BookView {
             for (int i = 0; i < sub.size(); i++) {
                 u.label(sub.get(i), textX, pen + 34 + i * 15 + 7, 12, Ui.REGULAR, u.c("text.muted"));
             }
-            pen += Math.max(ring, 34 + sub.size() * 15) + DetailPanel.GAP;
+            int lines0 = sub.size();
+            String rarity = concealed ? null : rarityLine(achievement);
+            if (rarity != null) {
+                u.labelFit(rarity, textX, pen + 34 + lines0 * 15 + 7, textW, 12, Ui.REGULAR, u.c("text.muted"));
+                lines0++;
+            }
+            pen += Math.max(ring, 34 + lines0 * 15) + DetailPanel.GAP;
             List<String> lines = u.wrap(description(achievement), bw, 12.5f, Ui.REGULAR, 8);
             for (int i = 0; i < lines.size(); i++) {
                 u.label(lines.get(i), bx, pen + i * 19 + 9.5f, 12.5f, Ui.REGULAR, u.c("text.secondary"));
