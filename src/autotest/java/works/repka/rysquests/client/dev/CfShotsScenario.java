@@ -91,6 +91,14 @@ final class CfShotsScenario {
     }
 
     static void build() {
+        // -Dcfshots.only=caves (JAVA_TOOL_OPTIONS): only the cave floors, with a long walk under the base
+        if ("caves".equals(System.getProperty("cfshots.only", ""))) {
+            join();
+            setup();
+            cavesOnly();
+            safe("stop the test server", () -> command("stop"), 100);
+            return;
+        }
         join();
         softWait("index", CfShotsScenario::indexReady, 20 * 300);
         setup();
@@ -461,6 +469,39 @@ final class CfShotsScenario {
             ((net.minecraft.client.KeyMapping) key).setDown(false);
         }, 30);
         shot("rysmap", 2, "minimap_plain");
+    }
+
+    private static void cavesOnly() {
+        safe("caves: underground", () -> command("gamemode spectator"), 10);
+        for (int dx = -160; dx <= 160; dx += 160) {
+            for (int dz = -160; dz <= 160; dz += 160) {
+                final int x = BASE_X + dx, z = BASE_Z + dz;
+                safe("caves: stop " + dx + " " + dz, () -> command(String.format(Locale.ROOT, "tp @s %d -8 %d", x, z)), 500);
+            }
+        }
+        safe("caves: back up", () -> {
+            command("gamemode creative");
+            command(String.format(Locale.ROOT, "tp @s %d 150 %d", BASE_X + 80, BASE_Z));
+            mc().player.getAbilities().flying = true;
+        }, 100);
+        safe("caves: map", () -> MapApi.get().open(MapApi.Target.builder(OVERWORLD, BASE_X, 0, BASE_Z).build()), 60);
+        for (int floor : new int[] {-1, 0, -2, 1}) {
+            safe("caves: floor " + floor, () -> {
+                call(mc().screen, "cavesForTest", true, floor);
+                call(mc().screen, "setZoom", 1.5);
+            }, 200);
+            safe("caves: point " + floor, () -> call(mc().screen, "selectForTest", floor == -2 ? "Iron mine" : "Base"), 20);
+            safe("caves: floor again " + floor, () -> {
+                call(mc().screen, "cavesForTest", true, floor);
+                call(mc().screen, "setZoom", 1.5);
+            }, 60);
+            shot("rysmap", 3, "caves4_" + floor);
+            safe("caves: wide " + floor, () -> {
+                call(mc().screen, "clearSelectionForTest");
+                call(mc().screen, "setZoom", 1.0);
+            }, 60);
+            shot("rysmap", 3, "caves4_wide_" + floor);
+        }
     }
 
     /** A view over the base from the east, in the air: the first-person pictures and the world behind the windows. */
