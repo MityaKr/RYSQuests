@@ -7,13 +7,13 @@
 ```json
 {
   "progress_mode": "team",            // solo | team | server
-  "default_view": "flow",             // home | flow | map | list
+  "default_view": "home",             // home (Сейчас) | map | list; старые flow и timeline читаются как home
   "default_theme": "ryscore:slate",
   "title": "book.repys.title",
   "icon": "kubejs:brass_mechanism",
   "chapter_order": ["repys:01_create", "repys:02_power"],
   "hud": { "max_pinned": 3 },
-  "sections": ["story", "guides", "repys:mining_atlas"], // рейка разделов, без поля её нет
+  "sections": ["story", "guides", "repys:mining_atlas"], // какие вкладки видны; без поля все, где есть содержимое
   "epochs": [                         // эпохи, первая для "epoch": 1
     "book.repys.epoch.1",             // строка: только название
     { "title": "book.repys.epoch.2", "quest": "repys:a01_map/ii_industry" } // награда эпохи (0.2.7)
@@ -97,7 +97,7 @@
   "repeatable": null,                  // null или {"cooldown_minutes": 60}
   "page": false,                       // true: страница без задач, засчитывается прочтением
   "guide": "repys:create#rotation",    // гайд или его страница, даёт кнопку «Как это работает»
-  "tags": ["milestone"],               // milestone: веха в Ленте, key_item: ключевой предмет эпохи
+  "tags": ["milestone"],               // milestone: то же, что "milestone": true; epoch: квест открывает эпоху
   "draft": false,                      // черновик: игроки его не видят, пока автор не поправит
   "archived": false,                   // в архиве: убран из книги без удаления файла
   "pre_complete": true                 // предварительное выполнение (0.2.10); без поля как у главы
