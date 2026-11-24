@@ -25,7 +25,7 @@
 | `docs/10-design-rules.md` | строгость дизайна, чек-лист перед сдачей экрана |
 | `docs/07-decisions.md` | ADR-27 (интерфейс совпадает с макетами), 29, 30, 31 |
 | `design/*.dc.html` | эталоны: `Guides`, `GuidePage`, `PageEditor`, `Atlas`, `Mining`, `Cards`, `SectionEditor`, `Shop`, `Achievements`, `Editor` |
-| `HANDOFF.md` | краткая передача от 2026-11-10 |
+| `_stale/docs-2026-11-24/HANDOFF.md` (вне git) | краткая передача от 2026-11-10 |
 
 Если какого-то файла из таблицы нет на диске, остановиться и сказать автору, а не восстанавливать по памяти.
 
