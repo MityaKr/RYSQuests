@@ -219,7 +219,9 @@ final class BookHeader {
         float gap = 2;
         float pad = Math.max(TAB_PAD_MIN, Math.min(TAB_PAD, (room - text - gap * (tabs.size() - 1)) / (tabs.size() * 2f)));
         float pen = x;
-        float cy = y + (HEIGHT - 1) / 2f;
+        // vanilla draws the tabs as bookmarks at the bottom edge (Theme.tabLine: 17 GUI units, 34 here): the label sits in the
+        // middle of the bookmark, not of the header, or it stands on the bookmark's top edge, light on the light header
+        float cy = ui.theme.beveled() ? y + HEIGHT - Math.min(HEIGHT, 34) / 2f : y + (HEIGHT - 1) / 2f;
         for (int i = 0; i < tabs.size(); i++) {
             BookTabs.Tab tab = tabs.get(i);
             float tw = widths[i] + pad * 2;
@@ -265,7 +267,14 @@ final class BookHeader {
     private void renderSearch(Ui ui, float x, float cy) {
         boolean focused = search != null && search.isFocused();
         boolean over = ui.over(x, cy - 17, SEARCH_W, 34);
-        ui.box(x, cy - 17, SEARCH_W, 34, 9, ui.c("input.bg"), ui.c(focused ? "text.secondary" : "panel.border"));
+        if (ui.theme.beveled()) {
+            // vanilla (the author 24.11: «поиск чёрный»): not the game's black text box on the light header, but a light field
+            // pressed into it like a slot, dark top and left edge, light bottom and right, dark text on it
+            Draw.bevel(ui.g, x / 2f, (cy - 17) / 2f, SEARCH_W / 2f, 17f, ui.c("search.bg"), ui.c("slot.bevel.light"),
+                    ui.c("slot.bevel.dark"), 1f, true);
+        } else {
+            ui.box(x, cy - 17, SEARCH_W, 34, 9, ui.c("input.bg"), ui.c(focused ? "text.secondary" : "panel.border"));
+        }
         ui.icon(Icons.Shape.MAGNIFIER, x + 11, cy - 7.5f, 15, ui.c("text.muted"));
         String key = focused ? "Esc" : "/";
         float kbdW = ui.width(key, 11, Ui.REGULAR) + 10;
@@ -275,6 +284,11 @@ final class BookHeader {
         if (search != null) {
             search.visible = true;
             search.setHint(Component.translatable("rysquests.header.search_hint"));
+            if (ui.theme.beveled()) {
+                search.colors("text.primary", "text.dim");
+            } else {
+                search.colors("input.fg", "text.dim");
+            }
             search.setX(Math.round((x + 34) / 2f));
             search.setY(Math.round(cy / 2f) - 5);
             search.setWidth(Math.round((kbdX - 6 - x - 34) / 2f));

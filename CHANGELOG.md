@@ -147,3 +147,8 @@
   - Иконка мода (витраж «Роза») в списке модов игры; файл иконки для страницы CurseForge лежит в `docs/icon-400.png`.
   EN (draft):
   - Mod icon (stained-glass "Rose") shown in the in-game mod list; a 400x400 icon for the CurseForge page is in `docs/icon-400.png`.
+- 0.2.19 (черновик):
+  - Шапка книги в теме Vanilla Refined (замечание автора 24.11): подписи вкладок стоят посередине закладок, а не на их верхней кромке, где светлый текст терялся на светлой шапке. Поиск вместо чёрного поля игры стал светлым полем, вдавленным в шапку, как ячейка, с тёмным текстом; подсказка в кегле подписей и больше не наезжает на клавишу «/». Темы Slate и Glass не изменились.
+  - Ядро RYSCore 1.17.3 (поля ввода в теме vanilla в кегле макета).
+  EN (draft):
+  - The book's header in the Vanilla Refined theme: tab labels sit in the middle of their bookmarks instead of on the top edge, where light text got lost on the light header. Search is a light field pressed into the header like a slot, with dark text, instead of the game's black box; the hint is the size of the labels and no longer runs under the "/" key. Slate and Glass are unchanged. RYSCore 1.17.3.

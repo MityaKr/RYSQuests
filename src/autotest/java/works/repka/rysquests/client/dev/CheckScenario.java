@@ -60,8 +60,8 @@ final class CheckScenario {
     /** A spot in the air outside every claim of the test world, near the claim of Chuzhoy_Test. */
     private static final BlockPos PAD_AIR = new BlockPos(5824, 200, 26260);
     /** Where the player stands after the fall from {@link #PAD_AIR}: the floor of the test pad is under it. */
-    private static BlockPos pad = PAD_AIR;
-    private static final BlockPos FOREIGN = new BlockPos(5824, 98, 26097);
+    static BlockPos pad = PAD_AIR;
+    static final BlockPos FOREIGN = new BlockPos(5824, 98, 26097);
     private static final String[] OURS = {"ryscore", "rysindex", "rysclaims", "rysmap", "rysteams", "rysquests", "ryshelm", "ryscope"};
     private static final String[][] QUESTS = {
             {"mill", "repys:b12_e5_garden/essence_mill"},
@@ -85,7 +85,7 @@ final class CheckScenario {
             "oritechaddonsone:chunk_anchor_addon", "dummmmmmy:target_dummy", "productivelib:upgrade_productivity_4", "applied_oritech:me_dock",
             "draconicevolution:draconium_core"};
 
-    private static String lang = "ru";
+    static String lang = "ru";
     private static int shots = 1;
     private static int waited;
     private static BlockState foreignWas;
@@ -100,6 +100,7 @@ final class CheckScenario {
             lang = mc().options.languageCode.startsWith("ru") ? "ru" : "en";
             log("lang", "OK", mc().options.languageCode);
         }, 1);
+        CheckMore.modList();
         join();
         softWait("index", () -> indexReady(), 20 * 240);
         step("versions", () -> {
@@ -112,6 +113,8 @@ final class CheckScenario {
         }, 1);
         step("pad", () -> {
             command("gamemode creative");
+            // the test copy may keep command answers off (pictures for CurseForge): the checks read them from the chat
+            command("gamerule sendCommandFeedback true");
             command("time set noon");
             command("weather clear");
             command(String.format(Locale.ROOT, "tp @s %d %d %d 180 20", PAD_AIR.getX(), PAD_AIR.getY(), PAD_AIR.getZ()));
@@ -310,6 +313,7 @@ final class CheckScenario {
             command("claims admin bypass");
         }, 40);
         chatShot("claims_bypass_off");
+        CheckMore.build();
         step("survival", () -> command("gamemode survival"), 10);
         if (stop) {
             step("stop the test server", () -> command("stop"), 100);
@@ -331,7 +335,7 @@ final class CheckScenario {
     }
 
     /** Waits for the condition, but never longer than {@code limit} ticks: a slow index must not end the pass. */
-    private static void softWait(String name, BooleanSupplier condition, int limit) {
+    static void softWait(String name, BooleanSupplier condition, int limit) {
         step("wait " + name, () -> waited = 0, 1);
         expect("wait " + name, () -> condition.getAsBoolean() || ++waited > limit);
         step("waited " + name, () -> log("wait " + name, condition.getAsBoolean() ? "OK" : "FAIL", waited + " ticks"), 40);
@@ -346,7 +350,7 @@ final class CheckScenario {
         }
     }
 
-    private static void openRecipes(String id, boolean uses) {
+    static void openRecipes(String id, boolean uses) {
         try {
             ItemStack stack;
             if (id.startsWith("mmr:")) {
@@ -418,7 +422,7 @@ final class CheckScenario {
         log("3.3 names", "INFO", out.toString());
     }
 
-    private static void use(BlockPos pos) {
+    static void use(BlockPos pos) {
         mc().gameMode.useItemOn(mc().player, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
     }
 
@@ -455,7 +459,7 @@ final class CheckScenario {
         return null;
     }
 
-    private static void commandShot(String cmd, String check) {
+    static void commandShot(String cmd, String check) {
         final int[] before = {0};
         step("command " + cmd, () -> {
             before[0] = chatLines().size();
@@ -472,7 +476,7 @@ final class CheckScenario {
         step("close", () -> mc().setScreen(null), 5);
     }
 
-    private static void commandShotDyn(java.util.function.Supplier<String> cmd, String check) {
+    static void commandShotDyn(java.util.function.Supplier<String> cmd, String check) {
         final int[] before = {0};
         final String[] sent = {""};
         step("command " + check, () -> {
@@ -487,29 +491,29 @@ final class CheckScenario {
         }, 5);
     }
 
-    private static void chatShot(String name) {
+    static void chatShot(String name) {
         step("chat " + name, () -> mc().setScreen(new net.minecraft.client.gui.screens.ChatScreen("")), 10);
         shotRaw(name);
         step("close", () -> mc().setScreen(null), 5);
     }
 
-    private static void shot(String name) {
+    static void shot(String name) {
         step("clean " + name, () -> mc().getToasts().clear(), 2);
         shotRaw(name);
     }
 
-    private static void shotRaw(String name) {
+    static void shotRaw(String name) {
         step("shot " + name, () -> {
             String file = String.format(Locale.ROOT, "check_%s_%02d_%s.png", lang, shots++, name);
             Screenshot.grab(mc().gameDirectory, file, mc().getMainRenderTarget(), message -> {});
         }, 5);
     }
 
-    private static Item item(String id) {
+    static Item item(String id) {
         return BuiltInRegistries.ITEM.get(ResourceLocation.parse(id));
     }
 
-    private static void log(String check, String verdict, String detail) {
+    static void log(String check, String verdict, String detail) {
         LOGGER.info("[check] {} {}: {}", verdict, check, detail);
     }
 }

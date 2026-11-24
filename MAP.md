@@ -1,8 +1,8 @@
 # Карта проекта RYSQuests
 
-Собрана `_shared/tools/make-map.py` 2026-11-19. Руками не править: после структурных правок пересобрать.
+Собрана `_shared/tools/make-map.py` 2026-11-24. Руками не править: после структурных правок пересобрать.
 
-Java: 424 файлов, 77065 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
+Java: 427 файлов, 78784 строк. Переводы: `examples/example_pack/assets/example/lang/en_us.json`, `examples/example_pack/assets/example/lang/ru_ru.json`, `src/autotest/guides_pack/assets/design/lang/ru_ru.json`, `src/main/resources/assets/rysquests/lang/en_us.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -12,13 +12,13 @@ Java: 424 файлов, 77065 строк. Переводы: `examples/example_pa
 
 ## Папки
 - `design/` — 22 файлов
-- `docs/` — 18 файлов
+- `docs/` — 20 файлов
 - `examples/` — 34 файлов; Пример датапака
 - `gradle/` — 2 файлов
 - `run-a/` — 43 файлов
 - `run-b/` — 37 файлов
 - `run-map/` — 1 файлов
-- `src/` — 642 файлов
+- `src/` — 646 файлов
 - `tools/` — 3 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysquests.client`
@@ -26,10 +26,12 @@ Java: 424 файлов, 77065 строк. Переводы: `examples/example_pa
 **(корень)** (1)
 - `ImportShowcase` 36 — What the server says at the end of an FTB import, without importing anything: the report and the failure of the ATM10 run of the "first" scenario, for the screenshots of the wizard…
 
-**dev** (24)
-- `AutoTest` 3000 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
+**dev** (26)
+- `AutoTest` 3008 — Drives the real client through a scenario: opens its own world, sends real input, takes screenshots and quits.
 - `CanvasBooks` 277 — The two books of the canvas scenario, read on the client without a server: RepYS from its files with the titles of its lang file, and ATM10 carried over from FTB Quests by the impo…
 - `CanvasTestScreen` 104 — A bare screen around the canvas for the canvas scenario: the canvas sits where the map area of the mockups is (1280×800 at GUI scale 2), so that screenshots lie over pictures 13 to…
+- `CheckMore` 1110 — The second half of check (24.11): the points the list of 23.11 left to the author, tried on the test copy of the live world.
+- `CheckScenario` 520 — check: the in-game pass over a deployment of RepYS on the test copy of the server (localhost:25566), as the list _shared/_audit/CHECK-*.md lays it out.
 - `ChronicleScenario` 143 — The epoch's reward on the map, the pages "О книге" and the atlases for players (plan _audit/chronicle, B1 and B2; RYSQuests 0.2.7, ADR-60), on the small book of src/autotest/chroni…
 - `CollectionScenario` 181 — A collection in the achievements and the limit of pinned cards (RYSQuests 0.2.8, ADR-62), on the small team book of src/autotest/stats_pack: "Сокровища недр" collects eight items (…
 - `EarlyScenario` 118 — Early completion (ADR-66; RYSQuests 0.2.10), on the small book of src/autotest/early_pack, which counts early as a whole: "Ворота" is a checkbox, and behind it "Алмаз заранее" (kee…
@@ -39,7 +41,7 @@ Java: 424 файлов, 77065 строк. Переводы: `examples/example_pa
 - `ItemsScenario` 88 — Items in the book act like items of the recipe viewer (the author's note on 0.2.1): the game's tooltip on hover, the recipe on a click, the usages on the right button; a shop card …
 - `MapFixChecks` 191 — The notes of the RepYS server on the map (fb1), on RepYS as a spiral: hovering finds the chapter under the pointer at both ends of every chapter; a click near the edge of a tile ta…
 - `MigrateScenario` 119 — migrate (run with runRepysAutotest -Pautotest=migrate): the quests step of the move from FTB on the copy of the RepYS server's files (rysquests.autotest.fixtures, default _shared/_…
-- `NoticesScenario` 298 — The family's notices about finished quests (design _audit/notify, variant A, with the author's place: the game's column of toasts, top right), on the panel book that copies RepYS's…
+- `NoticesScenario` 341 — The family's notices about finished quests (design _audit/notify, variant A, with the author's place: the game's column of toasts, top right), on the panel book that copies RepYS's…
 - `QuestMenuScenario` 82 — The quest's menu "⋯" in the head of its panel (the author's note on 0.2.0): its lines for an operator, "Завершить" completes the quest without its tasks and leaves the reward to ta…
 - `RepysScenario` 603 — The new book on a copy of the real pack (run-repys: the mods of RepYS, its kubejs with the book from _audit/book2/repys-data).
 - `ShopDeliveryScenario` 236 — A trade paid in parts (shop plan, step M4; RYSQuests 0.2.7).
@@ -128,7 +130,7 @@ Java: 424 файлов, 77065 строк. Переводы: `examples/example_pa
 - `WaySticker` 46 — A pinned way of a matrix section: what it is and where in the section it comes from.
 
 **client.input** (1)
-- `QuestKeys` 63 — Key bindings of the mod: K opens the book.
+- `QuestKeys` 66 — Key bindings of the mod: K opens the book.
 
 **client.integration** (9)
 - `BookLinks` 179 — The book in the recipe viewer's card of an item (RYSCore 1.10 links.ItemLinks, plan _audit/ryscope-quests, step 2): the shop's offers as a category "Магазин" (an offer that gives t…
@@ -167,7 +169,7 @@ Java: 424 файлов, 77065 строк. Переводы: `examples/example_pa
 - `BlockSettings` 88 — What both shop block windows share (shop plan, step M7): a row with a switch and two lines of words (mockup 06, the limits), and the block's own settings at the bottom of the right…
 - `BlockStopNotice` 59 — "Your block stopped" as one of the family's notices (decision on question 17 of the shop plan): the block's icon, what stopped it, the trade and where it stands.
 - `BookData` 110 — Lookups into the client's book that every page of the book shares.
-- `BookHeader` 371 — The header of the book (mockup .head, pictures 03, 08, 11, 32, 46): the book's icon and name ("Квесты" and the mod's icon when the book names none), the tabs with the badge on "Now…
+- `BookHeader` 385 — The header of the book (mockup .head, pictures 03, 08, 11, 32, 46): the book's icon and name ("Квесты" and the mod's icon when the book names none), the tabs with the badge on "Now…
 - `BookMessageLine` 147 — The book's message line (picture 48, plan section 3): the server's answer or refusal as one line over the bottom edge of the page, with a red border, its words, its actions and a c…
 - `BookRole` 42 — Who looks at the book.
 - `BookScreen` 1132 — The quest book window (plan, sections 2 and 7): one frame for everything.
@@ -306,7 +308,7 @@ Java: 424 файлов, 77065 строк. Переводы: `examples/example_pa
 - `QuestEdits` 225 — Changes to quests as new immutable values.
 - `SectionEdits` 237 — Changes to a section as new immutable values.
 
-**integration.ftbq** (10)
+**integration.ftbq** (11)
 - `FtbqFiles` 218 — File side of the FTB Quests import: reads the FTB folder and writes the generated pack.
 - `FtbqImportService` 192 — Runs the FTB Quests import for the book's import wizard and for the command: read, convert, write, reload, and the progress of FTB Quests teams if asked.
 - `FtbqImporter` 752 — Converts an FTB Quests book to our datapack layout.
@@ -315,7 +317,8 @@ Java: 424 файлов, 77065 строк. Переводы: `examples/example_pa
 - `FtbqProgress` 169 — Reads FTB Quests team progress (world/ftbquests/*.snbt) and maps it to our quest ids.
 - `ImportReport` 86 — What an FTB Quests import did, by kind, for the report page of the import (plan, picture 06): what came across, where it went, and what waits for the author's hand.
 - `ImportedPack` 46 — Serves the pack generated by the FTB Quests import as an always-on pack for data and for translations.
-- `QuestsMigration` 203 — The quests step (order 20, after teams) of the family's move from FTB (RYSCore migrate.Migrations, ADR-65).
+- `QuestsMigration` 204 — The quests step (order 20, after teams) of the family's move from FTB (RYSCore migrate.Migrations, ADR-65).
+- `Say` 20 — Text of migration report lines.
 - `Snbt` 184 — Reads the relaxed SNBT that FTB Library writes: commas are optional and keys may be bare.
 
 **integration.kubejs** (4)
