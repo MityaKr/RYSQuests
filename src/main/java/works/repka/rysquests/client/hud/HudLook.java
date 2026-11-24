@@ -34,16 +34,16 @@ final class HudLook {
         return ui.width(QuestKeys.label(key).getString(), 11, Ui.REGULAR) + 10;
     }
 
-    /** Text colors: the bevelled theme draws the cards as tooltips, light on dark. */
+    /** Text colors: in the bevelled theme the cards lie on the dark hud plate, light on dark (hud.fg; tooltips are light since RYSCore 1.18). */
     static int primary(Ui ui) {
-        return ui.c(ui.theme.beveled() ? "tooltip.fg" : "text.primary");
+        return ui.c(ui.theme.beveled() ? "hud.fg" : "text.primary");
     }
 
     static int secondary(Ui ui) {
-        return ui.c(ui.theme.beveled() ? "tooltip.fg" : "text.secondary");
+        return ui.c(ui.theme.beveled() ? "hud.fg" : "text.secondary");
     }
 
     static int muted(Ui ui) {
-        return ui.c(ui.theme.beveled() ? "tooltip.fg" : "text.muted");
+        return ui.c(ui.theme.beveled() ? "hud.fg" : "text.muted");
     }
 }

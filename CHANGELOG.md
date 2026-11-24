@@ -156,3 +156,8 @@
   - Переезд с FTB Quests больше не теряет квесты, которые книга переименовала или слила уже после того, как была составлена таблица id FTB. В RepYS 3.0 так пропадали все достижения из старой «Хроники» (у команды VENIK 17 золотых уровней, у личных записей игроков ещё 5): перенос отбрасывал старое имя раньше, чем книга успевала его переименовать. Теперь старые имена сначала проходят переименования и слияния из `migrations.json`. Нашла симуляция обновления 2.5.6 → 3.0 (24.11).
   EN (draft):
   - The move from FTB Quests no longer loses quests that the book renamed or merged after the FTB id table was made. In RepYS 3.0 this dropped every achievement from the old Chronicle: the old name was thrown away before the book could rename it. Old names now go through the renames and merges of `migrations.json` first.
+- 0.2.21 (черновик):
+  - Ядро RYSCore 1.18.0: в теме Vanilla Refined подсказки светлые, в цвет окна, вместо почти чёрных с фиолетовой рамкой; у переключателей с вариантами («Тема», «Размер интерфейса») выбранный вариант стоит с равным отступом со всех сторон на любом масштабе.
+  - Карточки поверх мира в теме Vanilla Refined по-прежнему светлым текстом на тёмной плашке (берут `hud.fg`).
+  EN (draft):
+  - RYSCore 1.18.0: tooltips in the Vanilla Refined theme are light, in the window's colours, instead of near-black with a purple border; the selected option of a segmented switch ("Theme", "Interface size") sits with an equal inset on all sides at any scale. The cards over the world in Vanilla Refined keep light text on the dark plate (`hud.fg`).
