@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import works.repka.rysquests.data.RewardDef;
 import works.repka.rysquests.data.TeamMode;
 import works.repka.rysquests.integration.ftbq.FtbqImporter.Ids;
 import works.repka.rysquests.integration.ftbq.FtbqImporter.Ref;
+import works.repka.rysquests.migrate.Migration;
 import works.repka.rysquests.progress.QuestProgress;
 import works.repka.rysquests.reward.ItemReward;
 
@@ -97,6 +99,38 @@ class FtbqProgressTest {
         file(dir, FIRST_HEX, claim(FIRST_HEX, EACH_HEX));
 
         assertEquals(List.of(0), FtbqProgress.read(dir, IDS, book()).get(FIRST).get(QUEST).claimed());
+    }
+
+    /** The id table names the quest as the book was; the book renamed it since (RepYS achievements, upgrade simulation 24.11). */
+    @Test
+    void aQuestTheBookRenamedComesUnderItsNewName(@TempDir Path dir) throws IOException {
+        ResourceLocation old = ResourceLocation.parse("t:old");
+        Ids table = new Ids(Map.of(QUEST_HEX, old.toString()), Map.of(), Map.of(EACH_HEX, new Ref(old.toString(), 0), ONCE_HEX, new Ref(old.toString(), 1)));
+        file(dir, PARTY_HEX, claim(FIRST_HEX, EACH_HEX));
+
+        assertTrue(FtbqProgress.read(dir, table, book()).getOrDefault(PARTY, Map.of()).isEmpty(), "Without the moves the old name is not in the book");
+
+        Ids moved = FtbqProgress.followMoves(table, List.of(new Migration.Rename("r", old, QUEST)));
+        Map<UUID, Map<ResourceLocation, QuestProgress>> read = FtbqProgress.read(dir, moved, book());
+        assertTrue(read.get(PARTY).get(QUEST).completed());
+        assertEquals(List.of(0), read.get(FIRST).get(QUEST).claimed());
+    }
+
+    @Test
+    void movesAreFollowedToTheirEndAndALoopStops() {
+        Ids table = new Ids(Map.of(QUEST_HEX, "t:a", EACH_HEX, "t:x"), Map.of(), Map.of());
+        List<Migration> moves = List.of(
+                new Migration.Rename("1", ResourceLocation.parse("t:a"), ResourceLocation.parse("t:b")),
+                new Migration.Merge("2", List.of(ResourceLocation.parse("t:b"), ResourceLocation.parse("t:c")), ResourceLocation.parse("t:d")),
+                new Migration.Remove("3", ResourceLocation.parse("t:d")),
+                new Migration.Rename("4", ResourceLocation.parse("t:x"), ResourceLocation.parse("t:y")),
+                new Migration.Rename("5", ResourceLocation.parse("t:y"), ResourceLocation.parse("t:x")));
+
+        Ids moved = FtbqProgress.followMoves(table, moves);
+
+        assertEquals("t:d", moved.quests().get(QUEST_HEX), "rename, then merge; a remove is left to the book");
+        assertTrue(Set.of("t:x", "t:y").contains(moved.quests().get(EACH_HEX)), "a loop ends without hanging");
+        assertEquals(table, FtbqProgress.followMoves(table, List.of()));
     }
 
     @Test

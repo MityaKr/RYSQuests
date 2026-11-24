@@ -152,3 +152,7 @@
   - Ядро RYSCore 1.17.3 (поля ввода в теме vanilla в кегле макета).
   EN (draft):
   - The book's header in the Vanilla Refined theme: tab labels sit in the middle of their bookmarks instead of on the top edge, where light text got lost on the light header. Search is a light field pressed into the header like a slot, with dark text, instead of the game's black box; the hint is the size of the labels and no longer runs under the "/" key. Slate and Glass are unchanged. RYSCore 1.17.3.
+- 0.2.20 (черновик):
+  - Переезд с FTB Quests больше не теряет квесты, которые книга переименовала или слила уже после того, как была составлена таблица id FTB. В RepYS 3.0 так пропадали все достижения из старой «Хроники» (у команды VENIK 17 золотых уровней, у личных записей игроков ещё 5): перенос отбрасывал старое имя раньше, чем книга успевала его переименовать. Теперь старые имена сначала проходят переименования и слияния из `migrations.json`. Нашла симуляция обновления 2.5.6 → 3.0 (24.11).
+  EN (draft):
+  - The move from FTB Quests no longer loses quests that the book renamed or merged after the FTB id table was made. In RepYS 3.0 this dropped every achievement from the old Chronicle: the old name was thrown away before the book could rename it. Old names now go through the renames and merges of `migrations.json` first.

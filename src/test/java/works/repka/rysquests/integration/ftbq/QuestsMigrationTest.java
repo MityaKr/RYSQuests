@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.mojang.serialization.JsonOps;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.io.TempDir;
 import works.repka.ryscore.migrate.Migrations;
 import works.repka.rysquests.data.QuestBook;
 import works.repka.rysquests.data.TestBooks;
+import works.repka.rysquests.migrate.Migration;
 import works.repka.rysquests.progress.ProgressStoreAccess;
 import works.repka.rysquests.progress.QuestProgress;
 
@@ -45,6 +48,8 @@ class QuestsMigrationTest {
     Map<UUID, Map<ResourceLocation, QuestProgress>> own = new HashMap<>();
     Map<UUID, Map<ResourceLocation, QuestProgress>> disk = new HashMap<>();
     QuestBook book;
+    /** The book's migrations.json, which the step follows for quests renamed since the id table was made. */
+    List<Migration> migrations = List.of();
     /** Where a player plays now; absent means alone. */
     Map<UUID, UUID> teams = new HashMap<>();
     boolean failWrite;
@@ -58,7 +63,9 @@ class QuestsMigrationTest {
     void setUp() throws IOException {
         Path fixtures = property("rysquests.ftbFixtures", "../../_shared/_saved/fixtures/ftb-2026-11-18");
         assumeTrue(Files.isDirectory(fixtures.resolve("world/ftbquests")), "no copy of the FTB files at " + fixtures);
-        book = book(property("rysquests.repysBook", "../../_shared/_fresh/book"));
+        Path bookFolder = property("rysquests.repysBook", "../../_shared/_fresh/book");
+        book = book(bookFolder);
+        migrations = migrations(bookFolder);
         world = game.resolve("world");
         copy(fixtures.resolve("world/ftbquests"), world.resolve("ftbquests"));
         copy(fixtures.resolve("config/rysquests/import"), game.resolve("config/rysquests/import"));
@@ -81,6 +88,11 @@ class QuestsMigrationTest {
             @Override
             public Map<UUID, Map<ResourceLocation, QuestProgress>> progress(Migrations.Context c) {
                 return own;
+            }
+
+            @Override
+            public List<Migration> migrations(Migrations.Context c) {
+                return migrations;
             }
 
             @Override
@@ -110,6 +122,14 @@ class QuestsMigrationTest {
             BOOKS.put(folder.toString(), cached);
         }
         return cached;
+    }
+
+    private static List<Migration> migrations(Path folder) throws IOException {
+        Path file = folder.resolve("migrations.json");
+        if (!Files.isRegularFile(file)) {
+            return List.of();
+        }
+        return Migration.FILE_CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8))).getOrThrow();
     }
 
     /** Component types of absent mods cannot be parsed here; in the real game they resolve. */
@@ -166,7 +186,7 @@ class QuestsMigrationTest {
         assertEquals(Migrations.Status.DONE, o.status(), o.toString());
         assertTrue(own.containsKey(VENIK), "the party's progress");
         assertTrue(own.get(VENIK).size() > 100, "VENIK has done much: " + own.get(VENIK).size());
-        assertEquals(quests(FtbqProgress.read(world.resolve("ftbquests"), FtbqFiles.readIds(game.resolve("config/rysquests/import")), book)), quests(own));
+        assertEquals(quests(FtbqProgress.read(world.resolve("ftbquests"), FtbqProgress.followMoves(FtbqFiles.readIds(game.resolve("config/rysquests/import")), migrations), book)), quests(own));
         assertEquals((long) quests(own), o.report().counts().get("quests"));
         assertEquals(0L, o.report().counts().get("kept"));
         assertTrue(Files.isRegularFile(world.resolve("rys/migrate.json")), "the core's mark");
@@ -357,6 +377,7 @@ class QuestsMigrationTest {
         Path dat = live.resolve("world/data/rysquests_progress.dat");
         assumeTrue(Files.isRegularFile(dat) && Files.isDirectory(live.resolve("world/ftbquests")), "no copy of the server at " + live);
         book = book(live.resolve("kubejs/data/repys/rysquests"));
+        migrations = migrations(live.resolve("kubejs/data/repys/rysquests"));
         CompoundTag root = NbtIo.readCompressed(dat, NbtAccounter.unlimitedHeap());
         own = deepCopy(ProgressStoreAccess.load(root.getCompound("data")).allProgress());
         Map<UUID, Map<ResourceLocation, QuestProgress>> before = deepCopy(own);
@@ -371,5 +392,28 @@ class QuestsMigrationTest {
         assertEquals(Migrations.Status.DONE, o.status(), o.toString());
         before.forEach((team, quests) -> quests.forEach((quest, progress) -> assertEquals(progress, own.get(team).get(quest), team + " " + quest)));
         System.out.println("[rys-migrate] RepYS server copy: " + o);
+    }
+
+    /**
+     * The upgrade simulation of 24.11 (_shared/_audit/upgrade-sim): the 3.0 book renamed the old chronicle quests into achievement
+     * tiers after the id table was made, and the step lost every one of them. Here the FTB files of 18.11 meet the 3.0 book.
+     */
+    @Test
+    void renamedAchievementsComeOverFromFtb() throws IOException {
+        Path sim = property("rysquests.upgradeSim", "C:/Projects/RepYS-UpgradeSim/server");
+        Path folder = sim.resolve("kubejs/data/repys/rysquests");
+        assumeTrue(Files.isRegularFile(folder.resolve("migrations.json")) && Files.isRegularFile(sim.resolve("config/rysquests/import/ftbq-ids.json")), "no upgrade simulation at " + sim);
+        book = book(folder);
+        migrations = migrations(folder);
+        Files.copy(sim.resolve("config/rysquests/import/ftbq-ids.json"), game.resolve("config/rysquests/import/ftbq-ids.json"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        ResourceLocation gem = ResourceLocation.parse("repys:_achievements/apotheosis_gem/gold");
+        assumeTrue(book.quests().containsKey(gem), "the book has no " + gem);
+
+        Migrations.Outcome o = start();
+
+        assertEquals(Migrations.Status.DONE, o.status(), o.toString());
+        assertTrue(own.get(VENIK).containsKey(gem) && own.get(VENIK).get(gem).completed(), "VENIK's chronicle quest is now an achievement tier");
+        long tiers = own.get(VENIK).entrySet().stream().filter(e -> e.getKey().getPath().startsWith("_achievements/") && e.getValue().completed()).count();
+        assertTrue(tiers >= 17, "achievement tiers of VENIK: " + tiers);
     }
 }

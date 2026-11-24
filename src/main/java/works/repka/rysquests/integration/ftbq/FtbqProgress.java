@@ -20,6 +20,7 @@ import works.repka.rysquests.data.TaskDef;
 import works.repka.rysquests.data.TeamMode;
 import works.repka.rysquests.integration.ftbq.FtbqImporter.Ids;
 import works.repka.rysquests.integration.ftbq.FtbqImporter.Ref;
+import works.repka.rysquests.migrate.Migration;
 import works.repka.rysquests.progress.QuestProgress;
 
 /**
@@ -77,6 +78,44 @@ public final class FtbqProgress {
         own.put(quest, before.withClaimed(List.copyOf(all)));
     }
 
+    /**
+     * The id table with each quest under the name the book gives it now. The table names quests as the book was when it was made;
+     * the book's own migrations ({@code rename}, {@code merge}) move such records only once they are in the store, and this read
+     * keeps nothing the book lacks, so without this a quest the book renamed after the table was made would be lost on the way
+     * (the RepYS achievements, upgrade simulation of 24.11). A {@code remove} is left alone: what the book removed stays out.
+     */
+    public static Ids followMoves(Ids ids, List<Migration> migrations) {
+        Map<String, String> moves = new HashMap<>();
+        for (Migration migration : migrations) {
+            if (migration instanceof Migration.Rename rename) {
+                moves.put(rename.from().toString(), rename.to().toString());
+            } else if (migration instanceof Migration.Merge merge) {
+                merge.from().forEach(from -> moves.put(from.toString(), merge.to().toString()));
+            }
+        }
+        if (moves.isEmpty()) {
+            return ids;
+        }
+        Map<String, String> quests = new HashMap<>();
+        ids.quests().forEach((hex, quest) -> quests.put(hex, follow(quest, moves)));
+        return new Ids(quests, followRefs(ids.tasks(), moves), followRefs(ids.rewards(), moves));
+    }
+
+    private static Map<String, Ref> followRefs(Map<String, Ref> refs, Map<String, String> moves) {
+        Map<String, Ref> result = new HashMap<>();
+        refs.forEach((hex, ref) -> result.put(hex, new Ref(follow(ref.quest(), moves), ref.index())));
+        return result;
+    }
+
+    /** Where a chain of moves ends; a loop stops where it began to repeat. */
+    static String follow(String quest, Map<String, String> moves) {
+        String current = quest;
+        for (int steps = 0; steps < moves.size() && moves.containsKey(current); steps++) {
+            current = moves.get(current);
+        }
+        return current;
+    }
+
     static UUID parseUuid(String text) {
         String hex = text.replace("-", "");
         return new UUID(Long.parseUnsignedLong(hex.substring(0, 16), 16), Long.parseUnsignedLong(hex.substring(16), 16));
@@ -103,7 +142,7 @@ public final class FtbqProgress {
         forEachEntry(team, "completed", (hex, value) -> {
             String id = ids.quests().get(hex);
             if (id != null) {
-                completed.put(ResourceLocation.parse(id), Math.max(1, asLong(value)));
+                completed.merge(ResourceLocation.parse(id), Math.max(1, asLong(value)), Math::max);
             }
         });
         // The key is "<player>:<reward>" for per-player rewards and "<reward>" for team rewards.

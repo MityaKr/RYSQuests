@@ -19,6 +19,7 @@ import works.repka.rysquests.RYSQuests;
 import works.repka.rysquests.data.BookHolder;
 import works.repka.rysquests.data.ProgressMode;
 import works.repka.rysquests.data.QuestBook;
+import works.repka.rysquests.migrate.Migration;
 import works.repka.rysquests.migrate.MigrationRunner;
 import works.repka.rysquests.progress.ProgressService;
 import works.repka.rysquests.progress.ProgressStore;
@@ -53,6 +54,11 @@ public final class QuestsMigration implements Migrations.Step {
 
         /** Adds the records and writes the store to disk before returning. */
         void add(Migrations.Context c, Map<UUID, Map<ResourceLocation, QuestProgress>> additions) throws IOException;
+
+        /** The book's migrations: renamed and merged quests that the FTB id table still names the old way. */
+        default List<Migration> migrations(Migrations.Context c) {
+            return List.of();
+        }
 
         /** Whose progress a player works on now (their team, or themselves when alone). */
         default UUID teamOf(Migrations.Context c, UUID player) {
@@ -130,7 +136,7 @@ public final class QuestsMigration implements Migrations.Step {
     public Migrations.Report run(Migrations.Context c) throws Exception {
         Path world = Objects.requireNonNull(c.worldDir(), "no world folder");
         QuestBook book = Objects.requireNonNull(backend.book(c), "no book");
-        FtbqImporter.Ids ids = FtbqFiles.readIds(idsFile(c).getParent());
+        FtbqImporter.Ids ids = FtbqProgress.followMoves(FtbqFiles.readIds(idsFile(c).getParent()), backend.migrations(c));
         Migrations.Report report = Migrations.Report.create();
         List<String> broken = new ArrayList<>();
         Map<UUID, Map<ResourceLocation, QuestProgress>> ftb = FtbqProgress.read(world.resolve("ftbquests"), ids, book, (file, why) -> broken.add(file + ": " + why));
@@ -178,6 +184,11 @@ public final class QuestsMigration implements Migrations.Step {
         @Override
         public Map<UUID, Map<ResourceLocation, QuestProgress>> progress(Migrations.Context c) {
             return ProgressStore.get(server(c)).allProgress();
+        }
+
+        @Override
+        public List<Migration> migrations(Migrations.Context c) {
+            return BookHolder.current().migrations();
         }
 
         @Override

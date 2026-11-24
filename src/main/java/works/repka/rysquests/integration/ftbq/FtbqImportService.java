@@ -161,10 +161,11 @@ public final class FtbqImportService {
     private static void importProgress(MinecraftServer server, ImportReport report, Listener listener) {
         listener.progress(FtbqImportProgressPayload.PROGRESS, 0, 0);
         var book = BookHolder.current().book();
+        var migrations = BookHolder.current().migrations();
         Path dir = server.getWorldPath(LevelResource.ROOT).resolve("ftbquests");
         Util.backgroundExecutor().execute(() -> {
             try {
-                Map<UUID, Map<ResourceLocation, QuestProgress>> teams = FtbqProgress.read(dir, FtbqFiles.readIds(ImportedPack.root()), book);
+                Map<UUID, Map<ResourceLocation, QuestProgress>> teams = FtbqProgress.read(dir, FtbqProgress.followMoves(FtbqFiles.readIds(ImportedPack.root()), migrations), book);
                 server.execute(() -> {
                     // ADR-65: only quests without a record here come over, so importing the book again loses no progress
                     ProgressStore store = ProgressStore.get(server);
