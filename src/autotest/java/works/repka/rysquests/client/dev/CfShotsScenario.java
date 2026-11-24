@@ -33,7 +33,6 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,7 +60,7 @@ import works.repka.rysquests.network.ShopDeliverPayload;
  * {@code _shared/_audit/curseforge/<mod>/shots.md}). The client of run-repys joins the test copy of the server
  * (localhost:25566) as Dev, an operator there, in a 1920×1080 window, builds each scene and saves
  * {@code cf_<mod>_<nn>_<name>.png}. Scenes live only on the test copy: Dev's team and land beside the base, quests done
- * by command, offline players punished by command. What one client cannot show (a team of five, a server full of
+ * by command. What one client cannot show (a team of five, a server full of
  * players, reports with chat) is put into the client's view state only; nothing of it reaches the server. The other
  * mods are called by reflection, as {@link CheckScenario} does, so this scenario needs none of them to compile.
  * A step that throws is logged as {@code [cf] FAIL} and the pass goes on. The last step stops the test server.
@@ -122,7 +121,8 @@ final class CfShotsScenario {
             if (!(mc().screen instanceof TitleScreen)) {
                 mc().setScreen(new TitleScreen());
             }
-            ConnectScreen.startConnecting(mc().screen, mc(), ServerAddress.parseString(SERVER), new ServerData("test", SERVER, ServerData.Type.OTHER), false, null);
+            // the family windows show this name in their header
+            ConnectScreen.startConnecting(mc().screen, mc(), ServerAddress.parseString(SERVER), new ServerData("RepYS", SERVER, ServerData.Type.OTHER), false, null);
         }, 20);
         expect("joined", () -> mc().player != null && mc().level != null && mc().screen == null);
         step("joined", () -> log("join", "OK", mc().player.getGameProfile().getName() + " lang " + mc().options.languageCode), 200);
@@ -148,6 +148,46 @@ final class CfShotsScenario {
             ThemeManager.select("ryscore:slate");
             ClientMessages.dismiss();
         }, 40);
+        safe("server name", () -> {
+            CompoundTag a = new CompoundTag();
+            a.putString("serverName", "RepYS");
+            call(cls("works.repka.ryshelm.client.HelmClient"), "ask", "s.serverName", "RepYS", "settings", a);
+        }, 10);
+        // goals pinned in RYSIndex by earlier runs of this client would stand in the corner of every picture
+        safe("no goals", () -> {
+            Class<?> board = cls("works.repka.rysindex.runtime.Board");
+            for (Object g : new ArrayList<>((List<?>) call(board, "goals"))) {
+                call(board, "remove", get(g, "stack"));
+            }
+        }, 10);
+    }
+
+    /** Puts the player on the ground at x z (the server finds it), then runs {@code then} with the place the player stands on. */
+    private static void ground(String name, int x, int z, java.util.function.Consumer<net.minecraft.core.BlockPos> then, int waitAfter) {
+        safe(name + " ground", () -> {
+            mc().player.getAbilities().flying = false;
+            command(String.format(Locale.ROOT, "tp @s %d 200 %d", x, z));
+        }, 60);
+        safe(name + " spread", () -> command(String.format(Locale.ROOT, "spreadplayers %d %d 0 1 false @s", x, z)), 60);
+        safe(name, () -> {
+            log("ground " + name, "INFO", mc().player.blockPosition().toShortString());
+            then.accept(mc().player.blockPosition());
+        }, waitAfter);
+    }
+
+    /** Server places and the "back" history are real data of the test world: kept off the map's list in pictures. */
+    private static void quietPlaces() {
+        try {
+            Object data = call(cls("works.repka.rysmap.client.PlacesClient"), "data");
+            set(data, "places", List.of());
+            set(data, "back", List.of());
+        } catch (RuntimeException e) {
+            log("places", "FAIL", e.toString());
+        }
+    }
+
+    private static void mouseAway() {
+        AutoTest.moveMouse(1, 1);
     }
 
     /** The map only knows chunks this client loaded: a flight over the base fills it, and the cave floor 3 under it. */
@@ -286,13 +326,18 @@ final class CfShotsScenario {
         safe("map points", () -> {
             Object session = call(cls("works.repka.rysmap.client.ClientEntry"), "session");
             Object store = call(session, "points");
-            int y = surface(BASE_X, BASE_Z);
-            addPoint(store, "Base", BASE_X, y, BASE_Z, "home", 0, true);
+            // points of earlier runs go first, then the set of this run
+            for (Object p : new ArrayList<>((List<?>) call(store, "points"))) {
+                if (List.of("Base", "Iron mine", "Nether portal", "Farm", "Lookout", "Village", "Ancient city").contains((String) get(p, "name"))) {
+                    call(store, "remove", get(p, "id"));
+                }
+            }
+            addPoint(store, "Base", BASE_X, 72, BASE_Z, "home", 0, true);
             addPoint(store, "Iron mine", 5126, -21, 23290, "pick", 3, false);
-            addPoint(store, "Nether portal", 5440, surface(5440, 23590), 23590, "spark", 4, true);
-            addPoint(store, "Farm", HOME_CX * 16 + 16, surface(HOME_CX * 16 + 16, (HOME_CZ + 5) * 16 + 16), (HOME_CZ + 5) * 16 + 16, "chest", 2, false);
-            addPoint(store, "Lookout", 5230, surface(5230, 23660), 23660, "eye", 1, false);
-            addPoint(store, "Village", 4960, surface(4960, 23380), 23380, "flag", 5, false);
+            addPoint(store, "Nether portal", 5440, 70, 23590, "spark", 4, true);
+            addPoint(store, "Farm", HOME_CX * 16 + 16, 70, (HOME_CZ + 5) * 16 + 16, "chest", 2, false);
+            addPoint(store, "Lookout", 5230, 75, 23660, "eye", 1, false);
+            addPoint(store, "Village", 4960, 70, 23380, "flag", 5, false);
             addPoint(store, "Ancient city", 5600, -40, 23260, "skull", 7, false);
             call(session, "savePoints");
         }, 10);
@@ -304,26 +349,44 @@ final class CfShotsScenario {
             layer("rysmap:heights", false);
         }, 10);
         // a few animals by the farm: one icon with a number on the map
-        safe("animals", () -> {
-            int fx = HOME_CX * 16 + 12, fz = (HOME_CZ + 5) * 16 + 12;
-            int fy = surface(fx, fz);
-            command(String.format(Locale.ROOT, "tp @s %d %d %d", fx - 6, fy + 1, fz - 6));
+        ground("animals", HOME_CX * 16 + 12, (HOME_CZ + 5) * 16 + 12, at -> {
             String[] kinds = {"cow", "cow", "cow", "cow", "cow", "cow", "sheep", "sheep", "sheep", "sheep", "chicken", "chicken", "chicken", "pig", "pig"};
             for (int i = 0; i < kinds.length; i++) {
-                command(String.format(Locale.ROOT, "summon minecraft:%s %d %d %d {NoAI:1b,PersistenceRequired:1b,Silent:1b}",
-                        kinds[i], fx + (i % 5) * 2, fy + 1, fz + (i / 5) * 2));
+                command(String.format(Locale.ROOT, "execute at @s run summon minecraft:%s ~%d ~1 ~%d {NoAI:1b,PersistenceRequired:1b,Silent:1b}",
+                        kinds[i], 3 + (i % 5) * 2, 3 + (i / 5) * 2));
             }
         }, 80);
+        // the cave floors under the base: the player goes underground, the map scans the floors around him
+        safe("underground", () -> {
+            command("gamemode spectator");
+            command(String.format(Locale.ROOT, "tp @s %d -10 %d", BASE_X, BASE_Z));
+        }, 200);
+        softWait("floors scanned", CfShotsScenario::mapSettled, 20 * 120);
+        safe("underground 2", () -> command(String.format(Locale.ROOT, "tp @s %d -10 %d", BASE_X - 150, BASE_Z - 120)), 200);
+        softWait("floors scanned 2", CfShotsScenario::mapSettled, 20 * 120);
+        safe("back up", () -> {
+            command("gamemode creative");
+            command(String.format(Locale.ROOT, "tp @s %d 150 %d", HOME_CX * 16 + 8, HOME_CZ * 16 + 8));
+            mc().player.getAbilities().flying = true;
+        }, 60);
         safe("map open", () -> MapApi.get().open(MapApi.Target.builder(OVERWORLD, BASE_X + 60, 80, BASE_Z).build()), 60);
         safe("map zoom", () -> call(mc().screen, "setZoom", 2.0), 20);
         safe("map point", () -> log("map select", "INFO", String.valueOf(call(mc().screen, "selectForTest", "Base"))), 20);
         safe("map zoom again", () -> call(mc().screen, "setZoom", 2.0), 60);
         shot("rysmap", 1, "map");
-        safe("map caves", () -> call(mc().screen, "cavesForTest", true, 3), 20);
-        softWait("caves scanned", CfShotsScenario::mapSettled, 20 * 90);
-        safe("caves point", () -> call(mc().screen, "selectForTest", "Iron mine"), 30);
-        safe("caves floor again", () -> call(mc().screen, "cavesForTest", true, 3), 40);
-        shot("rysmap", 3, "caves");
+        for (int floor : new int[] {-1, -2, 0}) {
+            safe("map caves " + floor, () -> {
+                call(mc().screen, "cavesForTest", true, floor);
+                call(mc().screen, "setZoom", 2.0);
+            }, 40);
+            softWait("caves drawn " + floor, CfShotsScenario::mapSettled, 20 * 60);
+            safe("caves point " + floor, () -> call(mc().screen, "selectForTest", floor == -2 ? "Iron mine" : "Base"), 20);
+            safe("caves floor again " + floor, () -> {
+                call(mc().screen, "cavesForTest", true, floor);
+                call(mc().screen, "setZoom", 2.0);
+            }, 40);
+            shot("rysmap", 3, "caves_" + floor);
+        }
         safe("caves off", () -> {
             call(mc().screen, "cavesForTest", false, 0);
             call(mc().screen, "clearSelectionForTest");
@@ -333,19 +396,15 @@ final class CfShotsScenario {
             mc().setScreen(null);
             MapApi.get().open(MapApi.Target.builder(OVERWORLD, HOME_CX * 16 + 12, 80, (HOME_CZ + 5) * 16 + 8).build());
         }, 60);
-        safe("close up zoom", () -> call(mc().screen, "setZoom", 5.0), 80);
+        safe("close up zoom", () -> call(mc().screen, "setZoom", 3.0), 80);
         shot("rysmap", 4, "layers");
         safe("heights off", () -> {
             layer("rysmap:heights", false);
             mc().setScreen(null);
         }, 10);
         // first person: round minimap that turns with the view, labels of points in the world
-        safe("view over the base", () -> {
-            mc().player.getAbilities().flying = true;
-            int vx = BASE_X + 170, vz = BASE_Z + 70;
-            int vy = surface(vx, vz) + 28;
-            float yaw = (float) Math.toDegrees(Math.atan2(-(BASE_X - vx), BASE_Z - vz));
-            command(String.format(Locale.ROOT, "tp @s %d %d %d %.1f 16", vx, vy, vz, yaw));
+        vantage();
+        safe("view settings", () -> {
             Object cfg = call(cls("works.repka.rysmap.client.ClientConfig"), "get");
             set(cfg, "minimapCircle", true);
             set(cfg, "minimapRotate", true);
@@ -362,6 +421,21 @@ final class CfShotsScenario {
             ((net.minecraft.client.KeyMapping) key).setDown(false);
         }, 30);
         shot("rysmap", 2, "minimap_plain");
+    }
+
+    /** A view over the base from the east, in the air: the first-person pictures and the world behind the windows. */
+    private static void vantage() {
+        int vx = BASE_X + 170, vz = BASE_Z + 70;
+        ground("vantage", vx, vz, at -> {
+            float yaw = (float) Math.toDegrees(Math.atan2(-(BASE_X - vx), BASE_Z - vz));
+            mc().player.getAbilities().flying = true;
+            mc().player.onUpdateAbilities();
+            command(String.format(Locale.ROOT, "tp @s %d %d %d %.1f 14", vx, at.getY() + 26, vz, yaw));
+        }, 40);
+        safe("vantage fly", () -> {
+            mc().player.getAbilities().flying = true;
+            mc().player.setDeltaMovement(0, 0, 0);
+        }, 100);
     }
 
     private static void addPoint(Object store, String name, int x, int y, int z, String icon, int color, boolean world) {
@@ -387,17 +461,11 @@ final class CfShotsScenario {
         call(layers, "setVisible", layer, on);
     }
 
-    private static int surface(int x, int z) {
-        if (mc().level.getChunkSource().hasChunk(x >> 4, z >> 4)) {
-            return mc().level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-        }
-        return 80;
-    }
-
     // ------------------------------------------------------------------ RYSIndex
 
     private static void indexShots() {
         safe("index items", () -> {
+            command("gamemode survival");
             command("clear @s");
             for (String g : new String[] {"minecraft:iron_ingot 64", "minecraft:redstone 64", "mekanism:ingot_osmium 32", "minecraft:glass 16",
                     "create:andesite_alloy 64", "create:shaft 32", "create:cogwheel 16", "minecraft:oak_planks 64", "create:iron_sheet 24",
@@ -413,7 +481,14 @@ final class CfShotsScenario {
             openRecipes("create:mechanical_press", false);
         }, 60);
         shot("rysindex", 1, "recipe_press");
+        safe("recipe card 3", () -> {
+            mc().setScreen(null);
+            openRecipes("mekanism:basic_control_circuit", false);
+        }, 60);
+        shot("rysindex", 1, "recipe_circuit");
+        // survival: the plain inventory, not the creative tabs
         safe("inventory list", () -> {
+            mc().setScreen(null);
             mc().setScreen(new InventoryScreen(mc().player));
         }, 30);
         safe("search", () -> {
@@ -424,15 +499,19 @@ final class CfShotsScenario {
         shot("rysindex", 2, "list_craftable");
         safe("search 2", () -> call(cls("works.repka.rysindex.ui.Overlay"), "setSearch", "@create"), 40);
         shot("rysindex", 2, "list_create");
+        safe("search 3", () -> call(cls("works.repka.rysindex.ui.Overlay"), "setSearch", "@mekanism circuit"), 40);
+        shot("rysindex", 2, "list_mekanism");
         safe("search clear", () -> call(cls("works.repka.rysindex.ui.Overlay"), "setSearch", ""), 10);
-        for (String item : new String[] {"create:precision_mechanism", "mekanism:elite_control_circuit"}) {
+        for (String item : new String[] {"mekanism:steel_casing", "mekanism:basic_control_circuit", "create:electron_tube",
+                "create:mechanical_crafter", "mekanism:metallurgic_infuser", "create:precision_mechanism"}) {
             safe("tree " + item, () -> {
                 mc().setScreen(new InventoryScreen(mc().player));
                 call(cls("works.repka.rysindex.ui.TreeScreen"), "open", stack(item));
             }, 80);
             shot("rysindex", 3, "tree_" + item.substring(item.indexOf(':') + 1));
         }
-        for (String item : new String[] {"create:precision_mechanism", "mekanism:steel_ingot"}) {
+        for (String item : new String[] {"mekanism:ingot_steel", "create:brass_ingot", "mekanism:alloy_infused", "mekanism:basic_control_circuit",
+                "mekanism:steel_casing"}) {
             safe("planner " + item, () -> {
                 mc().setScreen(new InventoryScreen(mc().player));
                 call(cls("works.repka.rysindex.ui.PlannerScreen"), "open", stack(item));
@@ -443,26 +522,26 @@ final class CfShotsScenario {
             }, 60);
             shot("rysindex", 4, "planner_" + item.substring(item.indexOf(':') + 1));
         }
-        // the lens: a wall of stone with an osmium ore in it, the player looks at the ore
-        safe("lens wall", () -> {
+        // the lens: a wall of stone with an osmium ore in it, built where the player stands; he looks at the ore
+        ground("lens wall", HOME_CX * 16 + 2, HOME_CZ * 16 - 40, at -> {
             mc().setScreen(null);
-            int x = HOME_CX * 16 + 2, z = HOME_CZ * 16 - 40;
-            int y = surface(x, z) + 1;
-            command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:stone", x - 3, y, z, x + 3, y + 4, z + 1));
-            command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:air", x - 3, y, z - 4, x + 3, y + 4, z - 1));
-            command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:andesite", x - 2, y + 3, z));
-            command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:tuff", x + 2, y + 1, z));
-            command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:coal_ore", x - 2, y + 1, z));
-            command(String.format(Locale.ROOT, "setblock %d %d %d mekanism:osmium_ore", x, y + 2, z));
-            command(String.format(Locale.ROOT, "tp @s %.1f %d %.1f 0 12", x + 0.5, y, z - 2.5));
+            command("execute at @s run fill ~-3 ~ ~-4 ~3 ~4 ~-3 minecraft:stone");
+            command("execute at @s run fill ~-3 ~ ~-2 ~3 ~4 ~1 minecraft:air");
+            command("execute at @s run fill ~-3 ~-1 ~-2 ~3 ~-1 ~1 minecraft:grass_block");
+            command("execute at @s run setblock ~-2 ~3 ~-3 minecraft:andesite");
+            command("execute at @s run setblock ~2 ~1 ~-3 minecraft:tuff");
+            command("execute at @s run setblock ~-2 ~ ~-3 minecraft:coal_ore");
+            command("execute at @s run setblock ~1 ~3 ~-3 minecraft:gravel");
+            command("execute at @s run setblock ~ ~1 ~-3 mekanism:osmium_ore");
+            command(String.format(Locale.ROOT, "tp @s %.1f %d %.1f 180 4", at.getX() + 0.5, at.getY(), at.getZ() + 0.5));
         }, 60);
         safe("lens on", () -> {
-            mc().player.getAbilities().flying = false;
             clean();
             set(cls("works.repka.rysindex.client.Keys"), "forceLens", true);
         }, 30);
         shot("rysindex", 5, "lens");
         safe("lens off", () -> set(cls("works.repka.rysindex.client.Keys"), "forceLens", false), 10);
+        safe("creative again", () -> command("gamemode creative"), 20);
     }
 
     private static Object stack(String id) {
@@ -481,8 +560,10 @@ final class CfShotsScenario {
     // ------------------------------------------------------------------ RYSQuests
 
     private static final List<ResourceLocation> WAITING = new ArrayList<>();
+    private static final ResourceLocation[] SHORT = new ResourceLocation[1];
 
     private static void questsShots() {
+        vantage();
         safe("quests progress", () -> {
             command("clear @s");
             Set<ResourceLocation> done = new LinkedHashSet<>();
@@ -531,8 +612,26 @@ final class CfShotsScenario {
                 PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, q, 0, List.of()));
             }
         }, 40);
+        // a quest short of items: half of them in the inventory, so that "In progress" has something
+        safe("short of items", () -> {
+            for (Quest quest : sortedQuests()) {
+                if (ClientProgress.get(quest.id()).completed() || !quest.requires().stream().allMatch(id -> ClientProgress.get(id).completed())) {
+                    continue;
+                }
+                if (quest.tasks().size() == 1 && quest.tasks().get(0) instanceof works.repka.rysquests.task.ItemTask task && task.count() >= 4
+                        && task.item().isPresent() && !task.item().get().tag()) {
+                    SHORT[0] = quest.id();
+                    command("give @s " + task.item().get().id() + " " + task.count() / 2);
+                    log("short", "INFO", quest.id() + " " + task.count() / 2 + " of " + task.count());
+                    return;
+                }
+            }
+        }, 40);
         safe("pin and coins", () -> {
             PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, HERE, 0, List.of()));
+            if (SHORT[0] != null) {
+                PacketDistributor.sendToServer(new QuestActionPayload(QuestActionPayload.PIN, SHORT[0], 0, List.of()));
+            }
             command("rysquests wallet set @s coin 2400");
         }, 40);
 
@@ -606,6 +705,11 @@ final class CfShotsScenario {
         shot("rysquests", 5, "shop");
         safe("shop trophy", () -> RepysHooks.shop(TROPHY), 30);
         shot("rysquests", 5, "shop_trophy");
+        safe("shop trophies", () -> {
+            RepysHooks.shop(TROPHY);
+            works.repka.rysquests.client.screen.CfHooks.shopSection("shop.repys.trophies");
+        }, 30);
+        shot("rysquests", 5, "shop_trophies");
         safe("shop offer", () -> RepysHooks.shop(ResourceLocation.parse("repys:e2_steel_ingots")), 30);
         shot("rysquests", 5, "shop_offer");
         // 6: achievements, a collection half gathered
@@ -635,18 +739,7 @@ final class CfShotsScenario {
             EditorTesting.flyTo(HERE);
         }, 50);
         shot("rysquests", 7, "editor");
-        safe("editor link", () -> {
-            List<ResourceLocation> chapter = EditorTesting.quests(HERE_CHAPTER);
-            for (ResourceLocation q : chapter) {
-                if (!q.equals(HERE) && !ClientBook.current().quests().get(HERE).requires().contains(q)) {
-                    log("editor link", "INFO", HERE + " -> " + q + " " + EditorTesting.holdLink(HERE, q));
-                    break;
-                }
-            }
-        }, 20);
-        shot("rysquests", 7, "editor_link");
         safe("leave editor", () -> {
-            EditorTesting.dropLink();
             EditorTesting.leave();
             BookRole.forceForTest(false);
             mc().setScreen(null);
@@ -694,17 +787,15 @@ final class CfShotsScenario {
     }
 
     private static void helmShots() {
-        // real history for an offline player, so that the punishment window's ladder comes from the server
-        safe("helm history", () -> {
-            command("rys admin warn Grib_ok p.3 Caps and swearing in chat");
-            command("rys admin mute Grib_ok 1h p.3 Insulting players");
-            command("rys admin note Grib_ok Said sorry once, keeps doing it");
-            command("rys admin ban Pixel_Pete 7d p.2 X-ray texture pack");
-            command("rys admin moderator add Lena_K");
-            command("rys admin moderator add Sasha_V");
-        }, 60);
         Class<?> view = cls("works.repka.ryshelm.client.View");
         Class<?> screen = cls("works.repka.ryshelm.client.ServerScreen");
+        // the rules and the roles come from the server first (the rules of the test copy are in English)
+        safe("helm rules", () -> {
+            set(view, "pinned", false);
+            call(screen, "open", "rules");
+        }, 40);
+        safe("helm roles load", () -> call(screen, "open", "roles"), 40);
+        safe("helm roles keep", () -> ROLES[0] = ((CompoundTag) get(view, "roles")).copy(), 5);
         // 1: players with a card (the whole list is the client's view only)
         safe("helm players", () -> {
             set(view, "pinned", true);
@@ -719,13 +810,15 @@ final class CfShotsScenario {
             set(view, "card", helmCard());
         }, 10);
         shot("ryshelm", 1, "players");
-        // 2: the punishment window with the server's own ladder line
+        // 2: the punishment window; the ladder line in the words of the server's own lang keys
         safe("helm punish", () -> {
-            set(view, "pinned", false);
-            Object mute = enumOf("works.repka.ryshelm.logic.Kind", "MUTE");
-            call(mc().screen, "openPunish", mute, offline("Grib_ok"), "Grib_ok");
-        }, 40);
+            Object ban = enumOf("works.repka.ryshelm.logic.Kind", "BAN");
+            call(mc().screen, "openPunish", ban, offline("Grib_ok"), "Grib_ok");
+        }, 10);
         safe("helm punish fields", () -> {
+            set(view, "punish", helmPunish());
+            set(view, "players", helmPlayers());
+            set(view, "card", helmCard());
             set(mc().screen, "punishRule", 3);
             Object reason = get(mc().screen, "reason");
             if (reason != null) {
@@ -736,31 +829,54 @@ final class CfShotsScenario {
         safe("helm punish close", () -> call(mc().screen, "closePunish"), 10);
         // 3: reports with the place, the chat and the past of the player
         safe("helm reports", () -> {
-            set(view, "pinned", true);
             set(view, "reports", helmReports());
             set(screen, "report", 3L);
             call(screen, "open", "reports");
         }, 30);
         safe("helm reports again", () -> set(view, "reports", helmReports()), 10);
         shot("ryshelm", 3, "reports");
-        // 4: roles from the server; the list of operators shows Dev only
+        // 4: roles from the server; two moderators of the picture, Dev the only operator
         safe("helm roles", () -> {
-            set(view, "pinned", false);
-            call(screen, "open", "roles");
-        }, 40);
-        safe("helm roles pin", () -> {
-            CompoundTag roles = ((CompoundTag) get(view, "roles")).copy();
+            CompoundTag roles = ROLES[0] == null ? new CompoundTag() : ROLES[0].copy();
             ListTag ops = new ListTag();
             ops.add(StringTag.valueOf("Dev"));
             roles.put("operators", ops);
-            set(view, "pinned", true);
+            ListTag mods = new ListTag();
+            for (String[] m : new String[][] {{"Lena_K", "true"}, {"Sasha_V", "false"}}) {
+                CompoundTag c = new CompoundTag();
+                c.putUUID("id", offline(m[0]));
+                c.putString("name", m[0]);
+                c.putBoolean("online", Boolean.parseBoolean(m[1]));
+                mods.add(c);
+            }
+            roles.put("moderators", mods);
             set(view, "roles", roles);
-        }, 20);
+            call(screen, "open", "roles");
+        }, 30);
+        safe("helm roles again", () -> {
+            CompoundTag roles = ((CompoundTag) get(view, "roles"));
+            log("helm roles", "INFO", "moderators " + roles.getList("moderators", 10).size());
+        }, 5);
         shot("ryshelm", 4, "roles");
         safe("helm free", () -> {
             set(view, "pinned", false);
             mc().setScreen(null);
         }, 10);
+    }
+
+    private static final CompoundTag[] ROLES = new CompoundTag[1];
+
+    private static CompoundTag helmPunish() {
+        CompoundTag t = new CompoundTag();
+        t.putString("ladder", "Grib_ok has 1 warning and 1 punishment in 2 days. Next step by server rules: ban for 1 day. After that: ban for 7 days.");
+        t.putString("nextKind", "ban");
+        t.putLong("nextTerm", 86_400_000L);
+        t.putLong("muteMax", 0L);
+        t.putLong("banMax", 0L);
+        for (String k : new String[] {"warn", "mute", "kick", "ban"}) {
+            t.putBoolean("can_" + k, true);
+        }
+        return t;
     }
 
     private static CompoundTag helmPlayers() {
@@ -943,12 +1059,14 @@ final class CfShotsScenario {
         Class<?> client = cls("works.repka.rysteams.client.TeamClient");
         Class<?> screen = cls("works.repka.rysteams.client.TeamScreen");
         safe("team state", () -> {
+            call(client, "accept", teamLobby());
             call(client, "accept", teamState());
             call(client, "accept", teamPresence());
             tab(screen, 0);
             mc().setScreen((net.minecraft.client.gui.screens.Screen) newOf("works.repka.rysteams.client.TeamScreen"));
         }, 40);
         safe("team state again", () -> {
+            call(client, "accept", teamLobby());
             call(client, "accept", teamState());
             call(client, "accept", teamPresence());
         }, 20);
@@ -1153,7 +1271,13 @@ final class CfShotsScenario {
     }
 
     private static void shot(String mod, int nn, String name) {
-        step("clean " + mod + " " + name, CfShotsScenario::clean, 3);
+        step("clean " + mod + " " + name, () -> {
+            clean();
+            quietPlaces();
+            if (mc().screen != null) {
+                mouseAway();
+            }
+        }, 4);
         step("shot " + mod + " " + name, () -> {
             String file = String.format(Locale.ROOT, "cf_%s_%02d_%s.png", mod, nn, name);
             Screenshot.grab(mc().gameDirectory, file, mc().getMainRenderTarget(), message -> {});
