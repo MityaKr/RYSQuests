@@ -221,6 +221,8 @@ public final class AutoTest {
             buildRepysDataScenario();
         } else if ("layout".equals(scenario)) {
             buildLayoutScenario();
+        } else if ("panel_themefix".equals(scenario)) {
+            ThemeFixScenario.build();
         } else if ("themes".equals(scenario)) {
             ThemesScenario.build();
         } else if ("panel_notify".equals(scenario)) {
