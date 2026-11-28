@@ -101,7 +101,8 @@ final class QuestFacts {
     }
 
     static ItemStack stack(ItemReward reward) {
-        ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(reward.item()), reward.count());
+        ItemStack stack = reward.components().isPresent() ? new ItemStack(BuiltInRegistries.ITEM.get(reward.item()), reward.count())
+                : TaskText.stackOf(reward.item()).copyWithCount(reward.count());
         reward.components().ifPresent(stack::applyComponents);
         return stack;
     }

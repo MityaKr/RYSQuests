@@ -20,8 +20,53 @@ public final class TaskText {
     private TaskText() {
     }
 
+    /** An item to show by its id: a variant from the creative search tab when the bare stack is not one the game itself offers. */
     public static ItemStack stackOf(ResourceLocation id) {
-        return new ItemStack(BuiltInRegistries.ITEM.get(id));
+        return display(BuiltInRegistries.ITEM.get(id));
+    }
+
+    /**
+     * Some items only make sense with a component: a bare EnderIO conduit has no conduit type and draws as {@code <MISSING>}.
+     * When the search tab has the item but never bare, its first variant there is shown instead. Counting tasks still goes by
+     * the id alone, this is only the picture and the name.
+     */
+    public static ItemStack display(net.minecraft.world.item.Item item) {
+        ItemStack bare = new ItemStack(item);
+        if (bare.isEmpty()) {
+            return bare;
+        }
+        ItemStack variant = variants().get(item);
+        return variant == null ? bare : variant.copy();
+    }
+
+    private static java.util.Collection<ItemStack> variantsFrom;
+    private static java.util.Map<net.minecraft.world.item.Item, ItemStack> variants = java.util.Map.of();
+
+    /** Items whose search tab entries are all variants, with the first of them; rebuilt when the game rebuilds the tabs. */
+    private static synchronized java.util.Map<net.minecraft.world.item.Item, ItemStack> variants() {
+        java.util.Collection<ItemStack> tab;
+        try {
+            tab = net.minecraft.world.item.CreativeModeTabs.searchTab().getDisplayItems();
+        } catch (RuntimeException e) {
+            return variants;
+        }
+        // The tabs are only filled once the game (or JEI) builds them; until then keep looking, each build is a new collection.
+        if (tab == variantsFrom || tab.isEmpty()) {
+            return variants;
+        }
+        java.util.Map<net.minecraft.world.item.Item, ItemStack> first = new java.util.HashMap<>();
+        java.util.Set<net.minecraft.world.item.Item> bare = new java.util.HashSet<>();
+        for (ItemStack stack : java.util.List.copyOf(tab)) {
+            if (stack.getComponentsPatch().isEmpty()) {
+                bare.add(stack.getItem());
+            } else {
+                first.putIfAbsent(stack.getItem(), stack.copyWithCount(1));
+            }
+        }
+        first.keySet().removeAll(bare);
+        variants = java.util.Map.copyOf(first);
+        variantsFrom = tab;
+        return variants;
     }
 
     public static ItemStack icon(TaskDef task) {
@@ -40,7 +85,7 @@ public final class TaskText {
         }
         return BuiltInRegistries.ITEM.getTag(TagKey.create(Registries.ITEM, ref.id()))
                 .filter(tag -> tag.size() > 0)
-                .map(tag -> new ItemStack(tag.get(0)))
+                .map(tag -> display(tag.get(0).value()))
                 .orElse(ItemStack.EMPTY);
     }
 

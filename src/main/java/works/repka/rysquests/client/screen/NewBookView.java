@@ -130,7 +130,7 @@ final class NewBookView implements BookView {
 
     private void renderName(Ui ui, float x, float y) {
         ui.box(x, y, 46, 46, 6, ui.c("slot.bg"), ui.c("slot.border"));
-        ItemStack stack = icon == null ? ItemStack.EMPTY : new ItemStack(BuiltInRegistries.ITEM.get(icon));
+        ItemStack stack = icon == null ? ItemStack.EMPTY : TaskText.stackOf(icon);
         if (!stack.isEmpty()) {
             ui.item(stack, x + 7, y + 7, 32);
         } else {
